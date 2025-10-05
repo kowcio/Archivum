@@ -21,14 +21,21 @@ if (el) {
 
 // APP 2 - the same but mounted on the main browser page instead of the popup on extention
 
+// if (!document.getElementById('my-vue-header')) {
+//   const headerDiv = document.createElement('div')
+//   headerDiv.id = 'my-vue-header'
+//   document.body.insertBefore(headerDiv, document.body.firstChild)
+// }
+const style = document.createElement('style')
+
+if (window.location.href.includes('rozliczenia.estatecare.pl')) {
+
 if (!document.getElementById('my-vue-header')) {
   const headerDiv = document.createElement('div')
   headerDiv.id = 'my-vue-header'
   document.body.insertBefore(headerDiv, document.body.firstChild)
 }
-const style = document.createElement('style')
 
-if (window.location.href.includes('rozliczenia.estatecare.pl')) {
   style.textContent = `
   #my-vue-header {
     top: 2%; left: 2%; width: 96%; min-height:10%;
