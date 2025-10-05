@@ -6,7 +6,17 @@ import type { ChartData } from '@/models/Charts'
 import axios from 'axios'
 import dayjs from 'dayjs'
 
+export interface Configuration {
+  downloadDocuments: boolean
+  // Add more config options here as needed
+}
+
+export const DEFAULT_CONFIG: Configuration = {
+  downloadDocuments: false
+}
+
 export interface MyFinanseStoreState {
+  cfg: Configuration
   kontaFinansowe: string[]
   historiaRachunku?: Partial<HistoriaRachunku>
   finanse: Finanse[]
@@ -20,6 +30,7 @@ export interface MyFinanseStoreState {
 export const useFinanseStore = defineStore('myFinanse', {
   state: () =>
     ({
+      cfg: DEFAULT_CONFIG,
       kontaFinansowe: [],
       historiaRachunku: {},
       finanse: [],
@@ -31,7 +42,7 @@ export const useFinanseStore = defineStore('myFinanse', {
         labels: [],
         datasets: [],
       },
-      csvData: [],
+      csvData: []
     }) as MyFinanseStoreState,
   getters: {
     // getters

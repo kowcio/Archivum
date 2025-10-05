@@ -70,7 +70,6 @@ const everyItemChart = ref<ChartData>({
 
 const datesForChart = ref<string[]>([])
 const monthlyValues: number[] = []
-const DOWNLOAD_DOCUMENTS: boolean = false
 const everyItemMapValuesPerMonth = new Map<string, number[]>()
 
 async function getTheData() {
@@ -110,8 +109,8 @@ async function getTheData() {
         //   dokumentIds,
         //   finans_pozycje.Pozycje,
         // )
-
-        if (true){
+        console.log(finStore.cfg.downloadDocuments)
+        if (finStore.cfg.downloadDocuments) {
         for (const pozycjaZDokumentem of finans_pozycje.Pozycje ?? []) {
           const dokumentJestPusty = !pozycjaZDokumentem.Dokument
           if (dokumentJestPusty) {
