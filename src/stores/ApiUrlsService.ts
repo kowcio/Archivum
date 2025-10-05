@@ -15,8 +15,8 @@ export default class ApiUrlsService {
     
     return {
       DATA_OD: finStore.cfg.downloadDocuments 
-        ? today.subtract(2, 'year').format('YYYY-MM-DD')
-        : today.subtract(4, 'month').format('YYYY-MM-DD'),
+        ? today.subtract(4, 'month').format('YYYY-MM-DD')
+        : today.subtract(2, 'year').format('YYYY-MM-DD'),
       DATA_DO: today.format('YYYY-MM-DD')
     }
   }

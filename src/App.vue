@@ -108,8 +108,8 @@ async function getTheData() {
         //   ' dokumentami. ',
         //   dokumentIds,
         //   finans_pozycje.Pozycje,
-        // )
-        console.log(finStore.cfg.downloadDocuments)
+        // )ł
+
         if (finStore.cfg.downloadDocuments) {
         for (const pozycjaZDokumentem of finans_pozycje.Pozycje ?? []) {
           const dokumentJestPusty = !pozycjaZDokumentem.Dokument
