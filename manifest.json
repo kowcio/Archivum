@@ -7,7 +7,7 @@
   "content_scripts": [
     {
       "matches": ["*://*/*"],
-      "js": ["app22.js"]
+      "js": ["content.js"]
     }
   ],
   "browser_specific_settings": {
@@ -21,8 +21,8 @@
     "48": "public/favicon.ico"
   },
   "browser_action": {
-    "default_icon": "assets/logo.svg",
-    "default_title": "Opens MyExtension",
+    "default_icon": "src/assets/logo.svg",
+    "default_title": "Check Estate & Energa",
     "default_popup": "popup.html"
   },
   "chrome_url_overrides": {},

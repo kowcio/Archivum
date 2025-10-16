@@ -5,7 +5,7 @@
   <!-- <button @click="addTopLevelSticker">Add sticker</button> -->
   <!-- <button @click="getTabs">List Tabs</button> -->
   Chart
-  <div class="charts-row">
+  <div v-if="monthlyChart.datasets[0].data.length > 0" class="charts-row">
     <ChartComposite :chartData="monthlyChart" class="chart-container" />
     <ChartComposite :chartData="everyItemChart" class="chart-container" />
   </div>
@@ -27,16 +27,15 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted } from 'vue'
 import dayjs from 'dayjs'
-import { ref } from 'vue'
+import { onMounted, ref } from 'vue'
 // import browser from 'webextension-polyfill'
 // import type { Tabs } from 'webextension-polyfill'
-import type { Dokument, Finanse, HistoriaRachunku } from './models/EstateCare/DajDrzewoFinHistoria'
-import { useFinanseStore } from './stores/FinanseStore'
 import ChartComposite from './components/charts/Miesiecznie.vue'
 import type { ChartData } from './models/Charts'
-import type { DocumentSzczegoly, Pozycja } from './models/EstateCare/DajDokSzczegoly'
+// import type { Dokument, Finanse, HistoriaRachunku } from './models/EstateCare/DajDrzewoFinHistoria'
+import { useFinanseStore } from './stores/FinanseStore'
+import type { Finanse } from './models/EstateCare/DajDrzewoFinHistoria'
 
 onMounted(() => {
   console.log('Component mounted!')
@@ -44,9 +43,9 @@ onMounted(() => {
 
 const finStore = useFinanseStore()
 const kontaFinansowe = ref<string[]>([])
-const historiaRachunku = ref<HistoriaRachunku>()
+// const historiaRachunku = ref<HistoriaRachunku>()
 const finanse = ref<Finanse[]>([])
-const dokumenty = ref<Dokument[]>([])
+// const dokumenty = ref<Dokument[]>([])
 
 const monthlyChart = ref<ChartData>({
   type: 'line',
@@ -111,44 +110,45 @@ async function getTheData() {
         // )ł
 
         if (finStore.cfg.downloadDocuments) {
-        for (const pozycjaZDokumentem of finans_pozycje.Pozycje ?? []) {
-          const dokumentJestPusty = !pozycjaZDokumentem.Dokument
-          if (dokumentJestPusty) {
-            // console.log('Dokument pusty', pozycjaZDokumentem.Dokument)
-            continue
-          }
-          const regex = new RegExp(values.join('|'), 'i')
-          const dokumentBrakOpisu = !regex.test(pozycjaZDokumentem.Dokument?.Opis ?? '')
-          if (dokumentBrakOpisu) {
-            // console.log(
-            //   'Pomijam ',
-            //   pozycjaZDokumentem.Dokument?.Ident,
-            //   pozycjaZDokumentem.Dokument?.Opis,
-            // )
-            continue
-          }
-
-          const identToGet = pozycjaZDokumentem.Dokument?.Ident
-          if (identToGet) {
-            if (debug_i++ == 6) break outerloop //return
-            await new Promise((resolve) => setTimeout(resolve, 1000))
-            const dokumentZListaOplat = await finStore.loadDokument(identToGet)
-
-            //NAJWAZNIEJSZE !!
-            for (const szczegoly of dokumentZListaOplat?.Szczegoly?.Pozycje ?? []) {
-              // newFunction(finanseZaMiesiac, dokumentZListaOplat, szczegoly)
-              finStore.getLogSzczegolyOplatCsv(finanseZaMiesiac, dokumentZListaOplat!, szczegoly)
-
-              const label = szczegoly.SkladnikOpl
-              const values = everyItemMapValuesPerMonth.get(label) || []
-              values.push(szczegoly.Brutto)
-              everyItemMapValuesPerMonth.set(label, values)
+          for (const pozycjaZDokumentem of finans_pozycje.Pozycje ?? []) {
+            const dokumentJestPusty = !pozycjaZDokumentem.Dokument
+            if (dokumentJestPusty) {
+              // console.log('Dokument pusty', pozycjaZDokumentem.Dokument)
+              continue
             }
+            const regex = new RegExp(values.join('|'), 'i')
+            const dokumentBrakOpisu = !regex.test(pozycjaZDokumentem.Dokument?.Opis ?? '')
+            if (dokumentBrakOpisu) {
+              // console.log(
+              //   'Pomijam ',
+              //   pozycjaZDokumentem.Dokument?.Ident,
+              //   pozycjaZDokumentem.Dokument?.Opis,
+              // )
+              continue
+            }
+
+            const identToGet = pozycjaZDokumentem.Dokument?.Ident
+            if (identToGet) {
+              if (debug_i++ == 6) break outerloop //return
+              await new Promise((resolve) => setTimeout(resolve, 1000))
+              const dokumentZListaOplat = await finStore.loadDokument(identToGet)
+
+              //NAJWAZNIEJSZE !!
+              for (const szczegoly of dokumentZListaOplat?.Szczegoly?.Pozycje ?? []) {
+                // newFunction(finanseZaMiesiac, dokumentZListaOplat, szczegoly)
+                finStore.getLogSzczegolyOplatCsv(finanseZaMiesiac, dokumentZListaOplat!, szczegoly)
+
+                const label = szczegoly.SkladnikOpl
+                const values = everyItemMapValuesPerMonth.get(label) || []
+                values.push(szczegoly.Brutto)
+                everyItemMapValuesPerMonth.set(label, values)
+              }
+            }
+            // else {
+            // console.log('Brak dokumentów', pozycjaZDokumentem)
+            // }
           }
-          // else {
-          // console.log('Brak dokumentów', pozycjaZDokumentem)
-          // }
-        }}
+        }
       }
     }
   }
