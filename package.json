@@ -32,7 +32,6 @@
   },
   "devDependencies": {
     "@tsconfig/node22": "^22.0.2",
-    "@types/firefox-webext-browser": "^120.0.4",
     "@types/jsdom": "^21.1.7",
     "@types/node": "^24.0.15",
     "@types/webextension-polyfill": "^0.12.3",
