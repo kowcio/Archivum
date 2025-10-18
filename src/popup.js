@@ -1,6 +1,5 @@
 console.log('qweqweqwe')
 
-qweqweqwe
 // Import at top (adjust path)
 import { createApp } from 'vue'
 import { createPinia } from 'pinia'
