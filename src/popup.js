@@ -1,4 +1,4 @@
-console.log('qweqweqwe')
+console.log('popup js 2')
 
 // Import at top (adjust path)
 import { createApp } from 'vue'

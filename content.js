@@ -1,10 +1,17 @@
+console.log('[DEBUG] Content script starting to load...');
+
 import '@/assets/main.css'
 
 import { createApp } from 'vue'
 import { createPinia } from 'pinia'
 import App from '@/App.vue'
+console.log('Content js loaded on ', window.location.href, ' shouldBeMounted=', shouldBeMounted)
 
 // const shouldBeMounted = window.location.href.includes('9gag')
+const shouldBeMounted = window.location.href.includes('estate')
+console.log('[DEBUG] Content script imports completed')
+console.log('[DEBUG] Current URL:', window.location.href)
+console.log('[DEBUG] Should be mounted:', shouldBeMounted)
 
 if (true) {
   console.log('This should be mounted ')
