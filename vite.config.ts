@@ -13,19 +13,22 @@ console.log(packageJson)
 export default defineConfig({
   plugins: [
     vue({
-      include: ['src/**/*.{vue,js}'],
       template: {
         transformAssetUrls,
-        compilerOptions: {
-          // isCustomElement: (tag) => tag.includes('ext-'),
-        },
-      },
+      }
     }),
     vueDevTools(),
-    webExtension({ browser: 'firefox', printSummary: true }),
+    webExtension({
+      browser: 'firefox',
+      manifest: 'manifest.json',
+      watchFilePaths: ['src/**/*', 'public/**/*']
+    }),
     copy({
-      targets: [{ src: 'assets/*', dest: 'assets' }],
-      hook: 'writeBundle',
+      targets: [
+        { src: 'src/assets/*', dest: 'dist/assets' },
+        { src: 'public/*', dest: 'dist' }
+      ],
+      hook: 'writeBundle'
     }),
   ],
   css: {
@@ -41,35 +44,17 @@ export default defineConfig({
     outDir: 'dist',
     minify: false,
     cssMinify: false,
-
-    // manifest: 'manifest.json',
-    assetsDir: 'js',
-    // rollupOptions: {
-    // input: {
-    // popup: 'popup.html', // Entry for your popup UI
-    // Add more entries as needed (e.g., options page)
-    // },
-    // Ensure all dependencies are bundled (not externalized)
-    // external: [],
-    // output: {
-    // Prevent code splitting
-    // manualChunks: undefined,
-    // inlineDynamicImports: true,
-    // },
-    // },
-    // lib: {
-    //   entry: 'src/App.vue', // Entry point (can be a .js or .vue file)
-    //   name: 'my-plugin', // Global name for UMD/IIFE
-    //   formats: ['umd', 'es'],
-    //   fileName: 'my-plugin', // Output file name
-    // },
-
-    // copy: [
-    //   {
-    //     src: 'src/assets',
-    //     dest: 'dist/assets2',
-    //   },
-    // ],
+    modulePreload: {
+      polyfill: false
+    },
+    rollupOptions: {
+      output: {
+        format: 'es',
+        entryFileNames: '[name].js',
+        chunkFileNames: 'chunks/[name].[hash].js',
+        assetFileNames: 'assets/[name].[ext]'
+      }
+    }
   },
 
   resolve: {
