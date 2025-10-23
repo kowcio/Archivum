@@ -1,34 +1,29 @@
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import vueDevTools from 'vite-plugin-vue-devtools'
-import { readFileSync } from 'fs'
-// import { viteStaticCopy } from 'vite-plugin-static-copy'
 import webExtension from 'vite-plugin-web-extension'
 import copy from 'rollup-plugin-copy'
 import { transformAssetUrls } from '@quasar/vite-plugin'
-const packageJson = JSON.parse(readFileSync('./package.json', 'utf8')) || ''
-console.log(packageJson.version)
-console.log(packageJson)
-// https://vite.dev/config/
 export default defineConfig({
   plugins: [
     vue({
       template: {
         transformAssetUrls,
-      }
+      },
     }),
     vueDevTools(),
     webExtension({
       browser: 'firefox',
       manifest: 'manifest.json',
-      watchFilePaths: ['src/**/*', 'public/**/*']
+      watchFilePaths: ['src/**/*', 'public/**/*'],
     }),
     copy({
       targets: [
         { src: 'src/assets/*', dest: 'dist/assets' },
-        { src: 'public/*', dest: 'dist' }
+        { src: 'public/*', dest: 'dist' },
+        { src: 'src/*.[js,ts]', dest: 'dist' },
       ],
-      hook: 'writeBundle'
+      hook: 'writeBundle',
     }),
   ],
   css: {
@@ -45,16 +40,16 @@ export default defineConfig({
     minify: false,
     cssMinify: false,
     modulePreload: {
-      polyfill: false
+      polyfill: false,
     },
     rollupOptions: {
       output: {
         format: 'es',
         entryFileNames: '[name].js',
         chunkFileNames: 'chunks/[name].[hash].js',
-        assetFileNames: 'assets/[name].[ext]'
-      }
-    }
+        assetFileNames: 'assets/[name].[ext]',
+      },
+    },
   },
 
   resolve: {

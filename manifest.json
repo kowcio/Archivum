@@ -16,12 +16,12 @@
     }
   },
   "icons": {
-    "16": "public/favicon.ico",
-    "32": "public/favicon.ico",
-    "48": "public/favicon.ico"
+    "16": "icon.png",
+    "32": "icon.png",
+    "48": "icon.png"
   },
   "browser_action": {
-    "default_icon": "src/assets/logo.svg",
+    "default_icon": "icon.png",
     "default_title": "Check Estate & Energa",
     "default_popup": "popup.html"
   },

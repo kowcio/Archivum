@@ -1,6 +1,9 @@
 <!-- eslint-disable @typescript-eslint/no-unused-vars -->
 <template>
-  <div>Hello VUE 33 plugin</div>
+  <div>
+    <div>Hello VUE 33 plugin</div>
+    <div class="version-info">Version: {{ version }}</div>
+  </div>
   <!-- Empty template: nothing rendered by Vue -->
   <!-- <button @click="addTopLevelSticker">Add sticker</button> -->
   <!-- <button @click="getTabs">List Tabs</button> -->
@@ -36,10 +39,12 @@ import type { ChartData } from './models/Charts'
 // import type { Dokument, Finanse, HistoriaRachunku } from './models/EstateCare/DajDrzewoFinHistoria'
 import { useFinanseStore } from './stores/FinanseStore'
 import type { Finanse } from './models/EstateCare/DajDrzewoFinHistoria'
+import globals from './globals'
 
 onMounted(() => {
   console.log('Component mounted!')
 })
+const version = globals.__VERSION__
 
 const finStore = useFinanseStore()
 const kontaFinansowe = ref<string[]>([])

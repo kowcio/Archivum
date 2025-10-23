@@ -13,6 +13,8 @@
     "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.app.tsbuildinfo",
     "paths": {
       "@/*": ["./src/*"]
-    }
+    },
+    "resolveJsonModule": true,
+    "esModuleInterop": true
   }
 }
