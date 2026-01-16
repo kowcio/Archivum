@@ -1,44 +1,27 @@
-// import { fileURLToPath } from 'node:url'
-// import { mergeConfig, defineConfig, configDefaults } from 'vitest/config'
-// import viteConfig from './vite.config'
-// import vue from '@vitejs/plugin-vue'
 
-// export default mergeConfig(
-//   viteConfig,
-//   defineConfig({
-//     plugins: [vue()],
-//     test: {
-//       environment: 'jsdom',  // Default for Vue/unit tests
-//       exclude: [...configDefaults.exclude, '**/node_modules/**', 'dist/**'],
-//       include: [
-//         'src/tests/**/*.{test,spec}.{js,ts,vue}',
-//         'e2e/**/*.test.ts'   // Extension E2E (unit-style only)
-//       ],
-//       root: fileURLToPath(new URL('./', import.meta.url)),
+import { defineConfig, configDefaults } from 'vitest/config'
+import vue from '@vitejs/plugin-vue'
+import path from 'path'
 
-//       // Fix pool/threading issues
-//       poolOptions: {
-//         threads: {
-//           singleThread: true  // Single thread for stability (no race conditions)
-//         }
-//       },
+export default defineConfig({
+  plugins: [vue()],
+  resolve: {
+    alias: {
+      '@': path.resolve(__dirname, 'src'),
+    },
+  },
+  test: {
+    environment: 'jsdom',
+    exclude: [...configDefaults.exclude, '**/node_modules/**', 'dist/**', 'e2e/**'],
+    include: ['test/**/*.spec.{js,ts,vue}'],
 
-//       // Global test setup (create if missing)
-//       setupFiles: ['./src/setupTests.ts'],  // .ts for TypeScript
+    // VS Code IDE friendly
+    globals: true,
+    setupFiles: ['test/unit/__mocks__/webextension-polyfill.ts'],
 
-//       // Vitest-specific globals/polyfills
-//       globals: true,
-//       environmentOptions: {
-//         jsdom: {
-//           parsedErrors: true
-//         }
-//       },
-
-//       // Coverage (optional)
-//       coverage: {
-//         provider: 'v8',
-//         reporter: ['text', 'json', 'html']
-//       }
-//     },
-//   })
-// )
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'json', 'html']
+    }
+  }
+})
