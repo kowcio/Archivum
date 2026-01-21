@@ -22,6 +22,7 @@ export default defineConfig({
       targets: [
         { src: 'src/assets/*', dest: 'dist/assets' },
         { src: 'public/*', dest: 'dist' },
+        { src: 'options/*', dest: 'dist/options' },
         { src: 'src/*.[js,ts]', dest: 'dist' },
       ],
       hook: 'writeBundle',

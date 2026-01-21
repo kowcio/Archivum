@@ -13,6 +13,7 @@
       </li>
     </ul>
     <button @click="loadTabs()" class="button">Get tabs!</button>
+    <button @click="openOptionsPage()" class="button">Options</button>
   </div>
 </template>
 
@@ -37,9 +38,23 @@ async function loadTabs(): Promise<void> {
       console.log(tab)
       tabs.value.push(tab)
     })
-  } catch (error) {
+  } catch (error: unknown) {
     console.error(error)
   }
+}
+
+function openOptionsPage() {
+const opening = browser.runtime.openOptionsPage();
+console.log(opening);
+opening.then(onOpened, onError);
+}
+
+function onOpened() {
+  console.log(`Options page opened`);
+}
+
+function onError(error: unknown) {
+  console.log(`Error: ${String(error)}`);
 }
 
 // defineExpose({ exposedValue, tabs })

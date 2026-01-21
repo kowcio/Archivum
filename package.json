@@ -14,6 +14,8 @@
     "test:playwright:ui": "npx playwright test src/test/playwright --workers=1 --ui --project firefox-mv2",
     "playwright:install": "npx playwright install",
     "extension:build": "vite build",
+    "extension:package": "node scripts/package-xpi.js",
+    "prepare:firefox-profile": "node scripts/prepare-firefox-profile.js",
     "test:playwright:dist": "set PLAYWRIGHT_TEST_MODE=dist && npm run extension:build && npx playwright test test/playwright --headed --workers=1",
     "postinstall": "npx playwright install chromium firefox",
     "test:e2e": "start-server-and-test preview http://localhost:8080 'cypress run --e2e'",

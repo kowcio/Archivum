@@ -25,6 +25,7 @@
     "default_title": "Check Estate & Energa",
     "default_popup": "popup.html"
   },
+  "options_page": "options.html",
   "chrome_url_overrides": {},
   "permissions": ["tabs", "activeTab", "bookmarks", "clipboardRead", "storage"]
 }

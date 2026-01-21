@@ -2,7 +2,7 @@ import { defineConfig, devices } from '@playwright/test'
 
 export default defineConfig({
   testDir: 'src/test/playwright',
-  timeout: 60000,
+  timeout: 30000,
   expect: { timeout: 15000 },
   fullyParallel: false,
   forbidOnly: !!process.env.CI,
@@ -27,15 +27,4 @@ export default defineConfig({
     }
   ],
 
-  // Use global setup to prepare the extension and profile so tests are self-contained.
-  // globalSetup: './test/playwright/global-setup.js',
-
-  // use: {
-  //   trace: 'on-first-retry',
-  //   video: 'retain-on-failure',
-  //   // Allow using a system firefox executable via env var PLAYWRIGHT_FIREFOX_EXECUTABLE
-  //   launchOptions: {
-  //     executablePath: process.env.PLAYWRIGHT_FIREFOX_EXECUTABLE || undefined
-  //   }
-  // }
 })
