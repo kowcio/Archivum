@@ -12,12 +12,10 @@ export default defineConfig({
   },
   test: {
     environment: 'jsdom',
-    exclude: [...configDefaults.exclude, '**/node_modules/**', 'dist/**', 'e2e/**'],
-    include: ['test/**/*.spec.{js,ts,vue}'],
+    exclude: [...configDefaults.exclude, '**/node_modules/**', 'dist/**', 'e2e/**', 'test/unit/**'],
+    include: ['src/test/unit/**/*.spec.{js,ts,vue}'],
 
-    // VS Code IDE friendly
     globals: true,
-    setupFiles: ['test/unit/__mocks__/webextension-polyfill.ts'],
 
     coverage: {
       provider: 'v8',

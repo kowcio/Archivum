@@ -7,8 +7,8 @@
     "nightwatch.conf.*",
     "playwright.config.*",
     "eslint.config.*",
-        "test/playwright/**/*.ts",
-    "test/playwright/**/*.js"
+        "src/test/playwright/**/*.ts",
+    "src/test/playwright/**/*.js"
   ],
   "compilerOptions": {
     "noEmit": true,

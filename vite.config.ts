@@ -1,4 +1,5 @@
 import { defineConfig } from 'vite'
+import path from 'path'
 import vue from '@vitejs/plugin-vue'
 import vueDevTools from 'vite-plugin-vue-devtools'
 import webExtension from 'vite-plugin-web-extension'
@@ -54,7 +55,7 @@ export default defineConfig({
 
   resolve: {
     alias: {
-      '@': require('path').resolve(__dirname, 'src'),
+      '@': path.resolve(__dirname, 'src'),
     },
   },
 })

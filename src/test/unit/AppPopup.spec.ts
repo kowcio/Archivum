@@ -14,10 +14,7 @@ describe('AppPopup', () => {
       }
     })
 
-    // Assert that the component is mounted
     expect(wrapper.exists()).toBe(true)
-
-    // Assert that the component displays the expected content
     expect(wrapper.text()).toContain('Popup Mounted!')
   })
 })
