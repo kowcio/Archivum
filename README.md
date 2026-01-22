@@ -1,1 +1,7 @@
-FF EXTENSION as a VUE JS PROJECT
+Browser extension template build with
+vue js
+pinia
+typescript
+
+vitest
+playwright

@@ -6,20 +6,20 @@
   "scripts": {
     "dev": "vite",
     "build": "run-p type-check \"build-only {@} --clean --verbose\" --",
-    "watch": "tsc-watch --pretty --onEmitDebounceMs 5000 --onSuccess \"npm run build\" --onFailure \"echo Beep! Compilation Failed\"",
-    "preview": "vite preview",
-    "test:unit": "vitest --run --coverage",
-    "test:playwright": "npm run build && npx playwright test src/test/playwright --headed --workers=1",
-    "test:playwright:no-build": "npx playwright test src/test/playwright --workers=1",
-    "test:playwright:ui": "npx playwright test src/test/playwright --workers=1 --ui --project firefox-mv2",
-    "playwright:install": "npx playwright install",
+    "build-only": "vite build",
+    "build2": "vite build --outDir dis --include src/**/*.{js,ts,vue} --verbose",
     "extension:build": "vite build",
     "extension:package": "node scripts/package-xpi.js",
+    "watch": "tsc-watch --pretty --onEmitDebounceMs 5000 --onSuccess \"npm run build\" --onFailure \"echo Beep! Compilation Failed\"",
+    "preview": "vite preview",
+    "test:unit": "vitest --run",
+    "test:playwright": "npm run build && npx playwright test src/test/playwright --headed --workers=1 --reporter=line",
+    "test:playwright:no-build": "npx playwright test src/test/playwright --workers=1 --reporter=line",
+    "test:playwright:ui": "npx playwright test src/test/playwright --workers=1 --ui --project firefox-mv2",
+    "playwright:install": "npx playwright install",
     "prepare:firefox-profile": "node scripts/prepare-firefox-profile.js",
     "test:playwright:dist": "set PLAYWRIGHT_TEST_MODE=dist && npm run extension:build && npx playwright test test/playwright --headed --workers=1",
     "postinstall": "npx playwright install chromium firefox",
-    "build-only": "vite build",
-    "build2": "vite build --outDir dis --include src/**/*.{js,ts,vue} --verbose",
     "type-check": "vue-tsc --build",
     "lint": "eslint . --fix",
     "format": "prettier --write src/"
@@ -66,7 +66,7 @@
     "vite-plugin-web-extension": "4.5.0",
     "vitest": "^4.0.16",
     "vue-tsc": "^3.2.2",
-    "axios-mock-adapter": "^2.1.0"
-    ,"archiver": "^5.3.1"
+    "axios-mock-adapter": "^2.1.0",
+    "archiver": "^5.3.1"
   }
 }

@@ -2,16 +2,20 @@
   "description": "Adds a solid red border to all webpages matching mozilla.org.",
   "name": "Czynsz_FF_estate_care",
   "version": "1.0.0",
-  "homepage_url": "https://www.perplexity.ai/",
+  "homepage_url": "https://github.com/kowcio",
   "content_scripts": [
     {
-      "matches": ["*://*/*"],
-      "js": ["content.js"]
+      "matches": [
+        "*://*/*"
+      ],
+      "js": [
+        "content.js"
+      ]
     }
   ],
   "browser_specific_settings": {
     "gecko": {
-      "id": "borderify@example.com"
+      "id": "browserExtensionTemplate"
     }
   },
   "icons": {
@@ -22,10 +26,16 @@
   "manifest_version": 2,
   "browser_action": {
     "default_icon": "icon.png",
-    "default_title": "Check Estate & Energa",
+    "default_title": "browserExtensionTemplate",
     "default_popup": "popup.html"
   },
   "options_page": "options.html",
   "chrome_url_overrides": {},
-  "permissions": ["tabs", "activeTab", "bookmarks", "clipboardRead", "storage"]
+  "permissions": [
+    "tabs",
+    "activeTab",
+    "bookmarks",
+    "clipboardRead",
+    "storage"
+  ]
 }
