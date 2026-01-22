@@ -12,14 +12,15 @@ export default defineConfig({
   },
   test: {
     environment: 'jsdom',
-    exclude: [...configDefaults.exclude, '**/node_modules/**', 'dist/**', 'e2e/**', 'test/unit/**'],
+    exclude: [...configDefaults.exclude, '**/node_modules/**', 'dist/**', 'reports/**'],
     include: ['src/test/unit/**/*.spec.{js,ts,vue}'],
 
     globals: true,
 
     coverage: {
       provider: 'v8',
-      reporter: ['text', 'json', 'html']
+      reporter: ['text', 'json', 'html'],
+      reportsDirectory: './reports/coverage'
     }
   }
 })

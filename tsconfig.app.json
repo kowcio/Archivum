@@ -4,12 +4,12 @@
     "env.d.ts",
     "src/**/*",
     "src/**/*.vue",
-    "src/test",
-    "src/**/*.js", // include all JS files
-    "src/**/*.html" // include all HTML files],
+    "src/**/*.js",
+    "src/**/*.html"
   ],
   "exclude": [
-    "src/**/__tests__/*"
+    "src/**/__tests__/*",
+    "src/test/**/*"
   ],
   "compilerOptions": {
     "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.app.tsbuildinfo",

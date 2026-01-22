@@ -12,7 +12,12 @@ node_modules
 dist
 dist-ssr
 coverage
+reports
 *.local
+
+# test
+test/playwright/*profile*
+
 
 # Editor directories and files
 .vscode/*

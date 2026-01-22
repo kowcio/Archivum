@@ -3,8 +3,8 @@ import path from 'path'
 import vue from '@vitejs/plugin-vue'
 import vueDevTools from 'vite-plugin-vue-devtools'
 import webExtension from 'vite-plugin-web-extension'
-import copy from 'rollup-plugin-copy'
 import { transformAssetUrls } from '@quasar/vite-plugin'
+
 export default defineConfig({
   plugins: [
     vue({
@@ -18,15 +18,6 @@ export default defineConfig({
       manifest: 'manifest.json',
       watchFilePaths: ['src/**/*', 'public/**/*'],
     }),
-    copy({
-      targets: [
-        { src: 'src/assets/*', dest: 'dist/assets' },
-        { src: 'public/*', dest: 'dist' },
-        { src: 'options/*', dest: 'dist/options' },
-        { src: 'src/*.[js,ts]', dest: 'dist' },
-      ],
-      hook: 'writeBundle',
-    }),
   ],
   css: {
     preprocessorOptions: {
@@ -35,12 +26,12 @@ export default defineConfig({
       },
     },
   },
-  base: './', //Base public path when served in development or production.
+  base: './',
 
   build: {
     outDir: 'dist',
-    minify: false,
-    cssMinify: false,
+    minify: 'esbuild',
+    cssMinify: true,
     modulePreload: {
       polyfill: false,
     },
@@ -52,6 +43,8 @@ export default defineConfig({
         assetFileNames: 'assets/[name].[ext]',
       },
     },
+    target: 'es2020',
+    chunkSizeWarningLimit: 1000,
   },
 
   resolve: {
