@@ -8,13 +8,18 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
   workers: 1,
-  // reporter: [['html', { outputFolder: 'reports/playwright-report' }], ['list', { printSteps: true }]],
+  reporter: [
+    ['list', { printSteps: true }],
+    ['html', { printsteps: true, outputFolder: 'reports/playwright-report', open: 'never' }]
+  ],
   outputDir: 'reports/test-results',
 
   use: {
     trace: 'retain-on-failure',
     video: 'off',
     screenshot: 'only-on-failure',
+    // Enable headless mode by default
+    headless: true,
   },
 
   projects: [
