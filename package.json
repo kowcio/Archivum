@@ -5,11 +5,10 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "npm run test && run-p type-check \"build-only {@} --clean --verbose\" --",
+    "build": "npm run test:unit && run-p type-check \"build-only {@} --clean --verbose\" --",
     "build-only": "vite build",
     "build2": "vite build --outDir dis --include src/**/*.{js,ts,vue} --verbose",
     "extension:build": "vite build",
-    "extension:package": "node scripts/package-xpi.js",
     "watch": "tsc-watch --pretty --onEmitDebounceMs 5000 --onSuccess \"npm run build\" --onFailure \"echo Beep! Compilation Failed\"",
     "preview": "vite preview",
     "type-check": "vue-tsc --build",
