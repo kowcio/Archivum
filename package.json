@@ -18,7 +18,7 @@
     "test:playwright:debug": "npm run build && npx playwright test test/playwright --project firefox-mv2-debug",
     "test:playwright:no-build": "npx playwright test test/playwright --project firefox-mv2",
     "test:playwright:ui": "npx playwright test test/playwright --workers=1 --ui --project firefox-mv2",
-    "test:all": "npm run test:unit && npm run test:playwright:headless && npm run build",
+    "build:all": "npm run test:unit && npm run test:playwright:headless && npm run build",
     "test:build": "npm run test:unit && npm run build",
     "ci": "npm run test:unit && npm run test:playwright:headless && npm run build",
     "playwright:install": "npx playwright install",

@@ -8,5 +8,4 @@ const __VERSION__ = `${packageJson.version}-${dayjs().format('YYYYMMDD-HH:mm')}`
 
 export default {
   __VERSION__,
-  // packageJson,
 }
