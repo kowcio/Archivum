@@ -16,7 +16,7 @@
     "format": "prettier --write src/",
     "test:unit": "vitest --run",
     "test:unit:watch": "vitest",
-    "test:playwright": "npm run build && npx playwright test test/playwright --project firefox-mv2",
+    "test:playwright": "npx playwright test test/playwright",
     "test:playwright:debug": "npm run build && npx playwright test test/playwright --project firefox-mv2-debug",
     "test:playwright:ui": "npx playwright test test/playwright --ui --project firefox-mv2",
     "ci": "npm run type-check && npm run test:unit && npm run test:playwright && npm run build",
