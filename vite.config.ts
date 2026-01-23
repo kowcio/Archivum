@@ -14,9 +14,9 @@ export default defineConfig({
     }),
     vueDevTools(),
     webExtension({
-      browser: 'firefox',
       manifest: 'manifest.json',
       watchFilePaths: ['src/**/*', 'public/**/*'],
+      skipManifestValidation: false,
     }),
   ],
   css: {

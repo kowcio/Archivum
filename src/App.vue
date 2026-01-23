@@ -1,7 +1,7 @@
 <!-- eslint-disable @typescript-eslint/no-unused-vars -->
 <template>
   <div>
-    <div>Hello VUE 33 plugin</div>
+    <div>Hello from App.vue plugin</div>
     <div class="version-info">Version: {{ version }}</div>
   </div>
   <!-- Empty template: nothing rendered by Vue -->

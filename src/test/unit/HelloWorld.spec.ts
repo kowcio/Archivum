@@ -11,6 +11,6 @@ describe('HelloWorld', () => {
         plugins: [createTestingPinia()]
       }
     })
-    expect(wrapper.text()).toContain('Hello VUE 33')
+    expect(wrapper.text()).toContain('from App.vue plugin')
   })
 })
