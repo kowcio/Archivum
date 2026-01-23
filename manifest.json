@@ -1,6 +1,6 @@
 {
-  "description": "Adds a solid red border to all webpages matching mozilla.org.",
-  "name": "Czynsz_FF_estate_care",
+  "name": "Browser extension template.",
+  "description": "Startup project for building browser extensions with Vue 3 and Vite.",
   "version": "1.0.0",
   "homepage_url": "https://github.com/kowcio",
   "content_scripts": [

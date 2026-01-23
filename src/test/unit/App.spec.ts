@@ -1,10 +1,9 @@
 import { describe, it, expect } from 'vitest'
-
 import { mount } from '@vue/test-utils'
 import { createTestingPinia } from '@pinia/testing'
 import App from '@/App.vue'
 
-describe('HelloWorld', () => {
+describe('App', () => {
   it('renders properly', () => {
     const wrapper = mount(App, {
       global: {
