@@ -21,23 +21,22 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { useOptionsStore } from '@/stores/OptionsStore'
+import { useGlobalStore } from '@/shared/stores/globalStore'
 
-const store = useOptionsStore()
+const global = useGlobalStore()
 const username = ref('')
 const enabled = ref(false)
 const saved = ref(false)
 
 onMounted(async () => {
-  await store.load()
-  username.value = store.username
-  enabled.value = store.enabled
+  await global.init()
+  username.value = global.flags.username ?? ''
+  enabled.value = !!global.flags.enabled
 })
 
 async function save() {
-  store.username = username.value
-  store.enabled = enabled.value
-  await store.load();
+  global.flags = { ...global.flags, username: username.value, enabled: enabled.value }
+  await global.save()
   saved.value = true
   setTimeout(() => (saved.value = false), 1500)
 }

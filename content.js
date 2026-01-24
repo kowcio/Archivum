@@ -41,7 +41,19 @@ if (true) {
   document.head.appendChild(style)
 
   const app = createApp(App)
-  app.use(createPinia())
+  const pinia = createPinia()
+  app.use(pinia)
+
+  // Initialize shared settings store so content scripts receive updates
+  import('@/shared/stores/globalStore').then(({ useGlobalStore }) => {
+    try {
+      const global = useGlobalStore()
+      global.init().catch((err) => console.error('global.init failed', err))
+    } catch (err) {
+      console.error('global init import failed', err)
+    }
+  })
+
   app.mount('#my-vue-header')
 } else {
   console.log('This should NOT be mounted ')
