@@ -21,6 +21,7 @@ import dayjs from "dayjs";
 import { onMounted, ref } from "vue";
 import ChartComposite from "./components/charts/Miesiecznie.vue";
 import type { ChartData } from "./models/Charts";
+import type { ChartOptions } from "chart.js";
 import { useFinanseStore } from "@/content/stores/FinanseStore";
 import type { Finanse } from "./models/EstateCare/DajDrzewoFinHistoria";
 import globals from "./globals";
@@ -48,10 +49,23 @@ const monthlyChart = ref<ChartData>({
   ],
 });
 
-const everyItemChart = ref<ChartData>({
+const everyItemChart = ref<ChartData & { options?: ChartOptions }>({
   type: "line",
   labels: [],
   datasets: [],
+  options: {
+    plugins: {
+      legend: {
+        position: "bottom",
+        align: "center",
+        labels: {
+          usePointStyle: true,
+          boxWidth: 12,
+          padding: 8,
+        },
+      },
+    },
+  },
 });
 
 const datesForChart = ref<string[]>([]);
@@ -133,6 +147,7 @@ async function getTheData() {
   };
 
   everyItemChart.value = {
+    ...everyItemChart.value,
     type: "line",
     labels: datesForChart.value,
     datasets: Array.from(everyItemMapValuesPerMonth.entries()).map(([key, value]) => ({

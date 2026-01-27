@@ -6,6 +6,7 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
 import { Line } from 'vue-chartjs'
 import {
   Chart as ChartJS,
@@ -18,7 +19,8 @@ import {
   CategoryScale,
   LinearScale,
   type ChartData,
-} from 'chart.js'
+  type ChartOptions,
+} from 'chart.js' 
 
 const props = withDefaults(
   defineProps<{
@@ -48,27 +50,50 @@ ChartJS.register(
   LinearScale,
 )
 
-const chartOptions = {
+const defaultOptions: ChartOptions<'line'> = {
   responsive: true,
-  reactive: true,
   maintainAspectRatio: false,
   elements: {
     line: {
       borderWidth: 2,
     },
   },
-  title: {
-    display: true,
-    text: 'Chart 333 Title',
-  },
-  legend: {
-    display: true,
-    position: 'left',
-  },
-  tooltips: {
-    enabled: true,
+  plugins: {
+    title: {
+      display: true,
+      text: props.title || 'Chart',
+    },
+    legend: {
+      display: true,
+      position: 'top',
+      align: 'center',
+      labels: {
+        usePointStyle: true,
+        boxWidth: 12,
+        padding: 8,
+      },
+    },
+    tooltip: {
+      enabled: true,
+    },
   },
 }
+
+/**
+ * Merge chart-level options provided via `chartData.options`
+ * with the component defaults. Only shallow-merge plugins to keep config predictable.
+ */
+const chartOptions = computed<ChartOptions<'line'>>(() => {
+  const dataOptions = (props.chartData as unknown as { options?: ChartOptions<'line'> })?.options || {}
+  return {
+    ...defaultOptions,
+    ...dataOptions,
+    plugins: {
+      ...(defaultOptions.plugins || {}),
+      ...(dataOptions.plugins || {}),
+    },
+  }
+})
 </script>
 
 <style scoped></style>
