@@ -4,9 +4,9 @@ vi.mock('webextension-polyfill', () => ({
 }))
 import { mount } from '@vue/test-utils'
 import { createTestingPinia } from '@pinia/testing'
-import AppPopup from '@/AppPopup.vue'
+import AppPopup from '@/entrypoints/popup/App.vue'
 
-describe('AppPopup', () => {
+describe('Popup App', () => {
   it('should mount and display the component', () => {
     const wrapper = mount(AppPopup, {
       global: {

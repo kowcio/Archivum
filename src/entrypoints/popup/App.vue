@@ -21,7 +21,7 @@
 import { onMounted, ref } from 'vue';
 import browser from 'webextension-polyfill';
 import type { Tabs } from 'webextension-polyfill';
-import globals from '../../src/globals';
+import globals from '@/globals';
 
 const version = globals.__VERSION__;
 

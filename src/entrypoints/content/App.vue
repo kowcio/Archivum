@@ -19,12 +19,12 @@
 <script setup lang="ts">
 import dayjs from "dayjs";
 import { onMounted, ref } from "vue";
-import ChartComposite from "./components/charts/Miesiecznie.vue";
-import type { ChartData } from "./models/Charts";
+import ChartComposite from "@/components/charts/Miesiecznie.vue";
+import type { ChartData } from "@/models/Charts";
 import type { ChartOptions } from "chart.js";
 import { useFinanseStore } from "@/content/stores/FinanseStore";
-import type { Finanse } from "./models/EstateCare/DajDrzewoFinHistoria";
-import globals from "./globals";
+import type { Finanse } from "@/models/EstateCare/DajDrzewoFinHistoria";
+import globals from "@/globals";
 
 onMounted(() => {
   console.log("Component mounted!");
@@ -91,7 +91,6 @@ async function getTheData() {
       );
       for (const finans_pozycje of finanseZaMiesiac.Pozycje ?? []) {
         monthlyValues.push(finans_pozycje.Obciazenia);
-        // console.log(`Przetwarzanie pozycji finansowej: ${JSON.stringify(monthlyValues)}`);
         if (finStore.cfg.downloadDocuments) {
           for (const pozycjaZDokumentem of finans_pozycje.Pozycje ?? []) {
             const dokumentJestPusty = !pozycjaZDokumentem.Dokument;
@@ -184,15 +183,38 @@ function loadChartsFromLocalStorage() {
 </script>
 
 <style>
-/* Your styles here */
+.version-info {
+  margin: 10px 0;
+  font-size: 0.9em;
+  color: #666;
+}
+
 .charts-row {
   display: flex;
   flex-direction: row;
   gap: 24px;
   align-items: flex-start;
 }
+
 .chart-container {
   width: 2000px;
   height: 500px;
+}
+
+.row {
+  display: flex;
+  gap: 10px;
+}
+
+button {
+  padding: 8px 16px;
+  cursor: pointer;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  background: #fff;
+}
+
+button:hover {
+  background: #f0f0f0;
 }
 </style>

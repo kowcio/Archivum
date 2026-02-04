@@ -1,14 +1,16 @@
+/// <reference types="../../../.wxt/wxt.d.ts" />
 import './style.css';
-import { createApp } from 'vue';
+import { createApp, type App as VueAppInstance } from 'vue';
 import { createPinia } from 'pinia';
 import App from './App.vue';
-import { useGlobalStore } from '../../src/shared/stores/globalStore';
+import { useGlobalStore } from '@/shared/stores/globalStore';
+import type { ContentScriptContext } from 'wxt/utils/content-script-context';
 
 export default defineContentScript({
   matches: ['*://*/*'],
   cssInjectionMode: 'ui',
 
-  async main(ctx) {
+  async main(ctx: ContentScriptContext) {
     console.log('[DEBUG] Content script starting to load...');
     console.log('[DEBUG] Current URL:', window.location.href);
 
@@ -17,7 +19,7 @@ export default defineContentScript({
       position: 'inline',
       anchor: 'body',
       append: 'first',
-      onMount: (container) => {
+      onMount: (container: HTMLElement) => {
         // Set up container styling
         container.id = 'my-vue-header';
 
@@ -38,21 +40,24 @@ export default defineContentScript({
         `;
         document.head.appendChild(style);
 
-        // Create Vue app
+        // Create Vue app with unified pattern (similar to popup/options)
         const app = createApp(App);
         const pinia = createPinia();
         app.use(pinia);
 
         // Initialize shared settings store
         const global = useGlobalStore();
-        global.init().catch((err) => console.error('global.init failed', err));
+        global.init().catch((err: unknown) => console.error('global.init failed', err));
 
         app.mount(container);
+
+        console.log('✅ Content script Vue app mounted');
+
         return { app, style };
       },
-      onRemove: ({ app, style }) => {
-        app?.unmount();
-        style?.remove();
+      onRemove: (result: { app: VueAppInstance<Element>; style: HTMLStyleElement } | undefined) => {
+        result?.app?.unmount();
+        result?.style?.remove();
       },
     });
 
@@ -60,3 +65,5 @@ export default defineContentScript({
     ui.mount();
   },
 });
+
+

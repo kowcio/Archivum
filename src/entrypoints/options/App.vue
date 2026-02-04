@@ -21,7 +21,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
-import { useGlobalStore } from '../../src/shared/stores/globalStore';
+import { useGlobalStore } from '@/shared/stores/globalStore';
 
 const global = useGlobalStore();
 const username = ref('');

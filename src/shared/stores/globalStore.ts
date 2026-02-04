@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import StorageService from '../services/StorageService'
+import StorageService from '@/shared/services/StorageService'
 
 const STORAGE_KEY = 'global_store'
 
