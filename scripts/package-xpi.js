@@ -26,7 +26,10 @@ async function packageXpi() {
   }
 
   const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'))
-  const geckoId = manifest.browser_specific_settings?.gecko?.id || 'extension@local'
+  const geckoId = manifest.browser_specific_settings?.gecko?.id
+  if (!geckoId){
+    throw new Error('geckoId not found in manifest json.')
+  }
   const xpiName = geckoId.endsWith('.xpi') ? geckoId : `${geckoId}.xpi`
   const outPath = path.resolve(repoRoot, xpiName)
 
