@@ -5,7 +5,9 @@
     "src/**/*",
     "src/**/*.vue",
     "src/**/*.js",
-    "src/**/*.html"
+    "src/**/*.html",
+    "entrypoints/**/*",
+    ".wxt/wxt.d.ts"
   ],
   "exclude": [
     "src/**/__tests__/*",
@@ -16,9 +18,13 @@
     "paths": {
       "@/*": [
         "./src/*"
+      ],
+      "wxt/*": [
+        "./.wxt/*"
       ]
     },
     "resolveJsonModule": true,
-    "esModuleInterop": true
+    "esModuleInterop": true,
+    "types": ["wxt"]
   }
 }

@@ -4,17 +4,18 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "npm run test:unit && run-p type-check \"build-only {@} --clean --verbose\" --",
-    "build-only": "vite build",
-    "build2": "vite build --outDir dis --include src/**/*.{js,ts,vue} --verbose",
-    "extension:build": "vite build",
-    "extension:run": "npm run extension:build && web-ext run --source-dir=./dist --firefox=firefox --browser-console --start-url=about:debugging#/runtime/this-firefox",
-    "extension:run:nightly": "npm run extension:build && web-ext run --source-dir=./dist --firefox=nightly --browser-console",
-    "extension:dev": "node scripts/run-firefox.js",
-    "watch": "tsc-watch --pretty --onEmitDebounceMs 5000 --onSuccess \"npm run build\" --onFailure \"echo Beep! Compilation Failed\"",
-    "preview": "vite preview",
-    "type-check": "vue-tsc --build",
+    "dev": "wxt",
+    "dev:firefox": "wxt -b firefox",
+    "build": "wxt build",
+    "build:firefox": "wxt build -b firefox",
+    "zip": "wxt zip",
+    "zip:firefox": "wxt zip -b firefox",
+    "postinstall": "wxt prepare",
+    "build-only": "wxt build",
+    "extension:build": "wxt build -b firefox",
+    "extension:run": "wxt -b firefox",
+    "extension:dev": "wxt -b firefox",
+    "type-check": "vue-tsc --build --force",
     "lint": "eslint . --fix",
     "format": "prettier --write src/",
     "test:unit": "vitest --run",
@@ -22,8 +23,8 @@
     "test:playwright": "npx playwright test test/playwright",
     "test:playwright:debug": "npm run build && npx playwright test test/playwright --project firefox-mv2-debug",
     "test:playwright:ui": "npx playwright test test/playwright --ui --project firefox-mv2",
-    "ci": "npm run type-check && npm run test:unit && npm run test:playwright && npm run build",
-    "extension:package": "npm run build && node scripts/package-xpi.js"
+    "ci": "npm run type-check && npm run test:unit && npm run build",
+    "extension:package": "npm run build && npm run zip:firefox"
   },
   "dependencies": {
     "@quasar/extras": "1.17.0",
@@ -67,6 +68,7 @@
     "axios-mock-adapter": "^2.1.0",
     "archiver": "^5.3.1",
     "web-ext": "^8.3.0",
-    "wxt": "^0.19.0"
+    "wxt": "^0.19.0",
+    "@wxt-dev/module-vue": "^1.0.3"
   }
 }
