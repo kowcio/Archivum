@@ -28,7 +28,7 @@
   "dependencies": {
     "@quasar/extras": "1.17.0",
     "@vueuse/core": "^13.5.0",
-    "axios": "^1.4.0",
+    "axios": "^1.13.4",
     "dayjs": "^1.11.18",
     "pinia": "^3.0.3",
     "quasar": "^2.18.2",
