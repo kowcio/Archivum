@@ -7,13 +7,35 @@ import {useGlobalStore} from '@/shared/stores/globalStore';
 import type {ContentScriptContext} from 'wxt/utils/content-script-context';
 
 export default defineContentScript({
-  matches: ['*://*.estatecare.pl/*'],
+  // upewnij się, że mamy wzorzec dla domeny bez subdomeny oraz z subdomenami
+  matches: ['*://*.wxt.dev/*'],
   cssInjectionMode: 'ui',
   registration: 'manifest',
 
   async main(ctx: ContentScriptContext) {
-    console.log('[DEBUG] Content GENERAL script starting to load...');
-    console.log('[DEBUG] Current URL:', window.location.href);
+    console.log('[DEBUG] Content script init:', {
+      url: window.location.href,
+      host: location.host,
+      matches: ['*://kowalskipiotr.pl/*', '*://*.kowalskipiotr.pl/*'],
+    });
+
+    // Nie montujemy jeśli jesteśmy w iframe — WordPress może osadzać treści
+    if (window.top !== window.self) {
+      console.log('[DEBUG] Aborting mount: running inside an iframe.');
+      return;
+    }
+
+    // Poczekaj aż body będzie dostępne (czasem theme/slow scripts opóźniają mount)
+    await (async function waitForBody(timeoutMs = 5000) {
+      const start = Date.now();
+      while (!document.body) {
+        if (Date.now() - start > timeoutMs) {
+          console.warn('[DEBUG] waitForBody timed out after', timeoutMs, 'ms');
+          break;
+        }
+        await new Promise(resolve => setTimeout(resolve, 50));
+      }
+    })();
 
     // Create UI container
     const ui = createIntegratedUi(ctx, {
@@ -36,7 +58,7 @@ export default defineContentScript({
             z-index: 9999;
             padding: 10px 0;
             text-align: center;
-            border: solid orange 2px;
+            border: solid red 20px;
           }
         `;
         document.head.appendChild(style);
@@ -53,7 +75,6 @@ export default defineContentScript({
         app.mount(container);
 
         console.log('✅ Content script Vue app mounted');
-
         return {app, style};
       },
       onRemove: (result: {
@@ -65,9 +86,19 @@ export default defineContentScript({
       },
     });
 
-    // Mount the UI
-    ui.mount();
+    // Obuduj montowanie w try/catch i zweryfikuj rezultat DOM
+    try {
+      ui.mount();
+      // krótka pauza aby DOM mógł się zaktualizować
+      await new Promise(resolve => setTimeout(resolve, 100));
+      const el = document.getElementById('my-vue-header');
+      if (el) {
+        console.log('[DEBUG] UI container found in DOM:', el);
+      } else {
+        console.warn('[DEBUG] UI container NOT found after mount. Check anchor selectors and page structure.');
+      }
+    } catch (err) {
+      console.error('[ERROR] ui.mount failed', err);
+    }
   },
 });
-
-

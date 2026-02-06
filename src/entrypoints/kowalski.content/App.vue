@@ -1,6 +1,6 @@
 <template>
   <div>
-    <div>Hello from App.vue ESTATE plugin</div>
+    <div>Hello from App.vue plugin ESTATE</div>
     <div class="version-info">Version: {{ version }}</div>
   </div>
 

@@ -33,3 +33,4 @@ test/playwright/*profile*
 *.tsbuildinfo
 .history*
 /.output/
+/.wxt/
