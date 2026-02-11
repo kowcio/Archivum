@@ -5,10 +5,11 @@ import { execSync } from 'child_process'
 
 function prepareProfile() {
   const repoRoot = path.resolve(fileURLToPath(new URL('..', import.meta.url)))
-  const distDir = path.resolve(repoRoot, 'dist')
-  const manifestPath = path.resolve(distDir, 'manifest.json')
+  const wxtOutputDir = path.resolve(repoRoot, '.output', 'firefox-mv2')
+  const manifestPath = path.resolve(wxtOutputDir, 'manifest.json')
+  
   if (!fs.existsSync(manifestPath)) {
-    console.log('dist/manifest.json not found; building extension...')
+    console.log('.output/firefox-mv2/manifest.json not found; building extension...')
     execSync('npm run extension:build', { stdio: 'inherit' })
   }
 

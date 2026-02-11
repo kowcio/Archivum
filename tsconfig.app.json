@@ -5,20 +5,28 @@
     "src/**/*",
     "src/**/*.vue",
     "src/**/*.js",
-    "src/**/*.html"
+    "src/**/*.html",
+    ".wxt/wxt.d.ts"
   ],
   "exclude": [
     "src/**/__tests__/*",
     "src/test/**/*"
   ],
   "compilerOptions": {
+    // Inherits from root: target, module, moduleResolution, noEmit,
+    // esModuleInterop, forceConsistentCasingInFileNames, strict, skipLibCheck
+
     "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.app.tsbuildinfo",
-    "paths": {
-      "@/*": [
-        "./src/*"
-      ]
-    },
     "resolveJsonModule": true,
-    "esModuleInterop": true
+
+    // Path aliases
+    "paths": {
+      "@/*": ["./src/*"],
+      "wxt/*": ["./.wxt/*"]
+    },
+
+    // Additional types for app code
+    "types": ["wxt"]
   }
 }
+
