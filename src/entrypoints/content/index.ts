@@ -6,12 +6,18 @@ import App from './App.vue';
 import {useGlobalStore} from '@/shared/stores/globalStore';
 import type {ContentScriptContext} from 'wxt/utils/content-script-context';
 
+// Import browser polyfill for Firefox compatibility
+import 'webextension-polyfill';
+
+console.debug('[EXT-DBG] content (general) initializing - TOKEN:EXT_DBG_CONTENT_GENERAL_v1');
+
 export default defineContentScript({
-  matches: ['*://*.estatecare.pl/*'],
+  matches: ['*://*/*'],
   cssInjectionMode: 'ui',
   registration: 'manifest',
 
   async main(ctx: ContentScriptContext) {
+    console.debug('[EXT-DBG] content main running - TOKEN:EXT_DBG_CONTENT_MAIN_v1');
     console.log('[DEBUG] Content GENERAL script starting to load...');
     console.log('[DEBUG] Current URL:', window.location.href);
 
@@ -23,6 +29,7 @@ export default defineContentScript({
       onMount: (container: HTMLElement) => {
         // Set up container styling
         container.id = 'my-vue-header';
+        container.setAttribute('data-testid', 'content-root');
 
         // Add styles for the container
         const style = document.createElement('style');
@@ -69,5 +76,4 @@ export default defineContentScript({
     ui.mount();
   },
 });
-
 

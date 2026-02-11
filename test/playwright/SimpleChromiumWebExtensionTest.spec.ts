@@ -19,7 +19,7 @@ test.describe('Simple Chromium Web Extension Test', () => {
     const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'pw-ext-'))
 
     const context = await chromium.launchPersistentContext(userDataDir, {
-      headless: false,
+      headless: true,
       args: [
         `--disable-extensions-except=${extensionPath}`,
         `--load-extension=${extensionPath}`,

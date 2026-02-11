@@ -14,15 +14,15 @@ import archiver from 'archiver'
  */
 async function packageXpi() {
   const repoRoot = path.resolve(fileURLToPath(new URL('..', import.meta.url)))
-  const distDir = path.resolve(repoRoot, 'dist')
-  console.log("Packaging Firefox extension as XPI (just a ZIP with differt extension) from", distDir)
-  if (!fs.existsSync(distDir)) {
-    throw new Error('dist directory not found. Run `npm run extension:build` first.')
+  const wxtOutputDir = path.resolve(repoRoot, '.output', 'firefox-mv2')
+  console.log("Packaging Firefox extension as XPI (just a ZIP with differt extension) from", wxtOutputDir)
+  if (!fs.existsSync(wxtOutputDir)) {
+    throw new Error('.output/firefox-mv2 directory not found. Run `npm run extension:build` first.')
   }
 
-  const manifestPath = path.resolve(distDir, 'manifest.json')
+  const manifestPath = path.resolve(wxtOutputDir, 'manifest.json')
   if (!fs.existsSync(manifestPath)) {
-    throw new Error('manifest.json not found in dist. Build may have failed.')
+    throw new Error('manifest.json not found in .output/firefox-mv2. Build may have failed.')
   }
 
   const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'))
@@ -43,7 +43,7 @@ async function packageXpi() {
   const output = fs.createWriteStream(outPath)
   const archive = archiver('zip', {zlib: {level: 9}})
   archive.pipe(output)
-  archive.directory(distDir, "")
+  archive.directory(wxtOutputDir, "")
 
   await archive.finalize()
   await new Promise((res, rej) => output.on('close', res).on('error', rej))

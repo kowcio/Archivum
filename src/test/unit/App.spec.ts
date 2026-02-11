@@ -10,6 +10,6 @@ describe('Content App', () => {
         plugins: [createTestingPinia()]
       }
     })
-    expect(wrapper.text()).toContain('from App.vue plugin')
+    expect(wrapper.text()).toContain('Hello from App.vue')
   })
 })

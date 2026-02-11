@@ -10,19 +10,20 @@ export default defineConfig({
     name: 'Browser extension template.',
     description: 'Startup project for building browser extensions with Vue 3 and Vite.',
     version: '1.0.0',
+    manifest_version: 3,
     permissions: ['tabs', 'activeTab', 'bookmarks', 'clipboardRead', 'storage'],
-    browser_specific_settings: {
-      gecko: {
-        id: 'browserExtensionTemplate@Kowalski',
-      },
+    // Add browser polyfill for Firefox compatibility
+    content_security_policy: "script-src 'self' 'unsafe-eval'; object-src 'self'",
+    // Include browser polyfill in all content scripts
+    content_scripts: [{
+      matches: ['<all_urls>'],
+      js: ['browser-polyfill.js']
+    }],
+    // Add background script
+    background: {
+      service_worker: 'background.js',
+      type: 'module'
     },
-  },
-  webExt: {
-    binaries: {
-      firefox: 'C:/Program Files/Mozilla Firefox/firefox.exe',
-    },
-    startUrls: ['about:debugging#/runtime/this-firefox'],
-    openConsole: true,
   },
   vite: () => ({
     plugins: [
