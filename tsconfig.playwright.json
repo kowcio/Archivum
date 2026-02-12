@@ -5,6 +5,9 @@
     "test/playwright/**/*.js"
   ],
   "compilerOptions": {
-    "types": ["node", "firefox-webext-browser"]
+    "types": [
+      "node",
+      "firefox-webext-browser"
+    ]
   }
 }
