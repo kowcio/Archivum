@@ -3,8 +3,8 @@ import axios from 'axios'
 
 vi.mock('axios')
 
-import FinanseService from '@/content/services/FinanseService'
-import ApiUrlsService from '@/shared/services/ApiUrlsService'
+import FinanseService from '@/services/FinanseService.ts'
+import ApiUrlsService from '@/services/ApiUrlsService'
 
 describe('FinanseService', () => {
     beforeEach(() => {

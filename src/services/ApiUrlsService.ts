@@ -1,5 +1,5 @@
 import dayjs from 'dayjs'
-import { useFinanseStore } from '@/content/stores/FinanseStore'
+import { useFinanseStore } from '@/stores/FinanseStore.ts'
 
 export default class ApiUrlsService {
     private static readonly urls = {

@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "wxt -b chrome --mv3",
-    "build": "wxt build -b chrome --mv3",
+    "build": "wxt build -b chrome --mv3 && wxt build -b firefox --mv3",
     "zip": "wxt zip -b chrome --mv3",
     "postinstall": "wxt prepare",
     "build-only": "wxt build -b chrome --mv3",

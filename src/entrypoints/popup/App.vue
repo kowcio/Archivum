@@ -14,13 +14,14 @@
     </ul>
     <button @click="loadTabs()" class="button">Get tabs!</button>
     <button @click="openOptionsPage()" class="button">Options</button>
+    <button @click="openOptionsPageFull()" class="button">OptionsFull</button>
   </div>
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue';
+import {onMounted, ref} from 'vue';
 import browser from 'webextension-polyfill';
-import type { Tabs } from 'webextension-polyfill';
+import type {Tabs} from 'webextension-polyfill';
 import globals from '@/globals';
 
 const version = globals.__VERSION__;
@@ -29,7 +30,7 @@ const tabs = ref<Tabs.Tab[]>([]);
 
 async function loadTabs(): Promise<void> {
   try {
-    const fetchedTabs: Tabs.Tab[] = await browser.tabs.query({ currentWindow: true });
+    const fetchedTabs: Tabs.Tab[] = await browser.tabs.query({currentWindow: true});
     fetchedTabs.forEach((tab: Tabs.Tab) => {
       console.log(tab);
       tabs.value.push(tab);
@@ -46,6 +47,17 @@ function openOptionsPage() {
     () => console.log('Options opened'),
     (error) => console.error('Failed to open options', error)
   );
+}
+
+async function openOptionsPageFull() {
+  const url = browser.runtime.getURL('options.html');
+  try {
+    await browser.tabs.create({url});
+    window.close();
+  } catch (error) {
+    console.error('Failed to open options via tabs.create, falling back', error);
+    await browser.runtime.openOptionsPage();
+  }
 }
 
 onMounted(() => {

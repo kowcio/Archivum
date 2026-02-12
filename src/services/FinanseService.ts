@@ -1,7 +1,7 @@
 import axios from 'axios'
-import ApiUrlsService from '@/shared/services/ApiUrlsService'
-import type { Finanse, HistoriaRachunku } from '@/models/EstateCare/DajDrzewoFinHistoria'
-import type { DocumentSzczegoly } from '@/models/EstateCare/DajDokSzczegoly'
+import ApiUrlsService from '@/services/ApiUrlsService.ts'
+import type { Finanse, HistoriaRachunku } from '@/models/EstateCare/DajDrzewoFinHistoria.ts'
+import type { DocumentSzczegoly } from '@/models/EstateCare/DajDokSzczegoly.ts'
 
 export default class FinanseService {
     public static async fetchKontaFinansowe(): Promise<string[]> {

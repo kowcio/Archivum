@@ -22,7 +22,7 @@ import { onMounted, ref } from "vue";
 import ChartComposite from "@/components/charts/Miesiecznie.vue";
 import type { ChartData } from "@/models/Charts";
 import type { ChartOptions } from "chart.js";
-import { useFinanseStore } from "@/content/stores/FinanseStore";
+import { useFinanseStore } from "@/stores/FinanseStore.ts";
 import type { Finanse } from "@/models/EstateCare/DajDrzewoFinHistoria";
 import globals from "@/globals";
 

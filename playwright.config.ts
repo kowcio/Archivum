@@ -29,7 +29,7 @@ export default defineConfig({
       use: { browserName: 'chromium' },
     },
     {
-      name: 'firefox-mv2',
+      name: 'firefox-mv3',
       use: { browserName: 'firefox' },
     },
   ],

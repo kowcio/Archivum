@@ -3,7 +3,7 @@ import './style.css';
 import {type App as VueAppInstance, createApp} from 'vue';
 import {createPinia} from 'pinia';
 import App from './App.vue';
-import {useGlobalStore} from '@/shared/stores/globalStore';
+import {useGlobalStore} from '@/stores/globalStore.ts';
 import type {ContentScriptContext} from 'wxt/utils/content-script-context';
 
 export default defineContentScript({
