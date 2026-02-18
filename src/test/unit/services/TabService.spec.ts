@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { createMockTabs, createTabServiceMock } from './TabServiceMockFactory.ts'
+import { createMockTabs, createTabServiceMock } from '../../mock/TabServiceMockFactory.ts'
 
 vi.mock('webextension-polyfill', () => {
     const tabs = {}

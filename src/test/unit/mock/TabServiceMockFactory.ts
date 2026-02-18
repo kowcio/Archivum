@@ -1,6 +1,6 @@
 import { vi } from 'vitest'
 import type { Storage, Tabs } from 'webextension-polyfill'
-import TabService, { type TabsSnapshot } from '@/services/TabService'
+import TabService, { type TabsSnapshot } from '@/services/TabService.ts'
 
 const TAB_HISTORY_KEY = 'tab_history'
 

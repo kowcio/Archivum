@@ -1,10 +1,15 @@
-
 import { defineConfig, configDefaults } from 'vitest/config'
 import vue from '@vitejs/plugin-vue'
+import { quasar } from '@quasar/vite-plugin'
 import path from 'path'
 
 export default defineConfig({
-  plugins: [vue()],
+  plugins: [
+    vue(),
+    quasar({
+      sassVariables: 'src/quasar-variables.sass',
+    }),
+  ],
   resolve: {
     alias: {
       '@': path.resolve(__dirname, 'src'),
@@ -13,7 +18,9 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     exclude: [...configDefaults.exclude, '**/node_modules/**', 'dist/**', 'reports/**'],
-    include: ['src/test/unit/**/*.spec.{js,ts,vue}'],
+    include: [
+      'src/test/unit/**/*.spec.{js,ts,vue}',
+    ],
 
     globals: true,
 
