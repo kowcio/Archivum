@@ -14,7 +14,7 @@
          flat
          bordered
          wrap-cells
-         :pagination="{ rowsPerPage: 10 }"
+         :pagination="{ rowsPerPage: 25 }"
        >
          <template #body-cell-close="props">
            <q-td :props="props">
