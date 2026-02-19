@@ -1,21 +1,22 @@
 <template>
   <div id="options">
-    <h1>Extension Options (Vue){{ currentDate}}</h1>
+    <h1>Extension Options (Vue){{ __VERSION__ }}{{ currentDate }}</h1>
 
     <h1> Tabs table</h1>
 
-    <div style="margin-top:24px">
+    <div style="margin-top:24px; display: flex; justify-content: center;">
       <q-table
-         data-testid="current-tabs-table"
-         title="Open Tabs"
-         :columns="columns"
-         :rows="rows"
-         row-key="rowKey"
-         flat
-         bordered
-         wrap-cells
-         :pagination="{ rowsPerPage: 25 }"
-       >
+        style="width: 80%;"
+        data-testid="current-tabs-table"
+        title="Open Tabs"
+        :columns="columns"
+        :rows="rows"
+        row-key="rowKey"
+        flat
+        bordered
+        wrap-cells
+        :pagination="{ rowsPerPage: 25 }"
+      >
         <template #body="props">
           <q-tr :props="props" :data-testid="`row-${props.row.rowKey}`">
             <q-td
@@ -26,27 +27,30 @@
               :class="col.name === 'lastAccess' ? props.row.lastAccessClass : undefined"
             >
               <template v-if="col.name === 'close'">
-                <button @click="handleCloseTab(props.row.id)" :disabled="!props.row.id">Close</button>
+                <button @click="handleCloseTab(props.row.id)" :disabled="!props.row.id">Close
+                </button>
               </template>
               <template v-else-if="col.name === 'thumbnail'">
-                <img v-if="props.row.thumbnail" :src="props.row.thumbnail" alt="favicon" width="20" height="20" />
+                <img v-if="props.row.thumbnail" :src="props.row.thumbnail" alt="favicon" width="20"
+                     height="20"/>
                 <span v-else>—</span>
               </template>
-              <template v-else-if="col.name === 'lastAccess'">
-                {{ getDateFormat(props.row.lastAccess) || '—' }}
+              <template v-else-if="col.name === 'lastAccess'" :class="props.row.lastAccessClass">
+                {{ getLastAccessMsg(props.row) || '—' }}
               </template>
               <template v-else-if="col.name === 'url'">
-                <a v-if="props.row.url" :href="props.row.url" target="_blank" rel="noreferrer">{{ props.row.url }}</a>
+                <a v-if="props.row.url" :href="props.row.url" target="_blank"
+                   rel="noreferrer">{{ props.row.url }}</a>
                 <span v-else>—</span>
               </template>
               <template v-else>
-                {{ (props.row as Record<string, unknown>)[col.field as string] ?? '—' }}
+                {{ props.row[col.field] ?? '—' }}
               </template>
             </q-td>
           </q-tr>
         </template>
-       </q-table>
-     </div>
+      </q-table>
+    </div>
 
     <div>
       <label>
@@ -84,31 +88,37 @@ const saved = ref(false);
 const currentDate = computed<string>(() => dayjs().format('HH:mm:ss'));
 const tabs = ref<Tabs.Tab[]>([]);
 
-
 const columns: QTableProps['columns'] = [
-  { name: 'ordinal', label: '#', field: 'ordinal', align: 'left' },
-  { name: 'close', label: '', field: 'close', align: 'left' },
-  { name: 'id', label: 'ID', field: 'id', align: 'left', sortable: true },
-  { name: 'thumbnail', label: '', field: 'thumbnail', align: 'left' },
-  { name: 'domain', label: 'Domain', field: 'domain', align: 'left', sortable: true },
-  { name: 'title', label: 'Title', field: 'title', align: 'left', sortable: true },
-  { name: 'url', label: 'URL', field: 'url', align: 'left' },
-  { name: 'openerTabId', label: 'Opener Tab ID', field: 'openerTabId', align: 'left', sortable: true },
-  { name: 'lastAccess', label: 'Last Access', field: 'lastAccess', align: 'left', sortable: true },
-  { name: 'lastAccessAge', label: 'Last Access Age', field: 'lastAccessAge', align: 'left', sortable: true },
+  {name: 'ordinal', label: '#', field: 'ordinal', align: 'left'},
+  {name: 'close', label: '', field: 'close', align: 'left'},
+  {name: 'id', label: 'ID', field: 'id', align: 'left', sortable: true},
+  {name: 'thumbnail', label: '', field: 'thumbnail', align: 'left'},
+  {name: 'domain', label: 'Domain', field: 'domain', align: 'left', sortable: true},
+  {name: 'title', label: 'Title', field: 'title', align: 'left', sortable: true},
+  {name: 'url', label: 'URL', field: 'url', align: 'left'},
+  {
+    name: 'openerTabId',
+    label: 'Opener Tab ID',
+    field: 'openerTabId',
+    align: 'left',
+    sortable: true
+  },
+  {name: 'lastAccess', label: 'Last Access', field: 'lastAccess', align: 'left', sortable: true},
 ];
 
-const rows = computed<TabRow[]>(() =>
+const rows = computed(() =>
   TabRow.fromTabs(tabs.value).map((row, index) => ({
     ...row,
     ordinal: index + 1,
   }))
 );
 
-function getDateFormat(timestamp:number): string {
-  if (!timestamp) return '—';
-  return dayjs(timestamp).format('YYYY-MM-DD HH:mm');
+function getLastAccessMsg(row: TabRow): string {
+  return `${row.lastAccessDays} days ${row.lastAccessHours} hours ago`;
+  // if (!row.lastAccess) return '—';
+  // return dayjs(row.lastAccess).format('YYYY-MM-DD HH:mm');
 }
+
 
 onMounted(async () => {
   await global.init();
@@ -134,7 +144,6 @@ async function handleCloseTab(tabId: number | null) {
     console.error('Failed to close tab', error);
   }
 }
-
 
 
 async function save() {
