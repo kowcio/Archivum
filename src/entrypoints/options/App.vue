@@ -1,6 +1,6 @@
 <template>
   <div id="options">
-    <h1>Extension Options (Vue){{ __VERSION__ }}{{ currentDate }}</h1>
+    <h1>Extension Options (Vue){{ currentDate }}</h1>
 
     <h1> Tabs table</h1>
 
@@ -78,7 +78,8 @@ import TabService from '@/services/TabService';
 import type {Tabs} from 'webextension-polyfill';
 import type {QTableProps} from 'quasar';
 import dayjs from "dayjs";
-import {TabRow} from '@/models/tabs/TabRow';
+import { TabRow } from '@/models/tabs/TabRow';
+
 
 const global = useGlobalStore();
 const tabService = new TabService();

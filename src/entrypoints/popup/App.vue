@@ -1,7 +1,6 @@
 <template>
   <div>
     <h1>Popup Mounted!</h1>
-    <div class="version-info">Version: {{ version }}</div>
   </div>
   <div id="tab-list">
     <h1>Tabs</h1>
@@ -22,9 +21,6 @@
 import {onMounted, ref} from 'vue';
 import browser from 'webextension-polyfill';
 import type {Tabs} from 'webextension-polyfill';
-import globals from '@/globals';
-
-const version = globals.__VERSION__;
 
 const tabs = ref<Tabs.Tab[]>([]);
 

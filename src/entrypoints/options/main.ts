@@ -1,6 +1,6 @@
 import 'quasar/dist/quasar.css';
 import '@quasar/extras/material-icons/material-icons.css';
-import { initializeApp } from '@/utils/app-init';
+import { initializeApp } from '@/entrypoints/app-init';
 import AppOptions from './App.vue';
 
 console.debug('[EXT-DBG] options initializing - TOKEN:EXT_DBG_OPTIONS_v1');
@@ -9,4 +9,4 @@ console.debug('[EXT-DBG] options initializing - TOKEN:EXT_DBG_OPTIONS_v1');
 initializeApp({
   rootComponent: AppOptions,
   mountTarget: '#app',
-}).catch((err) => console.error('Failed to initialize options:', err));
+}).catch((err: unknown) => console.error('Failed to initialize options:', err));

@@ -1,7 +1,6 @@
 <template>
   <div>
     <div>Hello from App.vue plugin ESTATE</div>
-    <div class="version-info">Version: {{ version }}</div>
   </div>
 
   <div v-if="monthlyChart.datasets[0].data.length > 0" class="charts-row">
@@ -24,13 +23,11 @@ import type { ChartData } from "@/models/Charts";
 import type { ChartOptions } from "chart.js";
 import { useFinanseStore } from "@/stores/FinanseStore.ts";
 import type { Finanse } from "@/models/EstateCare/DajDrzewoFinHistoria";
-import globals from "@/globals";
 
 onMounted(() => {
-  console.log("Component mounted!");
-});
+   console.log("Component mounted!");
+ });
 
-const version = globals.__VERSION__;
 const finStore = useFinanseStore();
 const kontaFinansowe = ref<string[]>([]);
 const finanse = ref<Finanse[]>([]);

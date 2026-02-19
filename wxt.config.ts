@@ -3,15 +3,18 @@ import {quasar} from '@quasar/vite-plugin'
 import {defineConfig} from 'wxt'
 import * as nodeCrypto from 'node:crypto'
 
-import packageJson from './package.json'
+// Wprowadzamy typ lokalny, który dopuszcza opcjonalne `hash` (Node <22 nie ma go)
+type NodeCryptoWithHash = typeof import('node:crypto') & {
+  hash?: (algorithm: string, data: string, encoding: import('node:crypto').BinaryToTextEncoding) => string
+}
+
+const nodeCryptoTyped = nodeCrypto as unknown as NodeCryptoWithHash
 
 // Polyfill crypto.hash for Node versions <22 used by @vitejs/plugin-vue
-if (!('hash' in nodeCrypto) && typeof nodeCrypto.createHash === 'function') {
-  const cryptoWithHash = nodeCrypto as typeof import('node:crypto') & {
-    hash?: typeof nodeCrypto.createHash
-  }
-  cryptoWithHash.hash = (algorithm: string, data: string, encoding: import('node:crypto').BinaryToTextEncoding) =>
-    nodeCrypto.createHash(algorithm).update(data).digest(encoding)
+if (!('hash' in nodeCryptoTyped) && typeof nodeCryptoTyped.createHash === 'function') {
+  nodeCryptoTyped.hash = (algorithm: string, data: string, encoding: import('node:crypto').BinaryToTextEncoding) =>
+    // createHash(...).update(...).digest(...) może zwrócić Buffer lub string — rzutujemy na string, ponieważ polifill oczekuje wartości tekstowej
+    (nodeCryptoTyped.createHash(algorithm).update(data).digest(encoding) as unknown) as string
 }
 
 // See https://wxt.dev/api/config.html
@@ -90,7 +93,7 @@ export default defineConfig((env: { browser: string }) => {
 
     vite: () => ({
       define: {
-        __VERSION__: JSON.stringify(process.env.npm_package_version || '0.0.1'),
+        APP_VERSION: JSON.stringify(process.env.npm_package_version || '0.0.1'),
       },
       plugins: [
         quasar({

@@ -1,4 +1,4 @@
-import { initializeApp } from '@/utils/app-init';
+import { initializeApp } from '@/entrypoints/app-init';
 import AppPopup from './App.vue';
 
 console.debug('[EXT-DBG] popup initializing - TOKEN:EXT_DBG_POPUP_v1');
@@ -7,4 +7,4 @@ console.debug('[EXT-DBG] popup initializing - TOKEN:EXT_DBG_POPUP_v1');
 initializeApp({
   rootComponent: AppPopup,
   mountTarget: '#app',
-}).catch((err) => console.error('Failed to initialize popup:', err));
+}).catch((err: unknown) => console.error('Failed to initialize popup:', err));

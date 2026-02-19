@@ -1,7 +1,6 @@
 <template>
   <div>
     <div data-testid="background-title">Hello from App.vue ESTATE plugin</div>
-    <div class="version-info">Version: {{ version }}</div>
   </div>
 
   <div v-if="monthlyChart.datasets[0].data.length > 0" class="charts-row">
@@ -18,21 +17,18 @@
 
 <script setup lang="ts">
 import dayjs from "dayjs";
-import { onMounted, ref } from "vue";
+import {onMounted, ref} from "vue";
 import ChartComposite from "@/components/charts/Miesiecznie.vue";
-import type { ChartData } from "@/models/Charts";
-import type { ChartOptions } from "chart.js";
-import { useFinanseStore } from "@/stores/FinanseStore.ts";
-import type { Finanse } from "@/models/EstateCare/DajDrzewoFinHistoria";
-import globals from "@/globals";
-import TabService from "@/services/TabService.ts";
+import type {ChartData} from "@/models/Charts";
+import type {ChartOptions} from "chart.js";
+import {useFinanseStore} from "@/stores/FinanseStore.ts";
+import type {Finanse} from "@/models/EstateCare/DajDrzewoFinHistoria";
 import {useTabStore} from "@/stores/TabStore.ts";
 
 onMounted(() => {
-  console.log("Component mounted!");
-});
+   console.log("Component mounted!");
+ });
 
-const version = globals.__VERSION__;
 const finStore = useFinanseStore();
 const kontaFinansowe = ref<string[]>([]);
 const finanse = ref<Finanse[]>([]);
@@ -73,8 +69,6 @@ const everyItemChart = ref<ChartData & { options?: ChartOptions }>({
 const datesForChart = ref<string[]>([]);
 const monthlyValues: number[] = [];
 const everyItemMapValuesPerMonth = new Map<string, number[]>();
-
-const tabService = useTabStore();
 
 async function getTheData() {
   const values = ["Nalicz", "Naleznosc", "Naliczenie", "nalicz", "korekta"];
