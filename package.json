@@ -3,6 +3,9 @@
   "version": "0.0.1",
   "private": true,
   "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "dev": "wxt -b chrome --mv3",
     "build": "wxt build -b chrome --mv3 && wxt build -b firefox --mv3",
