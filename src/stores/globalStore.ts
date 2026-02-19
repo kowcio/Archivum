@@ -16,6 +16,19 @@ export interface GlobalState {
     lastUpdated?: number
 }
 
+async function getRuntimeVersion(): Promise<string | undefined> {
+    try {
+        // Jeśli uruchomione w kontekście rozszerzenia, użyj runtime manifest
+        const browserNs = (globalThis as unknown as any).browser ?? (globalThis as unknown as any).chrome
+        const manifest = browserNs?.runtime?.getManifest?.()
+        return manifest.version
+    } catch {
+        // ignore — nie jesteśmy w kontekście rozszerzenia
+    }
+    return undefined
+
+}
+
 export const useGlobalStore = defineStore('global', {
     state: (): GlobalState => ({
         appName: 'czynsz_ff',
@@ -38,6 +51,12 @@ export const useGlobalStore = defineStore('global', {
                 this.version = data.version ?? this.version
                 this.flags = data.flags ?? this.flags
                 this.lastUpdated = data.lastUpdated ?? this.lastUpdated
+            }
+
+            // jeśli nie mamy wersji w storage, spróbuj pobrać ją z runtime (APP_VERSION) lub package.json
+            if (!this.version) {
+                const runtimeVersion = await getRuntimeVersion()
+                if (runtimeVersion) this.version = runtimeVersion
             }
         },
         async save() {
