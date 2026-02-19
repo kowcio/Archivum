@@ -3,6 +3,8 @@ import {quasar} from '@quasar/vite-plugin'
 import {defineConfig} from 'wxt'
 import * as nodeCrypto from 'node:crypto'
 
+import packageJson from './package.json'
+
 // Polyfill crypto.hash for Node versions <22 used by @vitejs/plugin-vue
 if (!('hash' in nodeCrypto) && typeof nodeCrypto.createHash === 'function') {
   const cryptoWithHash = nodeCrypto as typeof import('node:crypto') & {
@@ -87,6 +89,9 @@ export default defineConfig((env: { browser: string }) => {
     })(),
 
     vite: () => ({
+      define: {
+        __VERSION__: JSON.stringify(process.env.npm_package_version || '0.0.1'),
+      },
       plugins: [
         quasar({
           sassVariables: 'src/quasar-variables.sass',

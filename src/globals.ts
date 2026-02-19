@@ -1,10 +1,7 @@
-import dayjs from 'dayjs'
-import packageJson from '../package.json' // adjust relative path as needed
+import { VERSION } from './constants/version'
 
-console.log(packageJson.version)
-
-const __VERSION__ = `${packageJson.version}-${dayjs().format('YYYYMMDD-HH:mm')}`
-
+// Backwards-compatible default export used across the repo
 export default {
-  __VERSION__,
+  __VERSION__: VERSION,
+  VERSION,
 }
