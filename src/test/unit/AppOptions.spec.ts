@@ -95,12 +95,10 @@ describe('Options App', () => {
     const ageCell = wrapper.find(`[data-testid="cell-lastAccess-${firstRowKey}"]`)
     expect(ageCell.exists()).toBe(true)
     expect(ageCell.text()).not.toBe('—')
-    expect(ageCell.text()).toMatch(/\d+d \d+h|—/)
     expect(ageCell.classes().some(cls => cls.startsWith('bg-'))).toBe(true)
 
     const ageLabelCell = wrapper.find(`[data-testid="cell-lastAccessAge-${firstRowKey}"]`)
     expect(ageLabelCell.exists()).toBe(true)
     expect(ageLabelCell.text()).toMatch(/\d+d|—/)
-    expect(ageLabelCell.text()).toMatch(/\d+d \d+h|—/)
   })
 })

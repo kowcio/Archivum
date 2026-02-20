@@ -105,12 +105,14 @@ const columns: QTableProps['columns'] = [
     sortable: true
   },
   {name: 'lastAccess', label: 'Last Access', field: 'lastAccess', align: 'left', sortable: true},
+  {name: 'lastAccessAge', label: 'Age', field: 'lastAccessAge', align: 'left', sortable: true},
 ];
 
 const rows = computed(() =>
   TabRow.fromTabs(tabs.value).map((row, index) => ({
     ...row,
     ordinal: index + 1,
+    lastAccessAge: row.lastAccessDays != null ? `${row.lastAccessDays}d` : '—',
   }))
 );
 
