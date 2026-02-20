@@ -1,7 +1,7 @@
-import { createApp, type App as VueApp, type Component } from 'vue';
+import { createApp, type App as VueApp } from 'vue';
 import { createPinia, type Pinia } from 'pinia';
 import { useGlobalStore } from '@/stores/globalStore.ts';
-import { Quasar, QTable, QTd, QTr } from 'quasar';
+// import { Quasar, QTable, QTd, QTr } from 'quasar';
 import { APP_VERSION } from '@/globals';
 
 /**
@@ -9,7 +9,7 @@ import { APP_VERSION } from '@/globals';
  * This ensures consistent setup across all entry points
  */
 export interface AppInitOptions {
-  rootComponent: Component;
+  rootComponent: any;
   mountTarget: string | HTMLElement;
 }
 
@@ -32,13 +32,13 @@ export async function initializeApp(options: AppInitOptions): Promise<Initialize
   app.config.globalProperties.APP_VERSION = APP_VERSION;
 
   // Quasar components (add more when you use them in your components)
-  app.use(Quasar, {
-    components: {
-      QTable,
-      QTr,
-      QTd,
-    },
-  });
+  // app.use(Quasar, {
+  //   components: {
+  //     QTable,
+  //     QTr,
+  //     QTd,
+  //   },
+  // });
 
   // Create and use Pinia
   const pinia = createPinia();

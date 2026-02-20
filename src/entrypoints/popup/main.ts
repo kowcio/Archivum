@@ -1,4 +1,4 @@
-import { initializeApp } from '@/entrypoints/app-init';
+import { initializeApp } from '@/utils/app-init';
 import AppPopup from './App.vue';
 
 console.debug('[EXT-DBG] popup initializing - TOKEN:EXT_DBG_POPUP_v1');

@@ -2,27 +2,9 @@ import {quasar} from '@quasar/vite-plugin'
 // @ts-ignore
 import {defineConfig} from 'wxt'
 
-// Polyfill dla `crypto.hash` usunięty — projekt zakłada Node >= 22, więc nie potrzeba dodatkowego kodu.
-
 // See https://wxt.dev/api/config.html
 export default defineConfig((env: { browser: string }) => {
   const browser = env?.browser ?? 'chrome'
-
-  const webAccessibleResources = [
-    {
-      resources: ['content-scripts/content.css'],
-      matches: ['*://*/*'],
-    },
-    {
-      resources: ['content-scripts/kowalski.css'],
-      matches: ['*://*.wxt.dev/*'],
-    },
-  ] as const
-
-  const chromeWebAccessibleResources = webAccessibleResources.map((resource) => ({
-    ...resource,
-    use_dynamic_url: true,
-  }))
 
   return {
     modules: ['@wxt-dev/module-vue'],
@@ -57,7 +39,18 @@ export default defineConfig((env: { browser: string }) => {
           page: 'options.html',
           open_in_tab: true,
         },
-        web_accessible_resources: browser === 'chrome' ? chromeWebAccessibleResources : webAccessibleResources,
+        web_accessible_resources: [
+          {
+            resources: ['content-scripts/content.css'],
+            matches: ['*://*/*'],
+            use_dynamic_url: browser === 'chrome'
+          },
+          {
+            resources: ['content-scripts/kowalski.css'],
+            matches: ['*://*.wxt.dev/*'],
+            use_dynamic_url: browser === 'chrome'
+          },
+        ],
       } as const
 
       if (browser === 'firefox') {
@@ -66,7 +59,10 @@ export default defineConfig((env: { browser: string }) => {
           content_security_policy: {
             extension_pages: "script-src 'self'; object-src 'self'",
           },
-          web_accessible_resources: webAccessibleResources,
+          web_accessible_resources: baseManifest.web_accessible_resources.map(({
+                                                                                 use_dynamic_url,
+                                                                                 ...rest
+                                                                               }) => rest),
         }
       }
 
@@ -79,9 +75,6 @@ export default defineConfig((env: { browser: string }) => {
     })(),
 
     vite: () => ({
-      define: {
-        APP_VERSION: JSON.stringify(process.env.npm_package_version || '0.0.1'),
-      },
       plugins: [
         quasar({
           sassVariables: 'src/quasar-variables.sass',
