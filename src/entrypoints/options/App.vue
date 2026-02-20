@@ -2,7 +2,7 @@
   <div id="options">
     <h1>Extension Options (Vue){{ currentDate }}</h1>
 
-    <h1> Tabs table</h1>
+    <h1> Tabs table x </h1>
 
     <div style="margin-top:24px; display: flex; justify-content: center;">
       <q-table

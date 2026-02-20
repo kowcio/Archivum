@@ -13,8 +13,9 @@
     "src/test/**/*"
   ],
   "compilerOptions": {
-    // Inherits from root: target, module, moduleResolution, noEmit,
+    // Inherits from root: target, module, moduleResolution,
     // esModuleInterop, forceConsistentCasingInFileNames, strict, skipLibCheck
+    "noEmit": true,
 
     "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.app.tsbuildinfo",
     "resolveJsonModule": true,
