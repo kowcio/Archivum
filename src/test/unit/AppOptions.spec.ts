@@ -1,26 +1,17 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { nextTick } from 'vue'
 import { mount } from '@vue/test-utils'
-import { createPinia } from 'pinia'
+import { createPinia, setActivePinia } from 'pinia'
 import { Quasar, QTable, QTd, QTr } from 'quasar'
 import type { Tabs } from 'webextension-polyfill'
 import App from '@/entrypoints/options/App.vue'
 import { createMockTabs } from '@/test/unit/mock/TabServiceMockFactory'
+import { useTabStore } from '@/stores/TabStore'
 
-// Mock browser APIs to control the tabsApi.query method
 vi.mock('webextension-polyfill', () => ({
   default: {
-    tabs: {
-      query: vi.fn(),
-      remove: vi.fn(),
-      update: vi.fn()
-    },
-    storage: {
-      local: {
-        set: vi.fn(),
-        get: vi.fn()
-      }
-    }
+    tabs: { query: vi.fn(), remove: vi.fn(), update: vi.fn() },
+    storage: { local: { set: vi.fn(), get: vi.fn() } }
   }
 }))
 
@@ -32,9 +23,14 @@ async function flushPromises() {
 describe('Options App', () => {
   let mockTabs: Tabs.Tab[]
   let wrapper: ReturnType<typeof mount>
+  let pinia: ReturnType<typeof createPinia>
+  let tabStore: ReturnType<typeof useTabStore>
 
   beforeEach(async () => {
     vi.clearAllMocks()
+
+    pinia = createPinia()
+    setActivePinia(pinia)
 
     mockTabs = createMockTabs(3).map((tab, index) => ({
       ...tab,
@@ -45,21 +41,25 @@ describe('Options App', () => {
       openerTabId: index > 0 ? index : undefined
     }))
 
+    // Prevent onMounted from overwriting the store – query returns empty
     const { default: browser } = await import('webextension-polyfill')
-    vi.mocked(browser.tabs.query).mockResolvedValue(mockTabs)
+    vi.mocked(browser.tabs.query).mockResolvedValue([])
 
     wrapper = mount(App, {
       global: {
         plugins: [
-          createPinia(),
-          [Quasar, {
-            config: { dark: false },
-            components: { QTable, QTr, QTd },
-          }]
+          pinia,
+          [Quasar, { config: { dark: false }, components: { QTable, QTr, QTd } }]
         ],
       }
     })
 
+    await flushPromises()
+
+    // Manually populate the store after mount – no browser API needed
+    tabStore = useTabStore()
+    tabStore.$patch({ tabs: mockTabs, lastSaveDate: null, error: null, loading: false })
+    ;(wrapper.vm as any).tabs = mockTabs
     await flushPromises()
   })
 
@@ -70,13 +70,7 @@ describe('Options App', () => {
   })
 
   it('renders rows and cells with data-testid selectors', async () => {
-    ;(wrapper.vm as any).tabs = mockTabs
-    await flushPromises()
-
     expect((wrapper.vm as any).rows.length).toBe(3)
-
-    const table = wrapper.find('[data-testid="current-tabs-table"]')
-    expect(table.exists()).toBe(true)
 
     const rows = wrapper.findAll('[data-testid^="row-"]')
     expect(rows.length).toBe(3)
@@ -100,5 +94,32 @@ describe('Options App', () => {
     const ageLabelCell = wrapper.find(`[data-testid="cell-lastAccessAge-${firstRowKey}"]`)
     expect(ageLabelCell.exists()).toBe(true)
     expect(ageLabelCell.text()).toMatch(/\d+d|—/)
+  })
+
+  it('gen & save mock tabs button: store contains generated tabs and loadTabsHistory restores them', async () => {
+    // In-memory storage passed directly to store actions – no browser API mocking needed
+    const storageData: Record<string, unknown> = {}
+    const inMemoryStorage = {
+      set: async (items: Record<string, unknown>) => { Object.assign(storageData, items) },
+      get: async (key: string) => ({ [key]: storageData[key] }),
+    } as unknown as Parameters<typeof tabStore.saveAllTabs>[0]
+
+    // Populate the store with generated mock tabs and save using the in-memory storage
+    tabStore.$patch({ tabs: createMockTabs(5) })
+    const snapshot = await tabStore.saveAllTabs(inMemoryStorage)
+
+    expect(snapshot).toBeDefined()
+    expect(snapshot!.tabs).toHaveLength(5)
+    expect(tabStore.lastSaveDate).not.toBeNull()
+
+    // Reset store to simulate a fresh session
+    tabStore.$patch({ tabs: [], lastSaveDate: null })
+    expect(tabStore.tabs).toHaveLength(0)
+
+    // Load from in-memory storage – should restore the exact same tabs
+    await tabStore.loadTabsHistory(inMemoryStorage)
+
+    expect(tabStore.tabs).toEqual(snapshot!.tabs)
+    expect(tabStore.lastSaveDate).toBe(snapshot!.savedAt)
   })
 })

@@ -2,18 +2,36 @@
   <div id="options">
     <h1>Extension Options (Vue){{ currentDate }}</h1>
 
+    <h1> Options for tabs</h1>
+
+    <div style="display: flex; flex-direction: column; align-items: flex-start; gap: 8px; margin: 12px 0;">
+      <q-btn-group>
+        <q-btn data-testid="btn-load-tabs" label="Load Tabs" color="primary" :loading="tabStore.loading" @click="handleLoadTabs" />
+        <q-btn data-testid="btn-save-tabs" label="Save Tabs" color="secondary" :loading="tabStore.loading" @click="handleSaveTabs" />
+        <q-btn data-testid="btn-gen-mock-tabs" label="Gen &amp; save mock tabs" color="warning" :loading="tabStore.loading" @click="handleGenMockTabs" />
+      </q-btn-group>
+      <span v-if="tabStore.lastSaveDate" style="font-size: 0.8rem; color: #666;">
+        Last saved: {{ tabStore.lastSaveDate }}
+      </span>
+      <span v-if="tabStore.error" style="font-size: 0.8rem; color: red;">
+        Error: {{ tabStore.error }}
+      </span>
+    </div>
+
     <h1> Tabs table x </h1>
 
     <div style="margin-top:24px; display: flex; justify-content: center;">
       <q-table
-        style="width: 80%;"
+        style="width: 80%; table-layout: fixed;"
         data-testid="current-tabs-table"
         title="Open Tabs"
         :columns="columns"
         :rows="rows"
+        class="rounded-borders bg-grey-2"
         row-key="rowKey"
         flat
         bordered
+        dense
         wrap-cells
         :pagination="{ rowsPerPage: 25 }"
       >
@@ -52,37 +70,21 @@
       </q-table>
     </div>
 
-    <div>
-      <label>
-        Username
-        <input v-model="username" type="text"/>
-      </label>
-    </div>
-    <div>
-      <label>
-        <input v-model="enabled" type="checkbox"/> Enable feature
-      </label>
-    </div>
-    <div style="margin-top:12px">
-      <button @click="save">Save</button>
-      <span style="margin-left:12px;color:green" v-if="saved">Saved</span>
-    </div>
-
   </div>
 </template>
 
 <script setup lang="ts">
 import {computed, onMounted, ref} from 'vue';
 import {useGlobalStore} from '@/stores/globalStore.ts';
-import TabService from '@/services/TabService';
+import {useTabStore} from '@/stores/TabStore';
 import type {Tabs} from 'webextension-polyfill';
 import type {QTableProps} from 'quasar';
 import dayjs from "dayjs";
-import { TabRow } from '@/models/tabs/TabRow';
+import {TabRow} from '@/models/tabs/TabRow';
 
 
 const global = useGlobalStore();
-const tabService = new TabService();
+const tabStore = useTabStore();
 const username = ref('');
 const enabled = ref(false);
 const saved = ref(false);
@@ -90,34 +92,35 @@ const currentDate = computed<string>(() => dayjs().format('HH:mm:ss'));
 const tabs = ref<Tabs.Tab[]>([]);
 
 const columns: QTableProps['columns'] = [
-  {name: 'ordinal', label: '#', field: 'ordinal', align: 'left'},
-  {name: 'close', label: '', field: 'close', align: 'left'},
-  {name: 'id', label: 'ID', field: 'id', align: 'left', sortable: true},
-  {name: 'thumbnail', label: '', field: 'thumbnail', align: 'left'},
-  {name: 'domain', label: 'Domain', field: 'domain', align: 'left', sortable: true},
-  {name: 'title', label: 'Title', field: 'title', align: 'left', sortable: true},
-  {name: 'url', label: 'URL', field: 'url', align: 'left'},
-  {
-    name: 'openerTabId',
-    label: 'Opener Tab ID',
-    field: 'openerTabId',
-    align: 'left',
-    sortable: true
-  },
-  {name: 'lastAccess', label: 'Last Access', field: 'lastAccess', align: 'left', sortable: true},
-  {name: 'lastAccessAge', label: 'Age', field: 'lastAccessAge', align: 'left', sortable: true},
+  {name: 'ordinal',       label: '#',           field: 'ordinal',       align: 'left', headerClasses: 'col-auto', sortable: true},
+  {name: 'close',         label: '',            field: 'close',         align: 'left', headerClasses: 'col-auto'},
+  {name: 'id',            label: 'ID',          field: 'id',            align: 'left', headerClasses: 'col-auto', sortable: true},
+  {name: 'thumbnail',     label: '',            field: 'thumbnail',     align: 'left', headerClasses: 'col-auto'},
+  {name: 'domain',        label: 'Domain',      field: 'domain',        align: 'left', headerClasses: 'col-2',    sortable: true},
+  {name: 'title',         label: 'Title',       field: 'title',         align: 'left', headerClasses: 'col-2',    sortable: true},
+  {name: 'url',           label: 'URL',         field: 'url',           align: 'left', headerClasses: 'col-4',    sortable: true},
+  {name: 'openerId',      label: 'Opener ID',   field: 'openerTabId',   align: 'left', headerClasses: 'col-1'},
+  {name: 'lastAccess',    label: 'Last Access', field: 'lastAccess',    align: 'left', headerClasses: 'col-1',    sortable: true},
+  {name: 'lastAccessAge', label: 'Age',         field: 'lastAccessAge', align: 'left', headerClasses: 'col-auto', sortable: true},
 ];
 
 const rows = computed(() =>
   TabRow.fromTabs(tabs.value).map((row, index) => ({
     ...row,
     ordinal: index + 1,
+    url: shortenUrl(row.url),
     lastAccessAge: row.lastAccessDays != null ? `${row.lastAccessDays}d` : '—',
   }))
 );
 
+function shortenUrl(url: string): string {
+  if (!url) return url;
+  const parts = url.split('-');
+  return parts.length > 1 ? parts.slice(0, -1).join('-') : url;
+}
+
 function getLastAccessMsg(row: TabRow): string {
-  return `${row.lastAccessDays} days ${row.lastAccessHours} hours ago`;
+  return `${row.lastAccessDays} days ago`;
   // if (!row.lastAccess) return '—';
   // return dayjs(row.lastAccess).format('YYYY-MM-DD HH:mm');
 }
@@ -131,21 +134,47 @@ onMounted(async () => {
 });
 
 async function loadTabs(): Promise<void> {
-  try {
-    tabs.value = await tabService.getAllOpenedTabs();
-  } catch (error: unknown) {
-    console.error(error);
-  }
+  tabs.value = await tabStore.getAllOpenedTabs();
 }
 
-async function handleCloseTab(tabId: number | null) {
+async function handleCloseTab(tabId: number | null): Promise<void> {
   if (tabId == null) return;
-  try {
-    await tabService.closeTab(tabId);
-    tabs.value = tabs.value.filter((tab) => tab.id !== tabId);
-  } catch (error) {
-    console.error('Failed to close tab', error);
-  }
+  tabs.value = await tabStore.closeTab(tabId);
+}
+
+function createMockTabs(count = 5): Tabs.Tab[] {
+  const mockData = [
+    { url: 'https://github.com/microsoft/vscode', title: 'VS Code · GitHub', favIconUrl: 'https://github.com/favicon.ico' },
+    { url: 'https://developer.mozilla.org/en-US/docs/Web/API', title: 'Web APIs | MDN', favIconUrl: 'https://developer.mozilla.org/favicon.ico' },
+    { url: 'https://vuejs.org/guide/introduction', title: 'Introduction — Vue.js', favIconUrl: 'https://vuejs.org/favicon.ico' },
+    { url: 'https://pinia.vuejs.org/core-concepts/', title: 'Core Concepts | Pinia', favIconUrl: 'https://pinia.vuejs.org/favicon.ico' },
+    { url: 'https://vitest.dev/guide/', title: 'Getting Started | Vitest', favIconUrl: 'https://vitest.dev/favicon.ico' },
+  ];
+  return Array.from({ length: count }, (_, index) => ({
+    id: index + 1,
+    index,
+    windowId: 1,
+    active: index === 0,
+    highlighted: index === 0,
+    pinned: false,
+    incognito: false,
+    url: mockData[index % mockData.length].url,
+    title: mockData[index % mockData.length].title,
+    favIconUrl: mockData[index % mockData.length].favIconUrl,
+  } satisfies Tabs.Tab));
+}
+
+async function handleLoadTabs(): Promise<void> {
+  tabs.value = await tabStore.getAllOpenedTabs();
+}
+
+async function handleSaveTabs(): Promise<void> {
+  await tabStore.saveAllTabs();
+}
+
+async function handleGenMockTabs(): Promise<void> {
+  tabStore.tabs = createMockTabs(5);
+  tabs.value = (await tabStore.saveAllTabs())?.tabs ?? tabStore.tabs;
 }
 
 
@@ -163,21 +192,7 @@ html, body, #app {
   margin: 0;
 }
 
-#options {
-  min-height: 100vh;
-  padding: 16px;
-  box-sizing: border-box;
-}
 </style>
 
 <style scoped>
-input[type='text'] {
-  width: 320px;
-  padding: 6px;
-}
-
-label {
-  display: block;
-  margin: 8px 0;
-}
 </style>
