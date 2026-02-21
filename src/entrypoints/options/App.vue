@@ -31,7 +31,7 @@
         bordered
         dense
         wrap-cells
-        :pagination="{ rowsPerPage: 25 }"
+        virtual-scroll
       >
         <template #body="props">
           <q-tr :props="props" :data-testid="`row-${props.row.rowKey}`">
@@ -98,25 +98,24 @@ const columns: QTableProps['columns'] = [
   {name: 'domain',        label: 'Domain',      field: 'domain',        align: 'left', headerClasses: 'col-2',    sortable: true},
   {name: 'title',         label: 'Title',       field: 'title',         align: 'left', headerClasses: 'col-2',    sortable: true},
   {name: 'url',           label: 'URL',         field: 'url',           align: 'left', headerClasses: 'col-4',    sortable: true},
-  {name: 'openerId',      label: 'Opener ID',   field: 'openerTabId',   align: 'left', headerClasses: 'col-1'},
+  // {name: 'openerId',      label: 'Opener ID',   field: 'openerTabId',   align: 'left', headerClasses: 'col-1'},
   {name: 'lastAccess',    label: 'Last Access', field: 'lastAccess',    align: 'left', headerClasses: 'col-1',    sortable: true},
-  {name: 'lastAccessAge', label: 'Age',         field: 'lastAccessAge', align: 'left', headerClasses: 'col-auto', sortable: true},
+  // {name: 'lastAccessAge', label: 'Age',         field: 'lastAccessAge', align: 'left', headerClasses: 'col-auto', sortable: true},
 ];
 
 const rows = computed(() =>
   TabRow.fromTabs(tabs.value).map((row, index) => ({
     ...row,
     ordinal: index + 1,
-    url: shortenUrl(row.url),
-    // url: shortenUrl(row.url),
+    title: removeAllAfterLastDash(row.title),
     lastAccessAge: row.lastAccessDays != null ? `${row.lastAccessDays}d` : '—',
   }))
 );
 
-function shortenUrl(url: string): string {
-  if (!url) return url;
-  const parts = url.split('-');
-  return parts.length > 1 ? parts.slice(0, -1).join('-') : url;
+function removeAllAfterLastDash(text: string): string {
+  if (!text) return text;
+  const lastIndex = text.lastIndexOf('-');
+  return lastIndex !== -1 ? text.slice(0, lastIndex).trim() : text;
 }
 
 function getLastAccessMsg(row: TabRow): string {
