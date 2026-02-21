@@ -7,6 +7,7 @@
     <div class="q-col-gutter">
       <q-btn-group class="q-mb-sm">
         <q-btn data-testid="btn-load-tabs" label="Load Tabs" color="primary" :loading="tabStore.loading" @click="handleLoadTabs" />
+        <q-btn data-testid="btn-load-saved-tabs" label="Load Saved Tabs" color="info" :loading="tabStore.loading" @click="handleLoadSavedTabs" />
         <q-btn data-testid="btn-save-tabs" label="Save Tabs" color="secondary" :loading="tabStore.loading" @click="handleSaveTabs" />
         <q-btn data-testid="btn-gen-mock-tabs" label="Gen &amp; save mock tabs" color="warning" :loading="tabStore.loading" @click="handleGenMockTabs" />
       </q-btn-group>
@@ -169,13 +170,16 @@ async function handleLoadTabs(): Promise<void> {
   tabs.value = await tabStore.getAllOpenedTabs();
 }
 
+async function handleLoadSavedTabs(): Promise<void> {
+  tabs.value = (await tabStore.loadTabsHistory())?.tabs ?? [];
+}
+
 async function handleSaveTabs(): Promise<void> {
   await tabStore.saveAllTabs();
 }
 
-async function handleGenMockTabs(): Promise<void> {
-  tabStore.tabs = createMockTabs(5);
-  tabs.value = (await tabStore.saveAllTabs())?.tabs ?? tabStore.tabs;
+function handleGenMockTabs(): void {
+  tabs.value = createMockTabs(5);
 }
 
 
