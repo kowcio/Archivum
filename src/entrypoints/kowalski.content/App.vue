@@ -180,11 +180,6 @@ function loadChartsFromLocalStorage() {
 </script>
 
 <style>
-.version-info {
-  margin: 10px 0;
-  font-size: 0.9em;
-  color: #666;
-}
 
 .charts-row {
   display: flex;

@@ -1,11 +1,11 @@
 <template>
-  <div id="options">
-    <h1>Extension Options (Vue){{ currentDate }}</h1>
+  <div class="version-info">Version: {{ version }}</div>
+  <div id="options" class="row">
+  <div class="col-10 offset-1">
 
-    <h1> Options for tabs</h1>
-
-    <div style="display: flex; flex-direction: column; align-items: flex-start; gap: 8px; margin: 12px 0;">
-      <q-btn-group>
+    <div class="row q-mt-md">
+    <div class="q-col-gutter">
+      <q-btn-group class="q-mb-sm">
         <q-btn data-testid="btn-load-tabs" label="Load Tabs" color="primary" :loading="tabStore.loading" @click="handleLoadTabs" />
         <q-btn data-testid="btn-save-tabs" label="Save Tabs" color="secondary" :loading="tabStore.loading" @click="handleSaveTabs" />
         <q-btn data-testid="btn-gen-mock-tabs" label="Gen &amp; save mock tabs" color="warning" :loading="tabStore.loading" @click="handleGenMockTabs" />
@@ -16,18 +16,17 @@
       <span v-if="tabStore.error" style="font-size: 0.8rem; color: red;">
         Error: {{ tabStore.error }}
       </span>
+      </div>
     </div>
 
-    <h1> Tabs table x </h1>
-
-    <div style="margin-top:24px; display: flex; justify-content: center;">
+    <div style="margin-top:24px; display: flex; ">
       <q-table
         style="width: 80%; table-layout: fixed;"
         data-testid="current-tabs-table"
         title="Open Tabs"
         :columns="columns"
         :rows="rows"
-        class="rounded-borders bg-grey-2"
+        class="rounded-borders bg-grey-1"
         row-key="rowKey"
         flat
         bordered
@@ -71,6 +70,7 @@
     </div>
 
   </div>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -79,16 +79,16 @@ import {useGlobalStore} from '@/stores/globalStore.ts';
 import {useTabStore} from '@/stores/TabStore';
 import type {Tabs} from 'webextension-polyfill';
 import type {QTableProps} from 'quasar';
-import dayjs from "dayjs";
 import {TabRow} from '@/models/tabs/TabRow';
+import globals from '@/globals';
 
+const version = globals.APP_VERSION;
 
 const global = useGlobalStore();
 const tabStore = useTabStore();
 const username = ref('');
 const enabled = ref(false);
 const saved = ref(false);
-const currentDate = computed<string>(() => dayjs().format('HH:mm:ss'));
 const tabs = ref<Tabs.Tab[]>([]);
 
 const columns: QTableProps['columns'] = [
@@ -187,12 +187,10 @@ async function save() {
 </script>
 
 <style>
-html, body, #app {
-  height: 100%;
-  margin: 0;
-}
+
 
 </style>
 
 <style scoped>
+
 </style>

@@ -62,12 +62,6 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.version-info {
-  margin: 10px 0;
-  font-size: 0.9em;
-  color: #666;
-}
-
 .tab-list {
   list-style: none;
   padding: 0;
