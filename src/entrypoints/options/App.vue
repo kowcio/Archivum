@@ -32,6 +32,8 @@
         dense
         wrap-cells
         virtual-scroll
+        style="max-height: 70vh;"
+        :rows-per-page-options="[0]"
       >
         <template #body="props">
           <q-tr :props="props" :data-testid="`row-${props.row.rowKey}`">
