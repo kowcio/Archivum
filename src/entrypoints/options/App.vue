@@ -19,14 +19,13 @@
       </div>
     </div>
 
-    <div style="margin-top:24px; display: flex; ">
+    <div style="margin:24px; display: flex; ">
       <q-table
-        style="width: 80%; table-layout: fixed;"
         data-testid="current-tabs-table"
         title="Open Tabs"
         :columns="columns"
         :rows="rows"
-        class="rounded-borders bg-grey-1"
+        class="rounded-borders bg-grey-1 q-table--striped"
         row-key="rowKey"
         flat
         bordered
@@ -94,7 +93,7 @@ const tabs = ref<Tabs.Tab[]>([]);
 const columns: QTableProps['columns'] = [
   {name: 'ordinal',       label: '#',           field: 'ordinal',       align: 'left', headerClasses: 'col-auto', sortable: true},
   {name: 'close',         label: '',            field: 'close',         align: 'left', headerClasses: 'col-auto'},
-  {name: 'id',            label: 'ID',          field: 'id',            align: 'left', headerClasses: 'col-auto', sortable: true},
+  // {name: 'id',            label: 'ID',          field: 'id',            align: 'left', headerClasses: 'col-auto', sortable: true},
   {name: 'thumbnail',     label: '',            field: 'thumbnail',     align: 'left', headerClasses: 'col-auto'},
   {name: 'domain',        label: 'Domain',      field: 'domain',        align: 'left', headerClasses: 'col-2',    sortable: true},
   {name: 'title',         label: 'Title',       field: 'title',         align: 'left', headerClasses: 'col-2',    sortable: true},
@@ -109,6 +108,7 @@ const rows = computed(() =>
     ...row,
     ordinal: index + 1,
     url: shortenUrl(row.url),
+    // url: shortenUrl(row.url),
     lastAccessAge: row.lastAccessDays != null ? `${row.lastAccessDays}d` : '—',
   }))
 );
