@@ -1,6 +1,7 @@
 import { vi } from 'vitest'
 import type { Storage, Tabs } from 'webextension-polyfill'
 import TabService, { type TabsSnapshot } from '@/services/TabService.ts'
+import dayjs from "dayjs";
 
 const TAB_HISTORY_KEY = 'tab_history'
 
@@ -19,6 +20,7 @@ export const createMockTabs = (count = 2): Tabs.Tab[] =>
         windowId: 1,
         active: index === 0,
         highlighted: index === 0,
+        lastAccessed: dayjs().subtract(6,'day').unix(),
         pinned: false,
         incognito: false,
     } satisfies Tabs.Tab))

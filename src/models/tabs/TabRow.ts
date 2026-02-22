@@ -30,7 +30,7 @@ export class TabRow {
     this.domain = this.extractDomain(tab.url);
 
     // Derived fields - text truncation
-    this.title = this.truncateText(tab.title);
+    this.title = this.removeAllAfterLastDash(tab.title);
     this.url = this.truncateText(tab.url);
 
     // Derived fields - last access calculations
@@ -48,6 +48,8 @@ export class TabRow {
     }
     this.lastAccessClass = this.getAgeBgClass(this.lastAccessDays ?? 0);
 
+    // Add dot to title based on age classification
+    this.title = this.addDotToTitle(this.title, this.lastAccessDays ?? 0);
   }
 
   /**
@@ -86,6 +88,31 @@ export class TabRow {
     if (days <= 14) return 'bg-yellow-3';
     if (days <= 21) return 'bg-orange-3';
     return 'bg-red-3';
+  }
+
+  /**
+   * Removes everything after the last dash in the text
+   */
+  private removeAllAfterLastDash(text: string): string {
+    if (!text) return text
+    const lastIndex = text.lastIndexOf('-')
+    return lastIndex !== -1 ? text.slice(0, lastIndex).trim() : text
+  }
+
+  /**
+   * Adds a colored dot to the title based on age in days
+   */
+  private addDotToTitle(title: string, days: number): string {
+    if (!Number.isFinite(days)) return title;
+
+    let dot = '';
+    // if (days <= 7) dot = '🟢';
+    if (days <= 7) dot = '';
+    else if (days <= 14) dot = '🟡';
+    else if (days <= 21) dot = '🟠';
+    else dot = '🔴';
+
+    return `${dot} ${title}`;
   }
 
   /**

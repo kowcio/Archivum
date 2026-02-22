@@ -9,7 +9,7 @@
         <q-btn data-testid="btn-load-tabs" label="Load Tabs" color="primary" :loading="tabStore.loading" @click="handleLoadTabs" />
         <q-btn data-testid="btn-load-saved-tabs" label="Load Saved Tabs" color="info" :loading="tabStore.loading" @click="handleLoadSavedTabs" />
         <q-btn data-testid="btn-save-tabs" label="Save Tabs" color="secondary" :loading="tabStore.loading" @click="handleSaveTabs" />
-        <q-btn data-testid="btn-gen-mock-tabs" label="Gen &amp; save mock tabs" color="warning" :loading="tabStore.loading" @click="handleGenMockTabs" />
+        <q-btn data-testid="btn-gen-mock-tabs" label="Gen & save mock tabs" color="warning" :loading="tabStore.loading" @click="handleGenMockTabs" />
       </q-btn-group>
       <span v-if="tabStore.lastSaveDate" style="font-size: 0.8rem; color: #666;">
         Last saved: {{ tabStore.lastSaveDate }}
@@ -17,6 +17,21 @@
       <span v-if="tabStore.error" style="font-size: 0.8rem; color: red;">
         Error: {{ tabStore.error }}
       </span>
+      </div>
+    </div>
+
+    <div class="row q-mt-md">
+      <div class="col-1">
+        <q-input
+          data-testid="tabs-marking-age"
+          label="Tabs marking age (days)"
+          type="number"
+          v-model.number="tabsMarkingAge"
+          :min="AppConfig.DEFAULT_MIN_TABS_MARKING_AGE"
+          :max="AppConfig.DEFAULT_MAX_TABS_MARKING_AGE"
+          :disable="tabStore.loading"
+          @update:model-value="handleTabsMarkingAgeChange"
+        />
       </div>
     </div>
 
@@ -35,6 +50,7 @@
         virtual-scroll
         style="max-height: 70vh;"
         :rows-per-page-options="[0]"
+        :pagination="{ sortBy: 'lastAccess', descending: true }"
       >
         <template #body="props">
           <q-tr :props="props" :data-testid="`row-${props.row.rowKey}`">
@@ -55,7 +71,7 @@
                 <span v-else>—</span>
               </template>
               <template v-else-if="col.name === 'lastAccess'" :class="props.row.lastAccessClass">
-                {{ getLastAccessMsg(props.row) || '—' }}
+                {{ tabService.getLastAccessMsg(props.row) || '—' }}
               </template>
               <template v-else-if="col.name === 'url'">
                 <a v-if="props.row.url" :href="props.row.url" target="_blank"
@@ -76,22 +92,35 @@
 </template>
 
 <script setup lang="ts">
-import {computed, onMounted, ref} from 'vue';
-import {useGlobalStore} from '@/stores/globalStore.ts';
-import {useTabStore} from '@/stores/TabStore';
+import {computed, onMounted, ref, watch} from 'vue';
+import {storeToRefs}from 'pinia';
+import TabService from '@/services/TabService';
+import {useGlobalStore}from '@/stores/globalStore.ts';
+import {useTabStore}from '@/stores/TabStore';
 import type {Tabs} from 'webextension-polyfill';
 import type {QTableProps} from 'quasar';
 import {TabRow} from '@/models/tabs/TabRow';
 import globals from '@/globals';
+import { AppConfig } from '@/constants/GlobalFlags';
+
+const tabService = new TabService();
 
 const version = globals.APP_VERSION;
 
 const global = useGlobalStore();
 const tabStore = useTabStore();
+const { tabs: storeTabs } = storeToRefs(tabStore);
 const username = ref('');
 const enabled = ref(false);
 const saved = ref(false);
 const tabs = ref<Tabs.Tab[]>([]);
+const tabsMarkingAge = ref(global.flags.tabsMarkingAge ?? 0);
+
+watch(
+  storeTabs,
+  (newTabs) => { tabs.value = newTabs; },
+  { immediate: true },
+);
 
 const columns: QTableProps['columns'] = [
   {name: 'ordinal',       label: '#',           field: 'ordinal',       align: 'left', headerClasses: 'col-auto', sortable: true},
@@ -103,36 +132,37 @@ const columns: QTableProps['columns'] = [
   {name: 'url',           label: 'URL',         field: 'url',           align: 'left', headerClasses: 'col-4',    sortable: true},
   // {name: 'openerId',      label: 'Opener ID',   field: 'openerTabId',   align: 'left', headerClasses: 'col-1'},
   {name: 'lastAccess',    label: 'Last Access', field: 'lastAccess',    align: 'left', headerClasses: 'col-1',    sortable: true},
-  // {name: 'lastAccessAge', label: 'Age',         field: 'lastAccessAge', align: 'left', headerClasses: 'col-auto', sortable: true},
+  {name: 'lastAccessAge', label: 'Age',         field: 'lastAccessAge', align: 'left', headerClasses: 'col-auto', sortable: true},
 ];
 
 const rows = computed(() =>
-  TabRow.fromTabs(tabs.value).map((row, index) => ({
-    ...row,
-    ordinal: index + 1,
-    title: removeAllAfterLastDash(row.title),
-    lastAccessAge: row.lastAccessDays != null ? `${row.lastAccessDays}d` : '—',
-  }))
+  TabRow.fromTabs(tabs.value).map((row, index) => {
+    const ageClassification = tabService.getAgeClassification(row);
+    return {
+      ...row,
+      ordinal: index + 1,
+      // title: row.title,
+      lastAccessAge: Number.isFinite(ageClassification.days) ? `${ageClassification.days}d` : '—',
+      lastAccessClass: ageClassification.cssClass,
+    };
+  }).filter(row => {
+    // Filter out tabs that are not older than the specified age threshold
+    const thresholdDays = tabsMarkingAge.value ?? 0;
+    if (thresholdDays === 0) return true; // Show all tabs if threshold is 0
+
+    const rowDays = Number(row.lastAccessAge?.replace('d', '') ?? '0');
+    return rowDays >= thresholdDays;
+  })
 );
-
-function removeAllAfterLastDash(text: string): string {
-  if (!text) return text;
-  const lastIndex = text.lastIndexOf('-');
-  return lastIndex !== -1 ? text.slice(0, lastIndex).trim() : text;
-}
-
-function getLastAccessMsg(row: TabRow): string {
-  return `${row.lastAccessDays} days ago`;
-  // if (!row.lastAccess) return '—';
-  // return dayjs(row.lastAccess).format('YYYY-MM-DD HH:mm');
-}
-
 
 onMounted(async () => {
   await global.init();
   username.value = global.flags.username ?? '';
   enabled.value = !!global.flags.enabled;
+  tabsMarkingAge.value = global.flags.tabsMarkingAge ?? 0;
   await loadTabs();
+  console.log('tabs', tabs.value)
+  await tabService.markOldTabs();
 });
 
 async function loadTabs(): Promise<void> {
@@ -180,6 +210,18 @@ async function handleSaveTabs(): Promise<void> {
 
 function handleGenMockTabs(): void {
   tabs.value = createMockTabs(5);
+}
+
+async function handleTabsMarkingAgeChange(): Promise<void> {
+  // Use the input value directly (simplified - no validation for now)
+  const inputValue = tabsMarkingAge.value ?? 0;
+
+  global.flags = {...global.flags, tabsMarkingAge: inputValue};
+  await global.save();
+  await tabService.markOldTabsWithAgeThreshold(inputValue);
+
+  // Also mark all currently open tabs reactively
+  await tabService.markOldTabs();
 }
 
 

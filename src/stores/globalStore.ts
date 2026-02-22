@@ -1,18 +1,15 @@
 import { defineStore } from 'pinia'
 import StorageService from '@/services/StorageService.ts'
-
-const STORAGE_KEY = 'global_store'
-
-export interface GlobalFlags {
-    username?: string
-    enabled?: boolean
-    [key: string]: unknown
-}
+import { AppConfig } from '@/constants/GlobalFlags'
 
 export interface GlobalState {
     appName: string
     version?: string
-    flags: GlobalFlags
+    flags: {
+        username?: string
+        enabled?: boolean
+        tabsMarkingAge?: number
+    }
     lastUpdated?: number
 }
 
@@ -45,7 +42,7 @@ export const useGlobalStore = defineStore('global', {
             this.lastUpdated = Date.now()
         },
         async load() {
-            const data = await StorageService.get<Partial<GlobalState>>(STORAGE_KEY)
+            const data = await StorageService.get<Partial<GlobalState>>(AppConfig.STORAGE_KEY)
             if (data) {
                 this.appName = data.appName ?? this.appName
                 this.version = data.version ?? this.version
@@ -61,7 +58,7 @@ export const useGlobalStore = defineStore('global', {
         },
         async save() {
             this.lastUpdated = Date.now()
-            await StorageService.set(STORAGE_KEY, {
+            await StorageService.set(AppConfig.STORAGE_KEY, {
                 appName: this.appName,
                 version: this.version,
                 flags: this.flags,
@@ -70,7 +67,7 @@ export const useGlobalStore = defineStore('global', {
         },
         initStorageSync() {
             StorageService.onChanged((changes) => {
-                const payload = changes[STORAGE_KEY]
+                const payload = changes[AppConfig.STORAGE_KEY]
                 if (!payload) return
                 if (payload.lastUpdated && payload.lastUpdated === this.lastUpdated) return
                 this.appName = payload.appName ?? this.appName
