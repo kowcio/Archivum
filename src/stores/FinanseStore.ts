@@ -1,9 +1,9 @@
 import { defineStore } from 'pinia'
-import type { Finanse } from '@/models/EstateCare/DajDrzewoFinHistoria'
-import type { DocumentSzczegoly, Pozycja } from '@/models/EstateCare/DajDokSzczegoly'
-import type { ChartData } from '@/models/Charts'
+import type { Finanse } from '@/models/EstateCare/DajDrzewoFinHistoria.ts'
+import type { DocumentSzczegoly, Pozycja } from '@/models/EstateCare/DajDokSzczegoly.ts'
+import type { ChartData } from '@/models/Charts.ts'
 import dayjs from 'dayjs'
-import FinanseService from '@/content/services/FinanseService'
+import FinanseService from '@/services/FinanseService.ts'
 
 export interface Configuration {
     downloadDocuments: boolean

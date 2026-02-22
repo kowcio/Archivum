@@ -1,0 +1,14 @@
+{
+  "extends": "./tsconfig.node.json",
+  "include": [
+    "test/playwright/**/*.ts",
+    "test/playwright/**/*.js"
+  ],
+  "compilerOptions": {
+    "noEmit": true,
+    "types": [
+      "node",
+      "firefox-webext-browser"
+    ]
+  }
+}

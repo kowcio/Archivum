@@ -1,7 +1,6 @@
 <template>
   <div>
     <h1>Popup Mounted!</h1>
-    <div class="version-info">Version: {{ version }}</div>
   </div>
   <div id="tab-list">
     <h1>Tabs</h1>
@@ -14,22 +13,20 @@
     </ul>
     <button @click="loadTabs()" class="button">Get tabs!</button>
     <button @click="openOptionsPage()" class="button">Options</button>
+    <button @click="openOptionsPageFull()" class="button">OptionsFull</button>
   </div>
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue';
+import {onMounted, ref} from 'vue';
 import browser from 'webextension-polyfill';
-import type { Tabs } from 'webextension-polyfill';
-import globals from '@/globals';
-
-const version = globals.__VERSION__;
+import type {Tabs} from 'webextension-polyfill';
 
 const tabs = ref<Tabs.Tab[]>([]);
 
 async function loadTabs(): Promise<void> {
   try {
-    const fetchedTabs: Tabs.Tab[] = await browser.tabs.query({ currentWindow: true });
+    const fetchedTabs: Tabs.Tab[] = await browser.tabs.query({currentWindow: true});
     fetchedTabs.forEach((tab: Tabs.Tab) => {
       console.log(tab);
       tabs.value.push(tab);
@@ -48,18 +45,23 @@ function openOptionsPage() {
   );
 }
 
+async function openOptionsPageFull() {
+  const url = browser.runtime.getURL('options.html');
+  try {
+    await browser.tabs.create({url});
+    window.close();
+  } catch (error) {
+    console.error('Failed to open options via tabs.create, falling back', error);
+    await browser.runtime.openOptionsPage();
+  }
+}
+
 onMounted(() => {
   console.log('Popup component mounted!');
 });
 </script>
 
 <style scoped>
-.version-info {
-  margin: 10px 0;
-  font-size: 0.9em;
-  color: #666;
-}
-
 .tab-list {
   list-style: none;
   padding: 0;

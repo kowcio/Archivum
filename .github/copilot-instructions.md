@@ -20,18 +20,20 @@ stack: "Vue 3.5 + TypeScript 5.8 + Pinia 3 + Vitest 4 + Playwright 1.57"
 - **Tests**: [instructions/test-writing.md](instructions/test-writing.md)
 
 ### For AI Agents
-- **Code Agent**: [agents/code-agent.md](agents/code-agent.md)
-- **Test Agent**: [agents/test-agent.md](agents/test-agent.md)
+- **Code Agent**: [agents/code-agent.md](agents/code.agent.md)
+- **Test Agent**: [agents/test-agent.md](agents/test.agent.md)
 
 ## File Routing
 
 ```
-src/components/**/*.vue     → instructions/code-writing.md
-src/stores/**/*.ts          → agents/code-agent.md
-src/**/*.ts (services)      
+# Code files (use instruction template)
+src/components/**/*.vue      instructions/code-writing.md
+src/stores/**/*.ts           instructions/code-writing.md
+src/**/*.ts                  instructions/code-writing.md (services)
 
-**/*.spec.ts                → instructions/test-writing.md
-src/test/**/*.spec.ts       → agents/test-agent.md
+# Tests
+**/*.spec.ts                 instructions/test-writing.md
+src/test/**/*.spec.ts        instructions/test-writing.md
 ```
 
 ## Context7 References

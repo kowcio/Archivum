@@ -132,7 +132,7 @@ export default class ServiceName {
 
 ## Anti-Patterns ❌
 - `any` types
-- Inline styles (Vue)
+- Inline styles (Vue) try to never use `style` attribute default to quasar classes
 - Options API (use Composition)
 - Mutations in getters
 - Uncaught promises

@@ -17,7 +17,7 @@ vi.mock('webextension-polyfill', () => {
     return { default: { storage: mockStorage } }
 })
 
-import StorageService from '@/shared/services/StorageService'
+import StorageService from '@/services/StorageService'
 import browser from 'webextension-polyfill'
 
 describe('StorageService', () => {

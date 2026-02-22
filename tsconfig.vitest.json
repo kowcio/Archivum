@@ -10,10 +10,10 @@
   ],
   "compilerOptions": {
     // Inherits from root via tsconfig.app.json: target, module, moduleResolution,
-    // noEmit, esModuleInterop, forceConsistentCasingInFileNames, strict, skipLibCheck
+    // esModuleInterop, forceConsistentCasingInFileNames, strict, skipLibCheck
+    "noEmit": true,
 
     "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.vitest.tsbuildinfo",
-    "composite": true,
     "lib": [],
 
     // Test-specific types

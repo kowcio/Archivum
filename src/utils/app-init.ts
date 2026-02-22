@@ -1,10 +1,12 @@
 import { createApp, type App as VueApp } from 'vue';
 import { createPinia, type Pinia } from 'pinia';
-import { useGlobalStore } from '@/shared/stores/globalStore';
+import { useGlobalStore } from '@/stores/globalStore.ts';
+import { Quasar, QTable, QTd, QTr } from 'quasar';
+import { APP_VERSION } from '@/globals';
 
 /**
  * Single initialization point for all extension contexts (popup, options, content)
- * This ensures consistent setup across all entrypoints
+ * This ensures consistent setup across all entry points
  */
 export interface AppInitOptions {
   rootComponent: any;
@@ -25,6 +27,18 @@ export async function initializeApp(options: AppInitOptions): Promise<Initialize
 
   // Create Vue app
   const app = createApp(rootComponent);
+
+  // Add global properties
+  app.config.globalProperties.APP_VERSION = APP_VERSION;
+
+  // Quasar components (add more when you use them in your components)
+  app.use(Quasar, {
+    components: {
+      QTable,
+      QTr,
+      QTd,
+    },
+  });
 
   // Create and use Pinia
   const pinia = createPinia();
