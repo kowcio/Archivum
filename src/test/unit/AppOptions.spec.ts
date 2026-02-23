@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest'
+import {beforeEach, describe, expect, it, type MockInstance, vi} from 'vitest'
 import { nextTick } from 'vue'
 import { mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
@@ -28,7 +28,7 @@ describe('Options App', () => {
   let wrapper: ReturnType<typeof mount>
   let pinia: ReturnType<typeof createPinia>
   let tabStore: ReturnType<typeof useTabStore>
-  let resetTabTitlesSpy: MockInstance<() => Promise<void>>
+  let resetTabTitlesSpy: MockInstance
 
   beforeEach(async () => {
     vi.clearAllMocks()
