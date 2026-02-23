@@ -25,34 +25,6 @@ export default class TabService {
         return this.tabsApi.query({})
     }
 
-    async closeTab(tabId: number): Promise<void> {
-        await this.tabsApi.remove(tabId)
-    }
-
-    async updateTab(tabId: number, updateProperties: Tabs.UpdateUpdatePropertiesType): Promise<Tabs.Tab> {
-        return this.tabsApi.update(tabId, updateProperties)
-    }
-
-    async saveAllTabs(): Promise<TabsSnapshot> {
-        const tabs = await this.getAllOpenedTabs()
-        const savedAt = new Date().toISOString()
-        const snapshot: TabsSnapshot = { tabs, savedAt }
-        await this.storage.set({ [TAB_HISTORY_KEY]: snapshot })
-        return snapshot
-    }
-
-    async loadTabsHistory(): Promise<TabsSnapshot | null> {
-        const result = await this.storage.get(TAB_HISTORY_KEY)
-        const snapshot = result?.[TAB_HISTORY_KEY] as TabsSnapshot | undefined
-        return snapshot ?? null
-    }
-
-    removeAllAfterLastDash(text: string): string {
-        if (!text) return text
-        const lastIndex = text.lastIndexOf('-')
-        return lastIndex !== -1 ? text.slice(0, lastIndex).trim() : text
-    }
-
     getAgeClassification(row: TabRow): AgeClassification {
         const days = Number.isFinite(row.lastAccessDays) ? row.lastAccessDays ?? 0 : 0
 
@@ -77,44 +49,34 @@ export default class TabService {
             tabRows.map(async (row) => {
                 if (row.id == null) return
                 const { color, dot } = this.getAgeClassification(row)
-                await this.markTabWithTitle(row.id, `${dot} `)
-                await this.markTabWithBadge(row.id, dot, color)
-            }),
-        )
-    }
-
-    async markOldTabsWithAgeThreshold(thresholdDays: number): Promise<void> {
-        const openTabs = await this.getAllOpenedTabs()
-        const tabRows = TabRow.fromTabs(openTabs)
-
-        await Promise.all(
-            tabRows.map(async (row) => {
-                if (row.id == null) return
-                const { color, dot } = this.getAgeClassification(row)
-                // Only mark tabs that are older than the threshold
-                if ((row.lastAccessDays ?? 0) >= thresholdDays) {
+                if (dot) {
                     await this.markTabWithTitle(row.id, `${dot} `)
                     await this.markTabWithBadge(row.id, dot, color)
                 } else {
-                    // Clear any existing marks for tabs younger than threshold
-                    await this.unmarkTabFavicon(row.id)
+                    await this.resetTabTitle(row.id)
                     await this.unmarkTabBadge(row.id)
                 }
             }),
         )
     }
 
-    async markTabWithColorDot(tabId: number, color: string = '#e53935'): Promise<void> {
-        await this.markTabWithTitle(tabId, `${this.getDotFromColor(color)} `)
-        await this.markTabWithBadge(tabId, this.getDotFromColor(color), color)
-    }
-
     async markTabWithTitle(tabId: number, prefix: string = '🔴 '): Promise<void> {
+        const trimmedPrefix = prefix.trim()
+        if (!trimmedPrefix) {
+            await this.unmarkTabTitle(tabId)
+            return
+        }
         await browser.scripting.executeScript({
             target: { tabId },
             func: (p: string) => {
-                const currentTitle = document.title
-                if (currentTitle.startsWith(p)) return
+                const dots = ['🟢', '🟡', '🟠', '🔴', '●']
+                const escapedDots = dots.map((dot) => dot.replace(/[.*+?^${}()|[\\]\\]/g, '\\$&')).join('|')
+                const dotPattern = new RegExp(`^(${escapedDots})\\s+`)
+                const currentTitle = document.title.replace(dotPattern, '').trimStart()
+                if (currentTitle.startsWith(p.trim())) {
+                    document.title = `${p}${currentTitle.replace(p.trim(), '').trimStart()}`
+                    return
+                }
                 document.title = `${p}${currentTitle}`
             },
             args: [prefix],
@@ -140,10 +102,34 @@ export default class TabService {
         await browser.action.setBadgeText({ text: '', tabId })
     }
 
-    private getDotFromColor(color: string): string {
-        if (color === '#66bb6a') return '🟢'
-        if (color === '#f2c037') return '🟡'
-        if (color === '#fb8c00') return '🟠'
-        return '🔴'
+    async unmarkTabTitle(tabId: number): Promise<void> {
+        await browser.scripting.executeScript({
+            target: { tabId },
+            func: () => {
+                const dots = ['🟢', '🟡', '🟠', '🔴', '●']
+                const escapedDots = dots.map((dot) => dot.replace(/[.*+?^${}()|[\\]\\]/g, '\\$&')).join('|')
+                const dotPattern = new RegExp(`^(${escapedDots})\\s+`)
+                document.title = document.title.replace(dotPattern, '').trimStart()
+            },
+            args: [],
+        })
     }
+
+    async resetTabTitle(tabId: number): Promise<void> {
+        await this.unmarkTabTitle(tabId)
+        await this.unmarkTabFavicon(tabId)
+    }
+
+    async resetAllTabTitles(): Promise<void> {
+        const openTabs = await this.getAllOpenedTabs()
+        const tabRows = TabRow.fromTabs(openTabs)
+
+        await Promise.all(
+            tabRows.map(async (row) => {
+                if (row.id == null) return
+                await this.resetTabTitle(row.id)
+            }),
+        )
+    }
+
 }

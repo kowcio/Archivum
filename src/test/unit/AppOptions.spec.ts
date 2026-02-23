@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest'
 import { nextTick } from 'vue'
 import { mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
@@ -7,6 +7,7 @@ import type { Tabs } from 'webextension-polyfill'
 import App from '@/entrypoints/options/App.vue'
 import { createMockTabs } from '@/test/unit/mock/TabServiceMockFactory'
 import { useTabStore } from '@/stores/TabStore'
+import TabService from '@/services/TabService'
 
 vi.mock('webextension-polyfill', () => ({
   default: {
@@ -27,9 +28,11 @@ describe('Options App', () => {
   let wrapper: ReturnType<typeof mount>
   let pinia: ReturnType<typeof createPinia>
   let tabStore: ReturnType<typeof useTabStore>
+  let resetTabTitlesSpy: MockInstance<() => Promise<void>>
 
   beforeEach(async () => {
     vi.clearAllMocks()
+    resetTabTitlesSpy = vi.spyOn(TabService.prototype, 'resetAllTabTitles').mockResolvedValue()
 
     pinia = createPinia()
     setActivePinia(pinia)
@@ -69,6 +72,15 @@ describe('Options App', () => {
 
     // Force the component to update its computed rows
     await nextTick()
+  })
+
+  it('reset tab titles button triggers TabService call', async () => {
+    const resetButton = wrapper.find('[data-testid="btn-reset-tab-titles"]')
+    expect(resetButton.exists()).toBe(true)
+
+    await resetButton.trigger('click')
+
+    expect(resetTabTitlesSpy).toHaveBeenCalledTimes(1)
   })
 
   it('renders the tabs table with data-testid selector', async () => {

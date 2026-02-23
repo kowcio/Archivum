@@ -1,5 +1,5 @@
 <template>
-  <div class="version-info">Version: {{ version }}</div>
+  <div class="version-info">Version: {{ global.version }}</div>
   <div id="options" class="row">
   <div class="col-10 offset-1">
 
@@ -10,6 +10,8 @@
         <q-btn data-testid="btn-load-saved-tabs" label="Load Saved Tabs" color="info" :loading="tabStore.loading" @click="handleLoadSavedTabs" />
         <q-btn data-testid="btn-save-tabs" label="Save Tabs" color="secondary" :loading="tabStore.loading" @click="handleSaveTabs" />
         <q-btn data-testid="btn-gen-mock-tabs" label="Gen & save mock tabs" color="warning" :loading="tabStore.loading" @click="handleGenMockTabs" />
+        <q-btn data-testid="btn-clear-marks" label="Clear dot marks" color="negative" :loading="tabStore.loading" @click="handleClearTabMarks" />
+        <q-btn data-testid="btn-reset-tab-titles" label="Clear title dots" color="positive" :loading="tabStore.loading" @click="handleResetTabTitles" />
       </q-btn-group>
       <span v-if="tabStore.lastSaveDate" style="font-size: 0.8rem; color: #666;">
         Last saved: {{ tabStore.lastSaveDate }}
@@ -27,8 +29,7 @@
           label="Tabs marking age (days)"
           type="number"
           v-model.number="tabsMarkingAge"
-          :min="AppConfig.DEFAULT_MIN_TABS_MARKING_AGE"
-          :max="AppConfig.DEFAULT_MAX_TABS_MARKING_AGE"
+          :min="0"
           :disable="tabStore.loading"
           @update:model-value="handleTabsMarkingAgeChange"
         />
@@ -71,7 +72,7 @@
                 <span v-else>—</span>
               </template>
               <template v-else-if="col.name === 'lastAccess'" :class="props.row.lastAccessClass">
-                {{ tabService.getLastAccessMsg(props.row) || '—' }}
+                {{ tabStore.getLastAccessMsg(props.row) || '—' }}
               </template>
               <template v-else-if="col.name === 'url'">
                 <a v-if="props.row.url" :href="props.row.url" target="_blank"
@@ -94,27 +95,21 @@
 <script setup lang="ts">
 import {computed, onMounted, ref, watch} from 'vue';
 import {storeToRefs}from 'pinia';
-import TabService from '@/services/TabService';
 import {useGlobalStore}from '@/stores/globalStore.ts';
 import {useTabStore}from '@/stores/TabStore';
 import type {Tabs} from 'webextension-polyfill';
 import type {QTableProps} from 'quasar';
 import {TabRow} from '@/models/tabs/TabRow';
-import globals from '@/globals';
-import { AppConfig } from '@/constants/GlobalFlags';
-
-const tabService = new TabService();
-
-const version = globals.APP_VERSION;
 
 const global = useGlobalStore();
 const tabStore = useTabStore();
 const { tabs: storeTabs } = storeToRefs(tabStore);
-const username = ref('');
+const { constants } = storeToRefs(global);
+
 const enabled = ref(false);
 const saved = ref(false);
 const tabs = ref<Tabs.Tab[]>([]);
-const tabsMarkingAge = ref(global.flags.tabsMarkingAge ?? 0);
+const tabsMarkingAge = ref(global.flags.tabsMarkingAge);
 
 watch(
   storeTabs,
@@ -137,7 +132,7 @@ const columns: QTableProps['columns'] = [
 
 const rows = computed(() =>
   TabRow.fromTabs(tabs.value).map((row, index) => {
-    const ageClassification = tabService.getAgeClassification(row);
+    const ageClassification = tabStore.getAgeClassification(row);
     return {
       ...row,
       ordinal: index + 1,
@@ -157,12 +152,9 @@ const rows = computed(() =>
 
 onMounted(async () => {
   await global.init();
-  username.value = global.flags.username ?? '';
-  enabled.value = !!global.flags.enabled;
-  tabsMarkingAge.value = global.flags.tabsMarkingAge ?? 0;
+  tabsMarkingAge.value = global.flags.tabsMarkingAge;
   await loadTabs();
-  console.log('tabs', tabs.value)
-  await tabService.markOldTabs();
+  await tabStore.markOldTabs();
 });
 
 async function loadTabs(): Promise<void> {
@@ -213,23 +205,22 @@ function handleGenMockTabs(): void {
 }
 
 async function handleTabsMarkingAgeChange(): Promise<void> {
-  // Use the input value directly (simplified - no validation for now)
-  const inputValue = tabsMarkingAge.value ?? 0;
+  const inputValue = tabsMarkingAge.value ?? useGlobalStore().constants.DEFAULT_TABS_MARKING_AGE;
+  await global.setFlags({ tabsMarkingAge: inputValue });
+  await tabStore.markOldTabsWithAgeThreshold(inputValue);
+  await tabStore.markOldTabs();
+}
 
-  global.flags = {...global.flags, tabsMarkingAge: inputValue};
-  await global.save();
-  await tabService.markOldTabsWithAgeThreshold(inputValue);
+async function handleClearTabMarks(): Promise<void> {
+  await tabStore.resetAllTabMarks();
+}
 
-  // Also mark all currently open tabs reactively
-  await tabService.markOldTabs();
+async function handleResetTabTitles(): Promise<void> {
+  await tabStore.clearDotsFromOpenTabs();
 }
 
 
 async function save() {
-  global.flags = {...global.flags, username: username.value, enabled: enabled.value};
-  await global.save();
-  saved.value = true;
-  setTimeout(() => (saved.value = false), 1500);
 }
 </script>
 

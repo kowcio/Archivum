@@ -1,7 +1,16 @@
 import { defineStore } from 'pinia'
 import browser, { type Storage, type Tabs } from 'webextension-polyfill'
+import { TabRow } from '@/models/tabs/TabRow'
+import { TabDot, TabDots, DOT_COLOR_MAP } from '@/utils/TabDots'
 
 const TAB_HISTORY_KEY = 'tab_history'
+
+export interface AgeClassification {
+    cssClass: string
+    color: string
+    days: number
+    dot: TabDot
+}
 
 export interface TabsSnapshot {
     tabs: Tabs.Tab[]
@@ -104,6 +113,208 @@ export const useTabStore = defineStore('tabStore', {
             } finally {
                 this.loading = false
             }
+        },
+
+        getAgeClassification(row: TabRow): AgeClassification {
+            const days = Number.isFinite(row.lastAccessDays) ? row.lastAccessDays ?? 0 : 0
+            const thresholds = [7, 14, 21] as const
+            const index = thresholds.findIndex((t) => days <= t)
+            const resolved = index !== -1 ? DOT_COLOR_MAP[index] : DOT_COLOR_MAP[DOT_COLOR_MAP.length - 1]
+            return { ...resolved, days }
+        },
+
+        getLastAccessMsg(row: TabRow): string {
+            const { days } = this.getAgeClassification(row)
+            if (!Number.isFinite(days)) return '—'
+            return days === 1 ? '1 day ago' : `${days} days ago`
+        },
+
+        async markOldTabs(): Promise<void> {
+            this.error = null
+            try {
+                const tabRows = TabRow.fromTabs(this.tabs)
+                await Promise.all(
+                    tabRows.map(async (row) => {
+                        if (row.id == null) return
+                        const { color, dot } = this.getAgeClassification(row)
+                        if (dot) {
+                            await this.markTabWithTitle(row.id, `${dot} `)
+                            await this.markTabWithBadge(row.id, dot, color)
+                        } else {
+                            await this.resetTabTitle(row.id)
+                            await this.unmarkTabBadge(row.id)
+                        }
+                    }),
+                )
+            } catch (err) {
+                this.error = err instanceof Error ? err.message : 'Unknown error while marking old tabs'
+            }
+        },
+
+        async markOldTabsWithAgeThreshold(thresholdDays: number): Promise<void> {
+            this.error = null
+            try {
+                const tabRows = TabRow.fromTabs(this.tabs)
+                await Promise.all(
+                    tabRows.map(async (row) => {
+                        if (row.id == null) return
+                        const { color, dot } = this.getAgeClassification(row)
+                        if ((row.lastAccessDays ?? 0) >= thresholdDays) {
+                            const prefix = dot ? `${dot} ` : ''
+                            if (prefix) {
+                                await this.markTabWithTitle(row.id, prefix)
+                                await this.markTabWithBadge(row.id, dot, color)
+                            } else {
+                                await this.resetTabTitle(row.id)
+                                await this.unmarkTabBadge(row.id)
+                            }
+                        } else {
+                            await this.resetTabTitle(row.id)
+                            await this.unmarkTabBadge(row.id)
+                        }
+                    }),
+                )
+            } catch (err) {
+                this.error = err instanceof Error ? err.message : 'Unknown error while marking tabs with age threshold'
+            }
+        },
+
+        async markTabWithColorDot(tabId: number, color: string = '#e53935'): Promise<void> {
+            this.error = null
+            try {
+                const dot = this.getDotFromColor(color)
+                const prefix = dot ? `${dot} ` : ''
+                if (!prefix) return
+                await this.markTabWithTitle(tabId, prefix)
+                await this.markTabWithBadge(tabId, dot, color)
+            } catch (err) {
+                this.error = err instanceof Error ? err.message : 'Unknown error while marking tab with color dot'
+            }
+        },
+
+        async markTabWithTitle(tabId: number, prefix: string = '🔴 '): Promise<void> {
+            this.error = null
+            try {
+                const trimmedPrefix = prefix.trim()
+                if (!trimmedPrefix) {
+                    await this.unmarkTabTitle(tabId)
+                    return
+                }
+                await browser.scripting.executeScript({
+                    target: { tabId },
+                    func: TabDots.applyPrefixPageScript,
+                    args: [prefix, TabDots.dotValues],
+                })
+            } catch (err) {
+                this.error = err instanceof Error ? err.message : 'Unknown error while marking tab title'
+            }
+        },
+
+        async markTabWithBadge(tabId: number, text: string = '●', color: string = '#e53935'): Promise<void> {
+            this.error = null
+            try {
+                await browser.action.setBadgeText({ text, tabId })
+                await browser.action.setBadgeBackgroundColor({ color, tabId })
+            } catch (err) {
+                this.error = err instanceof Error ? err.message : 'Unknown error while marking tab badge'
+            }
+        },
+
+        async unmarkTabFavicon(tabId: number): Promise<void> {
+            this.error = null
+            try {
+                await browser.scripting.executeScript({
+                    target: { tabId },
+                    func: () => {
+                        document.querySelector<HTMLLinkElement>('link[data-ext-marker]')?.remove()
+                    },
+                    args: [],
+                })
+            } catch (err) {
+                this.error = err instanceof Error ? err.message : 'Unknown error while unmarking tab favicon'
+            }
+        },
+
+        async unmarkTabBadge(tabId: number): Promise<void> {
+            this.error = null
+            try {
+                await browser.action.setBadgeText({ text: '', tabId })
+            } catch (err) {
+                this.error = err instanceof Error ? err.message : 'Unknown error while unmarking tab badge'
+            }
+        },
+
+        async unmarkTabTitle(tabId: number): Promise<void> {
+            this.error = null
+            try {
+                await browser.scripting.executeScript({
+                    target: { tabId },
+                    func: TabDots.removePrefixPageScript,
+                    args: [TabDots.dotValues],
+                })
+            } catch (err) {
+                this.error = err instanceof Error ? err.message : 'Unknown error while unmarking tab title'
+            }
+        },
+
+        async resetTabTitle(tabId: number): Promise<void> {
+            this.error = null
+            try {
+                await this.unmarkTabTitle(tabId)
+                await this.unmarkTabFavicon(tabId)
+            } catch (err) {
+                this.error = err instanceof Error ? err.message : 'Unknown error while resetting tab title'
+            }
+        },
+
+        async resetAllTabTitles(): Promise<void> {
+            this.error = null
+            try {
+                const tabRows = TabRow.fromTabs(this.tabs)
+                await Promise.all(
+                    tabRows.map(async (row) => {
+                        if (row.id == null) return
+                        await this.resetTabTitle(row.id)
+                    }),
+                )
+            } catch (err) {
+                this.error = err instanceof Error ? err.message : 'Unknown error while resetting all tab titles'
+            }
+        },
+
+        async resetAllTabMarks(): Promise<void> {
+            this.error = null
+            try {
+                const tabRows = TabRow.fromTabs(this.tabs)
+                await Promise.all(
+                    tabRows.map(async (row) => {
+                        if (row.id == null) return
+                        await this.resetTabTitle(row.id)
+                        await this.unmarkTabBadge(row.id)
+                    }),
+                )
+            } catch (err) {
+                this.error = err instanceof Error ? err.message : 'Unknown error while resetting all tab marks'
+            }
+        },
+
+        async clearDotsFromOpenTabs(): Promise<void> {
+            this.error = null
+            try {
+                const tabRows = TabRow.fromTabs(this.tabs)
+                await Promise.all(
+                    tabRows.map(async (row) => {
+                        if (row.id == null) return
+                        await this.resetTabTitle(row.id)
+                    }),
+                )
+            } catch (err) {
+                this.error = err instanceof Error ? err.message : 'Unknown error while clearing dots from open tabs'
+            }
+        },
+
+        getDotFromColor(color: string): string {
+            return TabDots.dotFromColor(color)
         },
     },
 })

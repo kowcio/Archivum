@@ -20,7 +20,7 @@ import {
   LinearScale,
   type ChartData,
   type ChartOptions,
-} from 'chart.js' 
+} from 'chart.js'
 
 const props = withDefaults(
   defineProps<{
@@ -74,7 +74,7 @@ const defaultOptions: ChartOptions<'line'> = {
       },
     },
     tooltip: {
-      enabled: true,
+      ENABLED: true,
     },
   },
 }
