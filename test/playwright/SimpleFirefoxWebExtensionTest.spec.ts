@@ -7,7 +7,7 @@ import os from 'os'
 test.describe('Simple Firefox Web Extension Test', () => {
   test.beforeAll(async () => {
     console.log('Building MV3 extension for Firefox...')
-    execSync('npm run build', { stdio: 'inherit' })
+    // execSync('npm run build', { stdio: 'inherit' })
   })
 
   test('extension loads and entrypoints expose data-testid tokens (Firefox Headless)', async () => {

@@ -75,11 +75,11 @@ export default defineConfig((env: { browser: string }) => {
     })(),
 
     vite: () => ({
-      plugins: [
-        quasar({
-          sassVariables: 'src/quasar-variables.sass',
-        }),
-      ],
+      // plugins: [
+      //   quasar({
+      //     sassVariables: 'src/quasar-variables.sass',
+      //   }),
+      // ],
     }),
   }
 })
