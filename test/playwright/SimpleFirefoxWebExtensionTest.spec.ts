@@ -11,7 +11,7 @@ test.describe('Simple Firefox Web Extension Test', () => {
   })
 
   test('extension loads and entrypoints expose data-testid tokens (Firefox Headless)', async () => {
-    const extensionPath = path.resolve(process.cwd(), '.output', 'firefox-mv2')
+    const extensionPath = path.resolve(process.cwd(), '.output', 'firefox-mv3')
     expect(fs.existsSync(extensionPath)).toBe(true)
 
     const manifestPath = path.join(extensionPath, 'manifest.json')
