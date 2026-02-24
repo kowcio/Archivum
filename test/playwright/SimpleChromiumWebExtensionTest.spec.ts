@@ -1,7 +1,5 @@
-import { expect, chromium, test } from '@playwright/test'
-import path from 'path'
-import fs from 'fs'
-import os from 'os'
+import { expect, test } from '@playwright/test'
+import { launchChromeMv3Context } from './helpers/extensions'
 
 test.describe('Simple Chromium Web Extension Test', () => {
   test.beforeAll(async () => {
@@ -9,40 +7,11 @@ test.describe('Simple Chromium Web Extension Test', () => {
   })
 
   test('extension loads and entrypoints expose data-testid tokens (Chromium)', async () => {
+    test.skip(test.info().project.name !== 'chrome-mv3', 'Run only in chrome-mv3 project')
     test.setTimeout(60000)
 
-    const extensionPath = path.resolve(process.cwd(), '.output', 'chrome-mv3')
-    const normalizedExtensionPath = extensionPath.replace(/\\/g, '/')
-    expect(fs.existsSync(extensionPath)).toBe(true)
-    console.log('Loading extension from:', extensionPath)
-
-    const userDataDir = path.resolve(process.cwd(), '.output', 'pw-profile')
-    if (fs.existsSync(userDataDir)) {
-      fs.rmSync(userDataDir, { recursive: true, force: true })
-    }
-    fs.mkdirSync(userDataDir, { recursive: true })
-
-    const launchArgs = [
-      `--disable-extensions-except=${normalizedExtensionPath}`,
-      `--load-extension=${normalizedExtensionPath}`,
-      '--headless=new',
-    ]
-    console.log('Launch args:', launchArgs)
-
-    const context = await chromium.launchPersistentContext(userDataDir, {
-      channel: 'chrome',
-      headless: true,
-      ignoreDefaultArgs: ['--disable-extensions', '--headless'],
-      args: launchArgs,
-    })
-
-    console.log('Waiting for service worker...')
-    const worker = context.serviceWorkers()[0] ?? await context.waitForEvent('serviceworker', { timeout: 30000 })
-    const swUrl = worker.url()
-    const extId = new URL(swUrl).host
-    console.log('Service worker URL:', swUrl)
+    const { context, extId } = await launchChromeMv3Context()
     console.log('Detected extension id:', extId)
-    expect(extId.length).toBeGreaterThan(0)
 
     const popupPage = await context.newPage()
     await popupPage.goto(`chrome-extension://${extId}/popup.html`, { waitUntil: 'domcontentloaded' })
