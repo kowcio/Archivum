@@ -1,7 +1,7 @@
 import { createApp, type App as VueApp } from 'vue';
 import { createPinia, type Pinia } from 'pinia';
 import { useGlobalStore } from '@/stores/globalStore.ts';
-import { Quasar, QTable, QTd, QTr } from 'quasar';
+import { Quasar, QTable, QTd, QTr, QBtn, QBtnGroup, QInput } from 'quasar';
 import {APP_CONSTANTS} from "@/constants.ts";
 
 /**
@@ -34,9 +34,8 @@ export async function initializeApp(options: AppInitOptions): Promise<Initialize
   // Quasar components (add more when you use them in your components)
   app.use(Quasar, {
     components: {
-      QTable,
-      QTr,
-      QTd,
+      QTable, QTr, QTd,
+      QBtn, QBtnGroup, QInput,
     },
   });
 

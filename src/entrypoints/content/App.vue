@@ -23,15 +23,13 @@ body {
 
 #my-vue-header {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-  top: 2%;
-  left: 2%;
   width: 96%;
   min-height: 10%;
   margin: 2%;
   z-index: 9999;
   padding: 10px 0;
   text-align: center;
-  border: solid orange 2px;
+  border: solid green 2px;
 }
 
 button {
@@ -46,3 +44,5 @@ button:hover {
   background: #f0f0f0;
 }
 </style>
+
+
