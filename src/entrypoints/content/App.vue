@@ -35,14 +35,9 @@ body {
 button {
   padding: 8px 16px;
   cursor: pointer;
-  border: 1px solid #ccc;
   border-radius: 4px;
-  background: #fff;
 }
 
-button:hover {
-  background: #f0f0f0;
-}
 </style>
 
 

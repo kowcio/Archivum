@@ -21,12 +21,7 @@ export default defineConfig((env: { browser: string }) => {
         version: '1.0.0',
         manifest_version: 3,
         permissions: ['tabs', 'activeTab', 'bookmarks', 'clipboardRead', 'storage', 'scripting'],
-        content_scripts: [
-          {
-            matches: ['<all_urls>'],
-            js: ['browser-polyfill.js'],
-          },
-        ],
+        content_scripts: [],
         background: {
           service_worker: 'background.js',
           type: 'module',
