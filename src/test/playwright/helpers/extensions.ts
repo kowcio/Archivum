@@ -30,8 +30,8 @@ export async function launchChromeMv3Context(): Promise<{ context: BrowserContex
   // Extensions require non-headless mode; Chrome 110 does not support --headless=new
   const context = await chromium.launchPersistentContext(userDataDir, {
     channel: 'chromium',
-    // headless: true,
-    headless: false,
+    headless: true,
+    // headless: false,
     ignoreDefaultArgs: ['--disable-extensions'],
     args: launchArgs,
   })

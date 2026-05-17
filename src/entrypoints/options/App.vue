@@ -134,31 +134,18 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from "vue";
-import { storeToRefs } from "pinia";
-import { useGlobalStore } from "@/stores/globalStore.ts";
-import { useTabStore } from "@/stores/TabStore";
-import type { Tabs } from "webextension-polyfill";
-import type { QTableProps } from "quasar";
-import { TabRow } from "@/models/tabs/TabRow";
+import { computed, onMounted, ref } from "vue"
+import { storeToRefs } from "pinia"
+import { useGlobalStore } from "@/stores/globalStore.ts"
+import { useTabStore } from "@/stores/TabStore"
+import type { QTableProps } from "quasar"
+import { TabRow } from "@/models/tabs/TabRow"
 
-const global = useGlobalStore();
-const tabStore = useTabStore();
-const { tabs: storeTabs } = storeToRefs(tabStore);
-const { constants } = storeToRefs(global);
+const global = useGlobalStore()
+const tabStore = useTabStore()
+const { tabs: storeTabs } = storeToRefs(tabStore)
 
-const enabled = ref(false);
-const saved = ref(false);
-const tabs = ref<Tabs.Tab[]>([]);
-const tabsMarkingAge = ref(global.flags.tabsMarkingAge);
-
-watch(
-  storeTabs,
-  (newTabs) => {
-    tabs.value = newTabs;
-  },
-  { immediate: true },
-);
+const tabsMarkingAge = ref(global.flags.tabsMarkingAge)
 
 const columns: QTableProps["columns"] = [
   {
@@ -216,7 +203,7 @@ const columns: QTableProps["columns"] = [
 ];
 
 const rows = computed(() =>
-  TabRow.fromTabs(tabs.value)
+  TabRow.fromTabs(storeTabs.value)
     .map((row, index) => {
       const ageClassification = tabStore.getAgeClassification(row);
       return {
@@ -238,19 +225,19 @@ const rows = computed(() =>
 );
 
 onMounted(async () => {
-  await global.init();
-  tabsMarkingAge.value = global.flags.tabsMarkingAge;
-  await loadTabs();
-  await tabStore.markOldTabs();
-});
+  await global.init()
+  tabsMarkingAge.value = global.flags.tabsMarkingAge
+  await loadTabs()
+  await tabStore.markOldTabs()
+})
 
 async function loadTabs(): Promise<void> {
-  tabs.value = await tabStore.getAllOpenedTabs();
+  await tabStore.getAllOpenedTabs()
 }
 
 async function handleCloseTab(tabId: number | null): Promise<void> {
-  if (tabId == null) return;
-  tabs.value = await tabStore.closeTab(tabId);
+  if (tabId == null) return
+  await tabStore.closeTab(tabId)
 }
 
 function createMockTabs(count = 5): Tabs.Tab[] {
@@ -300,28 +287,25 @@ function createMockTabs(count = 5): Tabs.Tab[] {
 }
 
 async function handleLoadTabs(): Promise<void> {
-  tabs.value = await tabStore.getAllOpenedTabs();
+  await tabStore.getAllOpenedTabs()
 }
 
 async function handleLoadSavedTabs(): Promise<void> {
-  tabs.value = (await tabStore.loadTabsHistory())?.tabs ?? [];
+  await tabStore.loadTabsHistory()
 }
 
 async function handleSaveTabs(): Promise<void> {
-  await tabStore.saveAllTabs();
+  await tabStore.saveAllTabs()
 }
 
 function handleGenMockTabs(): void {
-  tabs.value = createMockTabs(5);
+  tabStore.$patch({ tabs: createMockTabs(5) })
 }
 
 async function handleTabsMarkingAgeChange(): Promise<void> {
-  const inputValue = tabsMarkingAge.value;
-  await global.setFlags({ tabsMarkingAge: inputValue });
-  await tabStore.markOldTabsWithAgeThreshold(inputValue);
-  // await tabStore.markOldTabs();
-  // Reload tabs to sync the updated titles and badge marks from the browser
-  tabs.value = await tabStore.getAllOpenedTabs();
+  const inputValue = tabsMarkingAge.value
+  await global.setFlags({ tabsMarkingAge: inputValue })
+  await tabStore.markOldTabsWithAgeThreshold(inputValue)
 }
 
 async function handleClearTabMarks(): Promise<void> {
@@ -329,10 +313,8 @@ async function handleClearTabMarks(): Promise<void> {
 }
 
 async function handleResetTabTitles(): Promise<void> {
-  await tabStore.clearDotsFromOpenTabs();
+  await tabStore.clearDotsFromOpenTabs()
 }
-
-async function save() {}
 </script>
 
 <style></style>

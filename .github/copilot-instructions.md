@@ -12,6 +12,7 @@ stack: "Vue 3.5 + TypeScript 5.8 + Pinia 3 + Vitest 4 + Playwright 1.57"
 - **Browser**: `webextension-polyfill` namespace
 - **Tests**: Mock browser APIs + axios
 - **Quality**: Single-purpose, small functions
+- **📛 CRITICAL**: [NO_DOCUMENTATION.md](NO_DOCUMENTATION.md) - Code only, no *.md file generation
 
 ## Instruction Files
 

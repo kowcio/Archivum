@@ -138,5 +138,13 @@ export class ApiService {
 - No side effects in computed (Vue)
 - No uncaught promises
 - No hardcoded URLs/values
+- **NO *.md documentation files** (see [NO_DOCUMENTATION.md](../NO_DOCUMENTATION.md))
+
+## Token Optimization ⚡
+**NEVER create .md files documenting changes** (except when explicitly asked)
+- Each .md wastes 500-2000 tokens
+- Users want code, not reports
+- Tests verify correctness (no doc needed)
+- Only modify code files
 
 → @context7/vue, @context7/vueuse, @context7/pinia, @context7/axios

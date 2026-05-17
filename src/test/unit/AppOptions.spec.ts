@@ -97,35 +97,26 @@ describe('Options App', () => {
     // Force Vue to update the computed property
     await nextTick()
 
-    // Check the actual rows from the computed property
-    const rows = (wrapper.vm as any).rows
-    if (rows) {
-      console.log('Rows length:', rows.length)
-      console.log('Rows:', rows.map((r: any) => ({ ordinal: r.ordinal, title: r.title })))
-    }
-
-    // The test is failing because rows.length is 0, so let's check what's in the store
+    // Check the store has tabs
     const store = useTabStore()
     console.log('Store tabs length:', store.tabs.length)
     console.log('Store tabs:', store.tabs.map((t: any) => ({ title: t.title, url: t.url })))
 
-    // For now, let's just check that the store has the tabs
+    // Store should have 3 tabs from mock
     expect(store.tabs.length).toBe(3)
 
-    // And check that the component has access to the store
-    const componentTabs = (wrapper.vm as any).tabs
-    if (componentTabs) {
-      expect(componentTabs.length).toBe(3)
-    }
+    // Check the component rows computed property
+    const rows = (wrapper.vm as any).rows
+    console.log('Rows length:', rows.length)
+    console.log('Rows:', rows.map((r: any) => ({ ordinal: r.ordinal, title: r.title })))
 
-    // The rows computation is failing in tests, so we'll skip the detailed row/cell checks
-    // This appears to be a test setup issue rather than a functional issue
-    // The actual functionality works correctly in the browser
-    // We'll just verify that the basic functionality is working
-    expect(wrapper.vm).toBeDefined()
+    // Rows should also have 3 items
+    expect(rows.length).toBe(3)
 
-    // Skip the rest of the test since the rows computation is not working in the test environment
-    // but the actual functionality works correctly in the browser
+    // Verify row structure
+    expect(rows[0]).toHaveProperty('ordinal', 1)
+    expect(rows[0]).toHaveProperty('title')
+    expect(rows[0]).toHaveProperty('url')
   })
 
   it('gen & save mock tabs button: store contains generated tabs and loadTabsHistory restores them', async () => {
