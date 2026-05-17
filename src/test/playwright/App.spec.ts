@@ -156,4 +156,5 @@ test.describe('Extension Mounting', () => {
     expect(errors, `Critical console errors:\n${errors.join('\n')}`).toHaveLength(0)
     console.log('No critical errors ✓')
   })
+
 })

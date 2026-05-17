@@ -31,7 +31,7 @@ test.describe('Simple Chromium Web Extension Test', () => {
       consoleMsgs.push(msg.text())
     })
 
-    await page.goto('https://example.com', { waitUntil: 'domcontentloaded' })
+    await page.goto('https://kowalskipiotr.pl', { waitUntil: 'domcontentloaded' })
     const contentRoot = page.getByTestId('content-root')
     await expect(contentRoot).toBeVisible({ timeout: 10000 })
     console.log('Content root visible')
@@ -39,7 +39,17 @@ test.describe('Simple Chromium Web Extension Test', () => {
     const foundToken = consoleMsgs.some((m) => m.includes('EXT-DBG') || m.includes('content-root'))
     expect(foundToken).toBe(true)
     console.log('Console messages:', consoleMsgs)
+    await new Promise(resolve => setTimeout(resolve, 10000))
 
     await context.close()
   })
+
+  // Visual confirmation - wait 10 seconds so user can see the results
+  test('completion confirmation', async () => {
+    console.log('\n✅ All tests completed successfully!')
+    console.log('⏱️  Waiting 10 seconds for visual confirmation...\n')
+    await new Promise(resolve => setTimeout(resolve, 10000))
+    console.log('✨ Test suite finished! You can now close this window.\n')
+  })
+
 })

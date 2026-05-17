@@ -23,8 +23,6 @@
     "test:unit:watch": "vitest",
     "test:playwright": "npm run test:playwright:chromium",
     "test:playwright:chromium": "npx playwright test src/test/playwright --project chrome-mv3",
-    "test:playwright:firefox": "npx playwright test src/test/playwright --project firefox-mv3",
-    "test:playwright:firefox:gui": "npx playwright test src/test/playwright/FirefoxManualTesting.spec.ts --project firefox-mv3-gui",
     "test:playwright:debug": "npm run build && npx playwright test src/test/playwright --project chrome-mv3-debug",
     "test:playwright:ui": "npx playwright test src/test/playwright --ui --project chrome-mv3",
     "test:playwright:ui:firefox": "npx playwright test src/test/playwright --ui --project firefox-mv3",
