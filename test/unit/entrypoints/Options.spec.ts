@@ -1,7 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { mount } from '@vue/test-utils'
-import OptionsApp from 'src/entrypoints/options/App.vue'
+import { Quasar, QTable, QTd, QTr, QBtn, QBtnGroup, QInput } from 'quasar'
 import { setActivePinia, createPinia } from 'pinia'
+import { useTabStore } from 'src/stores/TabStore'
+import type { Tabs } from 'webextension-polyfill'
+import OptionsApp from 'src/entrypoints/options/App.vue'
+import tabsData from '../../mocks/tabs_example.json'
+import { nextTick } from 'vue'
 
 // Mock browser API
 vi.mock('webextension-polyfill', () => ({
@@ -15,19 +20,22 @@ vi.mock('webextension-polyfill', () => ({
     tabs: {
       query: vi.fn(() => Promise.resolve([])),
       remove: vi.fn(() => Promise.resolve()),
+      update: vi.fn(() => Promise.resolve()),
+    },
+    action: {
+      setBadgeText: vi.fn(),
+      setBadgeBackgroundColor: vi.fn(),
+    },
+    scripting: {
+      executeScript: vi.fn(),
     },
   },
 }))
 
-// Mock Quasar components
-vi.mock('quasar', () => ({
-  QBtn: { name: 'q-btn', template: '<button><slot></slot></button>' },
-  QBtnGroup: { name: 'q-btn-group', template: '<div><slot></slot></div>' },
-  QTable: { name: 'q-table', template: '<table><slot></slot></table>' },
-  QTr: { name: 'q-tr', template: '<tr><slot></slot></tr>' },
-  QTd: { name: 'q-td', template: '<td><slot></slot></td>' },
-  QInput: { name: 'q-input', template: '<input />' },
-}), { virtual: true })
+async function flushPromises() {
+  await nextTick()
+  await Promise.resolve()
+}
 
 describe('Options Entrypoint', () => {
   beforeEach(() => {
@@ -38,13 +46,10 @@ describe('Options Entrypoint', () => {
   it('should mount the options component', () => {
     const wrapper = mount(OptionsApp, {
       global: {
+        plugins: [
+          [Quasar, { config: { dark: false }, components: { QTable, QTr, QTd, QBtn, QBtnGroup, QInput } }]
+        ],
         stubs: {
-          'q-btn': true,
-          'q-btn-group': true,
-          'q-table': true,
-          'q-tr': true,
-          'q-td': true,
-          'q-input': true,
           teleport: true,
         },
       },
@@ -56,13 +61,10 @@ describe('Options Entrypoint', () => {
   it('should render options container with correct ID', () => {
     const wrapper = mount(OptionsApp, {
       global: {
+        plugins: [
+          [Quasar, { config: { dark: false }, components: { QTable, QTr, QTd, QBtn, QBtnGroup, QInput } }]
+        ],
         stubs: {
-          'q-btn': true,
-          'q-btn-group': true,
-          'q-table': true,
-          'q-tr': true,
-          'q-td': true,
-          'q-input': true,
           teleport: true,
         },
       },
@@ -76,13 +78,10 @@ describe('Options Entrypoint', () => {
   it('should render version info', () => {
     const wrapper = mount(OptionsApp, {
       global: {
+        plugins: [
+          [Quasar, { config: { dark: false }, components: { QTable, QTr, QTd, QBtn, QBtnGroup, QInput } }]
+        ],
         stubs: {
-          'q-btn': true,
-          'q-btn-group': true,
-          'q-table': true,
-          'q-tr': true,
-          'q-td': true,
-          'q-input': true,
           teleport: true,
         },
       },
@@ -96,13 +95,10 @@ describe('Options Entrypoint', () => {
   it('should render button group container', () => {
     const wrapper = mount(OptionsApp, {
       global: {
+        plugins: [
+          [Quasar, { config: { dark: false }, components: { QTable, QTr, QTd, QBtn, QBtnGroup, QInput } }]
+        ],
         stubs: {
-          'q-btn': true,
-          'q-btn-group': true,
-          'q-table': true,
-          'q-tr': true,
-          'q-td': true,
-          'q-input': true,
           teleport: true,
         },
       },
@@ -115,13 +111,10 @@ describe('Options Entrypoint', () => {
   it('should have proper HTML structure with row layout', () => {
     const wrapper = mount(OptionsApp, {
       global: {
+        plugins: [
+          [Quasar, { config: { dark: false }, components: { QTable, QTr, QTd, QBtn, QBtnGroup, QInput } }]
+        ],
         stubs: {
-          'q-btn': true,
-          'q-btn-group': true,
-          'q-table': true,
-          'q-tr': true,
-          'q-td': true,
-          'q-input': true,
           teleport: true,
         },
       },
@@ -131,5 +124,46 @@ describe('Options Entrypoint', () => {
     expect(optionsDiv.exists()).toBe(true)
     expect(optionsDiv.classes()).toContain('row')
   })
-})
 
+  it('should load tabs from store when btn-load-tabs button is clicked', async () => {
+    const pinia = createPinia()
+    setActivePinia(pinia)
+
+    const wrapper = mount(OptionsApp, {
+      global: {
+        plugins: [
+          pinia,
+          [Quasar, { config: { dark: false }, components: { QTable, QTr, QTd, QBtn, QBtnGroup, QInput } }]
+        ],
+        stubs: {
+          teleport: true,
+        },
+      },
+    })
+
+    const tabStore = useTabStore()
+
+    // Mock the getAllOpenedTabs method to set the tabs data
+    tabStore.getAllOpenedTabs = vi.fn(async () => {
+      tabStore.$patch({ tabs: (tabsData as any).tabs as Tabs.Tab[] })
+    })
+
+    // Wait for component to render
+    await flushPromises()
+
+    // Click the Load Tabs button by finding it directly using data-testid
+    const loadTabsButton = wrapper.find('[data-testid="btn-load-tabs"]')
+    expect(loadTabsButton.exists()).toBe(true)
+
+    await loadTabsButton.trigger('click')
+    await flushPromises()
+
+    // Verify that getAllOpenedTabs was called
+    expect(tabStore.getAllOpenedTabs).toHaveBeenCalled()
+
+    // Verify that tabs are loaded in the store
+    expect(tabStore.tabs.length).toBeGreaterThan(0)
+    expect(tabStore.tabs[0].url).toBeDefined()
+    expect(tabStore.tabs[0].title).toBeDefined()
+  })
+})
