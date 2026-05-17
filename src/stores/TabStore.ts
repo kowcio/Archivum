@@ -34,16 +34,16 @@ export const useTabStore = defineStore('tabStore', {
         error: null,
     }),
     actions: {
-        async getAllOpenedTabs(
-            tabsApi: Tabs.Static = browser.tabs,
-        ): Promise<Tabs.Tab[]> {
+        async getAllOpenedTabs(): Promise<Tabs.Tab[]> {
             this.loading = true
             this.error = null
             try {
-                this.tabs = await tabsApi.query({})
-                return this.tabs
+                const fetchedTabs: Tabs.Tab[] = await browser.tabs.query({ currentWindow: true })
+                this.tabs = fetchedTabs
+                console.log('Loaded tabs:', fetchedTabs)
+                return fetchedTabs
             } catch (err) {
-                this.error = err instanceof Error ? err.message : 'Unknown error while fetching tabs'
+                this.error = err instanceof Error ? err.message : 'Unknown error while loading tabs'
                 return []
             } finally {
                 this.loading = false

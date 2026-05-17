@@ -7,7 +7,7 @@
   </div>
   <div>
     <ul class="tab-list">
-      <li class="tab-item" v-for="(tab, index) in tabs" :key="tab.id">
+      <li class="tab-item" v-for="(tab, index) in tabStore.tabs" :key="tab.id">
         {{ index }} - {{ tab.title }}
       </li>
     </ul>
@@ -18,47 +18,39 @@
 </template>
 
 <script setup lang="ts">
-import {onMounted, ref} from 'vue';
-import browser from 'webextension-polyfill';
-import type {Tabs} from 'webextension-polyfill';
+import { onMounted } from 'vue'
+import browser from 'webextension-polyfill'
+import { useTabStore } from '@/stores/TabStore'
 
-const tabs = ref<Tabs.Tab[]>([]);
+const tabStore = useTabStore()
 
 async function loadTabs(): Promise<void> {
-  try {
-    const fetchedTabs: Tabs.Tab[] = await browser.tabs.query({currentWindow: true});
-    fetchedTabs.forEach((tab: Tabs.Tab) => {
-      console.log(tab);
-      tabs.value.push(tab);
-    });
-  } catch (error: unknown) {
-    console.error(error);
-  }
+  await tabStore.getAllOpenedTabs()
 }
 
 function openOptionsPage() {
-  const opening = browser.runtime.openOptionsPage();
-  console.log(opening);
+  const opening = browser.runtime.openOptionsPage()
+  console.log(opening)
   opening.then(
     () => console.log('Options opened'),
     (error) => console.error('Failed to open options', error)
-  );
+  )
 }
 
 async function openOptionsPageFull() {
-  const url = browser.runtime.getURL('options.html');
+  const url = browser.runtime.getURL('options.html')
   try {
-    await browser.tabs.create({url});
-    window.close();
+    await browser.tabs.create({ url })
+    window.close()
   } catch (error) {
-    console.error('Failed to open options via tabs.create, falling back', error);
-    await browser.runtime.openOptionsPage();
+    console.error('Failed to open options via tabs.create, falling back', error)
+    await browser.runtime.openOptionsPage()
   }
 }
 
 onMounted(() => {
-  console.log('Popup component mounted!');
-});
+  console.log('Popup component mounted!')
+})
 </script>
 
 <style scoped>
