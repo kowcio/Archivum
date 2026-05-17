@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { launchFirefoxMv3Context } from './helpers/extensions'
+import { launchFirefoxMv3Context } from './helpers/extensions.js'
 
 test.describe('Simple Firefox Web Extension Test', () => {
   test.beforeAll(async () => {

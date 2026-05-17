@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { launchChromeMv3Context } from './helpers/extensions'
+import { launchChromeMv3Context } from './helpers/extensions.js'
 
 test.describe('Simple Chromium Web Extension Test', () => {
   test.beforeAll(async () => {
