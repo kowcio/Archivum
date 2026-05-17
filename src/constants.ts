@@ -7,5 +7,5 @@ export const APP_CONSTANTS = {
   APP_NAME: 'czynsz_ff',
   STORAGE_KEY: 'global_store',
   APP_VERSION: `${packageJson.version}-${dayjs().format('YYYYMMDD-HH:mm')}`,
-  DEFAULT_TABS_MARKING_AGE: 7,
+  DEFAULT_TABS_MARKING_AGE: 0, // TODO : o change for prod after development and save it to the local storage
 } as const

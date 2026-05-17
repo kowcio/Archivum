@@ -7,6 +7,8 @@ import type { Tabs } from 'webextension-polyfill'
 import App from 'src/entrypoints/options/App.vue'
 import { createMockTabs } from './mock/TabServiceMockFactory'
 import { useTabStore } from 'src/stores/TabStore'
+import { useGlobalStore } from 'src/stores/globalStore'
+import tabsExampleData from '../mocks/tabs_example.json'
 
 vi.mock('webextension-polyfill', () => ({
   default: {
@@ -144,5 +146,49 @@ describe('Options App', () => {
 
     expect(tabStore.tabs).toEqual(snapshot!.tabs)
     expect(tabStore.lastSaveDate).toBe(snapshot!.savedAt)
+  })
+
+  it('clicking btn-load-tabs button loads tabs from mock data and renders in table', async () => {
+    // Clear store and mock to start fresh
+    vi.clearAllMocks()
+    tabStore.$patch({ tabs: [] })
+
+    // Initialize global store (needed for component initialization)
+    const globalStore = useGlobalStore()
+    globalStore.$patch({
+      version: '1.0.0',
+      flags: { tabsMarkingAge: 0 }
+    })
+
+    // Mock browser.tabs.query with real tabs_example.json data - using any query params
+    const { default: browser } = await import('webextension-polyfill')
+
+    // Find and click the "Load Tabs" button
+    const loadTabsButton = wrapper.find('[data-testid="btn-load-tabs"]')
+    expect(loadTabsButton.exists()).toBe(true)
+
+    await loadTabsButton.trigger('click')
+    await flushPromises()
+    await nextTick()
+    await nextTick()
+    await flushPromises()
+
+    // Verify store has loaded all tabs from the mock data
+    console.log('Store tabs length after click:', tabStore.tabs.length)
+    expect(tabStore.tabs.length).toBe(tabsExampleData.tabs.length)
+
+    // Verify store tabs have correct structure from mock data
+    expect(tabStore.tabs[0]).toHaveProperty('id')
+    expect(tabStore.tabs[0]).toHaveProperty('title')
+    expect(tabStore.tabs[0]).toHaveProperty('url')
+    expect(tabStore.tabs[0].id).toBe(76)
+    expect(tabStore.tabs[0].title).toContain('NAKLEJKI')
+
+    // Verify table component exists and is rendered
+    const table = wrapper.find('[data-testid="current-tabs-table"]')
+    expect(table.exists()).toBe(true)
+
+    // Wrapper should contain the table HTML
+    expect(wrapper.html()).toContain('current-tabs-table')
   })
 })

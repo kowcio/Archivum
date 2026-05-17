@@ -162,7 +162,7 @@ describe('Options Entrypoint', () => {
     expect(tabStore.getAllOpenedTabs).toHaveBeenCalled()
 
     // Verify that tabs are loaded in the store
-    expect(tabStore.tabs.length).toBeGreaterThan(0)
+    expect(tabStore.tabs.length).toEqual(20)
     expect(tabStore.tabs[0].url).toBeDefined()
     expect(tabStore.tabs[0].title).toBeDefined()
   })
