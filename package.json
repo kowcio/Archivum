@@ -22,10 +22,9 @@
     "test:unit": "vitest --run",
     "test:unit:watch": "vitest",
     "test:playwright": "npm run test:playwright:chromium",
-    "test:playwright:chromium": "npx playwright test src/test/playwright --project chrome-mv3",
+    "test:playwright:chromium": "npx playwright test src/test/playwright --ui --project chrome-mv3",
     "test:playwright:debug": "npm run build && npx playwright test src/test/playwright --project chrome-mv3-debug",
     "test:playwright:ui": "npx playwright test src/test/playwright --ui --project chrome-mv3",
-    "test:playwright:ui:firefox": "npx playwright test src/test/playwright --ui --project firefox-mv3",
     "ci": "npm run type-check && npm run test:unit && npm run build",
     "extension:package": "npm run build && npm run zip"
   },
