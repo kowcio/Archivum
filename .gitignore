@@ -16,7 +16,7 @@ reports
 *.local
 
 # test
-src/test/playwright/*profile*
+test/playwright/*profile*
 
 
 # Editor directories and files

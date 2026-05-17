@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { mount } from '@vue/test-utils'
-import OptionsApp from '@/entrypoints/options/App.vue'
+import OptionsApp from 'src/entrypoints/options/App.vue'
 import { setActivePinia, createPinia } from 'pinia'
 
 // Mock browser API

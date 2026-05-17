@@ -7,6 +7,7 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, 'src'),
+      'src': path.resolve(__dirname, 'src'),
       quasar: path.resolve(__dirname, 'node_modules/quasar/dist/quasar.client.js'),
     },
   },
@@ -14,7 +15,7 @@ export default defineConfig({
     environment: 'jsdom',
     exclude: [...configDefaults.exclude, '**/node_modules/**', '.output/**', 'reports/**'],
     include: [
-      'src/test/unit/**/*.spec.{js,ts,vue}',
+      'test/unit/**/*.spec.{js,ts,vue}',
     ],
 
     globals: true,

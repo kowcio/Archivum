@@ -10,7 +10,7 @@
   ],
   "exclude": [
     "src/**/__tests__/*",
-    "src/test/**/*"
+    "test/**/*"
   ],
   "compilerOptions": {
     // Inherits from root: target, module, moduleResolution,

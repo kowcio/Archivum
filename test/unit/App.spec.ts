@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
-import App from '@/entrypoints/content/App.vue'
+import App from 'src/entrypoints/content/App.vue'
 import {createPinia} from "pinia";
 
 vi.mock('webextension-polyfill', () => ({

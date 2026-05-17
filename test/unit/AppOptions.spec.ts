@@ -4,9 +4,9 @@ import { mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { Quasar, QTable, QTd, QTr, QBtn, QBtnGroup, QInput } from 'quasar'
 import type { Tabs } from 'webextension-polyfill'
-import App from '@/entrypoints/options/App.vue'
-import { createMockTabs } from '@/test/unit/mock/TabServiceMockFactory'
-import { useTabStore } from '@/stores/TabStore'
+import App from 'src/entrypoints/options/App.vue'
+import { createMockTabs } from './mock/TabServiceMockFactory'
+import { useTabStore } from 'src/stores/TabStore'
 
 vi.mock('webextension-polyfill', () => ({
   default: {

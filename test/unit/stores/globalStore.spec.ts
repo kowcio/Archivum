@@ -3,9 +3,9 @@ import { setActivePinia, createPinia } from 'pinia'
 
 vi.mock('webextension-polyfill', () => ({ default: { storage: { local: { get: vi.fn(), set: vi.fn(), remove: vi.fn() }, onChanged: { addListener: vi.fn() } } } }))
 
-import { useGlobalStore } from '@/stores/globalStore.ts'
-import StorageService from '@/services/StorageService'
-import {APP_CONSTANTS} from "@/constants.ts";
+import { useGlobalStore } from 'src/stores/globalStore.ts'
+import StorageService from 'src/services/StorageService'
+import {APP_CONSTANTS} from "src/constants.ts";
 
 describe('global store', () => {
     beforeEach(() => {

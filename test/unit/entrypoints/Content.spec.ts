@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { mount } from '@vue/test-utils'
-import ContentApp from '@/entrypoints/content/App.vue'
+import ContentApp from 'src/entrypoints/content/App.vue'
 import { setActivePinia, createPinia } from 'pinia'
 // Mock browser API
 vi.mock('webextension-polyfill', () => ({

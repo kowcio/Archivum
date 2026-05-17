@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { mount } from '@vue/test-utils'
-import PopupApp from '@/entrypoints/popup/App.vue'
+import PopupApp from 'src/entrypoints/popup/App.vue'
 import { createPinia } from 'pinia'
 
 // Mock browser API

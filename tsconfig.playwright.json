@@ -1,7 +1,7 @@
 {
   "extends": "./tsconfig.node.json",
   "include": [
-    "src/test/playwright/**/*.ts"
+    "test/playwright/**/*.ts"
   ],
   "compilerOptions": {
     "noEmit": true,

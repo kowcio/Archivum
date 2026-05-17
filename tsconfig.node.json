@@ -8,10 +8,10 @@
     "nightwatch.conf.*",
     "playwright.config.*",
     "eslint.config.*",
-    "src/test/playwright/**/*.ts",
-    "src/test/playwright/**/*.js",
-    "src/test/playwright/**/*.ts",
-    "src/test/playwright/**/*.js"
+    "test/playwright/**/*.ts",
+    "test/playwright/**/*.js",
+    "test/playwright/**/*.ts",
+    "test/playwright/**/*.js"
   ],
   "compilerOptions": {
     // Inherits from root: target, module, moduleResolution,

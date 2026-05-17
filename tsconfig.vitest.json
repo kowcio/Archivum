@@ -6,7 +6,7 @@
     "src/**/*.spec.vue"
   ],
   "exclude": [
-    "src/test/playwright/**/*"
+    "test/playwright/**/*"
   ],
   "compilerOptions": {
     // Inherits from root via tsconfig.app.json: target, module, moduleResolution,
