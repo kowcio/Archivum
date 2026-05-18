@@ -58,7 +58,7 @@
       </div>
 
       <div class="row q-mt-md">
-        <div class="col-1">
+        <div class="col-2">
           <q-input
             data-testid="tabs-marking-age"
             label="Tabs marking age (days)"
@@ -71,20 +71,20 @@
         </div>
       </div>
 
-      <div style="margin: 24px; display: flex">
+      <div class="q-my-md" style="display: flex; justify-content: center; width: 100%">
         <q-table
           data-testid="current-tabs-table"
           title="Open Tabs"
           :columns="columns"
           :rows="rows"
-          class="rounded-borders bg-grey-1 q-table--striped"
+          class="rounded-borders bg-grey-1 q-table--striped "
           row-key="rowKey"
           flat
           bordered
           dense
           wrap-cells
           virtual-scroll
-          style="max-height: 70vh"
+          style="max-height: 70vh; max-width: 90%; width: 100%"
           :rows-per-page-options="[0]"
           :pagination="{ sortBy: 'lastAccess', descending: true }"
         >
@@ -95,7 +95,11 @@
                 :key="col.name"
                 :props="props"
                 :data-testid="`cell-${col.name}-${props.row.rowKey}`"
-                :class="col.name === 'lastAccess' ? props.row.lastAccessClass : undefined"
+                :class="[
+                  col.name === 'lastAccess' ? props.row.lastAccessClass : undefined,
+                  'table-cell-text-break',
+                  ['title', 'url', 'domain'].includes(col.name) ? 'cell-break-aggressive' : undefined
+                ]"
               >
                 <template v-if="col.name === 'close'">
                   <button @click="handleCloseTab(props.row.id)" :disabled="!props.row.id">
@@ -338,4 +342,40 @@ async function handleResetTabTitles(): Promise<void> {
 
 <style></style>
 
-<style scoped></style>
+<style scoped>
+.table-text-break :deep(.q-td) {
+  word-break: break-word;
+  overflow-wrap: break-word;
+  white-space: normal;
+  word-wrap: break-word;
+}
+
+.table-cell-text-break {
+  word-break: break-word;
+  overflow-wrap: break-word;
+  white-space: normal;
+  word-wrap: break-word;
+}
+
+/* Aggressive text breaking for title, url, and domain columns */
+.cell-break-aggressive {
+  word-break: break-all;
+  overflow-wrap: break-word;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  max-width: 100%;
+}
+
+.cell-break-aggressive a {
+  word-break: break-all;
+  overflow-wrap: break-word;
+  white-space: pre-wrap;
+}
+
+.cell-break-aggressive span {
+  display: block;
+  word-break: break-all;
+  overflow-wrap: break-word;
+  white-space: pre-wrap;
+}
+</style>
