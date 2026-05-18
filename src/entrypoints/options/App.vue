@@ -2,9 +2,9 @@
   <div class="version-info">Version: {{ global.version }}</div>
   <div id="options" class="row">
     <div class="col-10 offset-1">
-      <div class="row q-mt-md">
-        <div class="q-col-gutter">
-          <q-btn-group class="q-mb-sm">
+      <div class="row justify-center q-mt-md">
+        <div class="button-group-container">
+          <q-btn-group>
             <q-btn
               data-testid="btn-load-tabs"
               label="Load Tabs"
@@ -48,10 +48,15 @@
               @click="handleResetTabTitles"
             />
           </q-btn-group>
-          <span v-if="tabStore.lastSaveDate" style="font-size: 0.8rem; color: #666">
+        </div>
+      </div>
+
+      <div class="row q-mt-md">
+        <div class="text-info-container">
+          <span v-if="tabStore.lastSaveDate" class="status-text">
             Last saved: {{ tabStore.lastSaveDate }}
           </span>
-          <span v-if="tabStore.error" style="font-size: 0.8rem; color: red">
+          <span v-if="tabStore.error" class="error-text">
             Error: {{ tabStore.error }}
           </span>
         </div>
@@ -71,20 +76,19 @@
         </div>
       </div>
 
-      <div class="q-my-md" style="display: flex; justify-content: center; width: 100%">
+      <div class="table-container">
         <q-table
           data-testid="current-tabs-table"
           title="Open Tabs"
           :columns="columns"
           :rows="rows"
-          class="rounded-borders bg-grey-1 q-table--striped "
+          class="rounded-borders bg-grey-1 q-table--striped table-wrapper"
           row-key="rowKey"
           flat
           bordered
           dense
           wrap-cells
           virtual-scroll
-          style="max-height: 70vh; max-width: 90%; width: 100%"
           :rows-per-page-options="[0]"
           :pagination="{ sortBy: 'lastAccess', descending: true }"
         >
@@ -179,7 +183,7 @@ const columns: QTableProps["columns"] = [
     headerClasses: "col-auto",
     sortable: true,
   },
-  { name: "close", label: "", field: "close", align: "left", headerClasses: "col-auto" },
+   { name: "close", label: "", field: "close", align: "left", headerClasses: "col-auto", classes: "cell-close" },
   // {name: 'id',            label: 'ID',          field: 'id',            align: 'left', headerClasses: 'col-auto', sortable: true},
   { name: "thumbnail", label: "", field: "thumbnail", align: "left", headerClasses: "col-auto" },
   {
@@ -343,6 +347,45 @@ async function handleResetTabTitles(): Promise<void> {
 <style></style>
 
 <style scoped>
+/* Layout & Container Styles */
+.button-group-container {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+}
+
+.text-info-container {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.table-container {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  margin: 1rem 0;
+}
+
+.table-wrapper {
+  max-height: 70vh;
+  max-width: 90%;
+  width: 100%;
+}
+
+/* Status & Error Text */
+.status-text {
+  font-size: 0.8rem;
+  color: #666;
+}
+
+.error-text {
+  font-size: 0.8rem;
+  color: red;
+}
+
+/* Table Cell Styles */
 .table-text-break :deep(.q-td) {
   word-break: break-word;
   overflow-wrap: break-word;
@@ -355,6 +398,16 @@ async function handleResetTabTitles(): Promise<void> {
   overflow-wrap: break-word;
   white-space: normal;
   word-wrap: break-word;
+}
+
+/* Close button cell - always display at full width without wrapping */
+.cell-close {
+  white-space: nowrap;
+  min-width: max-content;
+}
+
+.cell-close button {
+  white-space: nowrap;
 }
 
 /* Aggressive text breaking for title, url, and domain columns */

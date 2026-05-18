@@ -92,21 +92,21 @@ describe('Options Entrypoint', () => {
     expect(versionInfo.text()).toContain('Version:')
   })
 
-  it('should render button group container', () => {
-    const wrapper = mount(OptionsApp, {
-      global: {
-        plugins: [
-          [Quasar, { config: { dark: false }, components: { QTable, QTr, QTd, QBtn, QBtnGroup, QInput } }]
-        ],
-        stubs: {
-          teleport: true,
-        },
-      },
-    })
+   it('should render button group container', () => {
+     const wrapper = mount(OptionsApp, {
+       global: {
+         plugins: [
+           [Quasar, { config: { dark: false }, components: { QTable, QTr, QTd, QBtn, QBtnGroup, QInput } }]
+         ],
+         stubs: {
+           teleport: true,
+         },
+       },
+     })
 
-    const btnGroup = wrapper.find('.q-col-gutter')
-    expect(btnGroup.exists()).toBe(true)
-  })
+     const btnGroup = wrapper.find('.button-group-container')
+     expect(btnGroup.exists()).toBe(true)
+   })
 
   it('should have proper HTML structure with row layout', () => {
     const wrapper = mount(OptionsApp, {
