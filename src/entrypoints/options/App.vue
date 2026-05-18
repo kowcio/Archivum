@@ -168,11 +168,16 @@ function truncate(text: string, maxLength: number): string {
 }
 
 /**
- * Removes http:// or https:// from the beginning of a URL for display
+ * Strips protocol (http://, https://, ://) and www. prefix for display purposes.
+ * Works for both URLs and titles that may contain raw links.
  */
 function stripProtocol(url: string): string {
   if (!url) return url
-  return url.replace(/^http.*?\/\/[wW]+[.]/, '')
+  return url
+    .trim()
+    .replace(/^https?:\/\//i, '')  // remove http:// or https://
+    .replace(/^:\/\//i, '')        // remove leftover ://
+    .replace(/^www\./i, '')        // remove www.
 }
 
 const columns: QTableProps["columns"] = [
