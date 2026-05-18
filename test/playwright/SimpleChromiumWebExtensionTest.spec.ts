@@ -48,7 +48,11 @@ test.describe('Simple Chromium Web Extension Test', () => {
   test('completion confirmation', async () => {
     console.log('\n✅ All tests completed successfully!')
     console.log('⏱️  Waiting 10 seconds for visual confirmation...\n')
-    await new Promise(resolve => setTimeout(resolve, 10000))
+
+    const isHeadless = Boolean(test.info().project.use.headless)
+    const delayForTesting = isHeadless ? 2000 : 30000
+
+    await new Promise(resolve => setTimeout(resolve, delayForTesting))
     console.log('✨ Test suite finished! You can now close this window.\n')
   })
 

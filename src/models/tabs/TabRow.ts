@@ -30,8 +30,9 @@ export class TabRow {
     this.domain = this.extractDomain(tab.url);
 
     // Derived fields - text truncation
-    this.title = this.removeAllAfterLastDash(tab.title);
-    this.url = this.truncateText(tab.url);
+    this.title = this.removeAllAfterLastDash(tab.title ? tab.title : 'Missing title');
+    // this.url = this.truncateText(tab.url);
+    this.url = tab.url ? tab.url : 'Missing url';
 
     // Derived fields - last access calculations
     // Use dayjs to compute days and hours since last access. Keep numeric values with two decimal places.

@@ -115,9 +115,19 @@
                 <template v-else-if="col.name === 'lastAccess'" :class="props.row.lastAccessClass">
                   {{ tabStore.getLastAccessMsg(props.row) || "—" }}
                 </template>
+                <template v-else-if="col.name === 'title'">
+                  <q-tooltip v-if="props.row.title" class="bg-black text-white" max-width="500px">
+                    {{ props.row.title }}
+                  </q-tooltip>
+                  <span v-if="props.row.title">{{ truncate(props.row.title, excerptLength) }}</span>
+                  <span v-else>—</span>
+                </template>
                 <template v-else-if="col.name === 'url'">
+                  <q-tooltip v-if="props.row.url" class="bg-black text-white" max-width="500px">
+                    {{ props.row.url }}
+                  </q-tooltip>
                   <a v-if="props.row.url" :href="props.row.url" target="_blank" rel="noreferrer">{{
-                    props.row.url
+                    truncate(props.row.url, excerptLength)
                   }}</a>
                   <span v-else>—</span>
                 </template>
@@ -136,6 +146,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue"
 import { storeToRefs } from "pinia"
+import type { Tabs } from "webextension-polyfill"
 import { useGlobalStore } from "@/stores/globalStore.ts"
 import { useTabStore } from "@/stores/TabStore"
 import type { QTableProps } from "quasar"
@@ -144,8 +155,16 @@ import { TabRow } from "@/models/tabs/TabRow"
 const global = useGlobalStore()
 const tabStore = useTabStore()
 const { tabs: storeTabs } = storeToRefs(tabStore)
-
+const excerptLength = 50
 const tabsMarkingAge = ref(global.flags.tabsMarkingAge)
+
+/**
+ * Truncates a string to max length and adds ellipsis if needed
+ */
+function truncate(text: string, maxLength: number): string {
+  if (!text || text.length <= maxLength) return text
+  return text.substring(0, maxLength) + '…'
+}
 
 const columns: QTableProps["columns"] = [
   {

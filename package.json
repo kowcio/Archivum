@@ -7,14 +7,12 @@
     "node": ">=22"
   },
   "scripts": {
-    "dev": "wxt -b chrome --mv3",
+    "dev": "CHROME_PATH=$HOME/.cache/ms-playwright/chromium-1223/chrome-linux64/chrome wxt -b chromium --mv3",
+    "dev:firefox": "wxt -b firefox --mv3",
+    "dev:chromium": "CHROME_PATH=$HOME/.cache/ms-playwright/chromium-1223/chrome-linux64/chrome wxt -b chromium --mv3",
     "build": "wxt build -b chrome --mv3 && wxt build -b firefox --mv3",
     "zip": "wxt zip -b chrome --mv3",
-    "postinstall": "wxt prepare && npx playwright install chromium firefox",
-    "build-only": "wxt build -b chrome --mv3",
-    "extension:build": "wxt build -b chrome --mv3",
-    "extension:run": "wxt -b chrome --mv3",
-    "extension:dev": "wxt -b chrome --mv3",
+    "postinstall": "wxt prepare &&   npx playwright install chromium firefox",
     "type-check": "vue-tsc --build --force",
     "lint": "eslint . --fix",
     "format": "prettier --write src/",
@@ -25,8 +23,7 @@
     "test:playwright:chromium": "npx playwright test -c playwright.config.ts --project chrome-mv3",
     "test:playwright:debug": "npm run build && npx playwright test -c playwright.config.ts --project chrome-mv3-debug",
     "test:playwright:ui": "npx playwright test -c playwright.config.ts --ui --project chrome-mv3",
-    "ci": "npm run type-check && npm run test:unit && npm run build",
-    "extension:package": "npm run build && npm run zip"
+    "ci": "npm run type-check && npm run test:unit && npm run build"
   },
   "dependencies": {
     "@quasar/extras": "1.17.0",

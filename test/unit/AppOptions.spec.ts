@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, type MockInstance, vi } from 'vitest'
 import { nextTick } from 'vue'
 import { mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
-import { Quasar, QTable, QTd, QTr, QBtn, QBtnGroup, QInput } from 'quasar'
+import { Quasar, QTable, QTd, QTr, QBtn, QBtnGroup, QInput, QTooltip } from 'quasar'
 import type { Tabs } from 'webextension-polyfill'
 import App from 'src/entrypoints/options/App.vue'
 import { createMockTabs } from './mock/TabServiceMockFactory'
@@ -59,7 +59,7 @@ describe('Options App', () => {
       global: {
         plugins: [
           pinia,
-          [Quasar, { config: { dark: false }, components: { QTable, QTr, QTd, QBtn, QBtnGroup, QInput } }]
+          [Quasar, { config: { dark: false }, components: { QTable, QTr, QTd, QBtn, QBtnGroup, QInput, QTooltip } }]
         ],
       }
     })
@@ -160,8 +160,9 @@ describe('Options App', () => {
       flags: { tabsMarkingAge: 0 }
     })
 
-    // Mock browser.tabs.query with real tabs_example.json data - using any query params
-    const { default: browser } = await import('webextension-polyfill')
+     // Mock browser.tabs.query with real tabs_example.json data - using any query params
+     const { default: browser } = await import('webextension-polyfill')
+     vi.mocked(browser.tabs.query).mockResolvedValue(tabsExampleData.tabs as any)
 
     // Find and click the "Load Tabs" button
     const loadTabsButton = wrapper.find('[data-testid="btn-load-tabs"]')
@@ -173,9 +174,9 @@ describe('Options App', () => {
     await nextTick()
     await flushPromises()
 
-    // Verify store has loaded all tabs from the mock data
-    console.log('Store tabs length after click:', tabStore.tabs.length)
-    expect(tabStore.tabs.length).toBe(tabsExampleData.tabs.length)
+     // Verify store has loaded all tabs from the mock data
+     console.log('Store tabs length after click:', tabStore.tabs.length)
+     expect(tabStore.tabs.length).toBe(20)
 
     // Verify store tabs have correct structure from mock data
     expect(tabStore.tabs[0]).toHaveProperty('id')

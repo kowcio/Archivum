@@ -1,7 +1,7 @@
 import { createApp, type App as VueApp } from 'vue';
 import { createPinia, type Pinia } from 'pinia';
 import { useGlobalStore } from '@/stores/globalStore.ts';
-import { Quasar, QTable, QTd, QTr, QBtn, QBtnGroup, QInput } from 'quasar';
+import { Quasar, QTable, QTd, QTr, QBtn, QBtnGroup, QInput, QTooltip } from 'quasar';
 import {APP_CONSTANTS} from "@/constants.ts";
 
 /**
@@ -31,13 +31,14 @@ export async function initializeApp(options: AppInitOptions): Promise<Initialize
   // Add global properties
   app.config.globalProperties.APP_VERSION = APP_CONSTANTS.APP_VERSION;
 
-  // Quasar components (add more when you use them in your components)
-  app.use(Quasar, {
-    components: {
-      QTable, QTr, QTd,
-      QBtn, QBtnGroup, QInput,
-    },
-  });
+   // Quasar components (add more when you use them in your components)
+   app.use(Quasar, {
+     components: {
+       QTable, QTr, QTd,
+       QBtn, QBtnGroup, QInput,
+       QTooltip,
+     },
+   });
 
   // Create and use Pinia
   const pinia = createPinia();
