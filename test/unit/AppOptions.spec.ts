@@ -157,7 +157,7 @@ describe('Options App', () => {
     const globalStore = useGlobalStore()
     globalStore.$patch({
       version: '1.0.0',
-      flags: { tabsMarkingAge: 0 }
+      flags: {}
     })
 
      // Mock browser.tabs.query with real tabs_example.json data - using any query params

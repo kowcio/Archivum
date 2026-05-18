@@ -1,11 +1,17 @@
 import {defineStore} from 'pinia'
 import StorageService from '@/services/StorageService.ts'
-import {APP_CONSTANTS} from "@/constants.ts";
+import {APP_CONSTANTS, APP_DEFAULTS} from "@/constants.ts";
+
+// ─── Threshold type ───────────────────────────────────────────────────────────
+export interface AppThresholds {
+  young: number   // 0..young → 🟢 fresh
+  middle: number  // young..middle → 🟡 yellow
+  old: number     // middle..old → 🟠 orange, >old → 🔴 red
+}
 
 // ─── Persisted flags ──────────────────────────────────────────────────────────
 export interface AppFlags {
-  ENABLED: boolean
-  tabsMarkingAge: number
+  thresholds: AppThresholds
 }
 
 // ─── Full store state ─────────────────────────────────────────────────────────
@@ -19,38 +25,30 @@ export interface GlobalState {
 // ─── Partial type used when loading from storage ──────────────────────────────
 type PersistedState = Partial<Omit<GlobalState, 'flags'>> & { flags?: Partial<AppFlags> }
 
-async function getRuntimeVersion(): Promise<string | undefined> {
-  try {
-    const browserNs = (globalThis as unknown as {
-        browser?: { runtime?: { getManifest?: () => { version: string } } };
-        chrome?: { runtime?: { getManifest?: () => { version: string } } }
-      }).browser
-      ?? (globalThis as unknown as {
-        chrome?: { runtime?: { getManifest?: () => { version: string } } }
-      }).chrome
-    return browserNs?.runtime?.getManifest?.()?.version
-  } catch {
-    // not running inside an extension context
-  }
-  return undefined
+export const DEFAULT_THRESHOLDS: AppThresholds = {
+  young:  APP_DEFAULTS.THRESHOLDS.YOUNG,
+  middle: APP_DEFAULTS.THRESHOLDS.MIDDLE,
+  old:    APP_DEFAULTS.THRESHOLDS.OLD,
 }
+
 
 export const useGlobalStore = defineStore('global', {
   state: (): GlobalState => ({
     appName: APP_CONSTANTS.APP_NAME,
     version: APP_CONSTANTS.APP_VERSION,
     flags: {
-      ENABLED: false,
-      tabsMarkingAge: APP_CONSTANTS.DEFAULT_TABS_MARKING_AGE,
+      thresholds: { ...DEFAULT_THRESHOLDS },
     },
     lastUpdated: Date.now(),
   }),
 
   getters: {
-    /** Convenience: is the extension enabled? */
-    isEnabled: (state): boolean => state.flags.ENABLED,
-    /** Convenience: current tabs-marking-age threshold */
-    tabsMarkingAge: (state): number => state.flags.tabsMarkingAge,
+    /** Current thresholds as sorted array [young, middle, old] */
+    thresholdsArray: (state): readonly [number, number, number] => [
+      state.flags.thresholds.young,
+      state.flags.thresholds.middle,
+      state.flags.thresholds.old,
+    ],
     /** Expose constants so any component can read them via the store */
     constants: (): typeof APP_CONSTANTS => APP_CONSTANTS,
   },
@@ -58,7 +56,14 @@ export const useGlobalStore = defineStore('global', {
   actions: {
     /** Merge partial flag changes and persist. */
     async setFlags(patch: Partial<AppFlags>): Promise<void> {
-      this.flags = {...this.flags, ...patch}
+      this.flags = {
+        ...this.flags,
+        ...patch,
+        // Deep-merge thresholds if provided
+        thresholds: patch.thresholds
+          ? { ...this.flags.thresholds, ...patch.thresholds }
+          : this.flags.thresholds,
+      }
       await this.save()
     },
 
@@ -70,12 +75,36 @@ export const useGlobalStore = defineStore('global', {
         this.flags = {
           ...this.flags,
           ...data.flags,
+          // Deep-merge thresholds so missing keys fall back to defaults
+          thresholds: {
+            ...DEFAULT_THRESHOLDS,
+            ...data.flags?.thresholds,
+          },
         }
+      } else {
+        // First time — persist the defaults
+        await this.save()
       }
 
       // Prefer the extension manifest version over the build-time value
-      const runtimeVersion = await getRuntimeVersion()
+      const runtimeVersion = await this.getRuntimeVersion()
       if (runtimeVersion) this.version = runtimeVersion
+    },
+
+    async getRuntimeVersion(): Promise<string | undefined> {
+      try {
+        const browserNs = (globalThis as unknown as {
+            browser?: { runtime?: { getManifest?: () => { version: string } } };
+            chrome?: { runtime?: { getManifest?: () => { version: string } } }
+          }).browser
+          ?? (globalThis as unknown as {
+            chrome?: { runtime?: { getManifest?: () => { version: string } } }
+          }).chrome
+        return browserNs?.runtime?.getManifest?.()?.version
+      } catch {
+        // not running inside an extension context
+      }
+      return undefined
     },
 
     async save(): Promise<void> {
@@ -95,7 +124,14 @@ export const useGlobalStore = defineStore('global', {
         if (payload.lastUpdated && payload.lastUpdated === this.lastUpdated) return
         this.appName = payload.appName ?? this.appName
         this.lastUpdated = payload.lastUpdated ?? this.lastUpdated
-        this.flags = {...this.flags, ...payload.flags}
+        this.flags = {
+          ...this.flags,
+          ...payload.flags,
+          thresholds: {
+            ...this.flags.thresholds,
+            ...payload.flags?.thresholds,
+          },
+        }
       })
     },
 

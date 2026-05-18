@@ -62,18 +62,9 @@
         </div>
       </div>
 
+
       <div class="row q-mt-md">
-        <div class="col-2">
-          <q-input
-            data-testid="tabs-marking-age"
-            label="Tabs marking age (days)"
-            type="number"
-            v-model.number="tabsMarkingAge"
-            :min="0"
-            :disable="tabStore.loading"
-            @update:model-value="handleTabsMarkingAgeChange"
-          />
-        </div>
+        <Thresholds />
       </div>
 
       <div class="table-container">
@@ -152,19 +143,19 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from "vue"
+import { computed, onMounted } from "vue"
 import { storeToRefs } from "pinia"
 import type { Tabs } from "webextension-polyfill"
 import { useGlobalStore } from "@/stores/globalStore.ts"
 import { useTabStore } from "@/stores/TabStore"
 import type { QTableProps } from "quasar"
 import { TabRow } from "@/models/tabs/TabRow"
+import Thresholds from "@/components/Thresholds.vue"
 
 const global = useGlobalStore()
 const tabStore = useTabStore()
 const { tabs: storeTabs } = storeToRefs(tabStore)
 const excerptLength = 50
-const tabsMarkingAge = ref(global.flags.tabsMarkingAge)
 
 /**
  * Truncates a string to max length and adds ellipsis if needed
@@ -240,28 +231,18 @@ const columns: QTableProps["columns"] = [
 const rows = computed(() =>
   TabRow.fromTabs(storeTabs.value)
     .map((row, index) => {
-      const ageClassification = tabStore.getAgeClassification(row);
+      const ageClassification = tabStore.getAgeClassification(row, global.thresholdsArray)
       return {
         ...row,
         ordinal: index + 1,
-        // title: row.title,
         lastAccessAge: Number.isFinite(ageClassification.days) ? `${ageClassification.days}d` : "—",
         lastAccessClass: ageClassification.cssClass,
       };
     })
-    .filter((row) => {
-      // Filter out tabs that are not older than the specified age threshold
-      const thresholdDays = tabsMarkingAge.value ?? 0;
-      if (thresholdDays === 0) return true; // Show all tabs if threshold is 0
-
-      const rowDays = Number(row.lastAccessAge?.replace("d", "") ?? "0");
-      return rowDays >= thresholdDays;
-    }),
 );
 
 onMounted(async () => {
   await global.init()
-  tabsMarkingAge.value = global.flags.tabsMarkingAge
   await loadTabs()
   await tabStore.markOldTabs()
 })
@@ -278,9 +259,9 @@ async function handleCloseTab(tabId: number | null): Promise<void> {
 function createMockTabs(count = 5): Tabs.Tab[] {
   const mockData = [
     {
-      url: "https://github.com/microsoft/vscode",
-      title: "VS Code · GitHub",
-      favIconUrl: "https://github.com/favicon.ico",
+      url: "https://kowalskipiotr.pl",
+      title: "Kowalski Piotr",
+      favIconUrl: "https://kowalskipiotr.pl",
     },
     {
       url: "https://developer.mozilla.org/en-US/docs/Web/API",
@@ -337,11 +318,6 @@ function handleGenMockTabs(): void {
   tabStore.$patch({ tabs: createMockTabs(5) })
 }
 
-async function handleTabsMarkingAgeChange(): Promise<void> {
-  const inputValue = tabsMarkingAge.value
-  await global.setFlags({ tabsMarkingAge: inputValue })
-  await tabStore.markOldTabsWithAgeThreshold(inputValue)
-}
 
 async function handleClearTabMarks(): Promise<void> {
   await tabStore.resetAllTabMarks();
