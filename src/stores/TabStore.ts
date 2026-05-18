@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import browser, { type Storage, type Tabs } from 'webextension-polyfill'
 import { TabRow } from '@/models/tabs/TabRow'
-import { TabDot, TabDots, DOT_COLOR_MAP } from '@/services/TabDots.ts'
+import { TabDot, TabDots, DOT_COLOR_MAP, GROUP_COLOR_MAP, type TabGroupColor } from '@/services/TabDots.ts'
 import { useGlobalStore, DEFAULT_THRESHOLDS } from '@/stores/globalStore'
 
 export const TAB_HISTORY_KEY = 'tab_history'
@@ -11,6 +11,7 @@ export interface AgeClassification {
     color: string
     days: number
     dot: TabDot
+    classificationIndex: number
 }
 
 export interface TabsSnapshot {
@@ -131,8 +132,9 @@ export const useTabStore = defineStore('tabStore', {
         ): AgeClassification {
             const days = Number.isFinite(row.lastAccessDays) ? row.lastAccessDays ?? 0 : 0
             const index = boundaries.findIndex((t) => days <= t)
-            const resolved = index !== -1 ? DOT_COLOR_MAP[index] : DOT_COLOR_MAP[DOT_COLOR_MAP.length - 1]
-            return { ...resolved, days }
+            const classificationIndex = index !== -1 ? index : DOT_COLOR_MAP.length - 1
+            const resolved = DOT_COLOR_MAP[classificationIndex]
+            return { ...resolved, days, classificationIndex }
         },
 
         getLastAccessMsg(row: TabRow): string {
@@ -150,14 +152,18 @@ export const useTabStore = defineStore('tabStore', {
                 await Promise.all(
                     tabRows.map(async (row) => {
                         if (row.id == null) return
-                        const { color, dot, days } = this.getAgeClassification(row, boundaries)
+                        const { color, dot, days, classificationIndex } = this.getAgeClassification(row, boundaries)
                         console.log(`[markOldTabs] tab#${row.id} days=${days} dot="${dot}" color=${color} title="${row.title?.slice(0,40)}"`)
                         if (dot) {
                             await this.markTabWithTitle(row.id, `${dot} `)
                             await this.markTabWithBadge(row.id, TabDot.Bullet, color)
+                            await this.markTabWithGroupColor(row.id, GROUP_COLOR_MAP[classificationIndex])
+                            await this.markTabWithFaviconOverlay(row.id, color)
                         } else {
                             await this.resetTabTitle(row.id)
                             await this.unmarkTabBadge(row.id)
+                            await this.unmarkTabGroup(row.id)
+                            await this.removeFaviconOverlay(row.id)
                         }
                     }),
                 )
@@ -291,6 +297,8 @@ export const useTabStore = defineStore('tabStore', {
                         if (row.id == null) return
                         await this.resetTabTitle(row.id)
                         await this.unmarkTabBadge(row.id)
+                        await this.unmarkTabGroup(row.id)
+                        await this.removeFaviconOverlay(row.id)
                     }),
                 )
                 // Strip dot prefixes from store tab titles
@@ -311,6 +319,7 @@ export const useTabStore = defineStore('tabStore', {
                     tabRows.map(async (row) => {
                         if (row.id == null) return
                         await this.resetTabTitle(row.id)
+                        await this.removeFaviconOverlay(row.id)
                     }),
                 )
                 // Strip dot prefixes from store tab titles
@@ -325,6 +334,54 @@ export const useTabStore = defineStore('tabStore', {
 
         getDotFromColor(color: string): string {
             return TabDots.dotFromColor(color)
+        },
+
+        /** Injects a coloured ring around the tab favicon (Chrome + Firefox). */
+        async markTabWithFaviconOverlay(tabId: number, color: string): Promise<void> {
+            try {
+                await browser.scripting.executeScript({
+                    target: { tabId },
+                    func: TabDots.applyFaviconOverlayPageScript,
+                    args: [color],
+                })
+            } catch (err) {
+                console.debug(`[markTabWithFaviconOverlay] tab#${tabId}:`, err instanceof Error ? err.message : err)
+            }
+        },
+
+        /** Removes the injected favicon ring overlay. */
+        async removeFaviconOverlay(tabId: number): Promise<void> {
+            try {
+                await browser.scripting.executeScript({
+                    target: { tabId },
+                    func: TabDots.removeFaviconOverlayPageScript,
+                    args: [],
+                })
+            } catch (err) {
+                console.debug(`[removeFaviconOverlay] tab#${tabId}:`, err instanceof Error ? err.message : err)
+            }
+        },
+
+        /** Groups a tab and sets its group color (Chrome-only, no-op on Firefox). */        async markTabWithGroupColor(tabId: number, color: TabGroupColor): Promise<void> {
+            try {
+                const chrome = (globalThis as unknown as { chrome?: { tabs?: { group?: (o: object) => Promise<number> }, tabGroups?: { update?: (id: number, o: object) => Promise<void> } } }).chrome
+                if (!chrome?.tabs?.group || !chrome?.tabGroups?.update) return
+                const groupId = await chrome.tabs.group({ tabIds: tabId })
+                await chrome.tabGroups.update(groupId, { color })
+            } catch (err) {
+                // tab groups not supported (Firefox) or tab not accessible — silent fail
+                console.debug(`[markTabWithGroupColor] tab#${tabId}:`, err instanceof Error ? err.message : err)
+            }
+        },
+
+        /** Removes a tab from its group (Chrome-only, no-op on Firefox). */
+        async unmarkTabGroup(tabId: number): Promise<void> {
+            try {
+                const chrome = (globalThis as unknown as { chrome?: { tabs?: { ungroup?: (ids: number | number[]) => Promise<void> } } }).chrome
+                await chrome?.tabs?.ungroup?.(tabId)
+            } catch (err) {
+                console.debug(`[unmarkTabGroup] tab#${tabId}:`, err instanceof Error ? err.message : err)
+            }
         },
     },
 })

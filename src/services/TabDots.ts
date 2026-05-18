@@ -25,6 +25,10 @@ export interface DotColorEntry {
     cssClass: string
 }
 
+/** Chrome tab group color names mapped to each age classification index */
+export const GROUP_COLOR_MAP = ['green', 'yellow', 'orange', 'red'] as const
+export type TabGroupColor = typeof GROUP_COLOR_MAP[number]
+
 /** All age classifications in ascending order of severity. */
 export const DOT_COLOR_MAP: readonly DotColorEntry[] = [
     { dot: TabDot.Green,  color: '#66bb6a', cssClass: 'bg-green-2 text-green-10'   },
@@ -85,6 +89,74 @@ export class TabDots {
             document.title = current.startsWith(p.trim())
                 ? `${p}${current.replace(p.trim(), '').trimStart()}`
                 : `${p}${current}`
+        }
+    }
+
+    /**
+     * Injected via executeScript — draws a coloured ring around the existing favicon.
+     * Works in Chrome and Firefox. Returns a Promise so executeScript awaits it.
+     */
+    static get applyFaviconOverlayPageScript(): (color: string) => Promise<void> {
+        return (color: string): Promise<void> => new Promise((resolve) => {
+            const SIZE   = 32
+            const BORDER = 5
+            const MARKER = 'data-ext-age-ring'
+
+            const canvas = document.createElement('canvas')
+            canvas.width  = SIZE
+            canvas.height = SIZE
+            const ctx = canvas.getContext('2d')!
+
+            function applyFavicon(dataUrl: string): void {
+                document.querySelectorAll(`link[${MARKER}]`).forEach((el) => el.remove())
+                const link = document.createElement('link')
+                link.rel  = 'icon'
+                link.type = 'image/png'
+                link.setAttribute(MARKER, 'true')
+                link.href = dataUrl
+                document.head.appendChild(link)
+                resolve()
+            }
+
+            function drawWithFavicon(src: string): void {
+                const img = new Image()
+                img.crossOrigin = 'anonymous'
+                img.onload = () => {
+                    // Coloured ring background
+                    ctx.fillStyle = color
+                    ctx.beginPath()
+                    ctx.arc(SIZE / 2, SIZE / 2, SIZE / 2, 0, Math.PI * 2)
+                    ctx.fill()
+                    // Original favicon clipped to inner circle
+                    ctx.save()
+                    ctx.beginPath()
+                    ctx.arc(SIZE / 2, SIZE / 2, SIZE / 2 - BORDER, 0, Math.PI * 2)
+                    ctx.clip()
+                    ctx.drawImage(img, BORDER, BORDER, SIZE - BORDER * 2, SIZE - BORDER * 2)
+                    ctx.restore()
+                    applyFavicon(canvas.toDataURL('image/png'))
+                }
+                img.onerror = () => drawColoredCircle()
+                img.src = src
+            }
+
+            function drawColoredCircle(): void {
+                ctx.fillStyle = color
+                ctx.beginPath()
+                ctx.arc(SIZE / 2, SIZE / 2, SIZE / 2, 0, Math.PI * 2)
+                ctx.fill()
+                applyFavicon(canvas.toDataURL('image/png'))
+            }
+
+            const existing = document.querySelector<HTMLLinkElement>('link[rel*="icon"]:not([data-ext-age-ring])')
+            existing?.href ? drawWithFavicon(existing.href) : drawColoredCircle()
+        })
+    }
+
+    /** Injected via executeScript — removes the age-ring favicon overlay. */
+    static get removeFaviconOverlayPageScript(): () => void {
+        return () => {
+            document.querySelectorAll('link[data-ext-age-ring]').forEach((el) => el.remove())
         }
     }
 }
