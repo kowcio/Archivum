@@ -4,7 +4,7 @@ import { TabRow } from '@/models/tabs/TabRow'
 import { TabDot, TabDots, DOT_COLOR_MAP } from '@/services/TabDots.ts'
 import { useGlobalStore, DEFAULT_THRESHOLDS } from '@/stores/globalStore'
 
-const TAB_HISTORY_KEY = 'tab_history'
+export const TAB_HISTORY_KEY = 'tab_history'
 
 export interface AgeClassification {
     cssClass: string
@@ -41,7 +41,7 @@ export const useTabStore = defineStore('tabStore', {
             try {
                 const fetchedTabs: Tabs.Tab[] = await browser.tabs.query({ currentWindow: true })
                 this.tabs = fetchedTabs
-                console.log('Loaded tabs:', fetchedTabs)
+                console.log('Loaded opened tabs:', fetchedTabs)
                 return fetchedTabs
             } catch (err) {
                 this.error = err instanceof Error ? err.message : 'Unknown error while loading tabs'
@@ -97,20 +97,25 @@ export const useTabStore = defineStore('tabStore', {
         },
         async loadTabsHistory(
             storage: Storage.StorageArea = browser.storage.local,
-        ): Promise<TabsSnapshot | undefined> {
+        ): Promise<Tabs.Tab[]> {
             this.loading = true
             this.error = null
             try {
                 const result = await storage.get(TAB_HISTORY_KEY)
                 const snapshot = result?.[TAB_HISTORY_KEY] as TabsSnapshot | undefined
+                console.log('Loaded saved tabs:', snapshot?.tabs)
                 if (snapshot) {
-                    this.tabs = snapshot.tabs
+                    // browser.storage.local may deserialize arrays as {0:…, 1:…} objects
+                    this.tabs = Array.isArray(snapshot.tabs)
+                        ? snapshot.tabs
+                        : Object.values(snapshot.tabs as Record<string, Tabs.Tab>)
                     this.lastSaveDate = snapshot.savedAt
+                    console.log('Loaded saved tabs (normalized):', this.tabs)
                 }
-                return snapshot
+                return this.tabs
             } catch (err) {
                 this.error = err instanceof Error ? err.message : 'Unknown error while loading tabs history'
-                return undefined
+                return []
             } finally {
                 this.loading = false
             }
