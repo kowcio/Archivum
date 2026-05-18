@@ -135,7 +135,7 @@
                     {{ props.row.url }}
                   </q-tooltip>
                   <a v-if="props.row.url" :href="props.row.url" target="_blank" rel="noreferrer">{{
-                    truncate(props.row.url, excerptLength)
+                    truncate(stripProtocol(props.row.url), excerptLength)
                   }}</a>
                   <span v-else>—</span>
                 </template>
@@ -172,6 +172,14 @@ const tabsMarkingAge = ref(global.flags.tabsMarkingAge)
 function truncate(text: string, maxLength: number): string {
   if (!text || text.length <= maxLength) return text
   return text.substring(0, maxLength) + '…'
+}
+
+/**
+ * Removes http:// or https:// from the beginning of a URL for display
+ */
+function stripProtocol(url: string): string {
+  if (!url) return url
+  return url.replace(/^http.*?\/\/[wW]+[.]/, '')
 }
 
 const columns: QTableProps["columns"] = [
