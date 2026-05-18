@@ -18,7 +18,7 @@ export default defineConfig((env: { browser: string }) => {
       description: 'Startup project for building browser extensions with Vue 3 and Vite.',
       version: '1.0.0',
       manifest_version: 3,
-      permissions: ['tabs', 'activeTab', 'bookmarks', 'clipboardRead', 'storage', 'scripting'],
+      permissions: ['tabs', 'activeTab', 'bookmarks', 'clipboardRead', 'storage', 'scripting', 'tabGroups'],
       content_scripts: [],
       background: {
         service_worker: 'background.js',
