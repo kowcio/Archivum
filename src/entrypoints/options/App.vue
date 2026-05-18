@@ -118,7 +118,9 @@
                   <q-tooltip v-if="props.row.title" class="bg-black text-white" max-width="500px">
                     {{ props.row.title }}
                   </q-tooltip>
-                  <span v-if="props.row.title">{{ truncate(props.row.title, excerptLength) }}</span>
+                  <span v-if="props.row.title">{{
+                      truncate(stripProtocol(props.row.title), excerptLength)
+                    }}</span>
                   <span v-else>—</span>
                 </template>
                 <template v-else-if="col.name === 'url'">
@@ -239,6 +241,7 @@ const rows = computed(() =>
         lastAccessClass: ageClassification.cssClass,
       };
     })
+    .filter((row) => (row.lastAccessDays ?? 0) >= global.flags.thresholds.young)
 );
 
 onMounted(async () => {
@@ -354,7 +357,6 @@ async function handleResetTabTitles(): Promise<void> {
 
 .table-wrapper {
   max-height: 70vh;
-  max-width: 90%;
   width: 100%;
 }
 
@@ -370,12 +372,6 @@ async function handleResetTabTitles(): Promise<void> {
 }
 
 /* Table Cell Styles */
-.table-text-break :deep(.q-td) {
-  word-break: break-word;
-  overflow-wrap: break-word;
-  white-space: normal;
-  word-wrap: break-word;
-}
 
 .table-cell-text-break {
   word-break: break-word;

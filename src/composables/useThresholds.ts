@@ -60,8 +60,8 @@ export function useThresholds() {
   }
 }
 
-/** Validates strict ordering: young < middle < old (all positive integers) */
+/** Validates strict ordering: 0 ≤ young < middle < old */
 export function isValid(t: AppThresholds): boolean {
-  return t.young > 0 && t.middle > t.young && t.old > t.middle
+  return t.young >= 0 && t.middle > t.young && t.old > t.middle
 }
 

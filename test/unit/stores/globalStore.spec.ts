@@ -16,25 +16,27 @@ describe('global store', () => {
     it('loads data via StorageService.get', async () => {
         vi.spyOn(StorageService as any, 'get').mockResolvedValueOnce({
             appName: 'proj',
-            flags: { username: 'alice', enabled: true },
+            flags: { thresholds: { young: 3, middle: 10, old: 30 } },
             lastUpdated: 1,
         })
         const s = useGlobalStore()
         await s.load()
         expect(StorageService.get).toHaveBeenCalled()
         expect(s.appName).toBe('proj')
-        expect(s.flags.username).toBe('alice')
-        expect(s.flags.enabled).toBe(true)
+        expect(s.flags.thresholds).toEqual({ young: 3, middle: 10, old: 30 })
     })
 
     it('saves data via StorageService.set and updates lastUpdated', async () => {
         vi.spyOn(StorageService as any, 'set').mockResolvedValueOnce(undefined)
         const s = useGlobalStore()
         s.appName = 'myapp'
-        await s.setFlags({ username: 'bob', enabled: false })
+        await s.setFlags({ thresholds: { young: 5, middle: 12, old: 25 } })
         expect(StorageService.set).toHaveBeenCalledWith(
             APP_CONSTANTS.STORAGE_KEY,
-            expect.objectContaining({ appName: 'myapp', flags: expect.objectContaining({ username: 'bob' }) }),
+            expect.objectContaining({
+                appName: 'myapp',
+                flags: expect.objectContaining({ thresholds: { young: 5, middle: 12, old: 25 } }),
+            }),
         )
         expect(s.lastUpdated).toBeGreaterThan(0)
     })
@@ -52,7 +54,7 @@ describe('global store', () => {
         const incoming = {
             [APP_CONSTANTS.STORAGE_KEY]: {
                 appName: 'carol',
-                flags: { username: 'carol', enabled: true },
+                flags: { thresholds: { young: 4, middle: 11, old: 28 } },
                 lastUpdated: 999,
             },
         }
@@ -60,7 +62,7 @@ describe('global store', () => {
         registeredCb?.(incoming)
 
         expect(s.appName).toBe('carol')
-        expect(s.flags.username).toBe('carol')
+        expect(s.flags.thresholds).toEqual({ young: 4, middle: 11, old: 28 })
         expect(s.lastUpdated).toBe(999)
     })
 

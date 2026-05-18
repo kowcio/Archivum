@@ -36,8 +36,8 @@ describe('useThresholds composable', () => {
       expect(isValid({ young: 7, middle: 25, old: 21 })).toBe(false)
     })
 
-    it('returns false when young is 0', () => {
-      expect(isValid({ young: 0, middle: 14, old: 21 })).toBe(false)
+    it('returns true when young is 0 (allowed for testing)', () => {
+      expect(isValid({ young: 0, middle: 14, old: 21 })).toBe(true)
     })
   })
 

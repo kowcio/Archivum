@@ -1,20 +1,6 @@
 <template>
   <div class="thresholds-container" data-testid="thresholds-container">
-    <div class="row q-col-gutter-md items-end">
-      <!-- Group 0: always 0, display only -->
-      <div class="col-auto">
-        <q-input
-          data-testid="threshold-start"
-          model-value="0"
-          label="Fresh (start)"
-          type="number"
-          readonly
-          disable
-          hint="Always 0 days"
-          class="threshold-input"
-        />
-      </div>
-
+    <div class="row q-col-gutter-md items-center">
       <!-- Group 1: young boundary -->
       <div class="col-auto">
         <q-input
@@ -22,7 +8,7 @@
           :model-value="thresholds.young"
           label="🟡 Young (days)"
           type="number"
-          :min="1"
+          :min="0"
           :max="thresholds.middle - 1"
           :disable="loading"
           hint="0 → young = fresh 🟢"
@@ -89,7 +75,7 @@ const { thresholds, setThreshold, resetToDefaults } = useThresholds()
 const loading = ref(false)
 
 async function onChange(key: keyof AppThresholds, value: number): Promise<void> {
-  if (!Number.isFinite(value) || value <= 0) return
+  if (!Number.isFinite(value) || value < 0) return
   loading.value = true
   try {
     await setThreshold(key, value)

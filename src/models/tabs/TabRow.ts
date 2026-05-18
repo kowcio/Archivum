@@ -120,6 +120,7 @@ export class TabRow {
    * Static factory method to create multiple TabRows from array of Tabs.Tab
    */
   static fromTabs(tabs: Tabs.Tab[]): TabRow[] {
+    if (!Array.isArray(tabs)) return []
     return tabs.map((tab) => new TabRow(tab));
   }
 }
