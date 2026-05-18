@@ -145,14 +145,16 @@ export const useTabStore = defineStore('tabStore', {
             this.error = null
             try {
                 const boundaries = useGlobalStore().thresholdsArray
-                const tabRows = TabRow.fromTabs(this.tabs)
+                const tabRows = TabRow.fromTabs(this.tabs, boundaries)
+                console.log(`[markOldTabs] boundaries=${JSON.stringify(boundaries)} tabs=${tabRows.length}`)
                 await Promise.all(
                     tabRows.map(async (row) => {
                         if (row.id == null) return
-                        const { color, dot } = this.getAgeClassification(row, boundaries)
+                        const { color, dot, days } = this.getAgeClassification(row, boundaries)
+                        console.log(`[markOldTabs] tab#${row.id} days=${days} dot="${dot}" color=${color} title="${row.title?.slice(0,40)}"`)
                         if (dot) {
                             await this.markTabWithTitle(row.id, `${dot} `)
-                            await this.markTabWithBadge(row.id, dot, color)
+                            await this.markTabWithBadge(row.id, TabDot.Bullet, color)
                         } else {
                             await this.resetTabTitle(row.id)
                             await this.unmarkTabBadge(row.id)
@@ -192,7 +194,9 @@ export const useTabStore = defineStore('tabStore', {
                     args: [prefix, TabDots.dotValues],
                 })
             } catch (err) {
-                this.error = err instanceof Error ? err.message : 'Unknown error while marking tab title'
+                const msg = err instanceof Error ? err.message : String(err)
+                console.warn(`[markTabWithTitle] tab#${tabId} failed:`, msg)
+                this.error = msg
             }
         },
 
@@ -202,7 +206,17 @@ export const useTabStore = defineStore('tabStore', {
                 await browser.action.setBadgeText({ text, tabId })
                 await browser.action.setBadgeBackgroundColor({ color, tabId })
             } catch (err) {
-                this.error = err instanceof Error ? err.message : 'Unknown error while marking tab badge'
+                const msg = err instanceof Error ? err.message : String(err)
+                console.warn(`[markTabWithBadge] tab#${tabId} failed:`, msg)
+                this.error = msg
+                return
+            }
+            // setBadgeTextColor is not in webextension-polyfill — call chrome API directly (Chrome 110+)
+            try {
+                const chromeAction = (globalThis as unknown as { chrome?: { action?: { setBadgeTextColor?: (d: object) => void } } }).chrome?.action
+                chromeAction?.setBadgeTextColor?.({ color: '#ffffff', tabId })
+            } catch {
+                // older Chrome / Firefox — not critical, badge colour still applies
             }
         },
 
@@ -279,6 +293,11 @@ export const useTabStore = defineStore('tabStore', {
                         await this.unmarkTabBadge(row.id)
                     }),
                 )
+                // Strip dot prefixes from store tab titles
+                this.tabs = this.tabs.map((tab) => ({
+                    ...tab,
+                    title: tab.title ? TabDots.stripDotPrefix(tab.title) : tab.title,
+                }))
             } catch (err) {
                 this.error = err instanceof Error ? err.message : 'Unknown error while resetting all tab marks'
             }
@@ -294,6 +313,11 @@ export const useTabStore = defineStore('tabStore', {
                         await this.resetTabTitle(row.id)
                     }),
                 )
+                // Strip dot prefixes from store tab titles
+                this.tabs = this.tabs.map((tab) => ({
+                    ...tab,
+                    title: tab.title ? TabDots.stripDotPrefix(tab.title) : tab.title,
+                }))
             } catch (err) {
                 this.error = err instanceof Error ? err.message : 'Unknown error while clearing dots from open tabs'
             }

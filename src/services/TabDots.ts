@@ -27,7 +27,7 @@ export interface DotColorEntry {
 
 /** All age classifications in ascending order of severity. */
 export const DOT_COLOR_MAP: readonly DotColorEntry[] = [
-    { dot: TabDot.None,   color: '#66bb6a', cssClass: 'bg-green-2 text-green-10'   },
+    { dot: TabDot.Green,  color: '#66bb6a', cssClass: 'bg-green-2 text-green-10'   },
     { dot: TabDot.Yellow, color: '#f2c037', cssClass: 'bg-amber-2 text-amber-10'   },
     { dot: TabDot.Orange, color: '#fb8c00', cssClass: 'bg-orange-2 text-orange-10' },
     { dot: TabDot.Red,    color: '#e53935', cssClass: 'bg-red-2 text-red-10'       },

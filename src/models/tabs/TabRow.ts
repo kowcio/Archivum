@@ -1,5 +1,8 @@
 import type {Tabs} from 'webextension-polyfill';
 import dayjs from 'dayjs';
+import { DEFAULT_THRESHOLDS } from '@/stores/globalStore'
+
+export type ThresholdBoundaries = readonly [number, number, number]
 
 /**
  * Model representing a tab row in the table
@@ -19,7 +22,11 @@ export class TabRow {
   readonly lastAccessHours: number | undefined;
   readonly lastAccessClass: string;
 
-  constructor(tab: Tabs.Tab) {
+  constructor(tab: Tabs.Tab, boundaries: ThresholdBoundaries = [
+    DEFAULT_THRESHOLDS.young,
+    DEFAULT_THRESHOLDS.middle,
+    DEFAULT_THRESHOLDS.old,
+  ]) {
     // Basic fields
     this.id = tab.id ?? null;
     this.openerTabId = tab.openerTabId ?? null;
@@ -47,10 +54,10 @@ export class TabRow {
       this.lastAccessDays = 0;
       this.lastAccessHours = 0;
     }
-    this.lastAccessClass = this.getAgeBgClass(this.lastAccessDays ?? 0);
+    this.lastAccessClass = this.getAgeBgClass(this.lastAccessDays ?? 0, boundaries);
 
     // Add dot to title based on age classification
-    this.title = this.addDotToTitle(this.title, this.lastAccessDays ?? 0);
+    this.title = this.addDotToTitle(this.title, this.lastAccessDays ?? 0, boundaries);
   }
 
   /**
@@ -77,17 +84,14 @@ export class TabRow {
   }
 
   /**
-   * Gets the Quasar background color class based on age in days
-   * - 0-7 days: bg-green-3 (pastel green)
-   * - 8-14 days: bg-yellow-3 (pastel yellow)
-   * - 15-28 days: bg-orange-3 (pastel orange)
-   * - 29+ days: bg-red-3 (pastel red)
+   * Gets the Quasar background color class based on age in days.
+   * Boundaries come from globalStore DEFAULT_THRESHOLDS (young / middle / old).
    */
-  private getAgeBgClass(days: number): string {
+  private getAgeBgClass(days: number, [young, middle, old]: ThresholdBoundaries): string {
     if (!Number.isFinite(days) || days === Infinity) return 'bg-negative-3';
-    if (days <= 7) return 'bg-green-3';
-    if (days <= 14) return 'bg-yellow-3';
-    if (days <= 21) return 'bg-orange-3';
+    if (days <= young)  return 'bg-green-3';
+    if (days <= middle) return 'bg-yellow-3';
+    if (days <= old)    return 'bg-orange-3';
     return 'bg-red-3';
   }
 
@@ -103,24 +107,28 @@ export class TabRow {
   /**
    * Adds a colored dot to the title based on age in days
    */
-  private addDotToTitle(title: string, days: number): string {
+  private addDotToTitle(title: string, days: number, [young, middle, old]: ThresholdBoundaries): string {
     if (!Number.isFinite(days)) return title;
-
-    let dot = '';
-    // if (days <= 7) dot = '🟢';
-    if (days <= 7) dot = '';
-    else if (days <= 14) dot = '🟡';
-    else if (days <= 21) dot = '🟠';
-    else dot = '🔴';
-
+    let dot: string;
+    if      (days <= young)  dot = '🟢';
+    else if (days <= middle) dot = '🟡';
+    else if (days <= old)    dot = '🟠';
+    else                     dot = '🔴';
     return `${dot} ${title}`;
   }
 
   /**
    * Static factory method to create multiple TabRows from array of Tabs.Tab
    */
-  static fromTabs(tabs: Tabs.Tab[]): TabRow[] {
+  static fromTabs(
+    tabs: Tabs.Tab[],
+    boundaries: ThresholdBoundaries = [
+      DEFAULT_THRESHOLDS.young,
+      DEFAULT_THRESHOLDS.middle,
+      DEFAULT_THRESHOLDS.old,
+    ],
+  ): TabRow[] {
     if (!Array.isArray(tabs)) return []
-    return tabs.map((tab) => new TabRow(tab));
+    return tabs.map((tab) => new TabRow(tab, boundaries))
   }
 }

@@ -27,8 +27,15 @@
               @click="handleSaveTabs"
             />
             <q-btn
+              data-testid="btn-mark-tabs"
+              label="Mark tabs"
+              color="accent"
+              :loading="tabStore.loading"
+              @click="handleMarkTabs"
+            />
+            <q-btn
               data-testid="btn-gen-mock-tabs"
-              label="Gen & save mock tabs"
+              label="Gen mock tabs"
               color="warning"
               :loading="tabStore.loading"
               @click="handleGenMockTabs"
@@ -153,6 +160,7 @@ import { useTabStore } from "@/stores/TabStore"
 import type { QTableProps } from "quasar"
 import { TabRow } from "@/models/tabs/TabRow"
 import Thresholds from "@/components/Thresholds.vue"
+import tabsExampleData from "@/../test/mocks/tabs_example.json"
 
 const global = useGlobalStore()
 const tabStore = useTabStore()
@@ -236,7 +244,7 @@ const columns: QTableProps["columns"] = [
 ];
 
 const rows = computed(() =>
-  TabRow.fromTabs(storeTabs.value)
+  TabRow.fromTabs(storeTabs.value, global.thresholdsArray)
     .map((row, index) => {
       const ageClassification = tabStore.getAgeClassification(row, global.thresholdsArray)
       return {
@@ -264,66 +272,34 @@ async function handleCloseTab(tabId: number | null): Promise<void> {
   await tabStore.closeTab(tabId)
 }
 
-function createMockTabs(count = 5): Tabs.Tab[] {
-  const mockData = [
-    {
-      url: "https://kowalskipiotr.pl",
-      title: "Kowalski Piotr",
-      favIconUrl: "https://kowalskipiotr.pl",
-    },
-    {
-      url: "https://developer.mozilla.org/en-US/docs/Web/API",
-      title: "Web APIs | MDN",
-      favIconUrl: "https://developer.mozilla.org/favicon.ico",
-    },
-    {
-      url: "https://vuejs.org/guide/introduction",
-      title: "Introduction — Vue.js",
-      favIconUrl: "https://vuejs.org/favicon.ico",
-    },
-    {
-      url: "https://pinia.vuejs.org/core-concepts/",
-      title: "Core Concepts | Pinia",
-      favIconUrl: "https://pinia.vuejs.org/favicon.ico",
-    },
-    {
-      url: "https://vitest.dev/guide/",
-      title: "Getting Started | Vitest",
-      favIconUrl: "https://vitest.dev/favicon.ico",
-    },
-  ];
-  return Array.from(
-    { length: count },
-    (_, index) =>
-      ({
-        id: index + 1,
-        index,
-        windowId: 1,
-        active: index === 0,
-        highlighted: index === 0,
-        pinned: false,
-        incognito: false,
-        url: mockData[index % mockData.length].url,
-        title: mockData[index % mockData.length].title,
-        favIconUrl: mockData[index % mockData.length].favIconUrl,
-      }) satisfies Tabs.Tab,
-  );
-}
-
 async function handleLoadTabs(): Promise<void> {
   await tabStore.getAllOpenedTabs()
+  await tabStore.markOldTabs()
 }
 
 async function handleLoadSavedTabs(): Promise<void> {
   await tabStore.loadTabsHistory()
+  await tabStore.markOldTabs()
 }
 
 async function handleSaveTabs(): Promise<void> {
   await tabStore.saveAllTabs()
 }
 
+async function handleMarkTabs(): Promise<void> {
+  await tabStore.markOldTabs()
+}
+
+/** Loads tabs from tabs_example.json, shifting each tab's lastAccessed by +3 days
+ *  per index so all 4 age groups (fresh / young / middle / old) are visible. */
 function handleGenMockTabs(): void {
-  tabStore.$patch({ tabs: createMockTabs(5) })
+  const now = Date.now()
+  const DAY_MS = 24 * 60 * 60 * 1000
+  const tabs = (tabsExampleData.tabs as Tabs.Tab[]).map((tab, index) => ({
+    ...tab,
+    lastAccessed: now - index * 3 * DAY_MS,
+  }))
+  tabStore.$patch({ tabs })
 }
 
 
