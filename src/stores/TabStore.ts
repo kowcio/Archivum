@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import browser, { type Storage, type Tabs } from 'webextension-polyfill'
 import { TabRow } from '@/models/tabs/TabRow'
-import { TabDot, TabDots, DOT_COLOR_MAP, GROUP_COLOR_MAP, type TabGroupColor } from '@/services/TabDots.ts'
+import { TabDots, DOT_COLOR_MAP, GROUP_COLOR_MAP, type TabGroupColor } from '@/services/TabDots.ts'
 import { useGlobalStore, DEFAULT_THRESHOLDS } from '@/stores/globalStore'
 
 export const TAB_HISTORY_KEY = 'tab_history'
@@ -10,7 +10,6 @@ export interface AgeClassification {
     cssClass: string
     color: string
     days: number
-    dot: TabDot
     classificationIndex: number
 }
 
@@ -65,19 +64,6 @@ export const useTabStore = defineStore('tabStore', {
                 return this.tabs
             }
         },
-        async updateTab(
-            tabId: number,
-            updateProperties: Tabs.UpdateUpdatePropertiesType,
-            tabsApi: Tabs.Static = browser.tabs,
-        ): Promise<Tabs.Tab | undefined> {
-            this.error = null
-            try {
-                return await tabsApi.update(tabId, updateProperties)
-            } catch (err) {
-                this.error = err instanceof Error ? err.message : 'Unknown error while updating tab'
-                return undefined
-            }
-        },
         async saveAllTabs(
             storage: Storage.StorageArea = browser.storage.local,
         ): Promise<TabsSnapshot | undefined> {
@@ -106,7 +92,6 @@ export const useTabStore = defineStore('tabStore', {
                 const snapshot = result?.[TAB_HISTORY_KEY] as TabsSnapshot | undefined
                 console.log('Loaded saved tabs:', snapshot?.tabs)
                 if (snapshot) {
-                    // browser.storage.local may deserialize arrays as {0:…, 1:…} objects
                     this.tabs = Array.isArray(snapshot.tabs)
                         ? snapshot.tabs
                         : Object.values(snapshot.tabs as Record<string, Tabs.Tab>)
@@ -143,6 +128,10 @@ export const useTabStore = defineStore('tabStore', {
             return days === 1 ? '1 day ago' : `${days} days ago`
         },
 
+        /**
+         * ✅ ACTIVE — marks all tabs with the L-bracket favicon overlay.
+         * This is the ONLY marking method in use.
+         */
         async markOldTabs(): Promise<void> {
             this.error = null
             try {
@@ -152,22 +141,9 @@ export const useTabStore = defineStore('tabStore', {
                 await Promise.all(
                     tabRows.map(async (row) => {
                         if (row.id == null) return
-                        const { color, dot, days, classificationIndex } = this.getAgeClassification(row, boundaries)
-                        console.log(`[markOldTabs] tab#${row.id} days=${days} dot="${dot}" color=${color} title="${row.title?.slice(0,40)}"`)
-
-                        // ✅ ACTIVE: square favicon border — the only visual mark applied
-                        await this.markTabWithSquareFaviconOverlay(row.id, color)
-
-                        // ── Future reference: other marking methods ──────────────────
-                        // Badge (bullet + colour dot on extension icon):
-                        // await this.markTabWithBadge(row.id, TabDot.Bullet, color)
-                        // Chrome tab group colour:
-                        // await this.markTabWithGroupColor(row.id, GROUP_COLOR_MAP[classificationIndex])
-                        // Round favicon ring overlay:
-                        // await this.markTabWithFaviconOverlay(row.id, color)
-                        // Title dot prefix:
-                        // if (dot) await this.markTabWithTitle(row.id, `${dot} `)
-                        // else     await this.resetTabTitle(row.id)
+                        const { color, days, classificationIndex } = this.getAgeClassification(row, boundaries)
+                        console.log(`[markOldTabs] tab#${row.id} days=${days} color=${color}`)
+                        await this.markTabWithLBracket(row.id, color)
                     }),
                 )
             } catch (err) {
@@ -175,159 +151,42 @@ export const useTabStore = defineStore('tabStore', {
             }
         },
 
-
-        async markTabWithColorDot(tabId: number, color: string = '#e53935'): Promise<void> {
-            this.error = null
+        /**
+         * ✅ CRITICAL — CONFIRMED WORKING (2026-05-19)
+         * Injects the L-bracket age indicator onto the tab favicon.
+         * Pre-fetches favicon in extension context to avoid CORS.
+         */
+        async markTabWithLBracket(tabId: number, color: string): Promise<void> {
             try {
-                const dot = this.getDotFromColor(color)
-                const prefix = dot ? `${dot} ` : ''
-                if (!prefix) return
-                await this.markTabWithTitle(tabId, prefix)
-                await this.markTabWithBadge(tabId, dot, color)
-            } catch (err) {
-                this.error = err instanceof Error ? err.message : 'Unknown error while marking tab with color dot'
-            }
-        },
-
-        async markTabWithTitle(tabId: number, prefix: string = '🔴 '): Promise<void> {
-            this.error = null
-            try {
-                const trimmedPrefix = prefix.trim()
-                if (!trimmedPrefix) {
-                    await this.unmarkTabTitle(tabId)
-                    return
-                }
+                const tab = this.tabs.find((t) => t.id === tabId)
+                const faviconDataUrl = tab?.favIconUrl
+                    ? await TabDots.fetchFaviconDataUrl(tab.favIconUrl)
+                    : null
                 await browser.scripting.executeScript({
                     target: { tabId },
-                    func: TabDots.applyPrefixPageScript,
-                    args: [prefix, TabDots.dotValues],
+                    func: TabDots.applyLBracketPageScript,
+                    args: [color, faviconDataUrl],
                 })
             } catch (err) {
-                const msg = err instanceof Error ? err.message : String(err)
-                console.warn(`[markTabWithTitle] tab#${tabId} failed:`, msg)
-                this.error = msg
+                console.debug(`[markTabWithLBracket] tab#${tabId}:`, err instanceof Error ? err.message : err)
             }
         },
 
-        async markTabWithBadge(tabId: number, text: string = '●', color: string = '#e53935'): Promise<void> {
-            this.error = null
-            try {
-                await browser.action.setBadgeText({ text, tabId })
-                await browser.action.setBadgeBackgroundColor({ color, tabId })
-            } catch (err) {
-                const msg = err instanceof Error ? err.message : String(err)
-                console.warn(`[markTabWithBadge] tab#${tabId} failed:`, msg)
-                this.error = msg
-                return
-            }
-            // setBadgeTextColor is not in webextension-polyfill — call chrome API directly (Chrome 110+)
-            try {
-                const chromeAction = (globalThis as unknown as { chrome?: { action?: { setBadgeTextColor?: (d: object) => void } } }).chrome?.action
-                chromeAction?.setBadgeTextColor?.({ color: '#ffffff', tabId })
-            } catch {
-                // older Chrome / Firefox — not critical, badge colour still applies
-            }
-        },
-
-        async unmarkTabFavicon(tabId: number): Promise<void> {
-            this.error = null
+        /** Removes the L-bracket favicon overlay and restores the original favicon. */
+        async removeLBracket(tabId: number): Promise<void> {
             try {
                 await browser.scripting.executeScript({
                     target: { tabId },
-                    func: () => {
-                        document.querySelector<HTMLLinkElement>('link[data-ext-marker]')?.remove()
-                    },
+                    func: TabDots.removeLBracketPageScript,
                     args: [],
                 })
             } catch (err) {
-                this.error = err instanceof Error ? err.message : 'Unknown error while unmarking tab favicon'
-            }
-        },
-
-        async unmarkTabBadge(tabId: number): Promise<void> {
-            this.error = null
-            try {
-                await browser.action.setBadgeText({ text: '', tabId })
-            } catch (err) {
-                this.error = err instanceof Error ? err.message : 'Unknown error while unmarking tab badge'
-            }
-        },
-
-        async unmarkTabTitle(tabId: number): Promise<void> {
-            this.error = null
-            try {
-                await browser.scripting.executeScript({
-                    target: { tabId },
-                    func: TabDots.removePrefixPageScript,
-                    args: [TabDots.dotValues],
-                })
-            } catch (err) {
-                this.error = err instanceof Error ? err.message : 'Unknown error while unmarking tab title'
-            }
-        },
-
-        async resetTabTitle(tabId: number): Promise<void> {
-            this.error = null
-            try {
-                await this.unmarkTabTitle(tabId)
-                await this.unmarkTabFavicon(tabId)
-            } catch (err) {
-                this.error = err instanceof Error ? err.message : 'Unknown error while resetting tab title'
-            }
-        },
-
-        async resetAllTabTitles(): Promise<void> {
-            this.error = null
-            try {
-                const tabRows = TabRow.fromTabs(this.tabs)
-                await Promise.all(
-                    tabRows.map(async (row) => {
-                        if (row.id == null) return
-                        await this.resetTabTitle(row.id)
-                    }),
-                )
-            } catch (err) {
-                this.error = err instanceof Error ? err.message : 'Unknown error while resetting all tab titles'
-            }
-        },
-
-        async resetAllTabMarks(): Promise<void> {
-            this.error = null
-            try {
-                const tabRows = TabRow.fromTabs(this.tabs)
-                await Promise.all(
-                    tabRows.map(async (row) => {
-                        if (row.id == null) return
-                        await this.resetTabTitle(row.id)
-                        await this.unmarkTabBadge(row.id)
-                        await this.unmarkTabGroup(row.id)
-                        await this.removeFaviconOverlay(row.id)
-                    }),
-                )
-                // Strip dot prefixes from store tab titles
-                this.tabs = this.tabs.map((tab) => ({
-                    ...tab,
-                    title: tab.title ? TabDots.stripDotPrefix(tab.title) : tab.title,
-                }))
-            } catch (err) {
-                this.error = err instanceof Error ? err.message : 'Unknown error while resetting all tab marks'
+                console.debug(`[removeLBracket] tab#${tabId}:`, err instanceof Error ? err.message : err)
             }
         },
 
         /**
-         * Full reset — strips ALL extension modifications from every open tab and
-         * refreshes the store so the UI shows a clean slate.
-         *
-         * Per-tab operations (run in parallel):
-         *  1. unmarkTabTitle       — removes dot / bullet prefix from document.title
-         *  2. removeFaviconOverlay — removes age-ring canvas overlay, restores original
-         *                            favicon links and disconnects the MutationObserver
-         *  3. unmarkTabBadge       — clears the action badge (text + colour)
-         *  4. unmarkTabGroup       — removes the tab from its Chrome tab group
-         *
-         * After all tabs are cleaned:
-         *  5. getAllOpenedTabs()   — re-fetches fresh tab data from the browser so the
-         *                            store reflects the browser's current state
+         * Full reset — removes L-bracket from every open tab, then refreshes the store.
          */
         async clearDotsFromOpenTabs(): Promise<void> {
             this.error = null
@@ -336,18 +195,10 @@ export const useTabStore = defineStore('tabStore', {
                 await Promise.all(
                     tabRows.map(async (row) => {
                         if (row.id == null) return
-                        await this.unmarkTabTitle(row.id)
-                        await this.removeFaviconOverlay(row.id)
-                        await this.unmarkTabBadge(row.id)
+                        await this.removeLBracket(row.id)
                         await this.unmarkTabGroup(row.id)
                     }),
                 )
-                // Strip any remaining dot prefixes from in-memory store titles
-                this.tabs = this.tabs.map((tab) => ({
-                    ...tab,
-                    title: tab.title ? TabDots.stripDotPrefix(tab.title) : tab.title,
-                }))
-                // Re-fetch fresh tab data from the browser (clean slate in store)
                 const freshTabs = await this.getAllOpenedTabs()
                 console.log('[clearDotsFromOpenTabs] clean slate — refreshed tabs from browser:', freshTabs.length)
             } catch (err) {
@@ -355,81 +206,18 @@ export const useTabStore = defineStore('tabStore', {
             }
         },
 
-        getDotFromColor(color: string): string {
-            return TabDots.dotFromColor(color)
+        /** Alias for clearDotsFromOpenTabs — used by "Clear all marks" button. */
+        async resetAllTabMarks(): Promise<void> {
+            await this.clearDotsFromOpenTabs()
         },
 
-        /** Injects a coloured ring around the tab favicon (Chrome + Firefox). */
-        async markTabWithFaviconOverlay(tabId: number, color: string): Promise<void> {
-            try {
-                // Pre-fetch favicon from extension context (full cross-origin access)
-                // then pass as data URL to the page script — avoids CORS in content script
-                const tab = this.tabs.find((t) => t.id === tabId)
-                const faviconDataUrl = tab?.favIconUrl
-                    ? await TabDots.fetchFaviconDataUrl(tab.favIconUrl)
-                    : null
-
-                await browser.scripting.executeScript({
-                    target: { tabId },
-                    func: TabDots.applyFaviconOverlayPageScript,
-                    args: [color, faviconDataUrl],
-                })
-            } catch (err) {
-                console.debug(`[markTabWithFaviconOverlay] tab#${tabId}:`, err instanceof Error ? err.message : err)
-            }
-        },
-
-        /** ✅ ACTIVE — Injects a square coloured border around the tab favicon. */
-        async markTabWithSquareFaviconOverlay(tabId: number, color: string): Promise<void> {
-            try {
-                const tab = this.tabs.find((t) => t.id === tabId)
-                const faviconDataUrl = tab?.favIconUrl
-                    ? await TabDots.fetchFaviconDataUrl(tab.favIconUrl)
-                    : null
-
-                await browser.scripting.executeScript({
-                    target: { tabId },
-                    func: TabDots.applySquareFaviconOverlayPageScript,
-                    args: [color, faviconDataUrl],
-                })
-            } catch (err) {
-                console.debug(`[markTabWithSquareFaviconOverlay] tab#${tabId}:`, err instanceof Error ? err.message : err)
-            }
-        },
-
-        /** Removes the injected favicon ring overlay. */
-        async removeFaviconOverlay(tabId: number): Promise<void> {
-            try {
-                await browser.scripting.executeScript({
-                    target: { tabId },
-                    func: TabDots.removeFaviconOverlayPageScript,
-                    args: [],
-                })
-            } catch (err) {
-                console.debug(`[removeFaviconOverlay] tab#${tabId}:`, err instanceof Error ? err.message : err)
-            }
-        },
-
-        /** Groups a tab and sets its group color (Chrome-only, no-op on Firefox). */        async markTabWithGroupColor(tabId: number, color: TabGroupColor): Promise<void> {
-            try {
-                const chrome = (globalThis as unknown as { chrome?: { tabs?: { group?: (o: object) => Promise<number> }, tabGroups?: { update?: (id: number, o: object) => Promise<void> } } }).chrome
-                if (!chrome?.tabs?.group || !chrome?.tabGroups?.update) return
-                const groupId = await chrome.tabs.group({ tabIds: tabId })
-                await chrome.tabGroups.update(groupId, { color })
-            } catch (err) {
-                // tab groups not supported (Firefox) or tab not accessible — silent fail
-                console.debug(`[markTabWithGroupColor] tab#${tabId}:`, err instanceof Error ? err.message : err)
-            }
-        },
-
-        /** Removes a tab from its group (Chrome-only, no-op on Firefox). */
-        async unmarkTabGroup(tabId: number): Promise<void> {
-            try {
-                const chrome = (globalThis as unknown as { chrome?: { tabs?: { ungroup?: (ids: number | number[]) => Promise<void> } } }).chrome
-                await chrome?.tabs?.ungroup?.(tabId)
-            } catch (err) {
-                console.debug(`[unmarkTabGroup] tab#${tabId}:`, err instanceof Error ? err.message : err)
-            }
+        /**
+         * ✅ ACTIVE — Removes all L-bracket overlays from every open tab
+         * and refreshes the store to a clean original state.
+         * Called by the "Reset Markings" button.
+         */
+        async resetMarkings(): Promise<void> {
+            await this.clearDotsFromOpenTabs()
         },
 
         /** Groups all open tabs by age classification into colour-coded Chrome tab groups. */
@@ -448,11 +236,11 @@ export const useTabStore = defineStore('tabStore', {
                 const boundaries = useGlobalStore().thresholdsArray
                 const [young, middle, old] = boundaries
 
-                const groupMeta: Array<{ dot: string; label: string; color: string }> = [
-                    { dot: '🟢', label: `🟢 Fresh (<${young}d)`,   color: 'green'  },
-                    { dot: '🟡', label: `🟡 Young (${young}d+)`,   color: 'yellow' },
-                    { dot: '🟠', label: `🟠 Middle (${middle}d+)`, color: 'orange' },
-                    { dot: '🔴', label: `🔴 Old (${old}d+)`,       color: 'red'    },
+                const groupMeta = [
+                    { label: `🟢 Fresh (<${young}d)`,   color: 'green'  },
+                    { label: `🟡 Young (${young}d+)`,   color: 'yellow' },
+                    { label: `🟠 Middle (${middle}d+)`, color: 'orange' },
+                    { label: `🔴 Old (${old}d+)`,       color: 'red'    },
                 ]
 
                 const tabRows = TabRow.fromTabs(this.tabs, boundaries)
@@ -478,5 +266,21 @@ export const useTabStore = defineStore('tabStore', {
                 this.error = err instanceof Error ? err.message : 'Unknown error while grouping tabs by age'
             }
         },
+
+        /** Removes a tab from its Chrome tab group (no-op on Firefox). */
+        async unmarkTabGroup(tabId: number): Promise<void> {
+            try {
+                const chrome = (globalThis as unknown as { chrome?: { tabs?: { ungroup?: (ids: number | number[]) => Promise<void> } } }).chrome
+                await chrome?.tabs?.ungroup?.(tabId)
+            } catch (err) {
+                console.debug(`[unmarkTabGroup] tab#${tabId}:`, err instanceof Error ? err.message : err)
+            }
+        },
+
+        // ── Future reference: additional marking methods (not active) ──────────
+        // markTabWithGroupColor  — colours the Chrome tab group
+        // markTabWithBadge       — sets extension icon badge (text + colour)
+        // markTabWithTitle       — prepends dot emoji prefix to document.title
+        // markTabWithBlurTitle   — shows age in title when tab is blurred
     },
 })

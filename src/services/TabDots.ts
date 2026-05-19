@@ -1,26 +1,10 @@
 /**
- * Centralised helper for tab age-dot colours and title-prefix manipulation.
- * Keeps all dot/colour constants in a single place to avoid duplication
- * across the store and scripting callbacks.
+ * Centralised helper for tab age classification and favicon L-bracket marking.
+ * The L-bracket overlay on the favicon is the ONLY method used to mark tabs.
  */
-export enum TabDot {
-    Green  = '🟢',
-    Yellow = '🟡',
-    Orange = '🟠',
-    Red    = '🔴',
-    Bullet = '●',
-    None   = '',
-}
+import { APP_DEFAULTS } from '@/constants'
 
-/** Pre-built regex that matches any age-dot prefix at the start of a string. */
-export const DOT_PREFIX_PATTERN: RegExp = (() => {
-    const dots = [TabDot.Green, TabDot.Yellow, TabDot.Orange, TabDot.Red, TabDot.Bullet]
-    const escaped = dots.map((d) => d.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')
-    return new RegExp(`^(${escaped})\\s+`)
-})()
-
-export interface DotColorEntry {
-    dot: TabDot
+export interface AgeColorEntry {
     color: string
     cssClass: string
 }
@@ -30,68 +14,14 @@ export const GROUP_COLOR_MAP = ['green', 'yellow', 'orange', 'red'] as const
 export type TabGroupColor = typeof GROUP_COLOR_MAP[number]
 
 /** All age classifications in ascending order of severity. */
-export const DOT_COLOR_MAP: readonly DotColorEntry[] = [
-    { dot: TabDot.Green,  color: '#66bb6a', cssClass: 'bg-green-2 text-green-10'   },
-    { dot: TabDot.Yellow, color: '#f2c037', cssClass: 'bg-amber-2 text-amber-10'   },
-    { dot: TabDot.Orange, color: '#fb8c00', cssClass: 'bg-orange-2 text-orange-10' },
-    { dot: TabDot.Red,    color: '#e53935', cssClass: 'bg-red-2 text-red-10'       },
+export const DOT_COLOR_MAP: readonly AgeColorEntry[] = [
+    { color: APP_DEFAULTS.AGE_COLOR_LIST.AGE_COLOR_FRESH, cssClass: 'bg-green-2 text-green-10'   },
+    { color: APP_DEFAULTS.AGE_COLOR_LIST.AGE_COLOR_YOUNG, cssClass: 'bg-amber-2 text-amber-10'   },
+    { color: APP_DEFAULTS.AGE_COLOR_LIST.AGE_COLOR_MIDDLE, cssClass: 'bg-orange-2 text-orange-10' },
+    { color: APP_DEFAULTS.AGE_COLOR_LIST.AGE_COLOR_OLD, cssClass: 'bg-red-2 text-red-10'       },
 ] as const
 
 export class TabDots {
-    /** Returns the dot emoji for a given CSS colour string. */
-    static dotFromColor(color: string): TabDot {
-        return DOT_COLOR_MAP.find((e) => e.color === color)?.dot ?? TabDot.Red
-    }
-
-    /** Returns the full classification entry for a given CSS colour string. */
-    static entryFromColor(color: string): DotColorEntry {
-        return DOT_COLOR_MAP.find((e) => e.color === color) ?? DOT_COLOR_MAP[3]
-    }
-
-    /**
-     * Strips any leading age-dot prefix from a title string.
-     * Safe to use both in Node/TS context and inside executeScript func strings.
-     */
-    static stripDotPrefix(title: string): string {
-        return title.replace(DOT_PREFIX_PATTERN, '').trimStart()
-    }
-
-    /**
-     * Emoji values derived from the enum that carry a visible glyph (excludes None/Bullet
-     * which are not used as age prefixes but Bullet is still matched for cleanup).
-     */
-    static get dotValues(): TabDot[] {
-        return [TabDot.Green, TabDot.Yellow, TabDot.Orange, TabDot.Red, TabDot.Bullet]
-            .filter((d): d is TabDot => d !== TabDot.None)
-    }
-
-    /**
-     * Injected via executeScript — strips dot prefix from `document.title`.
-     * Receives the dots list as an argument so it stays self-contained.
-     */
-    static get removePrefixPageScript(): (dots: string[]) => void {
-        return (dots: string[]) => {
-            const escaped = dots.map((d) => d.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')
-            document.title = document.title.replace(new RegExp(`^(${escaped})\\s+`), '').trimStart()
-        }
-    }
-
-    /**
-     * Injected via executeScript — prepends a prefix to `document.title`,
-     * replacing any existing dot prefix first.
-     * Receives the dots list as an argument so it stays self-contained.
-     */
-    static get applyPrefixPageScript(): (p: string, dots: string[]) => void {
-        return (p: string, dots: string[]) => {
-            const escaped = dots.map((d) => d.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')
-            const dotPattern = new RegExp(`^(${escaped})\\s+`)
-            const current = document.title.replace(dotPattern, '').trimStart()
-            document.title = current.startsWith(p.trim())
-                ? `${p}${current.replace(p.trim(), '').trimStart()}`
-                : `${p}${current}`
-        }
-    }
-
     /**
      * ✅ CRUCIAL — CONFIRMED WORKING (2026-05-19)
      *
@@ -122,42 +52,46 @@ export class TabDots {
     }
 
     /**
-     * ✅ CRUCIAL — CONFIRMED WORKING (2026-05-19)
+     * ✅ CRITICAL — CONFIRMED WORKING (2026-05-19)
      *
-     * Injected via executeScript — draws a coloured ring around the existing favicon.
-     * Receives the favicon as a pre-fetched data URL (fetched from extension context)
-     * so no cross-origin fetch is needed inside the page, avoiding CORS issues.
+     * Injected via executeScript — draws an L-shaped age indicator on the favicon:
+     *  - Left edge  : solid colour bar (full height) — age colour (green/yellow/orange/red)
+     *  - Bottom edge: solid colour bar (full width)  — age colour
+     *  - FAVICON_MARGIN (2px) gap between the favicon image and both border edges
+     *    so the icon stays readable and visually separated from the age indicator
      *
-     * WHY THIS WORKS:
-     *  - faviconData is a data: URL pre-fetched in extension context (see fetchFaviconDataUrl).
-     *  - Setting img.src to a data: URL bypasses CORS entirely — no canvas taint.
-     *  - Original favicon <link> elements are hidden (rel changed) so only our canvas ring shows.
-     *  - A MutationObserver re-injects the ring if a SPA resets the favicon.
-     *  - Ring-only mode (faviconData = null) still works for tabs with no favicon.
+     * WHY L-SHAPE:
+     *  - Less intrusive than full square border — favicon stays fully readable
+     *  - Left bar = colour classification (green→red)
+     *  - Bottom bar = horizontal age line (universal "underline" signal)
+     *  - Together form a corner indicator — well-known pattern (IDE git markers)
      *
-     * @param color        Hex colour for the ring  (#66bb6a, #f2c037, …)
-     * @param faviconData  data: URL of the favicon, or null for ring-only
+     * WHY PRE-FETCH IN EXTENSION CONTEXT:
+     *  - faviconData is a data: URL fetched in extension context (see fetchFaviconDataUrl)
+     *  - img.src = data: URL bypasses CORS entirely — no canvas taint, no SecurityError
+     *
+     * @param color        Hex colour (#00e676 / #ffd740 / #ff6d00 / #ff1744)
+     * @param faviconData  data: URL pre-fetched in extension context (CORS-safe), or null
      */
-    static get applyFaviconOverlayPageScript(): (color: string, faviconData: string | null) => void {
+    static get applyLBracketPageScript(): (color: string, faviconData: string | null) => void {
         return (color: string, faviconData: string | null): void => {
-            const SIZE        = 32
-            const RING        = 3
-            const INSET       = RING + 1
-            const MARKER      = 'data-ext-age-ring'
-            const HIDDEN_ATTR = 'data-ext-age-ring-hidden'
+            const SIZE           = 32
+            const BORDER         = 4.5
+            const FAVICON_MARGIN = 2   // px gap between favicon and the L-border edges
+            const MARKER         = 'data-ext-age-ring'
+            const HIDDEN_ATTR    = 'data-ext-age-ring-hidden'
 
             const canvas = document.createElement('canvas')
             canvas.width  = SIZE
             canvas.height = SIZE
             const ctx = canvas.getContext('2d')!
 
-            const win = window as unknown as Record<string, unknown>
+            const win     = window as unknown as Record<string, unknown>
             const obsKey  = '__extAgeRingObs'
             const lockKey = '__extAgeRingLock'
 
             function hideOriginalFavicons(): void {
                 document.querySelectorAll('link[rel*="icon"]').forEach((el) => {
-                    // Skip our own injected ring and already-hidden links
                     if (!el.hasAttribute(MARKER) && !el.hasAttribute(HIDDEN_ATTR)) {
                         el.setAttribute(HIDDEN_ATTR, 'true')
                         ;(el as HTMLLinkElement).rel = '__ext_hidden_icon'
@@ -166,14 +100,10 @@ export class TabDots {
             }
 
             function applyFaviconLink(dataUrl: string): void {
-                // Pause the observer so it does NOT react to our own DOM changes
                 const existingObs = win[obsKey] as MutationObserver | undefined
                 if (existingObs) existingObs.disconnect()
                 win[lockKey] = true
-
-                // Remove any previously injected ring links (idempotent)
                 document.querySelectorAll(`link[${MARKER}]`).forEach((el) => el.remove())
-                // Hide original favicon links so only ours shows
                 hideOriginalFavicons()
                 const link = document.createElement('link')
                 link.rel  = 'icon'
@@ -181,16 +111,10 @@ export class TabDots {
                 link.setAttribute(MARKER, 'true')
                 link.href = dataUrl
                 document.head.appendChild(link)
-
                 win[lockKey] = false
-
-                // Watch for SPA favicon resets and re-inject our ring
-                // Always re-create so it captures the latest dataUrl
                 const obs = new MutationObserver(() => {
-                    if (win[lockKey]) return  // we are the ones mutating — ignore
-                    const stillHere = document.querySelector(`link[${MARKER}]`)
-                    if (!stillHere) {
-                        // Page reset its favicon — re-apply ours
+                    if (win[lockKey]) return
+                    if (!document.querySelector(`link[${MARKER}]`)) {
                         win[lockKey] = true
                         hideOriginalFavicons()
                         const relink = document.createElement('link')
@@ -206,11 +130,15 @@ export class TabDots {
                 win[obsKey] = obs
             }
 
-            function drawRing(): void {
+            function drawLBracket(): void {
                 ctx.strokeStyle = color
-                ctx.lineWidth   = RING
+                ctx.lineWidth   = BORDER
+                ctx.lineCap     = 'square'
                 ctx.beginPath()
-                ctx.arc(SIZE / 2, SIZE / 2, SIZE / 2 - RING / 2, 0, Math.PI * 2)
+                ctx.moveTo(BORDER / 2, 0)
+                ctx.lineTo(BORDER / 2, SIZE)        // left vertical
+                ctx.moveTo(0, SIZE - BORDER / 2)
+                ctx.lineTo(SIZE, SIZE - BORDER / 2) // bottom horizontal
                 ctx.stroke()
             }
 
@@ -219,136 +147,35 @@ export class TabDots {
             if (faviconData) {
                 const img = new Image()
                 img.onload = () => {
-                    ctx.save()
-                    ctx.beginPath()
-                    ctx.arc(SIZE / 2, SIZE / 2, SIZE / 2 - INSET, 0, Math.PI * 2)
-                    ctx.clip()
-                    ctx.drawImage(img, INSET, INSET, SIZE - INSET * 2, SIZE - INSET * 2)
-                    ctx.restore()
-                    drawRing()
+                    ctx.drawImage(
+                        img,
+                        BORDER + FAVICON_MARGIN,
+                        0,
+                        SIZE - BORDER - FAVICON_MARGIN,
+                        SIZE - BORDER - FAVICON_MARGIN,
+                    )
+                    drawLBracket()
                     applyFaviconLink(canvas.toDataURL('image/png'))
                 }
                 img.onerror = () => {
-                    drawRing()
+                    drawLBracket()
                     applyFaviconLink(canvas.toDataURL('image/png'))
                 }
-                img.src = faviconData  // local data: URL — no CORS taint
+                img.src = faviconData
             } else {
-                drawRing()
+                drawLBracket()
                 applyFaviconLink(canvas.toDataURL('image/png'))
             }
         }
     }
 
-    /**
-     * ✅ ACTIVE — Square favicon border overlay (currently used by markOldTabs).
-     *
-     * Injected via executeScript — draws a square coloured border around the favicon.
-     * Same pre-fetch pattern as applyFaviconOverlayPageScript (CORS-safe data: URL).
-     * Uses strokeRect instead of arc — produces a square/rectangular border.
-     *
-     * @param color        Hex colour for the border (#66bb6a, #f2c037, …)
-     * @param faviconData  data: URL of the favicon, or null for border-only
-     */
-    static get applySquareFaviconOverlayPageScript(): (color: string, faviconData: string | null) => void {
-        return (color: string, faviconData: string | null): void => {
-            const SIZE        = 32
-            const BORDER      = 4.5
-            const INSET       = BORDER
-            const MARKER      = 'data-ext-age-ring'
-            const HIDDEN_ATTR = 'data-ext-age-ring-hidden'
-
-            const canvas = document.createElement('canvas')
-            canvas.width  = SIZE
-            canvas.height = SIZE
-            const ctx = canvas.getContext('2d')!
-
-            const win = window as unknown as Record<string, unknown>
-            const obsKey  = '__extAgeRingObs'
-            const lockKey = '__extAgeRingLock'
-
-            function hideOriginalFavicons(): void {
-                document.querySelectorAll('link[rel*="icon"]').forEach((el) => {
-                    if (!el.hasAttribute(MARKER) && !el.hasAttribute(HIDDEN_ATTR)) {
-                        el.setAttribute(HIDDEN_ATTR, 'true')
-                        ;(el as HTMLLinkElement).rel = '__ext_hidden_icon'
-                    }
-                })
-            }
-
-            function applyFaviconLink(dataUrl: string): void {
-                const existingObs = win[obsKey] as MutationObserver | undefined
-                if (existingObs) existingObs.disconnect()
-                win[lockKey] = true
-
-                document.querySelectorAll(`link[${MARKER}]`).forEach((el) => el.remove())
-                hideOriginalFavicons()
-                const link = document.createElement('link')
-                link.rel  = 'icon'
-                link.type = 'image/png'
-                link.setAttribute(MARKER, 'true')
-                link.href = dataUrl
-                document.head.appendChild(link)
-
-                win[lockKey] = false
-
-                const obs = new MutationObserver(() => {
-                    if (win[lockKey]) return
-                    const stillHere = document.querySelector(`link[${MARKER}]`)
-                    if (!stillHere) {
-                        win[lockKey] = true
-                        hideOriginalFavicons()
-                        const relink = document.createElement('link')
-                        relink.rel  = 'icon'
-                        relink.type = 'image/png'
-                        relink.setAttribute(MARKER, 'true')
-                        relink.href = dataUrl
-                        document.head.appendChild(relink)
-                        win[lockKey] = false
-                    }
-                })
-                obs.observe(document.head, { childList: true, subtree: true })
-                win[obsKey] = obs
-            }
-
-            /** Draws a square (rounded-corner) border. */
-            function drawSquareBorder(): void {
-                const half = BORDER / 2
-                ctx.strokeStyle = color
-                ctx.lineWidth   = BORDER
-                ctx.strokeRect(half, half, SIZE - BORDER, SIZE - BORDER)
-            }
-
-            ctx.clearRect(0, 0, SIZE, SIZE)
-
-            if (faviconData) {
-                const img = new Image()
-                img.onload = () => {
-                    ctx.drawImage(img, INSET, INSET, SIZE - INSET * 2, SIZE - INSET * 2)
-                    drawSquareBorder()
-                    applyFaviconLink(canvas.toDataURL('image/png'))
-                }
-                img.onerror = () => {
-                    drawSquareBorder()
-                    applyFaviconLink(canvas.toDataURL('image/png'))
-                }
-                img.src = faviconData  // local data: URL — no CORS taint
-            } else {
-                drawSquareBorder()
-                applyFaviconLink(canvas.toDataURL('image/png'))
-            }
-        }
-    }
-
-    /** Injected via executeScript — removes the age-ring favicon overlay. */
-    static get removeFaviconOverlayPageScript(): () => void {
+    /** Injected via executeScript — removes the L-bracket overlay and restores original favicons. */
+    static get removeLBracketPageScript(): () => void {
         return () => {
-            // Disconnect SPA observer if present
             const win = window as unknown as Record<string, unknown>
             const obs = win['__extAgeRingObs'] as MutationObserver | undefined
             if (obs) { obs.disconnect(); delete win['__extAgeRingObs'] }
             document.querySelectorAll('link[data-ext-age-ring]').forEach((el) => el.remove())
-            // Restore original favicon links
             document.querySelectorAll('link[data-ext-age-ring-hidden]').forEach((el) => {
                 el.removeAttribute('data-ext-age-ring-hidden')
                 ;(el as HTMLLinkElement).rel = 'icon'
@@ -356,5 +183,4 @@ export class TabDots {
         }
     }
 }
-
 

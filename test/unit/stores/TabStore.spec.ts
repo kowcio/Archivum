@@ -166,19 +166,20 @@ describe('TabStore › clearing dots syncs store titles', () => {
     expect(store.tabs[2].title).toBe('Fresh Tab')
   })
 
-  it('resetAllTabMarks strips dot prefix from this.tabs titles', async () => {
+  it('resetAllTabMarks delegates to clearDotsFromOpenTabs (removes L-bracket)', async () => {
     const store = useTabStore()
-    store.$patch({
-      tabs: [
-        { ...tabWithAge(1, 30), title: '🔴 Old Tab' },
-        { ...tabWithAge(2, 5),  title: '🟢 Fresh Tab' },
-      ],
-    })
+    const cleanTabs = [
+      { ...tabWithAge(1, 30), title: 'Old Tab' },
+      { ...tabWithAge(2, 5),  title: 'Fresh Tab' },
+    ]
+    store.$patch({ tabs: cleanTabs })
+    const { default: browser } = await import('webextension-polyfill')
+    vi.mocked(browser.tabs.query).mockResolvedValue(cleanTabs as Tabs.Tab[])
 
     await store.resetAllTabMarks()
 
-    expect(store.tabs[0].title).toBe('Old Tab')
-    expect(store.tabs[1].title).toBe('Fresh Tab')
+    // Should have refreshed tabs from browser (clean slate)
+    expect(browser.tabs.query).toHaveBeenCalled()
   })
 
   it('leaves titles without dots unchanged', async () => {

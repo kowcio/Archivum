@@ -65,6 +65,14 @@
             :loading="tabStore.loading"
             @click="handleResetTabTitles"
           />
+          <q-btn
+            data-testid="btn-reset-markings"
+            label="Reset Markings"
+            icon="layers_clear"
+            color="deep-orange"
+            :loading="tabStore.loading"
+            @click="handleResetMarkings"
+          />
         </q-btn-group>
 
         <!-- Group 3: Dev tools -->
@@ -141,7 +149,7 @@
                 </template>
                 <template v-else-if="col.name === 'title'">
                   <q-tooltip v-if="props.row.title" class="bg-black text-white" max-width="500px">
-                    {{ props.row.title }}
+                    <span class="tooltip-age-prefix">{{ tabStore.getLastAccessMsg(props.row) }} — </span>{{ props.row.title }}
                   </q-tooltip>
                   <span v-if="props.row.title">{{
                       truncate(stripProtocol(props.row.title), excerptLength)
@@ -172,13 +180,12 @@
 <script setup lang="ts">
 import { computed, onMounted } from "vue"
 import { storeToRefs } from "pinia"
-import type { Tabs } from "webextension-polyfill"
 import { useGlobalStore } from "@/stores/globalStore.ts"
 import { useTabStore } from "@/stores/TabStore"
 import type { QTableProps } from "quasar"
 import { TabRow } from "@/models/tabs/TabRow"
 import Thresholds from "@/components/Thresholds.vue"
-import tabsExampleData from "@/../test/mocks/tabs_example.json"
+import { APP_DEFAULTS } from "@/constants"
 
 const global = useGlobalStore()
 const tabStore = useTabStore()
@@ -272,7 +279,6 @@ const rows = computed(() =>
         lastAccessClass: ageClassification.cssClass,
       };
     })
-    .filter((row) => (row.lastAccessDays ?? 0) >= global.flags.thresholds.young)
 );
 
 onMounted(async () => {
@@ -310,14 +316,19 @@ async function handleMarkTabs(): Promise<void> {
 
 /** Loads tabs from tabs_example.json, shifting each tab's lastAccessed by +3 days
  *  per index so all 4 age groups (fresh / young / middle / old) are visible. */
-function handleGenMockTabs(): void {
+async function handleGenMockTabs(): Promise<void> {
+  // Ensure we have real tabs loaded before applying mock ages
+  if (tabStore.tabs.length === 0) {
+    await tabStore.getAllOpenedTabs()
+  }
   const now = Date.now()
   const DAY_MS = 24 * 60 * 60 * 1000
-  const tabs = (tabsExampleData.tabs as Tabs.Tab[]).map((tab, index) => ({
+  const tabs = tabStore.tabs.map((tab, index) => ({
     ...tab,
     lastAccessed: now - index * 3 * DAY_MS,
   }))
   tabStore.$patch({ tabs })
+  await tabStore.markOldTabs()
 }
 
 
@@ -329,16 +340,20 @@ async function handleResetTabTitles(): Promise<void> {
   await tabStore.clearDotsFromOpenTabs()
 }
 
+async function handleResetMarkings(): Promise<void> {
+  await tabStore.resetMarkings()
+}
+
 async function handleGroupByAge(): Promise<void> {
   await tabStore.groupTabsByAge()
 }
 
 function getFaviconBorderColor(row: { lastAccessClass?: string }): string {
   const cls = row.lastAccessClass ?? ''
-  if (cls.includes('green'))  return '#66bb6a'
-  if (cls.includes('amber'))  return '#f2c037'
-  if (cls.includes('orange')) return '#fb8c00'
-  if (cls.includes('red'))    return '#e53935'
+  if (cls.includes('green'))  return APP_DEFAULTS.AGE_COLOR_FRESH
+  if (cls.includes('amber'))  return APP_DEFAULTS.AGE_COLOR_YOUNG
+  if (cls.includes('orange')) return APP_DEFAULTS.AGE_COLOR_MIDDLE
+  if (cls.includes('red'))    return APP_DEFAULTS.AGE_COLOR_OLD
   return 'transparent'
 }
 </script>
@@ -347,11 +362,6 @@ function getFaviconBorderColor(row: { lastAccessClass?: string }): string {
 
 <style scoped>
 /* Layout & Container Styles */
-.button-group-container {
-  display: flex;
-  justify-content: center;
-  width: 100%;
-}
 
 .text-info-container {
   display: flex;
@@ -392,37 +402,6 @@ function getFaviconBorderColor(row: { lastAccessClass?: string }): string {
   word-wrap: break-word;
 }
 
-/* Close button cell - always display at full width without wrapping */
-.cell-close {
-  white-space: nowrap;
-  min-width: max-content;
-}
-
-.cell-close button {
-  white-space: nowrap;
-}
-
-/* Aggressive text breaking for title, url, and domain columns */
-.cell-break-aggressive {
-  word-break: break-all;
-  overflow-wrap: break-word;
-  white-space: pre-wrap;
-  word-wrap: break-word;
-  max-width: 100%;
-}
-
-.cell-break-aggressive a {
-  word-break: break-all;
-  overflow-wrap: break-word;
-  white-space: pre-wrap;
-}
-
-.cell-break-aggressive span {
-  display: block;
-  word-break: break-all;
-  overflow-wrap: break-word;
-  white-space: pre-wrap;
-}
 
 .favicon-wrapper {
   display: inline-flex;
@@ -430,9 +409,12 @@ function getFaviconBorderColor(row: { lastAccessClass?: string }): string {
   justify-content: center;
   width: 22px;
   height: 22px;
-  border-radius: 4px;
-  border: 2.5px solid var(--ring-color, transparent);
-  padding: 1px;
+  padding-left:   2px;  /* FAVICON_MARGIN — gap between icon and left border */
+  padding-bottom: 2px;  /* FAVICON_MARGIN — gap between icon and bottom border */
+  border-left:   2.5px solid var(--ring-color, transparent);
+  border-bottom: 2.5px solid var(--ring-color, transparent);
+  border-top:    none;
+  border-right:  none;
 }
 .favicon-img {
   width: 16px;
@@ -443,5 +425,12 @@ function getFaviconBorderColor(row: { lastAccessClass?: string }): string {
 .favicon-placeholder {
   font-size: 10px;
   color: #999;
+}
+
+.tooltip-age-prefix {
+  font-weight: 700;
+  opacity: 0.75;
+  font-size: 0.85em;
+  letter-spacing: 0.02em;
 }
 </style>
