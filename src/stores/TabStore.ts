@@ -154,13 +154,20 @@ export const useTabStore = defineStore('tabStore', {
                         if (row.id == null) return
                         const { color, dot, days, classificationIndex } = this.getAgeClassification(row, boundaries)
                         console.log(`[markOldTabs] tab#${row.id} days=${days} dot="${dot}" color=${color} title="${row.title?.slice(0,40)}"`)
-                        // Always apply favicon overlay (works for all age groups incl. fresh)
-                        await this.markTabWithFaviconOverlay(row.id, color)
-                        await this.markTabWithBadge(row.id, TabDot.Bullet, color)
-                        await this.markTabWithGroupColor(row.id, GROUP_COLOR_MAP[classificationIndex])
-                        // Title dot prefix disabled — kept for future reference:
+
+                        // ✅ ACTIVE: square favicon border — the only visual mark applied
+                        await this.markTabWithSquareFaviconOverlay(row.id, color)
+
+                        // ── Future reference: other marking methods ──────────────────
+                        // Badge (bullet + colour dot on extension icon):
+                        // await this.markTabWithBadge(row.id, TabDot.Bullet, color)
+                        // Chrome tab group colour:
+                        // await this.markTabWithGroupColor(row.id, GROUP_COLOR_MAP[classificationIndex])
+                        // Round favicon ring overlay:
+                        // await this.markTabWithFaviconOverlay(row.id, color)
+                        // Title dot prefix:
                         // if (dot) await this.markTabWithTitle(row.id, `${dot} `)
-                        // else await this.resetTabTitle(row.id)
+                        // else     await this.resetTabTitle(row.id)
                     }),
                 )
             } catch (err) {
@@ -369,6 +376,24 @@ export const useTabStore = defineStore('tabStore', {
                 })
             } catch (err) {
                 console.debug(`[markTabWithFaviconOverlay] tab#${tabId}:`, err instanceof Error ? err.message : err)
+            }
+        },
+
+        /** ✅ ACTIVE — Injects a square coloured border around the tab favicon. */
+        async markTabWithSquareFaviconOverlay(tabId: number, color: string): Promise<void> {
+            try {
+                const tab = this.tabs.find((t) => t.id === tabId)
+                const faviconDataUrl = tab?.favIconUrl
+                    ? await TabDots.fetchFaviconDataUrl(tab.favIconUrl)
+                    : null
+
+                await browser.scripting.executeScript({
+                    target: { tabId },
+                    func: TabDots.applySquareFaviconOverlayPageScript,
+                    args: [color, faviconDataUrl],
+                })
+            } catch (err) {
+                console.debug(`[markTabWithSquareFaviconOverlay] tab#${tabId}:`, err instanceof Error ? err.message : err)
             }
         },
 

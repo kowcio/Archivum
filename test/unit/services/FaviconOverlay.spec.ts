@@ -215,7 +215,7 @@ describe('markTabWithFaviconOverlay (store)', () => {
     )
   })
 
-  it('calls markTabWithFaviconOverlay for every tab in markOldTabs', async () => {
+  it('calls markTabWithSquareFaviconOverlay for every tab in markOldTabs', async () => {
     const store = useTabStore()
     const now = Date.now()
     const DAY = 24 * 60 * 60 * 1000
@@ -228,17 +228,22 @@ describe('markTabWithFaviconOverlay (store)', () => {
       ],
     })
 
-    const overlaySpy = vi.spyOn(store, 'markTabWithFaviconOverlay').mockResolvedValue()
+    const squareOverlaySpy = vi.spyOn(store, 'markTabWithSquareFaviconOverlay').mockResolvedValue()
+    // Round overlay and badge are disabled in markOldTabs (kept for future reference)
+    vi.spyOn(store, 'markTabWithFaviconOverlay').mockResolvedValue()
     vi.spyOn(store, 'markTabWithBadge').mockResolvedValue()
     vi.spyOn(store, 'markTabWithGroupColor').mockResolvedValue()
 
     await store.markOldTabs()
 
-    // All 3 tabs should get the favicon overlay
-    expect(overlaySpy).toHaveBeenCalledTimes(3)
+    // All 3 tabs should get the square favicon overlay
+    expect(squareOverlaySpy).toHaveBeenCalledTimes(3)
     // Fresh tab → green
-    expect(overlaySpy).toHaveBeenCalledWith(1, '#66bb6a')
+    expect(squareOverlaySpy).toHaveBeenCalledWith(1, '#66bb6a')
     // Old tab → red
-    expect(overlaySpy).toHaveBeenCalledWith(3, '#e53935')
+    expect(squareOverlaySpy).toHaveBeenCalledWith(3, '#e53935')
+    // Round overlay and badge should NOT be called (disabled)
+    expect(store.markTabWithFaviconOverlay).not.toHaveBeenCalled()
+    expect(store.markTabWithBadge).not.toHaveBeenCalled()
   })
 })

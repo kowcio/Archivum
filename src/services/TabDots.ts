@@ -151,9 +151,14 @@ export class TabDots {
             canvas.height = SIZE
             const ctx = canvas.getContext('2d')!
 
+            const win = window as unknown as Record<string, unknown>
+            const obsKey  = '__extAgeRingObs'
+            const lockKey = '__extAgeRingLock'
+
             function hideOriginalFavicons(): void {
                 document.querySelectorAll('link[rel*="icon"]').forEach((el) => {
-                    if (!el.hasAttribute(MARKER)) {
+                    // Skip our own injected ring and already-hidden links
+                    if (!el.hasAttribute(MARKER) && !el.hasAttribute(HIDDEN_ATTR)) {
                         el.setAttribute(HIDDEN_ATTR, 'true')
                         ;(el as HTMLLinkElement).rel = '__ext_hidden_icon'
                     }
@@ -161,7 +166,12 @@ export class TabDots {
             }
 
             function applyFaviconLink(dataUrl: string): void {
-                // Remove any previously injected ring links
+                // Pause the observer so it does NOT react to our own DOM changes
+                const existingObs = win[obsKey] as MutationObserver | undefined
+                if (existingObs) existingObs.disconnect()
+                win[lockKey] = true
+
+                // Remove any previously injected ring links (idempotent)
                 document.querySelectorAll(`link[${MARKER}]`).forEach((el) => el.remove())
                 // Hide original favicon links so only ours shows
                 hideOriginalFavicons()
@@ -172,26 +182,28 @@ export class TabDots {
                 link.href = dataUrl
                 document.head.appendChild(link)
 
+                win[lockKey] = false
+
                 // Watch for SPA favicon resets and re-inject our ring
-                const obsKey = '__extAgeRingObs'
-                const win = window as unknown as Record<string, unknown>
-                if (!win[obsKey]) {
-                    const obs = new MutationObserver(() => {
-                        const stillHere = document.querySelector(`link[${MARKER}]`)
-                        if (!stillHere) {
-                            // Page reset its favicon — re-apply ours
-                            hideOriginalFavicons()
-                            const relink = document.createElement('link')
-                            relink.rel  = 'icon'
-                            relink.type = 'image/png'
-                            relink.setAttribute(MARKER, 'true')
-                            relink.href = dataUrl
-                            document.head.appendChild(relink)
-                        }
-                    })
-                    obs.observe(document.head, { childList: true, subtree: true })
-                    win[obsKey] = obs
-                }
+                // Always re-create so it captures the latest dataUrl
+                const obs = new MutationObserver(() => {
+                    if (win[lockKey]) return  // we are the ones mutating — ignore
+                    const stillHere = document.querySelector(`link[${MARKER}]`)
+                    if (!stillHere) {
+                        // Page reset its favicon — re-apply ours
+                        win[lockKey] = true
+                        hideOriginalFavicons()
+                        const relink = document.createElement('link')
+                        relink.rel  = 'icon'
+                        relink.type = 'image/png'
+                        relink.setAttribute(MARKER, 'true')
+                        relink.href = dataUrl
+                        document.head.appendChild(relink)
+                        win[lockKey] = false
+                    }
+                })
+                obs.observe(document.head, { childList: true, subtree: true })
+                win[obsKey] = obs
             }
 
             function drawRing(): void {
@@ -223,6 +235,106 @@ export class TabDots {
                 img.src = faviconData  // local data: URL — no CORS taint
             } else {
                 drawRing()
+                applyFaviconLink(canvas.toDataURL('image/png'))
+            }
+        }
+    }
+
+    /**
+     * ✅ ACTIVE — Square favicon border overlay (currently used by markOldTabs).
+     *
+     * Injected via executeScript — draws a square coloured border around the favicon.
+     * Same pre-fetch pattern as applyFaviconOverlayPageScript (CORS-safe data: URL).
+     * Uses strokeRect instead of arc — produces a square/rectangular border.
+     *
+     * @param color        Hex colour for the border (#66bb6a, #f2c037, …)
+     * @param faviconData  data: URL of the favicon, or null for border-only
+     */
+    static get applySquareFaviconOverlayPageScript(): (color: string, faviconData: string | null) => void {
+        return (color: string, faviconData: string | null): void => {
+            const SIZE        = 32
+            const BORDER      = 4.5
+            const INSET       = BORDER
+            const MARKER      = 'data-ext-age-ring'
+            const HIDDEN_ATTR = 'data-ext-age-ring-hidden'
+
+            const canvas = document.createElement('canvas')
+            canvas.width  = SIZE
+            canvas.height = SIZE
+            const ctx = canvas.getContext('2d')!
+
+            const win = window as unknown as Record<string, unknown>
+            const obsKey  = '__extAgeRingObs'
+            const lockKey = '__extAgeRingLock'
+
+            function hideOriginalFavicons(): void {
+                document.querySelectorAll('link[rel*="icon"]').forEach((el) => {
+                    if (!el.hasAttribute(MARKER) && !el.hasAttribute(HIDDEN_ATTR)) {
+                        el.setAttribute(HIDDEN_ATTR, 'true')
+                        ;(el as HTMLLinkElement).rel = '__ext_hidden_icon'
+                    }
+                })
+            }
+
+            function applyFaviconLink(dataUrl: string): void {
+                const existingObs = win[obsKey] as MutationObserver | undefined
+                if (existingObs) existingObs.disconnect()
+                win[lockKey] = true
+
+                document.querySelectorAll(`link[${MARKER}]`).forEach((el) => el.remove())
+                hideOriginalFavicons()
+                const link = document.createElement('link')
+                link.rel  = 'icon'
+                link.type = 'image/png'
+                link.setAttribute(MARKER, 'true')
+                link.href = dataUrl
+                document.head.appendChild(link)
+
+                win[lockKey] = false
+
+                const obs = new MutationObserver(() => {
+                    if (win[lockKey]) return
+                    const stillHere = document.querySelector(`link[${MARKER}]`)
+                    if (!stillHere) {
+                        win[lockKey] = true
+                        hideOriginalFavicons()
+                        const relink = document.createElement('link')
+                        relink.rel  = 'icon'
+                        relink.type = 'image/png'
+                        relink.setAttribute(MARKER, 'true')
+                        relink.href = dataUrl
+                        document.head.appendChild(relink)
+                        win[lockKey] = false
+                    }
+                })
+                obs.observe(document.head, { childList: true, subtree: true })
+                win[obsKey] = obs
+            }
+
+            /** Draws a square (rounded-corner) border. */
+            function drawSquareBorder(): void {
+                const half = BORDER / 2
+                ctx.strokeStyle = color
+                ctx.lineWidth   = BORDER
+                ctx.strokeRect(half, half, SIZE - BORDER, SIZE - BORDER)
+            }
+
+            ctx.clearRect(0, 0, SIZE, SIZE)
+
+            if (faviconData) {
+                const img = new Image()
+                img.onload = () => {
+                    ctx.drawImage(img, INSET, INSET, SIZE - INSET * 2, SIZE - INSET * 2)
+                    drawSquareBorder()
+                    applyFaviconLink(canvas.toDataURL('image/png'))
+                }
+                img.onerror = () => {
+                    drawSquareBorder()
+                    applyFaviconLink(canvas.toDataURL('image/png'))
+                }
+                img.src = faviconData  // local data: URL — no CORS taint
+            } else {
+                drawSquareBorder()
                 applyFaviconLink(canvas.toDataURL('image/png'))
             }
         }

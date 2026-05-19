@@ -54,7 +54,12 @@ function tabWithAge(id: number, daysAgo: number): Tabs.Tab {
 
 // ─── markOldTabs badge colour tests ───────────────────────────────────────
 
-describe('TabStore › markOldTabs › badge colors', () => {
+/**
+ * Badge tests are kept as reference for when badge marking is re-enabled.
+ * markOldTabs currently only applies the square favicon border overlay.
+ * @see TabStore.markOldTabs — badge calls commented out for future use
+ */
+describe.skip('TabStore › markOldTabs › badge colors (disabled — badge marking not active)', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     setActivePinia(createPinia())
