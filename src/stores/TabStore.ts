@@ -307,6 +307,21 @@ export const useTabStore = defineStore('tabStore', {
             }
         },
 
+        /**
+         * Full reset — strips ALL extension modifications from every open tab and
+         * refreshes the store so the UI shows a clean slate.
+         *
+         * Per-tab operations (run in parallel):
+         *  1. unmarkTabTitle       — removes dot / bullet prefix from document.title
+         *  2. removeFaviconOverlay — removes age-ring canvas overlay, restores original
+         *                            favicon links and disconnects the MutationObserver
+         *  3. unmarkTabBadge       — clears the action badge (text + colour)
+         *  4. unmarkTabGroup       — removes the tab from its Chrome tab group
+         *
+         * After all tabs are cleaned:
+         *  5. getAllOpenedTabs()   — re-fetches fresh tab data from the browser so the
+         *                            store reflects the browser's current state
+         */
         async clearDotsFromOpenTabs(): Promise<void> {
             this.error = null
             try {
@@ -314,15 +329,20 @@ export const useTabStore = defineStore('tabStore', {
                 await Promise.all(
                     tabRows.map(async (row) => {
                         if (row.id == null) return
-                        await this.resetTabTitle(row.id)
+                        await this.unmarkTabTitle(row.id)
                         await this.removeFaviconOverlay(row.id)
                         await this.unmarkTabBadge(row.id)
                         await this.unmarkTabGroup(row.id)
                     }),
                 )
-                // Refresh tabs from browser to get clean original titles
+                // Strip any remaining dot prefixes from in-memory store titles
+                this.tabs = this.tabs.map((tab) => ({
+                    ...tab,
+                    title: tab.title ? TabDots.stripDotPrefix(tab.title) : tab.title,
+                }))
+                // Re-fetch fresh tab data from the browser (clean slate in store)
                 const freshTabs = await this.getAllOpenedTabs()
-                console.log('[clearDotsFromOpenTabs] refreshed tabs from browser:', freshTabs.length)
+                console.log('[clearDotsFromOpenTabs] clean slate — refreshed tabs from browser:', freshTabs.length)
             } catch (err) {
                 this.error = err instanceof Error ? err.message : 'Unknown error while clearing dots from open tabs'
             }
