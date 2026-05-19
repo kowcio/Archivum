@@ -19,6 +19,7 @@ export default defineConfig((env: { browser: string }) => {
       version: '1.0.0',
       manifest_version: 3,
       permissions: ['tabs', 'activeTab', 'bookmarks', 'clipboardRead', 'storage', 'scripting', 'tabGroups'],
+      host_permissions: ['<all_urls>'],
       content_scripts: [],
       background: {
         service_worker: 'background.js',

@@ -98,14 +98,13 @@ describe('Options Entrypoint', () => {
          plugins: [
            [Quasar, { config: { dark: false }, components: { QTable, QTr, QTd, QBtn, QBtnGroup, QInput } }]
          ],
-         stubs: {
-           teleport: true,
-         },
+         stubs: { teleport: true },
        },
      })
 
-     const btnGroup = wrapper.find('.button-group-container')
-     expect(btnGroup.exists()).toBe(true)
+     // Buttons are now in 3 separate q-btn-group elements — check for btn-load-tabs as anchor
+     const loadBtn = wrapper.find('[data-testid="btn-load-tabs"]')
+     expect(loadBtn.exists()).toBe(true)
    })
 
   it('should have proper HTML structure with row layout', () => {

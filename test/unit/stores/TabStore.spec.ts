@@ -138,13 +138,21 @@ describe('TabStore › clearing dots syncs store titles', () => {
 
   it('clearDotsFromOpenTabs strips dot prefix from this.tabs titles', async () => {
     const store = useTabStore()
+    const cleanTabs = [
+      { ...tabWithAge(1, 10), title: 'My Tab' },
+      { ...tabWithAge(2, 20), title: 'Another Tab' },
+      { ...tabWithAge(3, 0),  title: 'Fresh Tab' },
+    ]
     store.$patch({
       tabs: [
-        { ...tabWithAge(1, 10), title: '🟡 My Tab' },
-        { ...tabWithAge(2, 20), title: '🟠 Another Tab' },
-        { ...tabWithAge(3, 0),  title: '🟢 Fresh Tab' },
+        { ...cleanTabs[0], title: '🟡 My Tab' },
+        { ...cleanTabs[1], title: '🟠 Another Tab' },
+        { ...cleanTabs[2], title: '🟢 Fresh Tab' },
       ],
     })
+    // browser.tabs.query returns clean titles (browser always has originals)
+    const { default: browser } = await import('webextension-polyfill')
+    vi.mocked(browser.tabs.query).mockResolvedValue(cleanTabs as Tabs.Tab[])
 
     await store.clearDotsFromOpenTabs()
 
@@ -170,9 +178,10 @@ describe('TabStore › clearing dots syncs store titles', () => {
 
   it('leaves titles without dots unchanged', async () => {
     const store = useTabStore()
-    store.$patch({
-      tabs: [{ ...tabWithAge(1, 5), title: 'Clean Title' }],
-    })
+    const cleanTab = { ...tabWithAge(1, 5), title: 'Clean Title' }
+    store.$patch({ tabs: [cleanTab] })
+    const { default: browser } = await import('webextension-polyfill')
+    vi.mocked(browser.tabs.query).mockResolvedValue([cleanTab] as Tabs.Tab[])
 
     await store.clearDotsFromOpenTabs()
 

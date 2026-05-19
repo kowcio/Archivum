@@ -154,17 +154,13 @@ export const useTabStore = defineStore('tabStore', {
                         if (row.id == null) return
                         const { color, dot, days, classificationIndex } = this.getAgeClassification(row, boundaries)
                         console.log(`[markOldTabs] tab#${row.id} days=${days} dot="${dot}" color=${color} title="${row.title?.slice(0,40)}"`)
-                        if (dot) {
-                            await this.markTabWithTitle(row.id, `${dot} `)
-                            await this.markTabWithBadge(row.id, TabDot.Bullet, color)
-                            await this.markTabWithGroupColor(row.id, GROUP_COLOR_MAP[classificationIndex])
-                            await this.markTabWithFaviconOverlay(row.id, color)
-                        } else {
-                            await this.resetTabTitle(row.id)
-                            await this.unmarkTabBadge(row.id)
-                            await this.unmarkTabGroup(row.id)
-                            await this.removeFaviconOverlay(row.id)
-                        }
+                        // Always apply favicon overlay (works for all age groups incl. fresh)
+                        await this.markTabWithFaviconOverlay(row.id, color)
+                        await this.markTabWithBadge(row.id, TabDot.Bullet, color)
+                        await this.markTabWithGroupColor(row.id, GROUP_COLOR_MAP[classificationIndex])
+                        // Title dot prefix disabled — kept for future reference:
+                        // if (dot) await this.markTabWithTitle(row.id, `${dot} `)
+                        // else await this.resetTabTitle(row.id)
                     }),
                 )
             } catch (err) {
@@ -320,13 +316,13 @@ export const useTabStore = defineStore('tabStore', {
                         if (row.id == null) return
                         await this.resetTabTitle(row.id)
                         await this.removeFaviconOverlay(row.id)
+                        await this.unmarkTabBadge(row.id)
+                        await this.unmarkTabGroup(row.id)
                     }),
                 )
-                // Strip dot prefixes from store tab titles
-                this.tabs = this.tabs.map((tab) => ({
-                    ...tab,
-                    title: tab.title ? TabDots.stripDotPrefix(tab.title) : tab.title,
-                }))
+                // Refresh tabs from browser to get clean original titles
+                const freshTabs = await this.getAllOpenedTabs()
+                console.log('[clearDotsFromOpenTabs] refreshed tabs from browser:', freshTabs.length)
             } catch (err) {
                 this.error = err instanceof Error ? err.message : 'Unknown error while clearing dots from open tabs'
             }
@@ -339,10 +335,17 @@ export const useTabStore = defineStore('tabStore', {
         /** Injects a coloured ring around the tab favicon (Chrome + Firefox). */
         async markTabWithFaviconOverlay(tabId: number, color: string): Promise<void> {
             try {
+                // Pre-fetch favicon from extension context (full cross-origin access)
+                // then pass as data URL to the page script — avoids CORS in content script
+                const tab = this.tabs.find((t) => t.id === tabId)
+                const faviconDataUrl = tab?.favIconUrl
+                    ? await TabDots.fetchFaviconDataUrl(tab.favIconUrl)
+                    : null
+
                 await browser.scripting.executeScript({
                     target: { tabId },
                     func: TabDots.applyFaviconOverlayPageScript,
-                    args: [color],
+                    args: [color, faviconDataUrl],
                 })
             } catch (err) {
                 console.debug(`[markTabWithFaviconOverlay] tab#${tabId}:`, err instanceof Error ? err.message : err)
@@ -381,6 +384,53 @@ export const useTabStore = defineStore('tabStore', {
                 await chrome?.tabs?.ungroup?.(tabId)
             } catch (err) {
                 console.debug(`[unmarkTabGroup] tab#${tabId}:`, err instanceof Error ? err.message : err)
+            }
+        },
+
+        /** Groups all open tabs by age classification into colour-coded Chrome tab groups. */
+        async groupTabsByAge(): Promise<void> {
+            this.error = null
+            try {
+                type ChromeAPI = {
+                    chrome?: {
+                        tabs?: { group?: (o: { tabIds: number[] }) => Promise<number> }
+                        tabGroups?: { update?: (id: number, o: object) => Promise<void> }
+                    }
+                }
+                const { chrome } = globalThis as unknown as ChromeAPI
+                if (!chrome?.tabs?.group || !chrome?.tabGroups?.update) return
+
+                const boundaries = useGlobalStore().thresholdsArray
+                const [young, middle, old] = boundaries
+
+                const groupMeta: Array<{ dot: string; label: string; color: string }> = [
+                    { dot: '🟢', label: `🟢 Fresh (<${young}d)`,   color: 'green'  },
+                    { dot: '🟡', label: `🟡 Young (${young}d+)`,   color: 'yellow' },
+                    { dot: '🟠', label: `🟠 Middle (${middle}d+)`, color: 'orange' },
+                    { dot: '🔴', label: `🔴 Old (${old}d+)`,       color: 'red'    },
+                ]
+
+                const tabRows = TabRow.fromTabs(this.tabs, boundaries)
+                const buckets: Map<number, number[]> = new Map([0, 1, 2, 3].map((i) => [i, []]))
+
+                for (const row of tabRows) {
+                    if (row.id == null) continue
+                    const { classificationIndex } = this.getAgeClassification(row, boundaries)
+                    buckets.get(classificationIndex)!.push(row.id)
+                }
+
+                for (const [index, tabIds] of buckets.entries()) {
+                    if (tabIds.length === 0) continue
+                    const { label, color } = groupMeta[index]
+                    try {
+                        const groupId = await chrome.tabs.group!({ tabIds })
+                        await chrome.tabGroups.update!(groupId, { title: label, color })
+                    } catch (err) {
+                        console.debug(`[groupTabsByAge] bucket#${index}:`, err instanceof Error ? err.message : err)
+                    }
+                }
+            } catch (err) {
+                this.error = err instanceof Error ? err.message : 'Unknown error while grouping tabs by age'
             }
         },
     },

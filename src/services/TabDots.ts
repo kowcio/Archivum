@@ -93,70 +93,154 @@ export class TabDots {
     }
 
     /**
-     * Injected via executeScript — draws a coloured ring around the existing favicon.
-     * Works in Chrome and Firefox. Returns a Promise so executeScript awaits it.
+     * ✅ CRUCIAL — CONFIRMED WORKING (2026-05-19)
+     *
+     * Fetches a favicon URL and converts it to a data URL.
+     * Called from the EXTENSION context (store/options/background) which has
+     * full cross-origin access via host_permissions — avoids CORS in content scripts.
+     *
+     * WHY THIS WORKS:
+     *  - fetch() inside executeScript runs with the PAGE's origin → blocked by CORS.
+     *  - fetch() here runs in the EXTENSION context with host_permissions: ['<all_urls>'] → allowed.
+     *  - The resulting data: URL is passed as an argument to executeScript.
+     *  - Inside the page script img.src = faviconData (data: URL) has zero CORS restrictions,
+     *    so canvas.toDataURL() never throws a SecurityError (no canvas taint).
      */
-    static get applyFaviconOverlayPageScript(): (color: string) => Promise<void> {
-        return (color: string): Promise<void> => new Promise((resolve) => {
-            const SIZE   = 32
-            const BORDER = 5
-            const MARKER = 'data-ext-age-ring'
+    static async fetchFaviconDataUrl(url: string): Promise<string | null> {
+        try {
+            const resp = await fetch(url)
+            const blob = await resp.blob()
+            return await new Promise<string>((resolve, reject) => {
+                const reader = new FileReader()
+                reader.onload  = () => resolve(reader.result as string)
+                reader.onerror = reject
+                reader.readAsDataURL(blob)
+            })
+        } catch {
+            return null
+        }
+    }
+
+    /**
+     * ✅ CRUCIAL — CONFIRMED WORKING (2026-05-19)
+     *
+     * Injected via executeScript — draws a coloured ring around the existing favicon.
+     * Receives the favicon as a pre-fetched data URL (fetched from extension context)
+     * so no cross-origin fetch is needed inside the page, avoiding CORS issues.
+     *
+     * WHY THIS WORKS:
+     *  - faviconData is a data: URL pre-fetched in extension context (see fetchFaviconDataUrl).
+     *  - Setting img.src to a data: URL bypasses CORS entirely — no canvas taint.
+     *  - Original favicon <link> elements are hidden (rel changed) so only our canvas ring shows.
+     *  - A MutationObserver re-injects the ring if a SPA resets the favicon.
+     *  - Ring-only mode (faviconData = null) still works for tabs with no favicon.
+     *
+     * @param color        Hex colour for the ring  (#66bb6a, #f2c037, …)
+     * @param faviconData  data: URL of the favicon, or null for ring-only
+     */
+    static get applyFaviconOverlayPageScript(): (color: string, faviconData: string | null) => void {
+        return (color: string, faviconData: string | null): void => {
+            const SIZE        = 32
+            const RING        = 3
+            const INSET       = RING + 1
+            const MARKER      = 'data-ext-age-ring'
+            const HIDDEN_ATTR = 'data-ext-age-ring-hidden'
 
             const canvas = document.createElement('canvas')
             canvas.width  = SIZE
             canvas.height = SIZE
             const ctx = canvas.getContext('2d')!
 
-            function applyFavicon(dataUrl: string): void {
+            function hideOriginalFavicons(): void {
+                document.querySelectorAll('link[rel*="icon"]').forEach((el) => {
+                    if (!el.hasAttribute(MARKER)) {
+                        el.setAttribute(HIDDEN_ATTR, 'true')
+                        ;(el as HTMLLinkElement).rel = '__ext_hidden_icon'
+                    }
+                })
+            }
+
+            function applyFaviconLink(dataUrl: string): void {
+                // Remove any previously injected ring links
                 document.querySelectorAll(`link[${MARKER}]`).forEach((el) => el.remove())
+                // Hide original favicon links so only ours shows
+                hideOriginalFavicons()
                 const link = document.createElement('link')
                 link.rel  = 'icon'
                 link.type = 'image/png'
                 link.setAttribute(MARKER, 'true')
                 link.href = dataUrl
                 document.head.appendChild(link)
-                resolve()
+
+                // Watch for SPA favicon resets and re-inject our ring
+                const obsKey = '__extAgeRingObs'
+                const win = window as unknown as Record<string, unknown>
+                if (!win[obsKey]) {
+                    const obs = new MutationObserver(() => {
+                        const stillHere = document.querySelector(`link[${MARKER}]`)
+                        if (!stillHere) {
+                            // Page reset its favicon — re-apply ours
+                            hideOriginalFavicons()
+                            const relink = document.createElement('link')
+                            relink.rel  = 'icon'
+                            relink.type = 'image/png'
+                            relink.setAttribute(MARKER, 'true')
+                            relink.href = dataUrl
+                            document.head.appendChild(relink)
+                        }
+                    })
+                    obs.observe(document.head, { childList: true, subtree: true })
+                    win[obsKey] = obs
+                }
             }
 
-            function drawWithFavicon(src: string): void {
+            function drawRing(): void {
+                ctx.strokeStyle = color
+                ctx.lineWidth   = RING
+                ctx.beginPath()
+                ctx.arc(SIZE / 2, SIZE / 2, SIZE / 2 - RING / 2, 0, Math.PI * 2)
+                ctx.stroke()
+            }
+
+            ctx.clearRect(0, 0, SIZE, SIZE)
+
+            if (faviconData) {
                 const img = new Image()
-                img.crossOrigin = 'anonymous'
                 img.onload = () => {
-                    // Coloured ring background
-                    ctx.fillStyle = color
-                    ctx.beginPath()
-                    ctx.arc(SIZE / 2, SIZE / 2, SIZE / 2, 0, Math.PI * 2)
-                    ctx.fill()
-                    // Original favicon clipped to inner circle
                     ctx.save()
                     ctx.beginPath()
-                    ctx.arc(SIZE / 2, SIZE / 2, SIZE / 2 - BORDER, 0, Math.PI * 2)
+                    ctx.arc(SIZE / 2, SIZE / 2, SIZE / 2 - INSET, 0, Math.PI * 2)
                     ctx.clip()
-                    ctx.drawImage(img, BORDER, BORDER, SIZE - BORDER * 2, SIZE - BORDER * 2)
+                    ctx.drawImage(img, INSET, INSET, SIZE - INSET * 2, SIZE - INSET * 2)
                     ctx.restore()
-                    applyFavicon(canvas.toDataURL('image/png'))
+                    drawRing()
+                    applyFaviconLink(canvas.toDataURL('image/png'))
                 }
-                img.onerror = () => drawColoredCircle()
-                img.src = src
+                img.onerror = () => {
+                    drawRing()
+                    applyFaviconLink(canvas.toDataURL('image/png'))
+                }
+                img.src = faviconData  // local data: URL — no CORS taint
+            } else {
+                drawRing()
+                applyFaviconLink(canvas.toDataURL('image/png'))
             }
-
-            function drawColoredCircle(): void {
-                ctx.fillStyle = color
-                ctx.beginPath()
-                ctx.arc(SIZE / 2, SIZE / 2, SIZE / 2, 0, Math.PI * 2)
-                ctx.fill()
-                applyFavicon(canvas.toDataURL('image/png'))
-            }
-
-            const existing = document.querySelector<HTMLLinkElement>('link[rel*="icon"]:not([data-ext-age-ring])')
-            existing?.href ? drawWithFavicon(existing.href) : drawColoredCircle()
-        })
+        }
     }
 
     /** Injected via executeScript — removes the age-ring favicon overlay. */
     static get removeFaviconOverlayPageScript(): () => void {
         return () => {
+            // Disconnect SPA observer if present
+            const win = window as unknown as Record<string, unknown>
+            const obs = win['__extAgeRingObs'] as MutationObserver | undefined
+            if (obs) { obs.disconnect(); delete win['__extAgeRingObs'] }
             document.querySelectorAll('link[data-ext-age-ring]').forEach((el) => el.remove())
+            // Restore original favicon links
+            document.querySelectorAll('link[data-ext-age-ring-hidden]').forEach((el) => {
+                el.removeAttribute('data-ext-age-ring-hidden')
+                ;(el as HTMLLinkElement).rel = 'icon'
+            })
         }
     }
 }

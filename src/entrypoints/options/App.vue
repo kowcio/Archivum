@@ -2,60 +2,82 @@
   <div class="version-info">Version: {{ global.version }}</div>
   <div id="options" class="row">
     <div class="col-10 offset-1">
-      <div class="row justify-center q-mt-md">
-        <div class="button-group-container">
-          <q-btn-group>
-            <q-btn
-              data-testid="btn-load-tabs"
-              label="Load Tabs"
-              color="primary"
-              :loading="tabStore.loading"
-              @click="handleLoadTabs"
-            />
-            <q-btn
-              data-testid="btn-load-saved-tabs"
-              label="Load Saved Tabs"
-              color="info"
-              :loading="tabStore.loading"
-              @click="handleLoadSavedTabs"
-            />
-            <q-btn
-              data-testid="btn-save-tabs"
-              label="Save Tabs"
-              color="secondary"
-              :loading="tabStore.loading"
-              @click="handleSaveTabs"
-            />
-            <q-btn
-              data-testid="btn-mark-tabs"
-              label="Mark tabs"
-              color="accent"
-              :loading="tabStore.loading"
-              @click="handleMarkTabs"
-            />
-            <q-btn
-              data-testid="btn-gen-mock-tabs"
-              label="Gen mock tabs"
-              color="warning"
-              :loading="tabStore.loading"
-              @click="handleGenMockTabs"
-            />
-            <q-btn
-              data-testid="btn-clear-marks"
-              label="Clear dot marks"
-              color="negative"
-              :loading="tabStore.loading"
-              @click="handleClearTabMarks"
-            />
-            <q-btn
-              data-testid="btn-reset-tab-titles"
-              label="Clear title dots"
-              color="positive"
-              :loading="tabStore.loading"
-              @click="handleResetTabTitles"
-            />
-          </q-btn-group>
-        </div>
+      <div class="row justify-center q-mt-md q-gutter-sm">
+        <!-- Group 1: Load / Save -->
+        <q-btn-group>
+          <q-btn
+            data-testid="btn-load-tabs"
+            label="Load Tabs"
+            icon="refresh"
+            color="primary"
+            :loading="tabStore.loading"
+            @click="handleLoadTabs"
+          />
+          <q-btn
+            data-testid="btn-load-saved-tabs"
+            label="Load Saved"
+            icon="history"
+            color="info"
+            :loading="tabStore.loading"
+            @click="handleLoadSavedTabs"
+          />
+          <q-btn
+            data-testid="btn-save-tabs"
+            label="Save"
+            icon="save"
+            color="secondary"
+            :loading="tabStore.loading"
+            @click="handleSaveTabs"
+          />
+        </q-btn-group>
+
+        <!-- Group 2: Mark / Clear -->
+        <q-btn-group>
+          <q-btn
+            data-testid="btn-mark-tabs"
+            label="Mark tabs"
+            icon="label"
+            color="accent"
+            :loading="tabStore.loading"
+            @click="handleMarkTabs"
+          />
+          <q-btn
+            data-testid="btn-group-by-age"
+            label="Group by age"
+            icon="folder"
+            color="purple"
+            :loading="tabStore.loading"
+            @click="handleGroupByAge"
+          />
+          <q-btn
+            data-testid="btn-clear-marks"
+            label="Clear all marks"
+            icon="clear_all"
+            color="negative"
+            :loading="tabStore.loading"
+            @click="handleClearTabMarks"
+          />
+          <q-btn
+            data-testid="btn-reset-tab-titles"
+            label="Reset tabs"
+            icon="restart_alt"
+            color="warning"
+            :loading="tabStore.loading"
+            @click="handleResetTabTitles"
+          />
+        </q-btn-group>
+
+        <!-- Group 3: Dev tools -->
+        <q-btn-group>
+          <q-btn
+            data-testid="btn-gen-mock-tabs"
+            label="Mock tabs"
+            icon="science"
+            color="grey-7"
+            :loading="tabStore.loading"
+            @click="handleGenMockTabs"
+          />
+        </q-btn-group>
       </div>
 
       <div class="row q-mt-md">
@@ -109,14 +131,10 @@
                   </button>
                 </template>
                 <template v-else-if="col.name === 'thumbnail'">
-                  <img
-                    v-if="props.row.thumbnail"
-                    :src="props.row.thumbnail"
-                    alt="favicon"
-                    width="20"
-                    height="20"
-                  />
-                  <span v-else>—</span>
+                  <div class="favicon-wrapper" :style="{ '--ring-color': getFaviconBorderColor(props.row) }">
+                    <img v-if="props.row.thumbnail" :src="props.row.thumbnail" alt="favicon" width="16" height="16" class="favicon-img" />
+                    <span v-else class="favicon-placeholder">—</span>
+                  </div>
                 </template>
                 <template v-else-if="col.name === 'lastAccess'" :class="props.row.lastAccessClass">
                   {{ tabStore.getLastAccessMsg(props.row) || "—" }}
@@ -310,6 +328,19 @@ async function handleClearTabMarks(): Promise<void> {
 async function handleResetTabTitles(): Promise<void> {
   await tabStore.clearDotsFromOpenTabs()
 }
+
+async function handleGroupByAge(): Promise<void> {
+  await tabStore.groupTabsByAge()
+}
+
+function getFaviconBorderColor(row: { lastAccessClass?: string }): string {
+  const cls = row.lastAccessClass ?? ''
+  if (cls.includes('green'))  return '#66bb6a'
+  if (cls.includes('amber'))  return '#f2c037'
+  if (cls.includes('orange')) return '#fb8c00'
+  if (cls.includes('red'))    return '#e53935'
+  return 'transparent'
+}
 </script>
 
 <style></style>
@@ -391,5 +422,26 @@ async function handleResetTabTitles(): Promise<void> {
   word-break: break-all;
   overflow-wrap: break-word;
   white-space: pre-wrap;
+}
+
+.favicon-wrapper {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 4px;
+  border: 2.5px solid var(--ring-color, transparent);
+  padding: 1px;
+}
+.favicon-img {
+  width: 16px;
+  height: 16px;
+  object-fit: contain;
+  display: block;
+}
+.favicon-placeholder {
+  font-size: 10px;
+  color: #999;
 }
 </style>
