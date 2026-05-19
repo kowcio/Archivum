@@ -50,28 +50,12 @@
             @click="handleGroupByAge"
           />
           <q-btn
-            data-testid="btn-clear-marks"
-            label="Clear all marks"
-            icon="clear_all"
+            data-testid="btn-reset"
+            label="Reset"
+            icon="restart_alt"
             color="negative"
             :loading="tabStore.loading"
-            @click="handleClearTabMarks"
-          />
-          <q-btn
-            data-testid="btn-reset-tab-titles"
-            label="Reset tabs"
-            icon="restart_alt"
-            color="warning"
-            :loading="tabStore.loading"
-            @click="handleResetTabTitles"
-          />
-          <q-btn
-            data-testid="btn-reset-markings"
-            label="Reset Markings"
-            icon="layers_clear"
-            color="deep-orange"
-            :loading="tabStore.loading"
-            @click="handleResetMarkings"
+            @click="handleReset"
           />
         </q-btn-group>
 
@@ -314,34 +298,38 @@ async function handleMarkTabs(): Promise<void> {
   await tabStore.markOldTabs()
 }
 
-/** Loads tabs from tabs_example.json, shifting each tab's lastAccessed by +3 days
- *  per index so all 4 age groups (fresh / young / middle / old) are visible. */
+/** Opens the first 5 tabs from the current tab list in new browser tabs,
+ *  then opens the options page for verification. */
 async function handleGenMockTabs(): Promise<void> {
-  // Ensure we have real tabs loaded before applying mock ages
+  const { default: browser } = await import('webextension-polyfill')
+
+  // Ensure we have real tabs loaded
   if (tabStore.tabs.length === 0) {
     await tabStore.getAllOpenedTabs()
   }
-  const now = Date.now()
-  const DAY_MS = 24 * 60 * 60 * 1000
-  const tabs = tabStore.tabs.map((tab, index) => ({
-    ...tab,
-    lastAccessed: now - index * 3 * DAY_MS,
-  }))
-  tabStore.$patch({ tabs })
-  await tabStore.markOldTabs()
+
+  // Take first 5 tabs with URLs
+  const tabsToOpen = tabStore.tabs
+    .filter(tab => tab.url && !tab.url.startsWith('chrome://') && !tab.url.startsWith('about:'))
+    .slice(0, 5)
+
+  // Open each URL in a new tab
+  for (const tab of tabsToOpen) {
+    if (tab.url) {
+      await browser.tabs.create({ url: tab.url, active: false })
+    }
+  }
+
+  // Open options page as the final tab for verification
+  await browser.tabs.create({
+    url: browser.runtime.getURL('options.html'),
+    active: true
+  })
 }
 
 
-async function handleClearTabMarks(): Promise<void> {
-  await tabStore.resetAllTabMarks();
-}
-
-async function handleResetTabTitles(): Promise<void> {
-  await tabStore.clearDotsFromOpenTabs()
-}
-
-async function handleResetMarkings(): Promise<void> {
-  await tabStore.resetMarkings()
+async function handleReset(): Promise<void> {
+  await tabStore.reset()
 }
 
 async function handleGroupByAge(): Promise<void> {

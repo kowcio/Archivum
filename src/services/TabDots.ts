@@ -90,6 +90,14 @@ export class TabDots {
             const obsKey  = '__extAgeRingObs'
             const lockKey = '__extAgeRingLock'
 
+            // CRITICAL FIX: Disconnect existing observer FIRST to prevent stacking
+            // when markTabWithLBracket is called multiple times on the same tab
+            const existingObs = win[obsKey] as MutationObserver | undefined
+            if (existingObs) {
+                existingObs.disconnect()
+                delete win[obsKey]
+            }
+
             function hideOriginalFavicons(): void {
                 document.querySelectorAll('link[rel*="icon"]').forEach((el) => {
                     if (!el.hasAttribute(MARKER) && !el.hasAttribute(HIDDEN_ATTR)) {
@@ -100,8 +108,6 @@ export class TabDots {
             }
 
             function applyFaviconLink(dataUrl: string): void {
-                const existingObs = win[obsKey] as MutationObserver | undefined
-                if (existingObs) existingObs.disconnect()
                 win[lockKey] = true
                 document.querySelectorAll(`link[${MARKER}]`).forEach((el) => el.remove())
                 hideOriginalFavicons()
@@ -113,17 +119,25 @@ export class TabDots {
                 document.head.appendChild(link)
                 win[lockKey] = false
                 const obs = new MutationObserver(() => {
+                    // Ignore if we're currently making changes
                     if (win[lockKey]) return
-                    if (!document.querySelector(`link[${MARKER}]`)) {
-                        win[lockKey] = true
-                        hideOriginalFavicons()
-                        const relink = document.createElement('link')
-                        relink.rel  = 'icon'
-                        relink.type = 'image/png'
-                        relink.setAttribute(MARKER, 'true')
-                        relink.href = dataUrl
-                        document.head.appendChild(relink)
-                        win[lockKey] = false
+
+                    // Only re-inject if our link is truly missing from the DOM
+                    const ourLink = document.querySelector(`link[${MARKER}]`)
+                    if (!ourLink) {
+                        // Double-check it's not a timing issue - wait one tick
+                        setTimeout(() => {
+                            if (document.querySelector(`link[${MARKER}]`)) return
+                            win[lockKey] = true
+                            hideOriginalFavicons()
+                            const relink = document.createElement('link')
+                            relink.rel  = 'icon'
+                            relink.type = 'image/png'
+                            relink.setAttribute(MARKER, 'true')
+                            relink.href = dataUrl
+                            document.head.appendChild(relink)
+                            win[lockKey] = false
+                        }, 0)
                     }
                 })
                 obs.observe(document.head, { childList: true, subtree: true })

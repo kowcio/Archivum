@@ -141,7 +141,7 @@ describe('TabStore › clearing dots syncs store titles', () => {
     setActivePinia(createPinia())
   })
 
-  it('clearDotsFromOpenTabs strips dot prefix from this.tabs titles', async () => {
+  it('reset strips dot prefix from this.tabs titles', async () => {
     const store = useTabStore()
     const cleanTabs = [
       { ...tabWithAge(1, 10), title: 'My Tab' },

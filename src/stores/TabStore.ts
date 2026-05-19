@@ -188,9 +188,11 @@ export const useTabStore = defineStore('tabStore', {
         },
 
         /**
-         * Full reset — removes L-bracket from every open tab, then refreshes the store.
+         * ✅ ACTIVE — Complete reset: removes all L-bracket overlays from every open tab,
+         * ungroups tabs, and refreshes the store to a clean original state (blank slate).
+         * This is the single unified reset method.
          */
-        async clearDotsFromOpenTabs(): Promise<void> {
+        async reset(): Promise<void> {
             this.error = null
             try {
                 const tabRows = TabRow.fromTabs(this.tabs)
@@ -202,24 +204,25 @@ export const useTabStore = defineStore('tabStore', {
                     }),
                 )
                 const freshTabs = await this.getAllOpenedTabs()
-                console.log('[clearDotsFromOpenTabs] clean slate — refreshed tabs from browser:', freshTabs.length)
+                console.log('[reset] clean slate — refreshed tabs from browser:', freshTabs.length)
             } catch (err) {
-                this.error = err instanceof Error ? err.message : 'Unknown error while clearing dots from open tabs'
+                this.error = err instanceof Error ? err.message : 'Unknown error while resetting tabs'
             }
         },
 
-        /** Alias for clearDotsFromOpenTabs — used by "Clear all marks" button. */
-        async resetAllTabMarks(): Promise<void> {
-            await this.clearDotsFromOpenTabs()
+        /** @deprecated Use reset() instead */
+        async clearDotsFromOpenTabs(): Promise<void> {
+            await this.reset()
         },
 
-        /**
-         * ✅ ACTIVE — Removes all L-bracket overlays from every open tab
-         * and refreshes the store to a clean original state.
-         * Called by the "Reset Markings" button.
-         */
+        /** @deprecated Use reset() instead */
+        async resetAllTabMarks(): Promise<void> {
+            await this.reset()
+        },
+
+        /** @deprecated Use reset() instead */
         async resetMarkings(): Promise<void> {
-            await this.clearDotsFromOpenTabs()
+            await this.reset()
         },
 
         /** Groups all open tabs by age classification into colour-coded Chrome tab groups. */

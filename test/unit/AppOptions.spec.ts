@@ -39,7 +39,7 @@ describe('Options App', () => {
 
     // Initialize the store first so we can spy on it
     tabStore = useTabStore()
-    resetTabTitlesSpy = vi.spyOn(tabStore, 'clearDotsFromOpenTabs').mockResolvedValue()
+    resetTabTitlesSpy = vi.spyOn(tabStore, 'reset').mockResolvedValue()
 
     // Create tabs that are old enough to be marked (10+ days old)
     mockTabs = createMockTabs(3).map((tab, index) => ({
@@ -77,8 +77,8 @@ describe('Options App', () => {
     await nextTick()
   })
 
-  it('reset tab titles button triggers TabService call', async () => {
-    const resetButton = wrapper.find('[data-testid="btn-reset-tab-titles"]')
+  it('reset button triggers reset call', async () => {
+    const resetButton = wrapper.find('[data-testid="btn-reset"]')
     expect(resetButton.exists()).toBe(true)
 
     await resetButton.trigger('click')
