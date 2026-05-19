@@ -4,7 +4,7 @@ import dayjs from "dayjs";
 
 /** Single place to change any app-wide constant. Replaces AppConfig + globals.ts. */
 export const APP_CONSTANTS = {
-  APP_NAME: 'czynsz_ff',
+  APP_NAME: 'Tab Age Tracker',
   STORAGE_KEY: 'global_store',
   APP_VERSION: `${packageJson.version}-${dayjs().format('YYYYMMDD-HH:mm')}`,
 } as const
@@ -23,7 +23,6 @@ export const APP_DEFAULTS = {
     AGE_COLOR_YOUNG:  '#ffd740' as const,  // saturated yellow
     AGE_COLOR_MIDDLE: '#ff6d00' as const,  // deep orange
     AGE_COLOR_OLD:    '#ff1744' as const,  // alarm red
-
   }
   /** Age classification colours — single source of truth.
    *  Order [0..3] maps to: fresh → young → middle → old */
