@@ -2,8 +2,9 @@ import { vi } from 'vitest'
 import type { Storage, Tabs } from 'webextension-polyfill'
 import TabService, { type TabsSnapshot } from 'src/services/TabService.ts'
 import dayjs from "dayjs";
+import { APP_DEFAULTS } from '@/constants'
 
-const TAB_HISTORY_KEY = 'tab_history'
+const TAB_HISTORY_KEY = APP_DEFAULTS.TAB_HISTORY_KEY
 
 export interface TabServiceMock {
     service: TabService

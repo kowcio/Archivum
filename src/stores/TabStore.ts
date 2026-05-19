@@ -3,8 +3,10 @@ import browser, { type Storage, type Tabs } from 'webextension-polyfill'
 import { TabRow } from '@/models/tabs/TabRow'
 import { TabDots, DOT_COLOR_MAP, GROUP_COLOR_MAP, type TabGroupColor } from '@/services/TabDots.ts'
 import { useGlobalStore, DEFAULT_THRESHOLDS } from '@/stores/globalStore'
+import { APP_DEFAULTS } from '@/constants'
 
-export const TAB_HISTORY_KEY = 'tab_history'
+/** @deprecated Use APP_DEFAULTS.TAB_HISTORY_KEY */
+export const TAB_HISTORY_KEY = APP_DEFAULTS.TAB_HISTORY_KEY
 
 export interface AgeClassification {
     cssClass: string
@@ -72,7 +74,7 @@ export const useTabStore = defineStore('tabStore', {
             try {
                 const savedAt = new Date().toISOString()
                 const snapshot: TabsSnapshot = { tabs: this.tabs, savedAt }
-                await storage.set({ [TAB_HISTORY_KEY]: snapshot })
+                await storage.set({ [APP_DEFAULTS.TAB_HISTORY_KEY]: snapshot })
                 this.lastSaveDate = savedAt
                 return snapshot
             } catch (err) {
@@ -88,8 +90,8 @@ export const useTabStore = defineStore('tabStore', {
             this.loading = true
             this.error = null
             try {
-                const result = await storage.get(TAB_HISTORY_KEY)
-                const snapshot = result?.[TAB_HISTORY_KEY] as TabsSnapshot | undefined
+                const result = await storage.get(APP_DEFAULTS.TAB_HISTORY_KEY)
+                const snapshot = result?.[APP_DEFAULTS.TAB_HISTORY_KEY] as TabsSnapshot | undefined
                 console.log('Loaded saved tabs:', snapshot?.tabs)
                 if (snapshot) {
                     this.tabs = Array.isArray(snapshot.tabs)

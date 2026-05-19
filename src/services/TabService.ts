@@ -1,5 +1,6 @@
 import browser, {type Storage, type Tabs } from 'webextension-polyfill'
 import { TabRow } from '@/models/tabs/TabRow'
+import { APP_DEFAULTS } from '@/constants'
 
 export interface AgeClassification {
     cssClass: string
@@ -13,7 +14,7 @@ export interface TabsSnapshot {
     savedAt: string
 }
 
-const TAB_HISTORY_KEY = 'tab_history'
+const TAB_HISTORY_KEY = APP_DEFAULTS.TAB_HISTORY_KEY
 
 export default class TabService {
     constructor(

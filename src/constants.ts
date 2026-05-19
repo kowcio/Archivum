@@ -16,6 +16,8 @@ export const APP_DEFAULTS = {
     OLD: 21,
   },
 
+  TAB_HISTORY_KEY: 'tab_history' as const,
+
   AGE_COLOR_LIST : {
     AGE_COLOR_FRESH:  '#00e676' as const,  // neon green
     AGE_COLOR_YOUNG:  '#ffd740' as const,  // saturated yellow
