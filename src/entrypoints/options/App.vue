@@ -298,33 +298,74 @@ async function handleMarkTabs(): Promise<void> {
   await tabStore.markOldTabs()
 }
 
-/** Opens the first 5 tabs from the current tab list in new browser tabs,
- *  then opens the options page for verification. */
+/** Generates mock tabs from test/mocks/tabs_example.json with adjusted access times.
+ * Opens actual tabs in the browser and then spoofs their lastAccessed time
+ * in the store to test age-based features (sorting, colors, grouping). */
 async function handleGenMockTabs(): Promise<void> {
   const { default: browser } = await import('webextension-polyfill')
 
-  // Ensure we have real tabs loaded
-  if (tabStore.tabs.length === 0) {
-    await tabStore.getAllOpenedTabs()
-  }
+  tabStore.loading = true
+  tabStore.error = null
 
-  // Take first 5 tabs with URLs
-  const tabsToOpen = tabStore.tabs
-    .filter(tab => tab.url && !tab.url.startsWith('chrome://') && !tab.url.startsWith('about:'))
-    .slice(0, 5)
-
-  // Open each URL in a new tab
-  for (const tab of tabsToOpen) {
-    if (tab.url) {
-      await browser.tabs.create({ url: tab.url, active: false })
+  try {
+    let mockData: { tabs: any[] }
+    try {
+      // Relative path from src/entrypoints/options/App.vue to test/mocks/tabs_example.json
+      const imported = await import('../../../test/mocks/tabs_example.json')
+      mockData = imported.default
+    } catch (err) {
+      console.error('Failed to load mock tabs:', err)
+      tabStore.error = 'Failed to load mock tabs JSON'
+      return
     }
-  }
 
-  // Open options page as the final tab for verification
-  await browser.tabs.create({
-    url: browser.runtime.getURL('options.html'),
-    active: true
-  })
+    // Open the first 7 mock URLs in new tabs
+    const tabsToOpen = mockData.tabs.slice(0, 7)
+    const tabIds: number[] = []
+
+    for (const mock of tabsToOpen) {
+      if (mock.url) {
+        const tab = await browser.tabs.create({ url: mock.url, active: false })
+        if (tab.id) tabIds.push(tab.id)
+      }
+    }
+
+    // Wait for tabs to load (give them time to fetch content)
+    await new Promise(resolve => setTimeout(resolve, 2000))
+
+    // Fetch all currently open tabs to get their loaded data
+    const allOpenTabs = await browser.tabs.query({ currentWindow: true })
+
+    // Filter to only our newly created tabs
+    const loadedTabs = allOpenTabs.filter(tab => tabIds.includes(tab.id!))
+
+    // Apply time spoofing to match age categories
+    const now = Date.now()
+    const dayMs = 24 * 60 * 60 * 1000
+
+    const spoofedTabs = loadedTabs.map((tab, idx) => {
+      let lastAccessed = now
+      // Distribution for default thresholds [1, 3, 7]
+      if (idx === 1) lastAccessed = now - (0.5 * dayMs) // Fresh (<1d)
+      if (idx === 2) lastAccessed = now - (4.0 * dayMs) // Young (1-3d)
+      if (idx === 3) lastAccessed = now - (10.0 * dayMs) // Middle (3-7d)
+      if (idx === 4)  lastAccessed = now - (15.0 * dayMs) // Old (>7d)
+      if (idx === 5)  lastAccessed = now - (20.0 * dayMs) // Old (>7d)
+      if (idx >= 6)  lastAccessed = now - (40.0 * dayMs) // Old (>7d)
+
+      return { ...tab, lastAccessed }
+    })
+
+    // Update store with fully loaded and spoofed tabs
+    tabStore.tabs = spoofedTabs
+
+    // Trigger age markings (L-bracket overlays)
+    await tabStore.markOldTabs()
+
+    console.log('[handleGenMockTabs] Mock tabs opened, loaded, and store spoofed:', spoofedTabs)
+  } finally {
+    tabStore.loading = false
+  }
 }
 
 
@@ -338,10 +379,10 @@ async function handleGroupByAge(): Promise<void> {
 
 function getFaviconBorderColor(row: { lastAccessClass?: string }): string {
   const cls = row.lastAccessClass ?? ''
-  if (cls.includes('green'))  return APP_DEFAULTS.AGE_COLOR_FRESH
-  if (cls.includes('amber'))  return APP_DEFAULTS.AGE_COLOR_YOUNG
-  if (cls.includes('orange')) return APP_DEFAULTS.AGE_COLOR_MIDDLE
-  if (cls.includes('red'))    return APP_DEFAULTS.AGE_COLOR_OLD
+  if (cls.includes('green'))  return APP_DEFAULTS.AGE_COLOR_LIST.AGE_COLOR_FRESH
+  if (cls.includes('amber'))  return APP_DEFAULTS.AGE_COLOR_LIST.AGE_COLOR_YOUNG
+  if (cls.includes('orange')) return APP_DEFAULTS.AGE_COLOR_LIST.AGE_COLOR_MIDDLE
+  if (cls.includes('red'))    return APP_DEFAULTS.AGE_COLOR_LIST.AGE_COLOR_OLD
   return 'transparent'
 }
 </script>
