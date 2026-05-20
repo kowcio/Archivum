@@ -118,7 +118,7 @@
                 ]"
               >
                 <template v-if="col.name === 'close'">
-                  <button @click="handleCloseTab(props.row.id)" :disabled="!props.row.id">
+                  <button class="btn-close-tab" @click="handleCloseTab(props.row.id)" :disabled="!props.row.id">
                     Close
                   </button>
                 </template>
@@ -388,6 +388,10 @@ function getFaviconBorderColor(row: { lastAccessClass?: string }): string {
   overflow-wrap: break-word;
   white-space: normal;
   word-wrap: break-word;
+}
+
+.btn-close-tab {
+  white-space: nowrap;
 }
 
 
