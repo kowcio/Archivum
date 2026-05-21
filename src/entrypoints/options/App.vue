@@ -330,14 +330,37 @@ async function handleGenMockTabs(): Promise<void> {
       }
     }
 
-    // Wait for tabs to load (give them time to fetch content)
-    await new Promise(resolve => setTimeout(resolve, 2000))
+    // 🎯 Wait for tabs to load with favicon retry logic
+    console.log('[handleGenMockTabs] Waiting for tabs to load...')
+    let allOpenTabs: any[] = []
+    let loadedTabs: any[] = []
+    let attempts = 0
+    const maxAttempts = 5
 
-    // Fetch all currently open tabs to get their loaded data
-    const allOpenTabs = await browser.tabs.query({ currentWindow: true })
+    while (attempts < maxAttempts) {
+      // Wait before checking
+      await new Promise(resolve => setTimeout(resolve, 1000))
 
-    // Filter to only our newly created tabs
-    const loadedTabs = allOpenTabs.filter(tab => tabIds.includes(tab.id!))
+      // Fetch all currently open tabs to get their loaded data
+      allOpenTabs = await browser.tabs.query({ currentWindow: true })
+
+      // Filter to only our newly created tabs
+      loadedTabs = allOpenTabs.filter(tab => tabIds.includes(tab.id!))
+
+      // Check if all have either favicon or title (indicates page loaded)
+      const allLoaded = loadedTabs.every(t => t.favIconUrl || t.title)
+      if (allLoaded) {
+        console.log(`[handleGenMockTabs] All tabs loaded on attempt ${attempts + 1}`)
+        break
+      }
+
+      attempts++
+    }
+
+    console.log(`[handleGenMockTabs] Loaded ${loadedTabs.length} tabs after ${attempts + 1} attempts`, {
+      withFavicons: loadedTabs.filter(t => t.favIconUrl).length,
+      withTitles: loadedTabs.filter(t => t.title).length,
+    })
 
     // Apply time spoofing to match age categories
     const now = Date.now()
@@ -362,7 +385,7 @@ async function handleGenMockTabs(): Promise<void> {
     // Trigger age markings (L-bracket overlays)
     await tabStore.markOldTabs()
 
-    console.log('[handleGenMockTabs] Mock tabs opened, loaded, and store spoofed:', spoofedTabs)
+    console.log('[handleGenMockTabs] ✅ Mock tabs opened, loaded, and marked:', spoofedTabs.length)
   } finally {
     tabStore.loading = false
   }

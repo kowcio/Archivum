@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import browser, { type Storage, type Tabs } from 'webextension-polyfill'
 import { TabRow } from '@/models/tabs/TabRow'
-import { TabDots, DOT_COLOR_MAP, GROUP_COLOR_MAP, type TabGroupColor } from '@/services/TabDots.ts'
+import { TabDots, DOT_COLOR_MAP } from '@/services/TabDots.ts'
 import { useGlobalStore, DEFAULT_THRESHOLDS } from '@/stores/globalStore'
 import { ExtensionCleanupService } from '@/services/ExtensionCleanupService'
 import { APP_DEFAULTS } from '@/constants'
@@ -47,7 +47,14 @@ export const useTabStore = defineStore('tabStore', {
             try {
                 const fetchedTabs: Tabs.Tab[] = await browser.tabs.query({ currentWindow: true })
                 this.tabs = fetchedTabs
-                console.log('Loaded opened tabs:', fetchedTabs)
+
+                // 🎯 Wait for favicons to load before finishing
+                await this.waitForFaviconsLoaded(fetchedTabs, 3000)
+
+                console.log('Loaded opened tabs:', fetchedTabs.length, {
+                    withFavicons: fetchedTabs.filter(t => t.favIconUrl).length,
+                    total: fetchedTabs.length
+                })
                 return fetchedTabs
             } catch (err) {
                 this.error = err instanceof Error ? err.message : 'Unknown error while loading tabs'
@@ -55,6 +62,50 @@ export const useTabStore = defineStore('tabStore', {
             } finally {
                 this.loading = false
             }
+        },
+
+        /**
+         * ⏳ Wait for tabs to have their favicons loaded
+         * Re-queries tabs to get updated favicon data.
+         */
+        async waitForFaviconsLoaded(tabs: Tabs.Tab[], timeoutMs = 3000): Promise<void> {
+            const startTime = Date.now()
+            const pollInterval = 200
+
+            return new Promise<void>((resolve) => {
+                const checkFavicons = async () => {
+                    const elapsed = Date.now() - startTime
+
+                    // Timeout - proceed anyway
+                    if (elapsed > timeoutMs) {
+                        console.log(`[waitForFaviconsLoaded] Timeout (${timeoutMs}ms) - proceeding`)
+                        resolve()
+                        return
+                    }
+
+                    try {
+                        // Re-query to get updated favicon data
+                        const updatedTabs = await browser.tabs.query({ currentWindow: true })
+                        const withFavicons = updatedTabs.filter(t => t.favIconUrl).length
+                        const total = updatedTabs.length
+
+                        if (withFavicons >= Math.max(1, total * 0.7)) {
+                            console.log(`[waitForFaviconsLoaded] ✅ ${withFavicons}/${total} favicons ready (${elapsed}ms)`)
+                            this.tabs = updatedTabs
+                            resolve()
+                            return
+                        }
+
+                        // Check again
+                        setTimeout(checkFavicons, pollInterval)
+                    } catch (err) {
+                        console.debug('[waitForFaviconsLoaded] Check error:', err)
+                        setTimeout(checkFavicons, pollInterval)
+                    }
+                }
+
+                checkFavicons()
+            })
         },
         async closeTab(
             tabId: number,
@@ -147,7 +198,7 @@ export const useTabStore = defineStore('tabStore', {
                 await Promise.all(
                     tabRows.map(async (row) => {
                         if (row.id == null) return
-                        const { color, days, classificationIndex } = this.getAgeClassification(row, boundaries)
+                        const { color, days } = this.getAgeClassification(row, boundaries)
                         console.log(`[markOldTabs] tab#${row.id} days=${days} color=${color}`)
                         await this.markTabWithLBracket(row.id, color)
                     }),
@@ -220,7 +271,9 @@ export const useTabStore = defineStore('tabStore', {
          */
         async reset(): Promise<void> {
             this.error = null
+            this.loading = true
             try {
+                // 1️⃣ Remove L-brackets and ungroup from all current tabs
                 const tabRows = TabRow.fromTabs(this.tabs)
                 await Promise.all(
                     tabRows.map(async (row) => {
@@ -229,17 +282,28 @@ export const useTabStore = defineStore('tabStore', {
                         await this.unmarkTabGroup(row.id)
                     }),
                 )
-                const freshTabs = await this.getAllOpenedTabs()
-                // 🎯 Clear all marking metadata from tabs
+
+                // 2️⃣ Refresh tabs from browser (gets latest data + clears markedTabId flags)
+                const freshTabs = await browser.tabs.query({ currentWindow: true })
+                this.tabs = freshTabs
+
+                // 3️⃣ Wait for favicons to reload after removing overlays
+                await this.waitForFaviconsLoaded(freshTabs, 2000)
+
+                // 4️⃣ Final cleanup: clear all markedTabId flags
                 this.tabs.forEach((tab) => {
                     tab.markedTabId = false
                 })
-                console.log('[reset] clean slate — refreshed tabs from browser:', freshTabs.length)
+
+                console.log('[reset] ✅ Clean slate complete — tabs refreshed:', freshTabs.length)
             } catch (err) {
                 this.error = err instanceof Error ? err.message : 'Unknown error while resetting tabs'
+            } finally {
+                this.loading = false
             }
         },
 
+        // ── Deprecated methods (kept for backwards compatibility) ────────────────
         /** @deprecated Use reset() instead */
         async clearDotsFromOpenTabs(): Promise<void> {
             await this.reset()
@@ -247,11 +311,6 @@ export const useTabStore = defineStore('tabStore', {
 
         /** @deprecated Use reset() instead */
         async resetAllTabMarks(): Promise<void> {
-            await this.reset()
-        },
-
-        /** @deprecated Use reset() instead */
-        async resetMarkings(): Promise<void> {
             await this.reset()
         },
 
