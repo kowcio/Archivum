@@ -7,9 +7,10 @@
     "node": ">=22"
   },
   "scripts": {
-    "dev": "CHROME_PATH=$HOME/.cache/ms-playwright/chromium-1223/chrome-linux64/chrome wxt -b chromium --mv3",
+    "dev": "cross-env CHROME_PATH=$HOME/.cache/ms-playwright/chromium-1223/chrome-linux64/chrome wxt -b chromium --mv3",
+    "install:chromium": "wxt prepare && npx playwright install chromium",
     "dev:firefox": "wxt -b firefox --mv3",
-    "dev:chromium": "CHROME_PATH=$HOME/.cache/ms-playwright/chromium-1223/chrome-linux64/chrome wxt -b chromium --mv3",
+    "dev:chromium": "cross-env CHROME_PATH=$HOME/.cache/ms-playwright/chromium-1223/chrome-linux64/chrome wxt -b chromium --mv3",
     "build": "wxt build -b chrome --mv3 && wxt build -b firefox --mv3",
     "zip": "wxt zip -b chrome --mv3",
     "postinstall": "wxt prepare &&   npx playwright install chromium firefox",
