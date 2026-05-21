@@ -23,14 +23,12 @@ export interface TabsSnapshot {
 
 type Nullable<T> = T | null
 
-/** 🎯 Extended Tab type with marking metadata (browser ignores unknown fields) */
-type MarkedTab = Tabs.Tab & { markedTabId?: boolean }
-
 export interface TabState {
-    tabs: MarkedTab[]
+    tabs: Tabs.Tab[]
     lastSaveDate: Nullable<string>
     loading: boolean
     error: Nullable<string>
+    markedTabIds: Set<number>  // 🎯 Track which tabs have L-bracket overlay
 }
 
 export const useTabStore = defineStore('tabStore', {
@@ -39,6 +37,7 @@ export const useTabStore = defineStore('tabStore', {
         lastSaveDate: null,
         loading: false,
         error: null,
+        markedTabIds: new Set<number>(),  // 🎯 Track tab IDs that have L-bracket overlay
     }),
     actions: {
         async getAllOpenedTabs(): Promise<Tabs.Tab[]> {
@@ -46,14 +45,30 @@ export const useTabStore = defineStore('tabStore', {
             this.error = null
             try {
                 const fetchedTabs: Tabs.Tab[] = await browser.tabs.query({ currentWindow: true })
+
+                // 🎯 Preserve markedTabIds from previous load
+                const previousMarkedIds = new Set(this.markedTabIds)
+                this.markedTabIds.clear()
+
+                // 🎯 Mark tabs that were previously marked (by ID)
+                fetchedTabs.forEach((tab) => {
+                    if (tab.id && previousMarkedIds.has(tab.id)) {
+                        this.markedTabIds.add(tab.id)
+                    }
+                })
+
                 this.tabs = fetchedTabs
 
                 // 🎯 Wait for favicons to load before finishing
                 await this.waitForFaviconsLoaded(fetchedTabs, 3000)
 
+                // 🎯 Auto-mark old tabs (skip if already marked)
+                await this.markOldTabs()
+
                 console.log('Loaded opened tabs:', fetchedTabs.length, {
                     withFavicons: fetchedTabs.filter(t => t.favIconUrl).length,
-                    total: fetchedTabs.length
+                    total: fetchedTabs.length,
+                    marked: this.markedTabIds.size,
                 })
                 return fetchedTabs
             } catch (err) {
@@ -188,18 +203,29 @@ export const useTabStore = defineStore('tabStore', {
         /**
          * ✅ ACTIVE — marks all tabs with the L-bracket favicon overlay.
          * This is the ONLY marking method in use.
+         *
+         * 🎯 DEDUPLICATION: Only marks tabs that aren't already marked
+         * (checks markedTabIds Set)
          */
         async markOldTabs(): Promise<void> {
             this.error = null
             try {
                 const boundaries = useGlobalStore().thresholdsArray
                 const tabRows = TabRow.fromTabs(this.tabs, boundaries)
-                console.log(`[markOldTabs] boundaries=${JSON.stringify(boundaries)} tabs=${tabRows.length}`)
+                console.log(`[markOldTabs] boundaries=${JSON.stringify(boundaries)} tabs=${tabRows.length} already_marked=${this.markedTabIds.size}`)
+
                 await Promise.all(
                     tabRows.map(async (row) => {
                         if (row.id == null) return
+
+                        // 🎯 SKIP if already marked
+                        if (this.markedTabIds.has(row.id)) {
+                            console.log(`[markOldTabs] tab#${row.id} already marked, skipping`)
+                            return
+                        }
+
                         const { color, days } = this.getAgeClassification(row, boundaries)
-                        console.log(`[markOldTabs] tab#${row.id} days=${days} color=${color}`)
+                        console.log(`[markOldTabs] tab#${row.id} days=${days} color=${color} marking...`)
                         await this.markTabWithLBracket(row.id, color)
                     }),
                 )
@@ -213,31 +239,26 @@ export const useTabStore = defineStore('tabStore', {
          * Injects the L-bracket age indicator onto the tab favicon.
          * Pre-fetches favicon in extension context to avoid CORS.
          *
-         * 🎯 PREVENTS DUPLICATE MARKS: Checks if tab is already marked.
-         * If marked, skips re-injection to prevent border stacking.
+         * 🎯 Tracks marking in markedTabIds Set (survives tab reloads)
          */
         async markTabWithLBracket(tabId: number, color: string): Promise<void> {
-            // 🎯 CRITICAL FIX: Skip if tab is already marked (prevents stacking borders)
-            const tab = this.tabs.find((t) => t.id === tabId)
-            if (tab?.markedTabId) {
-                console.log(`[markTabWithLBracket] tab#${tabId} already marked, skipping`)
-                return
-            }
-
             try {
-                const faviconDataUrl = tab?.favIconUrl
+                const tab = this.tabs.find((t) => t.id === tabId)
+                if (!tab) return
+
+                const faviconDataUrl = tab.favIconUrl
                     ? await TabDots.fetchFaviconDataUrl(tab.favIconUrl)
                     : null
+
                 await browser.scripting.executeScript({
                     target: { tabId },
                     func: TabDots.applyLBracketPageScript,
                     args: [color, faviconDataUrl],
                 })
-                // ✅ Mark as marked after successful injection
-                if (tab) {
-                    tab.markedTabId = true
-                    console.log(`[markTabWithLBracket] tab#${tabId} marked successfully`)
-                }
+
+                // ✅ Track as marked in Set (survives reload)
+                this.markedTabIds.add(tabId)
+                console.log(`[markTabWithLBracket] tab#${tabId} marked successfully`)
             } catch (err) {
                 console.debug(`[markTabWithLBracket] tab#${tabId}:`, err instanceof Error ? err.message : err)
             }
@@ -251,12 +272,9 @@ export const useTabStore = defineStore('tabStore', {
                     func: TabDots.removeLBracketPageScript,
                     args: [],
                 })
-                // 🎯 Remove marking from tab after successful removal
-                const tab = this.tabs.find((t) => t.id === tabId)
-                if (tab) {
-                    tab.markedTabId = false
-                    console.log(`[removeLBracket] tab#${tabId} removed from marks`)
-                }
+                // 🎯 Remove from tracking Set
+                this.markedTabIds.delete(tabId)
+                console.log(`[removeLBracket] tab#${tabId} removed from marks`)
             } catch (err) {
                 console.debug(`[removeLBracket] tab#${tabId}:`, err instanceof Error ? err.message : err)
             }
@@ -283,19 +301,17 @@ export const useTabStore = defineStore('tabStore', {
                     }),
                 )
 
-                // 2️⃣ Refresh tabs from browser (gets latest data + clears markedTabId flags)
+                // 2️⃣ Refresh tabs from browser (gets latest data)
                 const freshTabs = await browser.tabs.query({ currentWindow: true })
                 this.tabs = freshTabs
 
                 // 3️⃣ Wait for favicons to reload after removing overlays
                 await this.waitForFaviconsLoaded(freshTabs, 2000)
 
-                // 4️⃣ Final cleanup: clear all markedTabId flags
-                this.tabs.forEach((tab) => {
-                    tab.markedTabId = false
-                })
+                // 4️⃣ Clear all tracking
+                this.markedTabIds.clear()
 
-                console.log('[reset] ✅ Clean slate complete — tabs refreshed:', freshTabs.length)
+                console.log('[reset] ✅ Clean slate complete — all marking cleared')
             } catch (err) {
                 this.error = err instanceof Error ? err.message : 'Unknown error while resetting tabs'
             } finally {
@@ -371,12 +387,6 @@ export const useTabStore = defineStore('tabStore', {
             }
         },
 
-        // ── Future reference: additional marking methods (not active) ──────────
-        // markTabWithGroupColor  — colours the Chrome tab group
-        // markTabWithBadge       — sets extension icon badge (text + colour)
-        // markTabWithTitle       — prepends dot emoji prefix to document.title
-        // markTabWithBlurTitle   — shows age in title when tab is blurred
-
         /**
          * 🧹 CLEANUP & LIFECYCLE MANAGEMENT
          *
@@ -387,10 +397,8 @@ export const useTabStore = defineStore('tabStore', {
         async performExtensionCleanup(): Promise<void> {
             console.log('[performExtensionCleanup] Delegating to ExtensionCleanupService...')
             await ExtensionCleanupService.performFullCleanup()
-            // 🎯 Clear marking metadata from all tabs
-            this.tabs.forEach((tab) => {
-                tab.markedTabId = false
-            })
+            // 🎯 Clear marking metadata
+            this.markedTabIds.clear()
         },
     },
 })

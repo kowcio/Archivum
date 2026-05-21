@@ -31,16 +31,8 @@
           />
         </q-btn-group>
 
-        <!-- Group 2: Mark / Clear -->
+        <!-- Group 2: Clear / Group -->
         <q-btn-group>
-          <q-btn
-            data-testid="btn-mark-tabs"
-            label="Mark tabs"
-            icon="label"
-            color="accent"
-            :loading="tabStore.loading"
-            @click="handleMarkTabs"
-          />
           <q-btn
             data-testid="btn-group-by-age"
             label="Group by age"
@@ -267,8 +259,8 @@ const rows = computed(() =>
 
 onMounted(async () => {
   await global.init()
+  // ✅ Load tabs automatically (includes auto-marking)
   await loadTabs()
-  await tabStore.markOldTabs()
 })
 
 async function loadTabs(): Promise<void> {
@@ -281,22 +273,21 @@ async function handleCloseTab(tabId: number | null): Promise<void> {
 }
 
 async function handleLoadTabs(): Promise<void> {
+  // ✅ getAllOpenedTabs now handles:
+  // - Loading tabs from browser
+  // - Waiting for favicons
+  // - Auto-marking old tabs (no duplicates)
   await tabStore.getAllOpenedTabs()
-  await tabStore.markOldTabs()
 }
 
 async function handleLoadSavedTabs(): Promise<void> {
   await tabStore.loadTabsHistory()
-  await tabStore.markOldTabs()
 }
 
 async function handleSaveTabs(): Promise<void> {
   await tabStore.saveAllTabs()
 }
 
-async function handleMarkTabs(): Promise<void> {
-  await tabStore.markOldTabs()
-}
 
 /** Generates mock tabs from test/mocks/tabs_example.json with adjusted access times.
  * Opens actual tabs in the browser and then spoofs their lastAccessed time
@@ -381,6 +372,8 @@ async function handleGenMockTabs(): Promise<void> {
 
     // Update store with fully loaded and spoofed tabs
     tabStore.tabs = spoofedTabs
+    // 🎯 Clear markedTabIds since these are fresh tabs
+    tabStore.markedTabIds.clear()
 
     // Trigger age markings (L-bracket overlays)
     await tabStore.markOldTabs()
