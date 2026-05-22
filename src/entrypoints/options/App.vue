@@ -34,12 +34,12 @@
         <!-- Group 2: Clear / Group -->
         <q-btn-group>
           <q-btn
-            data-testid="btn-group-by-age"
-            label="Group by age"
-            icon="folder"
-            color="purple"
+            :data-testid="tabStore.isGrouped ? 'btn-ungroup-tabs' : 'btn-group-by-age'"
+            :label="tabStore.isGrouped ? 'Ungroup' : 'Group by age'"
+            :icon="tabStore.isGrouped ? 'unfold_more' : 'folder'"
+            :color="tabStore.isGrouped ? 'warning' : 'purple'"
             :loading="tabStore.loading"
-            @click="handleGroupByAge"
+            @click="handleGroupOrUngroup"
           />
           <q-btn
             data-testid="btn-reset"
@@ -389,8 +389,20 @@ async function handleReset(): Promise<void> {
   await tabStore.reset()
 }
 
-async function handleGroupByAge(): Promise<void> {
-  await tabStore.groupTabsByAge()
+async function handleGroupOrUngroup(): Promise<void> {
+  if (tabStore.isGrouped) {
+    // 🎯 Ungroup all tabs
+    await tabStore.ungroupAllTabs()
+  } else {
+    // 🎯 Group tabs by age (only Middle + Old)
+    const groupsCreated = await tabStore.groupTabsByAge()
+    console.log(`[handleGroupOrUngroup] 🧪 Test: ${groupsCreated} groups were created`)
+
+    // Show in console if grouping was successful
+    if (groupsCreated > 0) {
+      console.log(`[handleGroupOrUngroup] ✅ All ${groupsCreated} groups created and OPENED`)
+    }
+  }
 }
 
 function getFaviconBorderColor(row: { lastAccessClass?: string }): string {

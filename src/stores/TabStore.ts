@@ -29,6 +29,7 @@ export interface TabState {
     loading: boolean
     error: Nullable<string>
     markedTabIds: Set<number>  // 🎯 Track which tabs have L-bracket overlay
+    isGrouped: boolean  // 🎯 Track if tabs are currently grouped
 }
 
 export const useTabStore = defineStore('tabStore', {
@@ -38,6 +39,7 @@ export const useTabStore = defineStore('tabStore', {
         loading: false,
         error: null,
         markedTabIds: new Set<number>(),  // 🎯 Track tab IDs that have L-bracket overlay
+        isGrouped: false,  // 🎯 Track if tabs are grouped
     }),
     actions: {
         async getAllOpenedTabs(): Promise<Tabs.Tab[]> {
@@ -293,11 +295,21 @@ export const useTabStore = defineStore('tabStore', {
             try {
                 // 1️⃣ Remove L-brackets and ungroup from all current tabs
                 const tabRows = TabRow.fromTabs(this.tabs)
+
+                // Ungroup all tabs
+                const allTabIds = this.tabs
+                    .map(t => t.id)
+                    .filter((id): id is number => id != null)
+
+                if (allTabIds.length > 0) {
+                    await this.ungroupAllTabs()
+                }
+
+                // Remove L-brackets
                 await Promise.all(
                     tabRows.map(async (row) => {
                         if (row.id == null) return
                         await this.removeLBracket(row.id)
-                        await this.unmarkTabGroup(row.id)
                     }),
                 )
 
@@ -310,6 +322,7 @@ export const useTabStore = defineStore('tabStore', {
 
                 // 4️⃣ Clear all tracking
                 this.markedTabIds.clear()
+                this.isGrouped = false
 
                 console.log('[reset] ✅ Clean slate complete — all marking cleared')
             } catch (err) {
@@ -330,60 +343,187 @@ export const useTabStore = defineStore('tabStore', {
             await this.reset()
         },
 
-        /** Groups all open tabs by age classification into colour-coded Chrome tab groups. */
-        async groupTabsByAge(): Promise<void> {
+        /**
+         * 🎯 Groups tabs by age classification
+         * ONLY groups tabs older than YOUNG threshold (Middle + Old)
+         * Fresh and Young tabs are NOT grouped
+         *
+         * Behavior:
+         * - Old group → moved to leftmost position, OPENED
+         * - Middle group → after Old, OPENED
+         * - Tabs inside group → sorted by last access (newest first)
+         * - All groups opened (not collapsed)
+         *
+         * Returns number of groups created (for testing)
+         */
+        async groupTabsByAge(): Promise<number> {
             this.error = null
+            this.loading = true
+            let groupsCreated = 0
+
             try {
                 type ChromeAPI = {
                     chrome?: {
                         tabs?: { group?: (o: { tabIds: number[] }) => Promise<number> }
-                        tabGroups?: { update?: (id: number, o: object) => Promise<void> }
+                        tabGroups?: {
+                            query?: (o: { windowId: number }) => Promise<Array<{ id: number }>>
+                            update?: (id: number, o: { title?: string; color?: string; collapsed?: boolean }) => Promise<void>
+                            move?: (id: number, o: { index: number }) => Promise<void>
+                        }
                     }
                 }
                 const { chrome } = globalThis as unknown as ChromeAPI
-                if (!chrome?.tabs?.group || !chrome?.tabGroups?.update) return
+                if (!chrome?.tabs?.group || !chrome?.tabGroups?.update) {
+                    this.error = 'Chrome tab grouping API not available (Firefox?)'
+                    return 0
+                }
 
                 const boundaries = useGlobalStore().thresholdsArray
-                const [young, middle, old] = boundaries
+                const [_young, middle, old] = boundaries  // _young not used - we only group Middle + Old
 
-                const groupMeta = [
-                    { label: `🟢 Fresh (<${young}d)`,   color: 'green'  },
-                    { label: `🟡 Young (${young}d+)`,   color: 'yellow' },
-                    { label: `🟠 Middle (${middle}d+)`, color: 'orange' },
-                    { label: `🔴 Old (${old}d+)`,       color: 'red'    },
-                ]
-
+                // 🎯 ONLY group Middle (index 2) and Old (index 3) tabs
                 const tabRows = TabRow.fromTabs(this.tabs, boundaries)
-                const buckets: Map<number, number[]> = new Map([0, 1, 2, 3].map((i) => [i, []]))
+                const middleAndOldTabs: TabRow[] = []
 
                 for (const row of tabRows) {
-                    if (row.id == null) continue
                     const { classificationIndex } = this.getAgeClassification(row, boundaries)
-                    buckets.get(classificationIndex)!.push(row.id)
-                }
-
-                for (const [index, tabIds] of buckets.entries()) {
-                    if (tabIds.length === 0) continue
-                    const { label, color } = groupMeta[index]
-                    try {
-                        const groupId = await chrome.tabs.group!({ tabIds })
-                        await chrome.tabGroups.update!(groupId, { title: label, color })
-                    } catch (err) {
-                        console.debug(`[groupTabsByAge] bucket#${index}:`, err instanceof Error ? err.message : err)
+                    // Only collect Middle (2) and Old (3) tabs
+                    if (classificationIndex >= 2) {
+                        middleAndOldTabs.push(row)
                     }
                 }
+
+                if (middleAndOldTabs.length === 0) {
+                    console.log('[groupTabsByAge] No tabs older than YOUNG threshold - nothing to group')
+                    this.isGrouped = false
+                    return 0
+                }
+
+                // 🎯 Sort by last access (newest first)
+                middleAndOldTabs.sort((a, b) => (b.lastAccess ?? 0) - (a.lastAccess ?? 0))
+
+                // 🎯 Separate into Old and Middle groups
+                const oldTabs: TabRow[] = []
+                const middleTabs: TabRow[] = []
+
+                for (const row of middleAndOldTabs) {
+                    const { classificationIndex } = this.getAgeClassification(row, boundaries)
+                    if (classificationIndex === 3) {
+                        oldTabs.push(row)
+                    } else if (classificationIndex === 2) {
+                        middleTabs.push(row)
+                    }
+                }
+
+                // 🎯 Group OLD first (will appear leftmost)
+                let oldGroupId: number | null = null
+                if (oldTabs.length > 0) {
+                    const oldTabIds = oldTabs.map(r => r.id).filter((id): id is number => id != null)
+                    if (oldTabIds.length > 0) {
+                        try {
+                            oldGroupId = await chrome.tabs.group!({ tabIds: oldTabIds })
+                            await chrome.tabGroups.update!(oldGroupId, {
+                                title: `🔴 Old (${old}d+)`,
+                                color: 'red',
+                                collapsed: false,  // 🎯 OPENED (not collapsed)
+                            })
+                            groupsCreated++
+                            console.log(`[groupTabsByAge] ✅ Created OLD group#${oldGroupId} with ${oldTabIds.length} tabs`)
+                        } catch (err) {
+                            console.debug('[groupTabsByAge] Old group error:', err instanceof Error ? err.message : err)
+                        }
+                    }
+                }
+
+                // 🎯 Group MIDDLE after OLD
+                if (middleTabs.length > 0) {
+                    const middleTabIds = middleTabs.map(r => r.id).filter((id): id is number => id != null)
+                    if (middleTabIds.length > 0) {
+                        try {
+                            const middleGroupId = await chrome.tabs.group!({ tabIds: middleTabIds })
+                            await chrome.tabGroups.update!(middleGroupId, {
+                                title: `🟠 Middle (${middle}d+)`,
+                                color: 'orange',
+                                collapsed: false,  // 🎯 OPENED (not collapsed)
+                            })
+                            groupsCreated++
+                            console.log(`[groupTabsByAge] ✅ Created MIDDLE group#${middleGroupId} with ${middleTabIds.length} tabs`)
+                        } catch (err) {
+                            console.debug('[groupTabsByAge] Middle group error:', err instanceof Error ? err.message : err)
+                        }
+                    }
+                }
+
+                // 🎯 Move OLD group to leftmost position (index 0)
+                if (oldGroupId !== null && chrome.tabGroups?.move) {
+                    try {
+                        await chrome.tabGroups.move(oldGroupId, { index: 0 })
+                        console.log(`[groupTabsByAge] ✅ Moved OLD group#${oldGroupId} to leftmost position`)
+                    } catch (err) {
+                        console.debug('[groupTabsByAge] Move group error:', err instanceof Error ? err.message : err)
+                    }
+                }
+
+                // 🎯 TEST: Verify all groups were created
+                if (chrome.tabGroups?.query) {
+                    try {
+                        const windowId = (chrome as any).windows?.WINDOW_ID_CURRENT ?? 0
+                        const allGroups = await chrome.tabGroups.query!({ windowId })
+                        console.log(`[groupTabsByAge] 🧪 TEST: Total groups in window: ${allGroups.length}`)
+                        allGroups.forEach((group, idx) => {
+                            console.log(`  Group #${idx}: id=${group.id}`)
+                        })
+                    } catch (err) {
+                        console.debug('[groupTabsByAge] Query groups error:', err instanceof Error ? err.message : err)
+                    }
+                }
+
+                this.isGrouped = true
+                console.log(`[groupTabsByAge] ✅ Grouping complete - ${groupsCreated} groups created`)
+                return groupsCreated
             } catch (err) {
                 this.error = err instanceof Error ? err.message : 'Unknown error while grouping tabs by age'
+                return 0
+            } finally {
+                this.loading = false
             }
         },
 
-        /** Removes a tab from its Chrome tab group (no-op on Firefox). */
-        async unmarkTabGroup(tabId: number): Promise<void> {
+        /**
+         * 🎯 Ungroups all tabs (removes all tab groups)
+         */
+        async ungroupAllTabs(): Promise<void> {
+            this.error = null
+            this.loading = true
             try {
-                const chrome = (globalThis as unknown as { chrome?: { tabs?: { ungroup?: (ids: number | number[]) => Promise<void> } } }).chrome
-                await chrome?.tabs?.ungroup?.(tabId)
+                type ChromeAPI = {
+                    chrome?: {
+                        tabs?: { ungroup?: (ids: number | number[]) => Promise<void> }
+                    }
+                }
+                const { chrome } = globalThis as unknown as ChromeAPI
+
+                if (!chrome?.tabs?.ungroup) {
+                    this.error = 'Chrome tab ungrouping API not available (Firefox?)'
+                    return
+                }
+
+                // 🎯 Ungroup all tabs
+                const allTabIds = this.tabs
+                    .map(t => t.id)
+                    .filter((id): id is number => id != null)
+
+                if (allTabIds.length > 0) {
+                    await chrome.tabs.ungroup(allTabIds)
+                    console.log(`[ungroupAllTabs] ✅ Ungrouped ${allTabIds.length} tabs`)
+                }
+
+                this.isGrouped = false
             } catch (err) {
-                console.debug(`[unmarkTabGroup] tab#${tabId}:`, err instanceof Error ? err.message : err)
+                console.debug('[ungroupAllTabs] Error:', err instanceof Error ? err.message : err)
+                this.isGrouped = false
+            } finally {
+                this.loading = false
             }
         },
 
@@ -399,6 +539,7 @@ export const useTabStore = defineStore('tabStore', {
             await ExtensionCleanupService.performFullCleanup()
             // 🎯 Clear marking metadata
             this.markedTabIds.clear()
+            this.isGrouped = false
         },
     },
 })
