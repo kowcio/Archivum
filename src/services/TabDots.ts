@@ -1,25 +1,9 @@
 /**
- * Centralised helper for tab age classification and favicon L-bracket marking.
+ * Centralised helper for favicon L-bracket marking.
  * The L-bracket overlay on the favicon is the ONLY method used to mark tabs.
  */
 import { APP_DEFAULTS } from '@/constants'
 
-export interface AgeColorEntry {
-    color: string
-    cssClass: string
-}
-
-/** Chrome tab group color names mapped to each age classification index */
-export const GROUP_COLOR_MAP = ['green', 'yellow', 'orange', 'red'] as const
-export type TabGroupColor = typeof GROUP_COLOR_MAP[number]
-
-/** All age classifications in ascending order of severity. */
-export const DOT_COLOR_MAP: readonly AgeColorEntry[] = [
-    { color: APP_DEFAULTS.AGE_COLOR_LIST.AGE_COLOR_FRESH, cssClass: 'bg-green-2 text-green-10'   },
-    { color: APP_DEFAULTS.AGE_COLOR_LIST.AGE_COLOR_YOUNG, cssClass: 'bg-amber-2 text-amber-10'   },
-    { color: APP_DEFAULTS.AGE_COLOR_LIST.AGE_COLOR_MIDDLE, cssClass: 'bg-orange-2 text-orange-10' },
-    { color: APP_DEFAULTS.AGE_COLOR_LIST.AGE_COLOR_OLD, cssClass: 'bg-red-2 text-red-10'       },
-] as const
 
 export class TabDots {
     /**

@@ -1,18 +1,6 @@
 import { vi } from 'vitest'
 import type { Storage, Tabs } from 'webextension-polyfill'
-import TabService, { type TabsSnapshot } from 'src/services/TabService.ts'
-import dayjs from "dayjs";
-import { APP_DEFAULTS } from '@/constants'
-
-const TAB_HISTORY_KEY = APP_DEFAULTS.TAB_HISTORY_KEY
-
-export interface TabServiceMock {
-    service: TabService
-    tabsApi: Tabs.Static
-    storage: Storage.StorageArea
-    mockTabs: Tabs.Tab[]
-    saved: Record<string, TabsSnapshot | undefined>
-}
+import dayjs from 'dayjs'
 
 export const createMockTabs = (count = 2): Tabs.Tab[] =>
     Array.from({ length: count }, (_, index) => ({
@@ -21,48 +9,19 @@ export const createMockTabs = (count = 2): Tabs.Tab[] =>
         windowId: 1,
         active: index === 0,
         highlighted: index === 0,
-        lastAccessed: dayjs().subtract(6,'day').unix(),
+        lastAccessed: dayjs().subtract(6, 'day').unix(),
         pinned: false,
         incognito: false,
     } satisfies Tabs.Tab))
 
-export const createTabServiceMock = (options?: {
-    tabs?: Tabs.Tab[]
-    initialSnapshot?: TabsSnapshot
-}): TabServiceMock => {
-    const mockTabs = options?.tabs ?? createMockTabs()
-    const saved: Record<string, TabsSnapshot | undefined> = options?.initialSnapshot
-        ? { [TAB_HISTORY_KEY]: options.initialSnapshot }
-        : {}
-
-    const tabsApi = {
-        query: vi.fn(async () => mockTabs),
-        update: vi.fn(async (tabId: number, updateProps: Tabs.UpdateUpdatePropertiesType) => {
-            const tab = mockTabs.find((t) => t.id === tabId)
-            if (!tab) {
-                throw new Error(`Tab with id ${tabId} not found`)
-            }
-            return { ...tab, ...updateProps } as Tabs.Tab
-        }),
-    } as unknown as Tabs.Static
-
-    const storage = {
-        set: vi.fn(async (value: Record<string, TabsSnapshot>) => {
-            Object.assign(saved, value)
-        }),
-        get: vi.fn(async (key: string | string[]) => {
-            if (typeof key === 'string') {
-                return { [key]: saved[key] }
-            }
-            return key.reduce<Record<string, TabsSnapshot | undefined>>((acc, curr) => {
-                acc[curr] = saved[curr]
-                return acc
-            }, {})
-        }),
+export const createMockStorage = (initial: Record<string, unknown> = {}): Storage.StorageArea => {
+    const data: Record<string, unknown> = { ...initial }
+    return {
+        get: vi.fn(async (key: string) => ({ [key]: data[key] })),
+        set: vi.fn(async (items: Record<string, unknown>) => { Object.assign(data, items) }),
+        remove: vi.fn(async (key: string) => { delete data[key] }),
+        clear: vi.fn(async () => { Object.keys(data).forEach((k) => delete data[k]) }),
+        getBytesInUse: vi.fn(async () => 0),
+        onChanged: { addListener: vi.fn(), removeListener: vi.fn(), hasListener: vi.fn() },
     } as unknown as Storage.StorageArea
-
-    const service = new TabService(tabsApi, storage)
-
-    return { service, tabsApi, storage, mockTabs, saved }
 }
-

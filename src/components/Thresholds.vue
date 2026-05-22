@@ -70,7 +70,11 @@ import { ref } from 'vue'
 import { useThresholds } from '@/composables/useThresholds'
 import type { AppThresholds } from '@/stores/globalStore'
 
-const { thresholds, setThreshold, resetToDefaults } = useThresholds()
+// 🎯 Use explicit property access instead of destructuring
+const thresholdsComposable = useThresholds()
+const thresholds = thresholdsComposable.thresholds
+const setThreshold = thresholdsComposable.setThreshold
+const resetToDefaults = thresholdsComposable.resetToDefaults
 
 const loading = ref(false)
 

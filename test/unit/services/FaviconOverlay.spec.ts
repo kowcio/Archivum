@@ -4,8 +4,9 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
-import { TabDots, DOT_COLOR_MAP } from 'src/services/TabDots'
+import { TabDots } from 'src/services/TabDots'
 import { useTabStore } from 'src/stores/TabStore'
+import { APP_DEFAULTS } from 'src/constants'
 
 vi.mock('webextension-polyfill', () => ({
   default: {
@@ -74,9 +75,17 @@ describe('applyLBracketPageScript', () => {
     expect(mockCtx.stroke).toHaveBeenCalled()
   })
 
-  it.each(DOT_COLOR_MAP.map((e) => [e.cssClass, e.color]))(
-    'produces overlay for class "%s" with color %s',
-    async (_cssClass: string, color: string) => {
+  // All 4 age colours from APP_DEFAULTS
+  const AGE_COLORS = [
+    APP_DEFAULTS.AGE_COLOR_LIST.AGE_COLOR_FRESH,
+    APP_DEFAULTS.AGE_COLOR_LIST.AGE_COLOR_YOUNG,
+    APP_DEFAULTS.AGE_COLOR_LIST.AGE_COLOR_MIDDLE,
+    APP_DEFAULTS.AGE_COLOR_LIST.AGE_COLOR_OLD,
+  ]
+
+  it.each(AGE_COLORS.map((color) => [color]))(
+    'produces overlay for age color %s',
+    async (color: string) => {
       const link = await runLBracketScript(color)
       expect(link).not.toBeNull()
       expect(link!.href).toMatch(/^data:image\/png/)
@@ -104,17 +113,20 @@ describe('removeLBracketPageScript', () => {
 // ─── markTabWithLBracket (store → executeScript integration) ─────────────────
 
 describe('markTabWithLBracket (store)', () => {
-  beforeEach(() => {
-    vi.clearAllMocks()
+  beforeEach(async () => {
+    vi.resetAllMocks()  // resetAllMocks clears pending Once queues unlike clearAllMocks
     HTMLCanvasElement.prototype.getContext = vi.fn().mockReturnValue(mockCtx)
     HTMLCanvasElement.prototype.toDataURL  = vi.fn().mockReturnValue('data:image/png;base64,MOCK')
+    // Re-setup executeScript to return a resolved promise after reset
+    const { default: browser } = await import('webextension-polyfill')
+    vi.mocked(browser.scripting.executeScript).mockResolvedValue(undefined as any)
     setActivePinia(createPinia())
   })
 
   it('calls executeScript with correct tabId and color', async () => {
     const { default: browser } = await import('webextension-polyfill')
     const store = useTabStore()
-    store.$patch({ tabs: [{ id: 42, index: 0, windowId: 1, highlighted: false, active: false, pinned: false, incognito: false }] })
+    store.$patch({ tabs: [{ id: 42, index: 0, windowId: 1, highlighted: false, active: false, pinned: false, incognito: false, isMarked: false, ageColor: 'transparent', ageCssClass: '', ageIndex: 0 }] })
 
     await store.markTabWithLBracket(42, '#00e676')
 
@@ -126,7 +138,7 @@ describe('markTabWithLBracket (store)', () => {
   it('pre-fetches favicon and passes data URL to executeScript', async () => {
     const { default: browser } = await import('webextension-polyfill')
     const store = useTabStore()
-    store.$patch({ tabs: [{ id: 7, index: 0, windowId: 1, highlighted: false, active: false, pinned: false, incognito: false, favIconUrl: 'https://example.com/favicon.ico' }] })
+    store.$patch({ tabs: [{ id: 7, index: 0, windowId: 1, highlighted: false, active: false, pinned: false, incognito: false, favIconUrl: 'https://example.com/favicon.ico', isMarked: false, ageColor: 'transparent', ageCssClass: '', ageIndex: 0 }] })
     const fetchSpy = vi.spyOn(TabDots, 'fetchFaviconDataUrl').mockResolvedValue('data:image/png;base64,TESTDATA')
 
     await store.markTabWithLBracket(7, '#ff1744')
@@ -145,6 +157,15 @@ describe('markTabWithLBracket (store)', () => {
     expect(store.error).toBeNull()
   })
 
+  it('sets isMarked=true on tab after successful mark', async () => {
+    const store = useTabStore()
+    store.$patch({ tabs: [{ id: 42, index: 0, windowId: 1, highlighted: false, active: false, pinned: false, incognito: false, isMarked: false, ageColor: 'transparent', ageCssClass: '', ageIndex: 0 }] })
+
+    await store.markTabWithLBracket(42, '#ffd740')
+
+    expect(store.tabs.find(t => t.id === 42)?.isMarked).toBe(true)
+  })
+
   it('calls removeLBracket for correct tabId', async () => {
     const { default: browser } = await import('webextension-polyfill')
     const store = useTabStore()
@@ -154,23 +175,58 @@ describe('markTabWithLBracket (store)', () => {
     )
   })
 
-  it('calls markTabWithLBracket for every tab in markOldTabs', async () => {
+  it('sets isMarked=false on tab after removeLBracket', async () => {
+    const store = useTabStore()
+    store.$patch({ tabs: [{ id: 55, index: 0, windowId: 1, highlighted: false, active: false, pinned: false, incognito: false, isMarked: true, ageColor: '#ffd740', ageCssClass: 'bg-amber-2', ageIndex: 1 }] })
+
+    await store.removeLBracket(55)
+
+    expect(store.tabs.find(t => t.id === 55)?.isMarked).toBe(false)
+  })
+
+  it('markOldTabs: does NOT mark Fresh tabs (index 0, < young threshold)', async () => {
     const store = useTabStore()
     const now = Date.now()
     const DAY = 24 * 60 * 60 * 1000
+    // Default thresholds: young=7, middle=14, old=21
+    // Tab 1: 1 day → Fresh (NOT marked)
+    // Tab 2: 10 days → Young (marked)
+    // Tab 3: 30 days → Old (marked)
     store.$patch({
       tabs: [
-        { id: 1, index: 0, windowId: 1, highlighted: false, active: false, pinned: false, incognito: false, lastAccessed: now - 1  * DAY },
-        { id: 2, index: 1, windowId: 1, highlighted: false, active: false, pinned: false, incognito: false, lastAccessed: now - 10 * DAY },
-        { id: 3, index: 2, windowId: 1, highlighted: false, active: false, pinned: false, incognito: false, lastAccessed: now - 30 * DAY },
+        { id: 1, index: 0, windowId: 1, highlighted: false, active: false, pinned: false, incognito: false, lastAccessed: now - 1  * DAY, isMarked: false, ageColor: 'transparent', ageCssClass: '', ageIndex: 0 },
+        { id: 2, index: 1, windowId: 1, highlighted: false, active: false, pinned: false, incognito: false, lastAccessed: now - 10 * DAY, isMarked: false, ageColor: 'transparent', ageCssClass: '', ageIndex: 0 },
+        { id: 3, index: 2, windowId: 1, highlighted: false, active: false, pinned: false, incognito: false, lastAccessed: now - 30 * DAY, isMarked: false, ageColor: 'transparent', ageCssClass: '', ageIndex: 0 },
       ],
     })
 
     const lbSpy = vi.spyOn(store, 'markTabWithLBracket').mockResolvedValue()
     await store.markOldTabs()
 
-    expect(lbSpy).toHaveBeenCalledTimes(3)
-    expect(lbSpy).toHaveBeenCalledWith(1, '#00e676')  // fresh → green
-    expect(lbSpy).toHaveBeenCalledWith(3, '#ff1744')  // old   → red
+    // Tab 1 (Fresh, 1d) must NOT be marked
+    expect(lbSpy).not.toHaveBeenCalledWith(1, expect.any(String))
+    // Tab 2 (Young, 10d) and Tab 3 (Old, 30d) must be marked
+    expect(lbSpy).toHaveBeenCalledWith(2, APP_DEFAULTS.AGE_COLOR_LIST.AGE_COLOR_YOUNG)
+    expect(lbSpy).toHaveBeenCalledWith(3, APP_DEFAULTS.AGE_COLOR_LIST.AGE_COLOR_OLD)
+    expect(lbSpy).toHaveBeenCalledTimes(2)
+  })
+
+  it('markOldTabs: does NOT re-mark already marked tabs (no stacking)', async () => {
+    const store = useTabStore()
+    const now = Date.now()
+    const DAY = 24 * 60 * 60 * 1000
+    // Both tabs are old but already marked
+    store.$patch({
+      tabs: [
+        { id: 10, index: 0, windowId: 1, highlighted: false, active: false, pinned: false, incognito: false, lastAccessed: now - 30 * DAY, isMarked: true, ageColor: '#ff1744', ageCssClass: 'bg-red-2', ageIndex: 3 },
+        { id: 11, index: 1, windowId: 1, highlighted: false, active: false, pinned: false, incognito: false, lastAccessed: now - 20 * DAY, isMarked: true, ageColor: '#ff6d00', ageCssClass: 'bg-orange-2', ageIndex: 2 },
+      ],
+    })
+
+    const lbSpy = vi.spyOn(store, 'markTabWithLBracket').mockResolvedValue()
+    await store.markOldTabs()
+
+    // Already marked — should be skipped
+    expect(lbSpy).not.toHaveBeenCalled()
   })
 })

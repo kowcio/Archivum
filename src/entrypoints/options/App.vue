@@ -251,7 +251,7 @@ const rows = computed(() =>
       return {
         ...row,
         ordinal: index + 1,
-        lastAccessAge: Number.isFinite(ageClassification.days) ? `${ageClassification.days}d` : "—",
+        lastAccessAge: Number.isFinite(row.lastAccessDays) ? `${row.lastAccessDays}d` : "—",
         lastAccessClass: ageClassification.cssClass,
       };
     })
@@ -291,7 +291,17 @@ async function handleSaveTabs(): Promise<void> {
 
 /** Generates mock tabs from test/mocks/tabs_example.json with adjusted access times.
  * Opens actual tabs in the browser and then spoofs their lastAccessed time
- * in the store to test age-based features (sorting, colors, grouping). */
+ * in the store to test age-based features (sorting, colors, grouping).
+ *
+ * Distribution (default thresholds: young=7d, middle=14d, old=21d):
+ *  idx 0 →  1 day  → Fresh   (not marked, not grouped)
+ *  idx 1 →  5 days → Fresh   (not marked, not grouped)
+ *  idx 2 → 10 days → Young   (marked, NOT grouped)
+ *  idx 3 → 13 days → Young   (marked, NOT grouped)
+ *  idx 4 → 16 days → Middle  (marked, GROUPED)
+ *  idx 5 → 19 days → Middle  (marked, GROUPED)
+ *  idx 6 → 25 days → Old     (marked, GROUPED — leftmost group)
+ */
 async function handleGenMockTabs(): Promise<void> {
   const { default: browser } = await import('webextension-polyfill')
 
@@ -301,7 +311,6 @@ async function handleGenMockTabs(): Promise<void> {
   try {
     let mockData: { tabs: any[] }
     try {
-      // Relative path from src/entrypoints/options/App.vue to test/mocks/tabs_example.json
       const imported = await import('../../../test/mocks/tabs_example.json')
       mockData = imported.default
     } catch (err) {
@@ -321,7 +330,7 @@ async function handleGenMockTabs(): Promise<void> {
       }
     }
 
-    // 🎯 Wait for tabs to load with favicon retry logic
+    // Wait for tabs to load (up to 5 seconds, poll every second)
     console.log('[handleGenMockTabs] Waiting for tabs to load...')
     let allOpenTabs: any[] = []
     let loadedTabs: any[] = []
@@ -329,56 +338,45 @@ async function handleGenMockTabs(): Promise<void> {
     const maxAttempts = 5
 
     while (attempts < maxAttempts) {
-      // Wait before checking
       await new Promise(resolve => setTimeout(resolve, 1000))
-
-      // Fetch all currently open tabs to get their loaded data
       allOpenTabs = await browser.tabs.query({ currentWindow: true })
-
-      // Filter to only our newly created tabs
       loadedTabs = allOpenTabs.filter(tab => tabIds.includes(tab.id!))
-
-      // Check if all have either favicon or title (indicates page loaded)
-      const allLoaded = loadedTabs.every(t => t.favIconUrl || t.title)
+      const allLoaded = loadedTabs.every((t: any) => t.favIconUrl || t.title)
       if (allLoaded) {
         console.log(`[handleGenMockTabs] All tabs loaded on attempt ${attempts + 1}`)
         break
       }
-
       attempts++
     }
 
-    console.log(`[handleGenMockTabs] Loaded ${loadedTabs.length} tabs after ${attempts + 1} attempts`, {
-      withFavicons: loadedTabs.filter(t => t.favIconUrl).length,
-      withTitles: loadedTabs.filter(t => t.title).length,
+    console.log(`[handleGenMockTabs] Loaded ${loadedTabs.length} tabs`, {
+      withFavicons: loadedTabs.filter((t: any) => t.favIconUrl).length,
     })
 
-    // Apply time spoofing to match age categories
+    // Spoof lastAccessed to cover all age categories (thresholds: [7, 14, 21] days)
     const now = Date.now()
     const dayMs = 24 * 60 * 60 * 1000
+    const ageSpoofDays = [1, 5, 10, 13, 16, 19, 25]  // Fresh, Fresh, Young, Young, Middle, Middle, Old
 
-    const spoofedTabs = loadedTabs.map((tab, idx) => {
-      let lastAccessed = now
-      // Distribution for default thresholds [1, 3, 7]
-      if (idx === 1) lastAccessed = now - (0.5 * dayMs) // Fresh (<1d)
-      if (idx === 2) lastAccessed = now - (4.0 * dayMs) // Young (1-3d)
-      if (idx === 3) lastAccessed = now - (10.0 * dayMs) // Middle (3-7d)
-      if (idx === 4)  lastAccessed = now - (15.0 * dayMs) // Old (>7d)
-      if (idx === 5)  lastAccessed = now - (20.0 * dayMs) // Old (>7d)
-      if (idx >= 6)  lastAccessed = now - (40.0 * dayMs) // Old (>7d)
-
-      return { ...tab, lastAccessed }
+    const spoofedTabs = loadedTabs.map((tab: any, idx: number) => {
+      const daysAgo = idx < ageSpoofDays.length ? ageSpoofDays[idx] : ageSpoofDays[ageSpoofDays.length - 1]
+      return { ...tab, lastAccessed: now - daysAgo * dayMs }
     })
 
-    // Update store with fully loaded and spoofed tabs
-    tabStore.tabs = spoofedTabs
-    // 🎯 Clear markedTabIds since these are fresh tabs
-    tabStore.markedTabIds.clear()
+    // Convert to ClassifiedTab so all store operations work correctly,
+    // and reset isGrouped so the "Group by age" button reflects the fresh state.
+    tabStore.$patch({
+      tabs: spoofedTabs.map((t: any) => ({ ...t, isMarked: false, ageColor: 'transparent', ageCssClass: '', ageIndex: 0 })),
+      isGrouped: false,
+      error: null,
+    })
 
-    // Trigger age markings (L-bracket overlays)
+    // Apply L-bracket overlays and age classification to non-Fresh tabs
     await tabStore.markOldTabs()
 
-    console.log('[handleGenMockTabs] ✅ Mock tabs opened, loaded, and marked:', spoofedTabs.length)
+    console.log('[handleGenMockTabs] ✅ Mock tabs ready:', spoofedTabs.length, {
+      marked: tabStore.tabs.filter(t => t.isMarked).length,
+    })
   } finally {
     tabStore.loading = false
   }

@@ -130,6 +130,10 @@ export class ApiService {
 - Loading + error states in stores
 - Try/catch in actions/API calls
 - Browser APIs via webextension-polyfill
+- **NO destructuring**: Use explicit property access everywhere (no `const { prop } = obj`, use `const prop = obj.prop` instead)
+  - Keeps code static and easy to maintain
+  - Makes breaking changes immediately visible
+  - Enables easier refactoring and search
 
 ## Anti-Patterns ❌
 - No `any` types
@@ -138,6 +142,7 @@ export class ApiService {
 - No side effects in computed (Vue)
 - No uncaught promises
 - No hardcoded URLs/values
+- **NO destructuring** (e.g., `const { x, y } = obj`) → use explicit access: `obj.x`, `obj.y`
 - **NO *.md documentation files** (see [NO_DOCUMENTATION.md](../NO_DOCUMENTATION.md))
 
 ## Token Optimization ⚡

@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
 import type { Storage, Tabs } from 'webextension-polyfill'
-import { useTabStore, TAB_HISTORY_KEY, type TabsSnapshot } from 'src/stores/TabStore'
+import { useTabStore, TAB_HISTORY_KEY } from 'src/stores/TabStore'
+import { TabsSnapshot } from 'src/models/tabs/TabsSnapshot'
 import { useGlobalStore } from 'src/stores/globalStore'
 import { createMockTabs } from '../mock/TabServiceMockFactory'
 
@@ -33,7 +34,7 @@ function createInMemoryStorage(initial: Record<string, unknown> = {}): Storage.S
 }
 
 function makeSnapshot(tabs: Tabs.Tab[], savedAt?: string): TabsSnapshot {
-  return { tabs, savedAt: savedAt ?? new Date().toISOString() }
+  return new TabsSnapshot(tabs, savedAt ?? new Date().toISOString())
 }
 
 /** Creates a tab whose lastAccessed puts it exactly N days in the past */
@@ -54,11 +55,6 @@ function tabWithAge(id: number, daysAgo: number): Tabs.Tab {
 
 // ─── markOldTabs badge colour tests ───────────────────────────────────────
 
-/**
- * Badge tests are kept as reference for when badge marking is re-enabled.
- * markOldTabs currently only applies the square favicon border overlay.
- * @see TabStore.markOldTabs — badge calls commented out for future use
- */
 describe.skip('TabStore › markOldTabs › badge colors (disabled — badge marking not active)', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -69,21 +65,16 @@ describe.skip('TabStore › markOldTabs › badge colors (disabled — badge mar
     const { default: browser } = await import('webextension-polyfill')
     const store = useTabStore()
     store.$patch({ tabs: [tabWithAge(1, 0)] })
-
     await store.markOldTabs()
-
     expect(browser.action.setBadgeText).toHaveBeenCalledWith({ text: '●', tabId: 1 })
     expect(browser.action.setBadgeBackgroundColor).toHaveBeenCalledWith({ color: '#66bb6a', tabId: 1 })
-    // setBadgeTextColor is called via chrome directly (not polyfill) — not assertable here
   })
 
   it('sets yellow badge for young tab (10 days, young=7, middle=14)', async () => {
     const { default: browser } = await import('webextension-polyfill')
     const store = useTabStore()
     store.$patch({ tabs: [tabWithAge(2, 10)] })
-
     await store.markOldTabs()
-
     expect(browser.action.setBadgeBackgroundColor).toHaveBeenCalledWith({ color: '#f2c037', tabId: 2 })
   })
 
@@ -91,9 +82,7 @@ describe.skip('TabStore › markOldTabs › badge colors (disabled — badge mar
     const { default: browser } = await import('webextension-polyfill')
     const store = useTabStore()
     store.$patch({ tabs: [tabWithAge(3, 18)] })
-
     await store.markOldTabs()
-
     expect(browser.action.setBadgeBackgroundColor).toHaveBeenCalledWith({ color: '#fb8c00', tabId: 3 })
   })
 
@@ -101,61 +90,27 @@ describe.skip('TabStore › markOldTabs › badge colors (disabled — badge mar
     const { default: browser } = await import('webextension-polyfill')
     const store = useTabStore()
     store.$patch({ tabs: [tabWithAge(4, 30)] })
-
     await store.markOldTabs()
-
     expect(browser.action.setBadgeBackgroundColor).toHaveBeenCalledWith({ color: '#e53935', tabId: 4 })
-  })
-
-  it('respects custom thresholds from globalStore', async () => {
-    const { default: browser } = await import('webextension-polyfill')
-    const store = useTabStore()
-    const globalStore = useGlobalStore()
-    // Set young=3 so a 5-day-old tab is yellow instead of green
-    globalStore.$patch({ flags: { thresholds: { young: 3, middle: 10, old: 20 } } })
-    store.$patch({ tabs: [tabWithAge(5, 5)] })
-
-    await store.markOldTabs()
-
-    expect(browser.action.setBadgeBackgroundColor).toHaveBeenCalledWith({ color: '#f2c037', tabId: 5 })
-  })
-
-  it('calls setBadgeText with bullet ● not emoji', async () => {
-    const { default: browser } = await import('webextension-polyfill')
-    const store = useTabStore()
-    store.$patch({ tabs: [tabWithAge(6, 25)] }) // old → red
-
-    await store.markOldTabs()
-
-    // Must be ● not 🔴 — emoji renders grey in browser badges
-    expect(browser.action.setBadgeText).toHaveBeenCalledWith({ text: '●', tabId: 6 })
-    expect(browser.action.setBadgeText).not.toHaveBeenCalledWith({ text: '🔴', tabId: 6 })
   })
 })
 
-// ─── clearDotsFromOpenTabs / resetAllTabMarks store sync ──────────────────
+// ─── clearDotsFromOpenTabs / reset store sync ─────────────────────────────
 
-describe('TabStore › clearing dots syncs store titles', () => {
+describe('TabStore › reset syncs tabs from browser', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     setActivePinia(createPinia())
   })
 
-  it('reset strips dot prefix from this.tabs titles', async () => {
+  it('reset reloads tabs from browser (strips any stale data)', async () => {
     const store = useTabStore()
     const cleanTabs = [
       { ...tabWithAge(1, 10), title: 'My Tab' },
       { ...tabWithAge(2, 20), title: 'Another Tab' },
       { ...tabWithAge(3, 0),  title: 'Fresh Tab' },
     ]
-    store.$patch({
-      tabs: [
-        { ...cleanTabs[0], title: '🟡 My Tab' },
-        { ...cleanTabs[1], title: '🟠 Another Tab' },
-        { ...cleanTabs[2], title: '🟢 Fresh Tab' },
-      ],
-    })
-    // browser.tabs.query returns clean titles (browser always has originals)
+    store.$patch({ tabs: cleanTabs as any })
     const { default: browser } = await import('webextension-polyfill')
     vi.mocked(browser.tabs.query).mockResolvedValue(cleanTabs as Tabs.Tab[])
 
@@ -166,32 +121,42 @@ describe('TabStore › clearing dots syncs store titles', () => {
     expect(store.tabs[2].title).toBe('Fresh Tab')
   })
 
-  it('resetAllTabMarks delegates to clearDotsFromOpenTabs (removes L-bracket)', async () => {
+  it('resetAllTabMarks delegates to reset (reloads from browser)', async () => {
     const store = useTabStore()
     const cleanTabs = [
       { ...tabWithAge(1, 30), title: 'Old Tab' },
       { ...tabWithAge(2, 5),  title: 'Fresh Tab' },
     ]
-    store.$patch({ tabs: cleanTabs })
+    store.$patch({ tabs: cleanTabs as any })
     const { default: browser } = await import('webextension-polyfill')
     vi.mocked(browser.tabs.query).mockResolvedValue(cleanTabs as Tabs.Tab[])
 
     await store.resetAllTabMarks()
 
-    // Should have refreshed tabs from browser (clean slate)
     expect(browser.tabs.query).toHaveBeenCalled()
   })
 
-  it('leaves titles without dots unchanged', async () => {
+  it('leaves tabs without marks unchanged after reset', async () => {
     const store = useTabStore()
     const cleanTab = { ...tabWithAge(1, 5), title: 'Clean Title' }
-    store.$patch({ tabs: [cleanTab] })
+    store.$patch({ tabs: [cleanTab as any] })
     const { default: browser } = await import('webextension-polyfill')
     vi.mocked(browser.tabs.query).mockResolvedValue([cleanTab] as Tabs.Tab[])
 
     await store.clearDotsFromOpenTabs()
 
     expect(store.tabs[0].title).toBe('Clean Title')
+  })
+
+  it('reset clears isGrouped flag', async () => {
+    const store = useTabStore()
+    store.$patch({ isGrouped: true, tabs: [] })
+    const { default: browser } = await import('webextension-polyfill')
+    vi.mocked(browser.tabs.query).mockResolvedValue([])
+
+    await store.reset()
+
+    expect(store.isGrouped).toBe(false)
   })
 })
 
@@ -202,7 +167,6 @@ describe('TabStore › loadTabsHistory', () => {
     vi.clearAllMocks()
     setActivePinia(createPinia())
   })
-
 
   it('returns empty array and leaves tabs empty when storage has no snapshot', async () => {
     const storage = createInMemoryStorage()
@@ -215,7 +179,7 @@ describe('TabStore › loadTabsHistory', () => {
     expect(store.lastSaveDate).toBeNull()
   })
 
-  it('loads tabs and savedAt from a stored snapshot, returns the tabs array', async () => {
+  it('loads tabs and savedAt from a stored snapshot, tabs contain original fields', async () => {
     const mockTabs = createMockTabs(3)
     const snapshot = makeSnapshot(mockTabs, '2026-01-01T12:00:00.000Z')
     const storage = createInMemoryStorage({ [TAB_HISTORY_KEY]: snapshot })
@@ -223,23 +187,24 @@ describe('TabStore › loadTabsHistory', () => {
 
     const result = await store.loadTabsHistory(storage)
 
-    expect(result).toEqual(mockTabs)
-    expect(store.tabs).toEqual(mockTabs)
+    // ClassifiedTab wraps raw tabs — check original fields are present
+    expect(result).toHaveLength(3)
+    expect(result[0].id).toBe(mockTabs[0].id)
+    expect(result[0].index).toBe(mockTabs[0].index)
     expect(store.lastSaveDate).toBe('2026-01-01T12:00:00.000Z')
   })
 
   it('replaces existing tabs in store with loaded snapshot', async () => {
-    const oldTabs = createMockTabs(5)
     const newTabs = createMockTabs(2)
     const snapshot = makeSnapshot(newTabs, '2026-06-01T00:00:00.000Z')
     const storage = createInMemoryStorage({ [TAB_HISTORY_KEY]: snapshot })
     const store = useTabStore()
-    store.$patch({ tabs: oldTabs })
+    store.$patch({ tabs: createMockTabs(5) as any })
 
     const result = await store.loadTabsHistory(storage)
 
     expect(result).toHaveLength(2)
-    expect(store.tabs).toEqual(newTabs)
+    expect(store.tabs).toHaveLength(2)
   })
 
   it('sets loading=false after successful load', async () => {
@@ -275,7 +240,6 @@ describe('TabStore › loadTabsHistory', () => {
 
   it('normalizes tabs when storage returns object with numeric keys instead of array', async () => {
     const mockTabs = createMockTabs(3)
-    // Simulate browser.storage.local deserializing array as {0:…, 1:…, 2:…}
     const snapshotWithObjectTabs = {
       tabs: { 0: mockTabs[0], 1: mockTabs[1], 2: mockTabs[2] },
       savedAt: '2026-01-01T00:00:00.000Z',

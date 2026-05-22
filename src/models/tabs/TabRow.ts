@@ -55,9 +55,6 @@ export class TabRow {
       this.lastAccessHours = 0;
     }
     this.lastAccessClass = this.getAgeBgClass(this.lastAccessDays ?? 0, boundaries);
-
-    // Add dot to title based on age classification
-    this.title = this.addDotToTitle(this.title, this.lastAccessDays ?? 0, boundaries);
   }
 
   /**

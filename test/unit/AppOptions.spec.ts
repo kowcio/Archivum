@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, it, type MockInstance, vi } from 'vitest'
-import { nextTick } from 'vue'
-import { mount } from '@vue/test-utils'
+import { mount, flushPromises } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { Quasar, QTable, QTd, QTr, QBtn, QBtnGroup, QInput, QTooltip } from 'quasar'
 import type { Tabs } from 'webextension-polyfill'
@@ -8,6 +7,7 @@ import App from 'src/entrypoints/options/App.vue'
 import { createMockTabs } from './mock/TabServiceMockFactory'
 import { useTabStore } from 'src/stores/TabStore'
 import { useGlobalStore } from 'src/stores/globalStore'
+import { TabDots } from 'src/services/TabDots'
 import tabsExampleData from '../mocks/tabs_example.json'
 
 vi.mock('webextension-polyfill', () => ({
@@ -18,11 +18,6 @@ vi.mock('webextension-polyfill', () => ({
     scripting: { executeScript: vi.fn() },
   }
 }))
-
-async function flushPromises() {
-  await nextTick()
-  await Promise.resolve()
-}
 
 describe('Options App', () => {
   let mockTabs: Tabs.Tab[]
@@ -40,6 +35,10 @@ describe('Options App', () => {
     // Initialize the store first so we can spy on it
     tabStore = useTabStore()
     resetTabTitlesSpy = vi.spyOn(tabStore, 'reset').mockResolvedValue()
+    // Prevent favicon polling from interfering with test assertions
+    vi.spyOn(tabStore, 'waitForFaviconsLoaded').mockResolvedValue()
+    // Prevent real network calls in markTabWithLBracket (avoids race condition)
+    vi.spyOn(TabDots, 'fetchFaviconDataUrl').mockResolvedValue(null)
 
     // Create tabs that are old enough to be marked (10+ days old)
     mockTabs = createMockTabs(3).map((tab, index) => ({
@@ -54,6 +53,7 @@ describe('Options App', () => {
     // Mock the browser.tabs.query to return our mock tabs
     const { default: browser } = await import('webextension-polyfill')
     vi.mocked(browser.tabs.query).mockResolvedValue(mockTabs)
+    vi.mocked(browser.scripting.executeScript).mockResolvedValue(undefined as any)
 
     wrapper = mount(App, {
       global: {
@@ -64,17 +64,15 @@ describe('Options App', () => {
       }
     })
 
+    // Use VTU flushPromises — recursively flushes ALL pending async chains
     await flushPromises()
-
-    // Wait for the component to load tabs from the mocked browser API
-    await nextTick()
 
     // Store is already initialized, just log for debugging
     console.log('Store tabs after mount:', tabStore.tabs.length)
     console.log('Store tabs:', tabStore.tabs.map((t: any) => ({ title: t.title, url: t.url })))
 
     // Force the component to update its computed rows
-    await nextTick()
+    await flushPromises()
   })
 
   it('reset button triggers reset call', async () => {
@@ -96,8 +94,6 @@ describe('Options App', () => {
     // Wait for the component to update after setting tabs
     await flushPromises()
 
-    // Force Vue to update the computed property
-    await nextTick()
 
     // Check the store has tabs
     const store = useTabStore()
@@ -144,7 +140,7 @@ describe('Options App', () => {
     // Load from in-memory storage – should restore the exact same tabs
     await tabStore.loadTabsHistory(inMemoryStorage)
 
-    expect(tabStore.tabs).toEqual(snapshot!.tabs)
+    expect(tabStore.tabs).toMatchObject(snapshot!.tabs)
     expect(tabStore.lastSaveDate).toBe(snapshot!.savedAt)
   })
 
@@ -152,6 +148,10 @@ describe('Options App', () => {
     // Clear store and mock to start fresh
     vi.clearAllMocks()
     tabStore.$patch({ tabs: [] })
+
+    // Re-setup mocks cleared by clearAllMocks
+    vi.spyOn(tabStore, 'waitForFaviconsLoaded').mockResolvedValue()
+    vi.spyOn(TabDots, 'fetchFaviconDataUrl').mockResolvedValue(null)
 
     // Initialize global store (needed for component initialization)
     const globalStore = useGlobalStore()
@@ -162,15 +162,13 @@ describe('Options App', () => {
      // Mock browser.tabs.query with real tabs_example.json data - using any query params
      const { default: browser } = await import('webextension-polyfill')
      vi.mocked(browser.tabs.query).mockResolvedValue(tabsExampleData.tabs as any)
+     vi.mocked(browser.scripting.executeScript).mockResolvedValue(undefined as any)
 
     // Find and click the "Load Tabs" button
     const loadTabsButton = wrapper.find('[data-testid="btn-load-tabs"]')
     expect(loadTabsButton.exists()).toBe(true)
 
     await loadTabsButton.trigger('click')
-    await flushPromises()
-    await nextTick()
-    await nextTick()
     await flushPromises()
 
      // Verify store has loaded all tabs from the mock data
