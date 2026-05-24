@@ -67,33 +67,6 @@ export default defineBackground(() => {
     }
   })
 
-   // 🔌 Listen for content script messages
-   // Returns true to keep channel open (async response pattern)
-   browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
-     try {
-       if (message.action === APP_DEFAULTS.MESSAGE_ACTION) {
-         const tabStore = useTabStore()
-         sendResponse({
-           tabs: tabStore.tabs,
-           isGrouped: tabStore.isGrouped,
-           success: true,
-         })
-       } else if (message.action === 'prepare-for-disable') {
-         // Can be called from options page before user disables extension
-         ExtensionCleanupService.prepareForDisable()
-           .then(() => sendResponse({ success: true }))
-           .catch(err => sendResponse({ error: err instanceof Error ? err.message : 'Cleanup failed', success: false }))
-         return true // Async handling
-       } else {
-         sendResponse({ error: 'Unknown action', success: false })
-       }
-     } catch (error) {
-       console.error('[background] Message handler error:', error)
-       sendResponse({ error: error instanceof Error ? error.message : 'Unknown error', success: false })
-     }
-     // ✅ Return true to indicate we'll send response after async operations (if needed)
-     return true
-   })
 
   console.log('[background] ✅ Background service worker ready')
 })

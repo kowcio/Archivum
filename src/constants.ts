@@ -26,7 +26,6 @@ export const APP_DEFAULTS = {
     OLD: 21,
   },
   ALARM_UPDATE_TABS: 'update-tabs-interval',
-  MESSAGE_ACTION: 'get-store-state',
   MIN_MARKING_AGE: 0,
   MAX_MARKING_AGE: 365,
 
