@@ -297,16 +297,18 @@ export const useTabStore = defineStore('tabStore', {
 
             // Reliable URLs: always load, have favicons, don't block executeScript via CSP
             // Avoid: banking sites, login-walls, pages blocking non-standard browsers
-            const MOCK_URLS = [
-                'https://en.wikipedia.org/wiki/Main_Page',  // 1d  → Fresh
-                'https://github.com',                        // 5d  → Fresh
-                'https://developer.mozilla.org',             // 10d → Young
-                'https://stackoverflow.com',                 // 13d → Young
-                'https://www.youtube.com',                   // 16d → Middle
-                'https://news.ycombinator.com',              // 19d → Middle
-                'https://www.reddit.com',                    // 25d → Old
+            const MOCK_TABS: { url: string; daysAgo: number }[] = [
+                { url: 'https://en.wikipedia.org/wiki/Main_Page', daysAgo:  1 },  // Fresh
+                { url: 'https://codeberg.com',                    daysAgo:  5 },  // Fresh
+                { url: 'https://developer.mozilla.org',           daysAgo: 10 },  // Young
+                { url: 'https://stackoverflow.com',               daysAgo: 13 },  // Young
+                { url: 'https://www.youtube.com',                 daysAgo: 16 },  // Middle
+                { url: 'https://www.kowalskipiotr.pl',            daysAgo: 19 },  // Middle
+                { url: 'https://news.wykop.pl',                   daysAgo: 22 },  // Old
+                { url: 'https://www.reddit.com',                  daysAgo: 25 },  // Old
             ]
-            const AGE_SPOOF_DAYS = [1, 5, 10, 13, 16, 19, 25]
+            const MOCK_URLS   = MOCK_TABS.map(t => t.url)
+            const AGE_SPOOF_DAYS = MOCK_TABS.map(t => t.daysAgo)
             const DAY_MS = 24 * 60 * 60 * 1000
             const now = Date.now()
 

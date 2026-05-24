@@ -24,8 +24,29 @@ export async function launchChromeMv3Context(): Promise<{ context: BrowserContex
   const launchArgs = [
     `--disable-extensions-except=${normalizedExtensionPath}`,
     `--load-extension=${normalizedExtensionPath}`,
+
+    // ── Sandbox & memory ────────────────────────────────────────────────────
     '--no-sandbox',
-    '--disable-dev-shm-usage',
+    '--disable-dev-shm-usage',              // Use /tmp instead of /dev/shm (CI stability)
+
+    // ── Background tab throttling — CRITICAL for loadMockTabs() ────────────
+    // Chrome throttles background tabs by default (timers, rendering, network).
+    // Our mock tabs are opened with active:false → without these flags favicons
+    // and page loads are severely delayed or never complete.
+    '--disable-background-timer-throttling',     // JS timers run at full speed in bg tabs
+    '--disable-renderer-backgrounding',           // Renderer process not deprioritised for bg tabs
+    '--disable-backgrounding-occluded-windows',  // Occluded windows not throttled
+
+    // ── Network & favicon loading ────────────────────────────────────────────
+    '--disable-ipc-flooding-protection',  // Prevents IPC message rate-limiting during heavy tab load
+
+    // ── Reduce noise / interruptions ────────────────────────────────────────
+    '--no-first-run',                     // Skip "Welcome to Chrome" screen
+    '--no-default-browser-check',         // Skip "Make Chrome default?" prompt
+    '--disable-sync',                     // No Google account sync overhead
+    '--disable-translate',                // No "Translate this page?" bar
+    '--disable-notifications',            // No permission popups for notifications
+    '--disable-features=TranslateUI',     // Disable translate UI feature flag
   ]
   // Extensions require non-headless mode; Chrome 110 does not support --headless=new
   const context = await chromium.launchPersistentContext(userDataDir, {
