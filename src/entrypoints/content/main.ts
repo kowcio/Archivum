@@ -1,7 +1,6 @@
 /// <reference types="../../../.wxt/wxt.d.ts" />
 import './style.css';
-import {type App as VueAppInstance, createApp} from 'vue';
-import {createPinia} from 'pinia';
+import { AppBootstrapper } from '@/entrypoints/shared/AppBootstrapper';
 import App from './App.vue';
 import type {ContentScriptContext} from 'wxt/utils/content-script-context';
 
@@ -19,29 +18,30 @@ export default defineContentScript({
     console.log('[DEBUG] Content GENERAL script starting to load...');
     console.log('[DEBUG] Current URL:', window.location.href);
 
-    // Create UI container
+    // Create UI container with WXT's integrated UI system
     const ui = createIntegratedUi(ctx, {
       position: 'inline',
       anchor: 'body',
       append: 'first',
       onMount: (container: HTMLElement) => {
-        // Create Vue app with unified pattern (similar to popup/options)
-        const app = createApp(App);
-        const pinia = createPinia();
-        app.use(pinia);
+        // Use centralized bootstrapper to initialize the app
+        // This ensures consistent Vue + Pinia setup across all contexts
+        AppBootstrapper.initUI({
+          rootComponent: App,
+          mountTarget: container,
+        })
+          .then(() => console.log('✅ Content script UI mounted via AppBootstrapper'))
+          .catch((err) => console.error('Failed to mount content UI:', err));
 
-        app.mount(container);
-
-        console.log('✅ Content script Vue app mounted');
-
-        return app;
+        // Return container for WXT lifecycle management
+        return { userScript: false };
       },
-      onRemove: (app: VueAppInstance<Element> | undefined) => {
-        app?.unmount();
+      onRemove: () => {
+        console.log('Content script UI removed')
       },
     });
 
-    // Mount the UI
+    // Mount the integrated UI
     ui.mount();
   },
 });

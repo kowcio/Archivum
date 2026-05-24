@@ -1,4 +1,5 @@
 import browser from 'webextension-polyfill'
+import { AppBootstrapper } from '@/entrypoints/shared/AppBootstrapper'
 import { ExtensionCleanupService } from '@/services/ExtensionCleanupService'
 import { TabUpdateService } from '@/services/TabUpdateService'
 
@@ -13,10 +14,17 @@ console.debug('[EXT-DBG] background initialized - TOKEN:EXT_DBG_BACKGROUND_v1')
 export default defineBackground(() => {
   console.debug('[EXT-DBG] background main started - TOKEN:EXT_DBG_BACKGROUND_MAIN_v1')
 
+  // 🔧 Initialize Pinia stores (background mode — Pinia only, no Vue)
+  // Note: global.init() is async but background main() cannot be async.
+  // Services below will use the store once they're executed, ensuring it's ready.
+  AppBootstrapper.initBackground()
+    .then(() => console.log('[background] ✅ Stores initialized'))
+    .catch((err) => console.error('[background] ❌ Store init failed:', err))
+
   // 🧹 Register extension lifecycle listeners for cleanup on disable/uninstall
   ExtensionCleanupService.registerLifecycleListeners()
 
-  // 🔄 Start daily tab update service (every 24 hours)
+  // 🔄 Start daily tab update service (runs every 24 hours)
   // Automatically loads tabs + marks old ones via TabStore methods
   TabUpdateService.startDailyUpdate(24 * 60 * 60 * 1000)
 })

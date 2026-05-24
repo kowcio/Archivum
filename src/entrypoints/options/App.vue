@@ -244,8 +244,17 @@ const columns: QTableProps["columns"] = [
   },
 ];
 
-const rows = computed(() =>
-  TabRow.fromTabs(storeTabs.value, global.thresholdsArray)
+const rows = computed(() => {
+  // Sort grouped tabs to the beginning (by groupId), then unrouped tabs
+  const sortedTabs = [...storeTabs.value].sort((a, b) => {
+    const aGroupId = a.groupId !== undefined ? 0 : 1
+    const bGroupId = b.groupId !== undefined ? 0 : 1
+    if (aGroupId !== bGroupId) return aGroupId - bGroupId
+    if (aGroupId === 0) return (a.groupId ?? 0) - (b.groupId ?? 0)
+    return 0
+  })
+
+  return TabRow.fromTabs(sortedTabs, global.thresholdsArray)
     .map((row, index) => {
       const ageClassification = tabStore.getAgeClassification(row, global.thresholdsArray)
       return {
@@ -255,7 +264,7 @@ const rows = computed(() =>
         lastAccessClass: ageClassification.cssClass,
       };
     })
-);
+});
 
 onMounted(async () => {
   await global.init()
