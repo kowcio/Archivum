@@ -1,116 +1,193 @@
-# Browser Extension Architecture Guide
+# Browser Extension Architecture Guide — WXT Native Approach
 
 ## Overview
 
-This document explains how the Czynsz Firefox/Chrome extension loads, initializes services, and manages the lifecycle of tab tracking, marking, and cleanup operations.
+This document explains how the Czynsz Firefox/Chrome extension loads, initializes services, and manages the lifecycle of tab tracking, marking, and cleanup operations using **WXT Framework native patterns**.
 
-**Key Principle**: Distributed initialization — each entry point (background, popup, options, content) independently initializes its own Pinia store via `AppBootstrapper`, ensuring no global singleton state.
+**Key Principles**:
+1. **Distributed initialization** — each entry point independently initializes Pinia
+2. **Synchronous main()** — background service worker main() MUST be synchronous per WXT/MV3 requirements
+3. **browser.alarms** — used for persistent periodic tasks (survives service worker suspension)
+4. **Event-driven** — listeners registered inside main() for MV3 compliance
 
 ---
 
 ## Entry Points & Initialization Flow
 
 ```
-Browser Event (Install/Enable/Open)
-    ├─ background.ts [ALWAYS RUNS]
-    │  ├─ AppBootstrapper.initBackground() → Creates Pinia store
-    │  ├─ ExtensionCleanupService.registerLifecycleListeners()
-    │  └─ TabUpdateService.startDailyUpdate(24h)
+Browser Launch with Extension Enabled
     │
-    ├─ popup/main.ts [RUNS when extension popup opened]
-    │  └─ AppBootstrapper.initUI(App, '#app') → Vue + Pinia + Quasar
+    ├─ [BACKGROUND SERVICE WORKER] background.ts → defineBackground() main
+    │  ├─ ✅ SYNCHRONOUS main() function
+    │  │  ├─ AppBootstrapper.initBackground() [async in background, chained]
+    │  │  │  └─ Creates Pinia store
+    │  │  │  └─ useGlobalStore() initializes (loads thresholds)
+    │  │  ├─ ExtensionCleanupService.registerLifecycleListeners()
+    │  │  │  └─ browser.runtime.onInstalled listener
+    │  │  └─ browser.alarms.create('daily-tab-update') [WXT NATIVE]
+    │  │
+    │  └─ 📡 EVENT LISTENERS (inside main)
+    │     ├─ browser.alarms.onAlarm → Triggers daily tab update
+    │     ├─ browser.runtime.onMessage → Inter-context messaging
+    │     └─ [ExtensionCleanupService internal listeners]
     │
-    ├─ options/main.ts [RUNS when options page opened]
-    │  └─ AppBootstrapper.initUI(AppOptions, '#app') → Vue + Pinia + Quasar
+    ├─ [POPUP] popup/main.ts → AppBootstrapper.initUI()
+    │  └─ Vue + Pinia + Quasar initialized when user clicks popup icon
     │
-    └─ content/main.ts [RUNS on every page matching manifests content_scripts]
-       └─ AppBootstrapper.initUI(App, container) → Vue + Pinia (no Quasar)
+    ├─ [OPTIONS PAGE] options/main.ts → AppBootstrapper.initUI()
+    │  └─ Vue + Pinia + Quasar initialized when user opens settings
+    │
+    └─ [CONTENT SCRIPT] content/index.ts → defineContentScript() with ctx
+       └─ Vue + Pinia on every page matching manifest content_scripts patterns
 ```
 
 ---
 
-## Detailed Lifecycle
+## Detailed Lifecycle: Native WXT Patterns
 
-### 1. Extension Installation / Enable
+### 1. Extension Installation / Enable — Background.ts
 
 **When**: User installs extension or enables it in browser settings
 
-**What Runs**:
-1. **`background.ts`** entry point executes `defineBackground()` main function
-   - ⏱️ **Timing**: Synchronous (main() cannot be async)
-   -  **Actions**:
-     ```typescript
-     // Initialize Pinia store for background context (non-UI)
-     AppBootstrapper.initBackground()
-     
-     // Register lifecycle listeners (cleanup on disable/uninstall)
-     ExtensionCleanupService.registerLifecycleListeners()
-     
-     // Start background task: refresh tabs every 24 hours
-     TabUpdateService.startDailyUpdate(24 * 60 * 60 * 1000)
-     ```
+**Entry Point**: `background.ts` (defineBackground)
 
-2. **`AppBootstrapper.initBackground()`**
-   - Creates Pinia store instance
-   - Initializes `useGlobalStore()` (loads thresholds from storage)
-   - Starts async `global.init()` (loads user settings)
-   - Returns `{ pinia }` (no Vue app — background has no DOM)
+**Key Constraint**: ⚠️ **main() MUST be SYNCHRONOUS**
+
+```typescript
+export default defineBackground(() => {
+  // ✅ Synchronous code here runs immediately
+
+  // ❌ CANNOT do: await something here
+  // ✅ CAN do: start async work with .then().catch()
+  
+  AppBootstrapper.initBackground()  // Returns Promise
+    .then(() => console.log('Ready'))
+    .catch(err => console.error('Failed', err))
+  
+  // ✅ Event listeners MUST be registered inside main()
+  browser.alarms.onAlarm.addListener(async (alarm) => {
+    // Async work is OK inside listener
+  })
+})
+```
+
+**What Happens**:
+
+1. **WXT builds manifest automatically** from `defineBackground()` entry point
+2. **Service worker loads** (MV3 background type)
+3. **main() executes synchronously**:
+   - ✅ AppBootstrapper.initBackground() [async chain starts]
+   - ✅ ExtensionCleanupService.registerLifecycleListeners() [sync]
+   - ✅ browser.alarms.create() [sync, persists across SW suspension]
+   - ✅ Event listener registrations [sync]
+4. **Pinia store initializes asynchronously** (in background of async chain)
+5. **Everything ready** for subsequent events/alarms/messages
 
 ---
 
-### 2. Extension Cleanup Service Lifecycle
+### 2. Daily Tab Update — WXT browser.alarms (Native)
+
+**Problem with setInterval**:
+- ❌ Service Worker can suspend (freeze) when unused
+- ❌ setInterval is paused when SW suspends
+- ❌ Periodic task becomes unreliable
+
+**Solution: browser.alarms (WXT native)**:
+- ✅ Registered with browser OS, not JS runtime
+- ✅ Persists across service worker suspend/resume
+- ✅ Browser automatically wakes up on alarm
+- ✅ Simple, reliable, performance-efficient
+
+**Implementation** (in background.ts):
+
+```typescript
+// Register alarm (synchronous, call once at startup)
+browser.alarms.create('daily-tab-update', {
+  periodInMinutes: 24 * 60,  // Every 24 hours
+})
+
+// Listen for alarm (async handler)
+browser.alarms.onAlarm.addListener(async (alarm) => {
+  if (alarm.name === 'daily-tab-update') {
+    const tabStore = useTabStore()
+    await tabStore.getAllOpenedTabs()  // Load fresh tabs
+    await tabStore.markOldTabs()        // Auto-mark old tabs
+  }
+})
+```
+
+**Alarm Lifecycle**:
+
+```
+Initial Setup (background.ts main)
+    ↓
+browser.alarms.create() [Persistent with browser]
+    ↓
+[24 hours pass]
+    ↓
+Browser fires onAlarm event
+    ↓
+Service Worker wakes up + executes async listener
+    ↓
+tabStore.getAllOpenedTabs() + markOldTabs()
+    ↓
+Completes, Service Worker suspends
+    ↓
+[24 hours pass]
+    ↓
+[Repeat]
+```
+
+**Why No TabUpdateService.startDailyUpdate()?**
+
+The old `TabUpdateService` used `setInterval()`:
+```typescript
+// ❌ OLD PATTERN (unreliable)
+const intervalId = setInterval(async () => {
+  await tabStore.getAllOpenedTabs()  // Paused when SW suspends
+}, 24 * 60 * 60 * 1000)
+```
+
+**✅ NEW WAY (WXT native)**: Use `browser.alarms` directly in background.ts
+
+---
+
+### 3. Extension Cleanup Service Lifecycle
 
 **Purpose**: Cleans up L-bracket overlays and grouped tabs when extension is disabled or uninstalled
 
 **When It Runs**:
 ```
-On Extension Disable
+On Extension Install (optional cleanup)
     ↓
-On Extension Uninstall
+Extension Updated
     ↓
-Manual Reset → button click in Options page
+Manual Reset → "Reset" button click in Options page
 ```
 
 **How It Works** (`ExtensionCleanupService.registerLifecycleListeners()`):
 
 ```typescript
-// Called once during background.ts initialization
-browser.runtime.onDisabled.addListener(async () => {
-  // 1. Remove all L-bracket overlays from ALL tabs
-  await tabStore.reset()
-  
-  // 2. Ungroup all tab groups (Chrome-only)
-  // 3. Restore original favicons
-  // 4. Clear all storage
-})
-
-browser.runtime.onUninstalled.addListener(async () => {
-  // Same cleanup as onDisabled
-  await tabStore.reset()
-  await browser.storage.local.clear()
+// Registered inside background.ts main()
+browser.runtime.onInstalled.addListener((details) => {
+  if (details.reason === 'install') {
+    // New install — no cleanup needed
+  } else if (details.reason === 'update') {
+    // Extension updated — run compatibility cleanup
+    clearMarkedTabsRegistry()
+  }
 })
 ```
 
-**Flow**:
-1. User disables/uninstalls extension
-2. Browser fires `browser.runtime.onDisabled` / `browser.runtime.onUninstalled`
-3. `TabStore.reset()` is called:
-   - Queries ALL current browser tabs: `browser.tabs.query({ currentWindow: true })`
-   - Removes L-bracket overlay from each tab via `TabStore.removeLBracket(tabId)`
-   - Executes `TabDots.removeLBracketPageScript` via `browser.scripting.executeScript`
-   - Restores tab to original favicon
-   - Clears `isMarked: true` flag in store
-4. Ungroups any tab groups (Chrome-only, Firefox fails silently)
-5. Clears all extension storage
-
 **Key Implementation Detail**:
+
 ```typescript
 async reset(): Promise<void> {
-  // CRITICAL: Always query current browser tabs, not just store.tabs
+  // CRITICAL: Query ALL current browser tabs (not just store.tabs)
   // This ensures stale/replaced tabs are also cleaned up
   const allTabs: Tabs.Tab[] = await browser.tabs.query({ currentWindow: true })
   
-  // Remove L-bracket from EVERY tab (not just store.tabs)
+  // Remove L-bracket from EVERY tab
   await Promise.all(
     allTabs.map(async (tab) => {
       if (tab.id == null) return
@@ -118,120 +195,41 @@ async reset(): Promise<void> {
     }),
   )
   
-  // Reload store with fresh tab list (no stale marks)
-  const freshTabs = await browser.tabs.query({ currentWindow: true })
-  this.tabs = ClassifiedTabFactory.fromTabs(freshTabs)
+  // Restore store state
+  this.tabs = ClassifiedTabFactory.fromTabs(allTabs)
   this.isGrouped = false
 }
 ```
 
 ---
 
-### 3. Tab Update Service — Daily Background Refresh
-
-**Purpose**: Automatically refresh tab list and update age-based markings every 24 hours without user interaction
-
-**When It Runs**:
-```
-Background.ts init (one-time)
-    ↓
-Immediately: TabUpdateService.startDailyUpdate(24h)
-    ↓
-[Waits 24 hours]
-    ↓
-Minute 1 of Cycle: Calls TabStore.getAllOpenedTabs()
-    ├─ Queries browser.tabs.query({currentWindow: true})
-    ├─ Preserves `isMarked` state for previously marked tabs (by ID)
-    ├─ Waits for favicons to load (~3 seconds timeout)
-    └─ Auto-marks old tabs (≥Young threshold)
-    ↓
-[Waits 24 hours again]
-```
-
-**Implementation** (`TabUpdateService.ts`):
-
-```typescript
-export default class TabUpdateService {
-  private static readonly UPDATE_INTERVAL_KEY = 'tab-update-interval-id'
-  
-  public static startDailyUpdate(intervalMs: number): void {
-    // Create interval that calls TabStore.getAllOpenedTabs() every 24h
-    // This method:
-    // 1. Loads all open tabs from browser
-    // 2. Preserves marking state for tabs that were already marked
-    // 3. Waits for favicons to load
-    // 4. Auto-marks tabs older than YOUNG threshold
-    
-    const intervalId = setInterval(async () => {
-      try {
-        const tabStore = useTabStore()
-        await tabStore.getAllOpenedTabs()
-        console.log('[TabUpdateService] ✅ Daily update completed')
-      } catch (err) {
-        console.error('[TabUpdateService] Update failed:', err)
-      }
-    }, intervalMs)
-    
-    // Store interval ID for potential cleanup
-    browser.storage.local.set({ [this.UPDATE_INTERVAL_KEY]: intervalId })
-  }
-}
-```
-
-**Flow Details**:
-
-1. **Interval Setup**: Runs **immediately** after `background.ts` loads
-2. **Trigger**: Every 24 hours (24 × 60 × 60 × 1000 ms)
-3. **Action**: `tabStore.getAllOpenedTabs()` which:
-   - Loads fresh tab list from browser API
-   - Merges with previous state (preserves `isMarked` flags for same tab IDs)
-   - Waits up to 3 seconds for favicons to populate
-   - Calls `markOldTabs()` which:
-     - Skips Fresh tabs (index 0 — age 0→Young days)
-     - Skips Already marked tabs (prevents L-bracket stacking)
-     - Applies L-bracket overlay to newly aged tabs
-     - Updates color/classification based on age
-
-4. **Preserve Marking Logic**:
-```typescript
-// Before reloading tabs, capture which ones are marked
-const previouslyMarkedIds = new Set(
-  this.tabs.filter(t => t.isMarked && t.id != null).map(t => t.id!)
-)
-
-// New tabs preserve their marking state across refresh
-this.tabs = ClassifiedTabFactory.fromTabs(freshTabs, previouslyMarkedIds)
-```
-
----
-
-## AppBootstrapper: The Initialization Factory
+## AppBootstrapper: Centralized Initialization
 
 **Location**: `src/entrypoints/shared/AppBootstrapper.ts`
 
-**Purpose**: Centralized factory for initializing Vue + Pinia in UI contexts, or just Pinia in background
+**Purpose**: Factory for initializing Vue + Pinia consistently across contexts
 
-**Two Static Methods**:
+### `AppBootstrapper.initUI(options)` — For UI contexts
 
-### `AppBootstrapper.initUI(options)`
-- **Used by**: `popup/main.ts`, `options/main.ts`, `content/main.ts`
-- **Creates**: Full Vue + Pinia + Quasar setup
+- **Used by**: `popup/main.ts`, `options/main.ts`, `content/index.ts`
+- **Creates**: Vue + Pinia + Quasar
 - **Returns**: `{ app: VueApp, pinia: Pinia }`
 - **Flow**:
   1. Create Vue app instance
-  2. Register Quasar UI components (QTable, QBtn, etc.)
+  2. Register Quasar components
   3. Create Pinia store
-  4. Initialize GlobalStore (loads thresholds from storage)
-  5. Mount Vue app to DOM element
-  
-### `AppBootstrapper.initBackground()`
+  4. Initialize GlobalStore (load thresholds)
+  5. Mount to DOM
+
+### `AppBootstrapper.initBackground()` — For background worker
+
 - **Used by**: `background.ts`
 - **Creates**: Pinia only (no Vue, no DOM)
 - **Returns**: `{ pinia: Pinia }`
 - **Flow**:
   1. Create Pinia store
-  2. Initialize GlobalStore (async in background)
-  3. Services (TabUpdateService, ExtensionCleanupService) use this store
+  2. Initialize GlobalStore async (loads thresholds from storage)
+  3. Return pinia (ready for services to use)
 
 ---
 
@@ -239,51 +237,49 @@ this.tabs = ClassifiedTabFactory.fromTabs(freshTabs, previouslyMarkedIds)
 
 ### `useGlobalStore()`
 - **Responsibility**: Global thresholds (Young/Middle/Old boundaries)
-- **Load Trigger**: On `AppBootstrapper.init()` 
-- **Persistence**: Stored in `browser.storage.local`
-- **Shared**: All entrypoints create their own instance (no sharing)
+- **Load Trigger**: On `AppBootstrapper.init()`
+- **Persistence**: `browser.storage.local`
 
 ### `useTabStore()`
 - **Responsibility**: Open tabs, marking state, grouping state
 - **State**:
   ```typescript
-  tabs: ClassifiedTab[]              // Current open tabs with marking/age
-  lastSaveDate: string | null        // When tabs were last saved
-  loading: boolean                   // Loading/saving in progress
+  tabs: ClassifiedTab[]              // Current tabs with marking/age
+  loading: boolean                   // Is update in progress?
   error: string | null               // Error message if any
-  isGrouped: boolean                 // Are tabs currently grouped by age?
+  isGrouped: boolean                 // Are tabs currently grouped?
   ```
 - **Key Actions**:
-  - `getAllOpenedTabs()` — Refresh from browser, mark old tabs
+  - `getAllOpenedTabs()` — Load from browser + auto-mark old
   - `markOldTabs()` — Apply L-bracket to aged tabs
   - `markTabWithLBracket(tabId)` — Mark single tab
   - `groupTabsByAge()` — Create Chrome tab groups
-  - `reset()` — Clean up all overlays + groups
+  - `reset()` — Clean up all overlays
 
 ---
 
 ## Services Lifecycle
 
-### `ExtensionCleanupService`
+### `ExtensionCleanupService` (Event-driven)
 - **Registered**: Once in `background.ts` main
-- **Listeners**:
-  - `browser.runtime.onDisabled` → Cleanup
-  - `browser.runtime.onUninstalled` → Cleanup
+- **Listens to**:
+  - `browser.runtime.onInstalled` → Compatibility cleanup
+  - (Uninstall/disable handled by browser automatically)
 - **Not continuously running** — Only reacts to events
 
-### `TabUpdateService`
-- **Started**: Once in `background.ts` main
-- **Runs**: Background worker indefinitely
-- **Interval**: 24 hours
-- **Action**: Calls `tabStore.getAllOpenedTabs()`
-- **Continuously running** — Starts interval immediately
+### Tab Update (browser.alarms — WXT native)
+- **Registered**: Once via `browser.alarms.create()` in background.ts
+- **Trigger**: `browser.alarms.onAlarm` listener
+- **Interval**: 24 hours (periodInMinutes)
+- **Action**: `tabStore.getAllOpenedTabs()` + `markOldTabs()`
+- **Survives**: Service worker suspension (browser OS manages it)
 
 ### `TabDots` (Favicon Overlay Service)
 - **Purpose**: Apply/remove L-bracket SVG overlays on favicons
 - **Methods**:
   - `fetchFaviconDataUrl(tabId)` — Pre-fetch favicon as data URL
-  - `applyLBracketPageScript` — Inject script to modify DOM (draws L-bracket)
-  - `removeLBracketPageScript` — Inject script to restore original favicon
+  - `applyLBracketPageScript` — Inject script to modify DOM
+  - `removeLBracketPageScript` — Inject script to restore favicon
 - **Execution**: Inside `browser.scripting.executeScript({ func: ... })`
 - **When Used**:
   - Applied: `TabStore.markTabWithLBracket()` calls this
@@ -291,7 +287,7 @@ this.tabs = ClassifiedTabFactory.fromTabs(freshTabs, previouslyMarkedIds)
 
 ---
 
-## Data Flow Example: "Click Load Tabs" Button
+## Data Flow Example: "Load Tabs" Button Click
 
 1. **User** clicks "Load Tabs" in Options page
 2. **Options.vue** calls `tabStore.getAllOpenedTabs()`
@@ -308,47 +304,42 @@ this.tabs = ClassifiedTabFactory.fromTabs(freshTabs, previouslyMarkedIds)
        this.tabs.filter(t => t.isMarked && t.id != null).map(t => t.id!)
      )
      
-     // 3. Create ClassifiedTab instances (extends Tabs.Tab with age data)
+     // 3. Create ClassifiedTab instances
      this.tabs = ClassifiedTabFactory.fromTabs(fetchedTabs, previouslyMarkedIds)
      
      // 4. Wait for favicons to populate
      await this.waitForFaviconsLoaded(3000)
      
-     // 5. Auto-mark tabs older than YOUNG threshold
+     // 5. Auto-mark old tabs (≥7 days)
      await this.markOldTabs()
      
      this.loading = false
      return this.tabs
    }
    ```
-4. **Options.vue** computed `rows` transforms tabs into table rows (with sorting)
+4. **Options.vue** computed `rows` transforms and sorts tabs
 5. **Table** renders with L-bracket overlays visible on favicons
 
 ---
 
-## Dependency Graph
+## WXT Build System
 
-```
-browser.ts (WXT Framework)
-    ↓
-AppBootstrapper.initBackground()
-    ├─ Creates Pinia
-    ├─ useGlobalStore() initialized
-    ├─ ExtensionCleanupService.registerLifecycleListeners()
-    └─ TabUpdateService.startDailyUpdate()
-         ↓
-         useTabStore (lazy init on first use)
-         ├─ TabDots service (injected favicons)
-         └─ browser.tabs API calls
+**Automatic Manifest Generation**:
 
-popup/main.ts OR options/main.ts OR content/main.ts
-    ↓
-AppBootstrapper.initUI()
-    ├─ Creates Vue app
-    ├─ Creates Pinia
-    ├─ useGlobalStore() initialized
-    └─ Mounts Vue component (uses useTabStore, useGlobalStore in composables)
+```typescript
+// src/entrypoints/background.ts
+export default defineBackground(() => { ... })
+
+// ↓ WXT generates in dist/manifest.json:
+{
+  "background": {
+    "service_worker": "background-xxxxx.js",
+    "type": "module"
+  }
+}
 ```
+
+**No Manual manifest.json Editing** — WXT auto-generates from entrypoints
 
 ---
 
@@ -359,81 +350,47 @@ AppBootstrapper.initUI()
 | Key | Value | Set By | Read By |
 |-----|-------|--------|---------|
 | `TAB_HISTORY` | `TabsSnapshot{ tabs: [], savedAt: string }` | Options "Save" button | Options "Load Saved" button |
-| `APP_THRESHOLDS` | `{ young: 7, middle: 14, old: 21 }` | Thresholds.vue slider | GlobalStore |
-| `tab-update-interval-id` | `number` (interval ID) | TabUpdateService | (cleanup if needed) |
+| `APP_THRESHOLDS` | `{ young: 7, middle: 14, old: 21 }` | Thresholds.vue | GlobalStore |
 
 ---
 
 ## Error Handling
 
-All services wrap async operations in try/catch:
-
 ```typescript
-// Background.ts
+// background.ts async chains
 AppBootstrapper.initBackground()
-  .then(() => console.log('[background] ✅ Stores initialized'))
-  .catch((err) => console.error('[background] ❌ Store init failed:', err))
+  .then(() => console.log('✅ Ready'))
+  .catch((err) => console.error('❌ Failed:', err))
 
-// TabUpdateService (inside interval)
-try {
-  const tabStore = useTabStore()
-  await tabStore.getAllOpenedTabs()
-} catch (err) {
-  console.error('[TabUpdateService] Update failed:', err)
-}
-
-// TabStore.reset()
-catch (err) {
-  this.error = err instanceof Error ? err.message : 'Unknown error'
-}
+// Alarm listeners
+browser.alarms.onAlarm.addListener(async (alarm) => {
+  try {
+    await tabStore.getAllOpenedTabs()
+  } catch (err) {
+    console.error('[alarm] Update failed:', err)
+  }
+})
 ```
 
 ---
 
-## Summary Table
+## Summary: WXT Native vs Old Patterns
 
-| Component | Type | Initializes | Runs | Purpose |
-|-----------|------|-------------|------|---------|
-| `background.ts` | Entry Point | Services | Continuously | System coordinator |
-| `AppBootstrapper` | Factory | Pinia ± Vue | On-demand | Centralized init |
-| `ExtensionCleanupService` | Service | Listeners | On disable/uninstall | Cleanup |
-| `TabUpdateService` | Service | 24h interval | Every 24h | Auto-refresh tabs |
-| `TabStore` | Pinia Store | Via AppBootstrapper | On demand | Tab state mgmt |
-| `GlobalStore` | Pinia Store | Via AppBootstrapper | On demand | Thresholds mgmt |
-
----
-
-## Debugging Tips
-
-### Check if Background is Working
-```javascript
-// In Extension DevTools Console (background context)
-localStorage.getItem('tab-update-interval-id')  // Should exist
-```
-
-### Check if Daily Update Triggered
-```bash
-# Console logs should show:
-[TabUpdateService] ✅ Daily update completed  # Every 24h
-```
-
-### Check Cleanup Service
-```javascript
-// Uninstall/disable extension → should see:
-[reset] ✅ Clean slate — tabs: <count>
-```
-
-### Check Pinia Store State
-```javascript
-// Options page DevTools → Vue tab → Pinia
-// Shows current tabs[], marking state, grouping state
-```
+| Aspect | Old Pattern | WXT Native | Benefit |
+|--------|-----------|-----------|---------|
+| **Periodic Tasks** | `setInterval()` via TabUpdateService | `browser.alarms` | ✅ Survives SW suspension |
+| **main() Async** | ❌ Not allowed in MV3 | ✅ main() sync, async via .then().catch() | ✅ MV3 compliant |
+| **Event Listeners** | Outside main() | Inside main() | ✅ MV3 compliant, correctly scoped |
+| **Manifest** | Manual JSON | Auto-generated from entrypoints | ✅ Less error-prone |
+| **Service Import** | TabUpdateService in background | Inline alarm listener | ✅ Simpler, native |
 
 ---
 
 ## References
 
-- **WXT Framework**: https://wxt.dev/ (Entry points, background, content scripts)
+- **WXT Framework**: https://wxt.dev/ (Entrypoints, background, content scripts)
+- **browser.alarms API**: https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/API/alarms
 - **Pinia**: https://pinia.vuejs.org/ (Store pattern, reactive state)
 - **WebExtension API**: https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/API
-- **Chrome Tab Groups**: https://developer.chrome.com/docs/extensions/reference/api/tabGroups (Chrome-only)
+- **MV3 Requirements**: https://developer.chrome.com/docs/extensions/mv3/service_workers/
+

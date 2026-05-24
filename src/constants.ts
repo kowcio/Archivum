@@ -5,16 +5,22 @@ import dayjs from "dayjs";
 /** Single place to change any app-wide constant. Replaces AppConfig + globals.ts. */
 export const APP_CONSTANTS = {
   APP_NAME: 'Tab Age Tracker',
+  APP_ID: 'TabAgeTracker',
   STORAGE_KEY: 'global_store',
   APP_VERSION: `${packageJson.version}-${dayjs().format('YYYYMMDD-HH:mm')}`,
 } as const
 
 export const APP_DEFAULTS = {
+  // Tab age marking thresholds (in days)
   THRESHOLDS: {
     YOUNG: 7,
     MIDDLE: 14,
     OLD: 21,
   },
+  ALARM_UPDATE_TABS: 'update-tabs-interval',
+  MESSAGE_ACTION: 'get-store-state',
+  MIN_MARKING_AGE: 0,
+  MAX_MARKING_AGE: 365,
 
   TAB_HISTORY_KEY: 'tab_history' as const,
 

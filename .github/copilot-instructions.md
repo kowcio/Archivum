@@ -1,6 +1,7 @@
 ---
-project: "Browser WebExtension: Vue 3 TS + Pinia + Vite + Vitest"
-stack: "Vue 3.5 + TypeScript 5.8 + Pinia 3 + Vitest 4 + Playwright 1.57"
+project: "WXT Browser WebExtension: Vue 3 TS + Pinia + Vite + Vitest"
+stack: "WXT 0.20+ + Vue 3.5 + TypeScript 5.8 + Pinia 3 + Vitest 4 + Playwright 1.57"
+framework: "WXT (Web eXtension Template) - Native web extension framework"
 ---
 
 # Project Instructions Router
@@ -13,6 +14,15 @@ stack: "Vue 3.5 + TypeScript 5.8 + Pinia 3 + Vitest 4 + Playwright 1.57"
 - **Tests**: Mock browser APIs + axios
 - **Quality**: Single-purpose, small functions
 - **📛 CRITICAL**: [NO_DOCUMENTATION.md](NO_DOCUMENTATION.md) - Code only, no *.md file generation
+
+## 🎯 WXT Framework Native Patterns (IMPORTANT)
+- **Background main()**: MUST be synchronous (`main()` cannot be async)
+- **Event listeners**: Register inside `main()` body — NOT outside
+- **Periodic tasks**: Use `browser.alarms` instead of `setInterval` for persistence across service worker suspension
+- **Entry points**: Use `defineBackground()`, `defineContentScript()`, `defineUnlistedScript()` helpers
+- **Context safety**: Content scripts use `ctx` object (provides `ctx.addEventListener`, `ctx.isValid` for lifecycle)
+- **Manifest**: Auto-generated from entrypoint definitions — do not edit manually
+- **See**: [See see src/entrypoints/background.ts](src/entrypoints/background.ts) for example
 
 ## Instruction Files
 
