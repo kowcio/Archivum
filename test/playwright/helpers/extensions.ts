@@ -4,6 +4,9 @@ import path from 'path'
 
 const OUTPUT_DIR = path.resolve(process.cwd(), '.output')
 
+export const BROWSER_WIDTH  = 1280
+export const BROWSER_HEIGHT = 800
+
 function ensureProfileDir(name: string): string {
   const dir = path.join(OUTPUT_DIR, name)
   if (fs.existsSync(dir)) {
@@ -47,6 +50,12 @@ export async function launchChromeMv3Context(): Promise<{ context: BrowserContex
     '--disable-translate',                // No "Translate this page?" bar
     '--disable-notifications',            // No permission popups for notifications
     '--disable-features=TranslateUI',     // Disable translate UI feature flag
+
+    // ── Window size ─────────────────────────────────────────────────────────
+    // viewport/launchOptions in playwright.config.ts do NOT apply to
+    // launchPersistentContext (used for extensions). Must be set here.
+    `--window-size=${BROWSER_WIDTH},${BROWSER_HEIGHT}`,
+    '--window-position=100,100',
   ]
   // Extensions require non-headless mode; Chrome 110 does not support --headless=new
   const context = await chromium.launchPersistentContext(userDataDir, {
@@ -55,6 +64,7 @@ export async function launchChromeMv3Context(): Promise<{ context: BrowserContex
     headless: false,
     ignoreDefaultArgs: ['--disable-extensions'],
     args: launchArgs,
+    viewport: { width: BROWSER_WIDTH, height: BROWSER_HEIGHT },
   })
 
   const worker = context.serviceWorkers()[0] ?? await context.waitForEvent('serviceworker', { timeout: 30000 })

@@ -27,10 +27,18 @@ export const test = base.extend<ExtFixtures>({
   context: async ({}, use) => {
     const context = await chromium.launchPersistentContext('', {
       channel: 'chromium',
+      headless: false,
       args: [
         `--disable-extensions-except=${EXT_DIR}`,
         `--load-extension=${EXT_DIR}`,
+        '--window-size=1280,800',
+        '--window-position=100,100',
+        '--no-first-run',
+        '--no-default-browser-check',
+        '--disable-background-timer-throttling',
+        '--disable-renderer-backgrounding',
       ],
+      viewport: { width: 1280, height: 800 },
     })
     await use(context)
     await context.close()

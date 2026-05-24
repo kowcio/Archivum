@@ -1,5 +1,8 @@
 import { defineConfig } from '@playwright/test'
 
+const width = 1600;
+const height = 900;
+
 export default defineConfig({
   testDir: './test/playwright',
   timeout: 60000,
@@ -12,6 +15,10 @@ export default defineConfig({
   outputDir: 'reports/test-results',
   use: {
     headless: true,
+    viewport: { width: width, height: height },
+    launchOptions: {
+      args: ['--window-size='+width+','+height],
+    },
   },
   projects: [
     {

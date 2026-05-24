@@ -47,6 +47,15 @@ export default defineConfig((env: { browser: string }) => {
       },
     },
 
+    // 🖥️ Browser window size during `npm run dev`
+    // Uses WXT runner chromiumArgs — applied when dev server launches Chrome
+    runner: {
+      chromiumArgs: [
+        '--window-size=1280,800',
+        '--window-position=100,100',
+      ],
+    },
+
     vite: () => ({}),
   }
 })
