@@ -13,6 +13,7 @@ framework: "WXT (Web eXtension Template) - Native web extension framework"
 - **Browser**: `webextension-polyfill` namespace
 - **Tests**: Mock browser APIs + axios
 - **Quality**: Single-purpose, small functions
+- **UI Framework**: **Quasar Framework quasar.dev** — use `q-btn`, `q-btn-group`, `q-table`, `q-tooltip` etc. for all UI; apply `got-*` CSS classes from `src/assets/global.css` for branding (orange→blue gradient theme)
 - **📛 CRITICAL**: [NO_DOCUMENTATION.md](NO_DOCUMENTATION.md) - Code only, no *.md file generation
 
 ## 🎯 WXT Framework Native Patterns (IMPORTANT)

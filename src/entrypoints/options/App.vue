@@ -1,5 +1,5 @@
 <template>
-  <div class="version-info">Version: {{ global.version }}</div>
+  <AppTitle><template #right><span class="got-version q-ml-auto">{{ global.version }}</span></template></AppTitle>
   <div id="options" class="row">
     <div class="col-10 offset-1">
       <div class="row justify-center q-mt-md q-gutter-sm">
@@ -161,6 +161,7 @@ import { useTabStore } from "@/stores/TabStore"
 import type { QTableProps } from "quasar"
 import { TabRow } from "@/models/tabs/TabRow"
 import Thresholds from "@/components/Thresholds.vue"
+import AppTitle from "@/components/Title.vue"
 import { APP_DEFAULTS } from "@/constants"
 
 const global = useGlobalStore()

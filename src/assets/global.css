@@ -1,0 +1,98 @@
+/* ─── Good Old Tabs – Global Design System ───────────────────────────────── */
+/* Orange-to-blue gradient theme shared across popup, options and content     */
+
+/* ── CSS Variables ─────────────────────────────────────────────────────── */
+:root {
+  --got-orange:      #ff6d00;
+  --got-orange-light:#ff9e40;
+  --got-blue:        #1565c0;
+  --got-blue-light:  #42a5f5;
+  --got-bg-gradient: linear-gradient(135deg, #fff3e0 0%, #e3f2fd 100%);
+  --got-header-gradient: linear-gradient(90deg, var(--got-orange) 0%, var(--got-blue) 100%);
+  --got-btn-primary-gradient: linear-gradient(135deg, var(--got-orange-light) 0%, var(--got-orange) 100%);
+  --got-btn-secondary-gradient: linear-gradient(135deg, var(--got-blue-light) 0%, var(--got-blue) 100%);
+  --got-radius: 10px;
+  --got-shadow: 0 2px 12px 0 rgba(21, 101, 192, 0.10);
+}
+
+/* ── App background ─────────────────────────────────────────────────────── */
+body, #app {
+  background: var(--got-bg-gradient) !important;
+  min-height: 100vh;
+}
+
+/* ── Page title ─────────────────────────────────────────────────────────── */
+.got-title {
+  background: var(--got-header-gradient);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  font-size: 1.6rem;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  margin: 0;
+  padding: 0;
+  line-height: 1.2;
+}
+
+.got-title-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 14px 18px 10px;
+  background: linear-gradient(90deg, rgba(255,109,0,0.08) 0%, rgba(21,101,192,0.08) 100%);
+  border-bottom: 2px solid;
+  border-image: var(--got-header-gradient) 1;
+  margin-bottom: 12px;
+}
+
+.got-title-icon {
+  font-size: 1.5rem;
+}
+
+/* ── Primary action button (orange gradient) ────────────────────────────── */
+.got-btn-primary.q-btn {
+  background: var(--got-btn-primary-gradient) !important;
+  color: #fff !important;
+  border-radius: var(--got-radius) !important;
+  box-shadow: 0 2px 8px rgba(255, 109, 0, 0.25) !important;
+  font-weight: 600;
+}
+
+.got-btn-primary.q-btn:hover {
+  filter: brightness(1.08);
+}
+
+/* ── Secondary action button (blue gradient) ────────────────────────────── */
+.got-btn-secondary.q-btn {
+  background: var(--got-btn-secondary-gradient) !important;
+  color: #fff !important;
+  border-radius: var(--got-radius) !important;
+  box-shadow: 0 2px 8px rgba(21, 101, 192, 0.2) !important;
+  font-weight: 600;
+}
+
+.got-btn-secondary.q-btn:hover {
+  filter: brightness(1.08);
+}
+
+/* ── Subtle tertiary button ─────────────────────────────────────────────── */
+.got-btn-ghost.q-btn {
+  border: 1.5px solid var(--got-blue-light) !important;
+  color: var(--got-blue) !important;
+  border-radius: var(--got-radius) !important;
+  background: transparent !important;
+  font-weight: 500;
+}
+
+.got-btn-ghost.q-btn:hover {
+  background: rgba(66, 165, 245, 0.10) !important;
+}
+
+/* ── Version badge ──────────────────────────────────────────────────────── */
+.got-version {
+  font-size: 0.7rem;
+  color: rgba(21, 101, 192, 0.55);
+  letter-spacing: 0.05em;
+}
+
