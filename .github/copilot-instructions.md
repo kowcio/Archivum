@@ -49,10 +49,17 @@ src/test/**/*.spec.ts        instructions/test-writing.md
 
 ## Context7 References
 All instructions leverage external docs:
-- @context7/vue, @context7/vueuse
-- @context7/pinia, @context7/axios
-- @context7/vitest, @context7/playwright
-- @context7/vue/test-utils, @context7/pinia/testing
+- **WXT Framework**: @context7/wxt (PRIMARY for extension patterns, service workers, lifecycle hooks)
+- **Vue Ecosystem**: @context7/vue, @context7/vueuse
+- **State Management**: @context7/pinia, @context7/axios
+- **Testing**: @context7/vitest, @context7/playwright, @context7/vue/test-utils, @context7/pinia/testing
+
+**When WXT documentation is missing**, check Context7 MCP for:
+- Service worker lifecycle (suspension/resumption)
+- Content script context safety (`ctx` object)
+- Content script to background communication patterns
+- Manifest generation from entrypoints
+- Browser APIs compatibility (Chrome/Firefox)
 
 ## Agent Usage
 To invoke an agent for code generation:

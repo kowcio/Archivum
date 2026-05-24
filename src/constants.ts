@@ -2,6 +2,11 @@
 import packageJson from "../package.json";
 import dayjs from "dayjs";
 
+/** Type definition for app global values (from former globals.ts) */
+export interface GlobalValues {
+  APP_VERSION: string
+}
+
 /** Single place to change any app-wide constant. Replaces AppConfig + globals.ts. */
 export const APP_CONSTANTS = {
   APP_NAME: 'Tab Age Tracker',
@@ -9,6 +14,9 @@ export const APP_CONSTANTS = {
   STORAGE_KEY: 'global_store',
   APP_VERSION: `${packageJson.version}-${dayjs().format('YYYYMMDD-HH:mm')}`,
 } as const
+
+/** Named export for direct APP_VERSION access (replaces globals.ts export) */
+export const APP_VERSION = APP_CONSTANTS.APP_VERSION
 
 export const APP_DEFAULTS = {
   // Tab age marking thresholds (in days)
