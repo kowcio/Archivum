@@ -1,5 +1,7 @@
 <template>
-  <AppTitle><template #right><span class="got-version q-ml-auto">v{{ appVersion }}</span></template></AppTitle>
+  <AppTitle>
+  <AppTitle />
+  </AppTitle>
 
   <!-- ── Tab list ──────────────────────────────────────────────── -->
   <div class="q-px-md q-pb-sm">
@@ -50,11 +52,9 @@
 import { onMounted } from 'vue'
 import browser from 'webextension-polyfill'
 import { useTabStore } from '@/stores/TabStore'
-import { APP_CONSTANTS } from '@/constants'
 import AppTitle from '@/components/Title.vue'
 
 const tabStore = useTabStore()
-const appVersion = APP_CONSTANTS.APP_VERSION
 
 async function loadTabs(): Promise<void> {
   await tabStore.getAllOpenedTabs()
@@ -69,7 +69,7 @@ function openOptionsPage(): void {
 async function openOptionsPageFull(): Promise<void> {
   const url = browser.runtime.getURL('options.html')
   try {
-    await browser.tabs.create({ url })
+    await browser.tabs.create({url})
     window.close()
   } catch (error) {
     console.error('Failed to open options via tabs.create, falling back', error)

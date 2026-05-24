@@ -5,8 +5,8 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted } from 'vue';
-import { useGlobalStore } from '@/stores/globalStore.ts';
+import {onMounted} from 'vue';
+import {useGlobalStore} from '@/stores/globalStore.ts';
 
 const global = useGlobalStore();
 

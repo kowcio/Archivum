@@ -1,5 +1,5 @@
 <template>
-  <AppTitle><template #right><span class="got-version q-ml-auto">{{ global.version }}</span></template></AppTitle>
+  <AppTitle />
   <div id="options" class="row">
     <div class="col-10 offset-1">
       <div class="row justify-center q-mt-md q-gutter-sm">
@@ -77,7 +77,7 @@
 
 
       <div class="row q-mt-md">
-        <Thresholds />
+        <Thresholds/>
       </div>
 
       <div class="table-container">
@@ -110,13 +110,16 @@
                 ]"
               >
                 <template v-if="col.name === 'close'">
-                  <button class="btn-close-tab" @click="handleCloseTab(props.row.id)" :disabled="!props.row.id">
+                  <button class="btn-close-tab" @click="handleCloseTab(props.row.id)"
+                          :disabled="!props.row.id">
                     Close
                   </button>
                 </template>
                 <template v-else-if="col.name === 'thumbnail'">
-                  <div class="favicon-wrapper" :style="{ '--ring-color': getFaviconBorderColor(props.row) }">
-                    <img v-if="props.row.thumbnail" :src="props.row.thumbnail" alt="favicon" width="16" height="16" class="favicon-img" />
+                  <div class="favicon-wrapper"
+                       :style="{ '--ring-color': getFaviconBorderColor(props.row) }">
+                    <img v-if="props.row.thumbnail" :src="props.row.thumbnail" alt="favicon"
+                         width="16" height="16" class="favicon-img"/>
                     <span v-else class="favicon-placeholder">—</span>
                   </div>
                 </template>
@@ -125,7 +128,9 @@
                 </template>
                 <template v-else-if="col.name === 'title'">
                   <q-tooltip v-if="props.row.title" class="bg-black text-white" max-width="500px">
-                    <span class="tooltip-age-prefix">{{ tabStore.getLastAccessMsg(props.row) }} — </span>{{ props.row.title }}
+                    <span class="tooltip-age-prefix">{{
+                        tabStore.getLastAccessMsg(props.row)
+                      }} — </span>{{ props.row.title }}
                   </q-tooltip>
                   <span v-if="props.row.title">{{
                       truncate(stripProtocol(props.row.title), excerptLength)
@@ -137,8 +142,8 @@
                     {{ props.row.url }}
                   </q-tooltip>
                   <a v-if="props.row.url" :href="props.row.url" target="_blank" rel="noreferrer">{{
-                    truncate(stripProtocol(props.row.url), excerptLength)
-                  }}</a>
+                      truncate(stripProtocol(props.row.url), excerptLength)
+                    }}</a>
                   <span v-else>—</span>
                 </template>
                 <template v-else>
@@ -154,19 +159,19 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted } from "vue"
-import { storeToRefs } from "pinia"
-import { useGlobalStore } from "@/stores/globalStore.ts"
-import { useTabStore } from "@/stores/TabStore"
-import type { QTableProps } from "quasar"
-import { TabRow } from "@/models/tabs/TabRow"
+import {computed, onMounted} from "vue"
+import {storeToRefs} from "pinia"
+import {useGlobalStore} from "@/stores/globalStore.ts"
+import {useTabStore} from "@/stores/TabStore"
+import type {QTableProps} from "quasar"
+import {TabRow} from "@/models/tabs/TabRow"
 import Thresholds from "@/components/Thresholds.vue"
 import AppTitle from "@/components/Title.vue"
-import { APP_DEFAULTS } from "@/constants"
+import {APP_DEFAULTS} from "@/constants"
 
 const global = useGlobalStore()
 const tabStore = useTabStore()
-const { tabs: storeTabs } = storeToRefs(tabStore)
+const {tabs: storeTabs} = storeToRefs(tabStore)
 const excerptLength = 50
 
 /**
@@ -199,9 +204,16 @@ const columns: QTableProps["columns"] = [
     headerClasses: "col-auto",
     sortable: true,
   },
-   { name: "close", label: "", field: "close", align: "left", headerClasses: "col-auto", classes: "cell-close" },
+  {
+    name: "close",
+    label: "",
+    field: "close",
+    align: "left",
+    headerClasses: "col-auto",
+    classes: "cell-close"
+  },
   // {name: 'id',            label: 'ID',          field: 'id',            align: 'left', headerClasses: 'col-auto', sortable: true},
-  { name: "thumbnail", label: "", field: "thumbnail", align: "left", headerClasses: "col-auto" },
+  {name: "thumbnail", label: "", field: "thumbnail", align: "left", headerClasses: "col-auto"},
   {
     name: "domain",
     label: "Domain",
@@ -313,7 +325,7 @@ async function handleSaveTabs(): Promise<void> {
  *  idx 6 → 25 days → Old     (marked, GROUPED — leftmost group)
  */
 async function handleGenMockTabs(): Promise<void> {
-  const { default: browser } = await import('webextension-polyfill')
+  const {default: browser} = await import('webextension-polyfill')
 
   tabStore.loading = true
   tabStore.error = null
@@ -335,7 +347,7 @@ async function handleGenMockTabs(): Promise<void> {
 
     for (const mock of tabsToOpen) {
       if (mock.url) {
-        const tab = await browser.tabs.create({ url: mock.url, active: false })
+        const tab = await browser.tabs.create({url: mock.url, active: false})
         if (tab.id) tabIds.push(tab.id)
       }
     }
@@ -349,7 +361,7 @@ async function handleGenMockTabs(): Promise<void> {
 
     while (attempts < maxAttempts) {
       await new Promise(resolve => setTimeout(resolve, 1000))
-      allOpenTabs = await browser.tabs.query({ currentWindow: true })
+      allOpenTabs = await browser.tabs.query({currentWindow: true})
       loadedTabs = allOpenTabs.filter(tab => tabIds.includes(tab.id!))
       const allLoaded = loadedTabs.every((t: any) => t.favIconUrl || t.title)
       if (allLoaded) {
@@ -370,13 +382,19 @@ async function handleGenMockTabs(): Promise<void> {
 
     const spoofedTabs = loadedTabs.map((tab: any, idx: number) => {
       const daysAgo = idx < ageSpoofDays.length ? ageSpoofDays[idx] : ageSpoofDays[ageSpoofDays.length - 1]
-      return { ...tab, lastAccessed: now - daysAgo * dayMs }
+      return {...tab, lastAccessed: now - daysAgo * dayMs}
     })
 
     // Convert to ClassifiedTab so all store operations work correctly,
     // and reset isGrouped so the "Group by age" button reflects the fresh state.
     tabStore.$patch({
-      tabs: spoofedTabs.map((t: any) => ({ ...t, isMarked: false, ageColor: 'transparent', ageCssClass: '', ageIndex: 0 })),
+      tabs: spoofedTabs.map((t: any) => ({
+        ...t,
+        isMarked: false,
+        ageColor: 'transparent',
+        ageCssClass: '',
+        ageIndex: 0
+      })),
       isGrouped: false,
       error: null,
     })
@@ -415,10 +433,10 @@ async function handleGroupOrUngroup(): Promise<void> {
 
 function getFaviconBorderColor(row: { lastAccessClass?: string }): string {
   const cls = row.lastAccessClass ?? ''
-  if (cls.includes('green'))  return APP_DEFAULTS.AGE_COLOR_LIST.AGE_COLOR_FRESH
-  if (cls.includes('amber'))  return APP_DEFAULTS.AGE_COLOR_LIST.AGE_COLOR_YOUNG
+  if (cls.includes('green')) return APP_DEFAULTS.AGE_COLOR_LIST.AGE_COLOR_FRESH
+  if (cls.includes('amber')) return APP_DEFAULTS.AGE_COLOR_LIST.AGE_COLOR_YOUNG
   if (cls.includes('orange')) return APP_DEFAULTS.AGE_COLOR_LIST.AGE_COLOR_MIDDLE
-  if (cls.includes('red'))    return APP_DEFAULTS.AGE_COLOR_LIST.AGE_COLOR_OLD
+  if (cls.includes('red')) return APP_DEFAULTS.AGE_COLOR_LIST.AGE_COLOR_OLD
   return 'transparent'
 }
 </script>
@@ -478,19 +496,21 @@ function getFaviconBorderColor(row: { lastAccessClass?: string }): string {
   justify-content: center;
   width: 22px;
   height: 22px;
-  padding-left:   2px;  /* FAVICON_MARGIN — gap between icon and left border */
-  padding-bottom: 2px;  /* FAVICON_MARGIN — gap between icon and bottom border */
-  border-left:   2.5px solid var(--ring-color, transparent);
+  padding-left: 2px; /* FAVICON_MARGIN — gap between icon and left border */
+  padding-bottom: 2px; /* FAVICON_MARGIN — gap between icon and bottom border */
+  border-left: 2.5px solid var(--ring-color, transparent);
   border-bottom: 2.5px solid var(--ring-color, transparent);
-  border-top:    none;
-  border-right:  none;
+  border-top: none;
+  border-right: none;
 }
+
 .favicon-img {
   width: 16px;
   height: 16px;
   object-fit: contain;
   display: block;
 }
+
 .favicon-placeholder {
   font-size: 10px;
   color: #999;
