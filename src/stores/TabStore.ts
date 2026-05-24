@@ -262,12 +262,123 @@ export const useTabStore = defineStore('tabStore', {
                     func: TabDots.removeLBracketPageScript,
                     args: [],
                 })
-                this.tabs = this.tabs.map(t =>
-                    t.id === tabId ? { ...t, isMarked: false } : t
-                )
                 console.log(`[removeLBracket] tab#${tabId} mark removed`)
             } catch (err) {
-                console.debug(`[removeLBracket] tab#${tabId}:`, err instanceof Error ? err.message : err)
+                // Script injection failed (restricted page: chrome://, extension page, strict CSP)
+                // Visual L-bracket cannot be removed, but we MUST still reset the store state
+                console.debug(`[removeLBracket] tab#${tabId} script failed (restricted page?):`, err instanceof Error ? err.message : err)
+            }
+            // Always reset store state — even if script injection failed
+            this.tabs = this.tabs.map(t =>
+                t.id === tabId ? { ...t, isMarked: false } : t
+            )
+        },
+
+        /**
+         * Opens 7 real browser tabs with reliable URLs and spoofs their lastAccessed
+         * to cover all age categories (Fresh/Young/Middle/Old) for manual testing.
+         *
+         * ⚠️ NOTE for Playwright / CI environments:
+         * Some pages may be unavailable (network-restricted CI) or block executeScript
+         * (strict CSP). Use pages that are lightweight and allow extension script injection.
+         *
+         * Age distribution (default thresholds: young=7d, middle=14d, old=21d):
+         *  idx 0 →  1 day  → Fresh   (not marked)
+         *  idx 1 →  5 days → Fresh   (not marked)
+         *  idx 2 → 10 days → Young   (marked)
+         *  idx 3 → 13 days → Young   (marked)
+         *  idx 4 → 16 days → Middle  (marked, groupable)
+         *  idx 5 → 19 days → Middle  (marked, groupable)
+         *  idx 6 → 25 days → Old     (marked, groupable)
+         */
+        async loadMockTabs(): Promise<void> {
+            this.loading = true
+            this.error = null
+
+            // Reliable URLs: always load, have favicons, don't block executeScript via CSP
+            // Avoid: banking sites, login-walls, pages blocking non-standard browsers
+            const MOCK_URLS = [
+                'https://en.wikipedia.org/wiki/Main_Page',  // 1d  → Fresh
+                'https://github.com',                        // 5d  → Fresh
+                'https://developer.mozilla.org',             // 10d → Young
+                'https://stackoverflow.com',                 // 13d → Young
+                'https://www.youtube.com',                   // 16d → Middle
+                'https://news.ycombinator.com',              // 19d → Middle
+                'https://www.reddit.com',                    // 25d → Old
+            ]
+            const AGE_SPOOF_DAYS = [1, 5, 10, 13, 16, 19, 25]
+            const DAY_MS = 24 * 60 * 60 * 1000
+            const now = Date.now()
+
+            try {
+                // 1. Open tabs in background (active: false to avoid disrupting the user)
+                const tabIds: number[] = []
+                for (const url of MOCK_URLS) {
+                    const tab = await browser.tabs.create({ url, active: false })
+                    if (tab.id != null) tabIds.push(tab.id)
+                }
+
+                // 2. Poll until all tabs are complete AND have favicons (max 10s, 500ms intervals)
+                //    Some lightweight pages (HN, Wikipedia) load in <2s.
+                //    Some heavy pages (Reddit, YouTube) may take longer.
+                const startTime = Date.now()
+                const MAX_WAIT_MS = 10_000
+                let loadedTabs: Tabs.Tab[] = []
+                let allReady = false
+
+                while (Date.now() - startTime < MAX_WAIT_MS) {
+                    await new Promise(resolve => setTimeout(resolve, 500))
+                    const allCurrentTabs = await browser.tabs.query({ currentWindow: true })
+                    loadedTabs = allCurrentTabs.filter(t => tabIds.includes(t.id!))
+
+                    const completeCount  = loadedTabs.filter(t => t.status === 'complete').length
+                    const faviconCount   = loadedTabs.filter(t => t.favIconUrl).length
+                    const elapsed        = Date.now() - startTime
+
+                    console.log(`[loadMockTabs] ${elapsed}ms — status:complete ${completeCount}/${tabIds.length}, favicons ${faviconCount}/${tabIds.length}`)
+
+                    // Accept when ALL tabs are complete and at least 70% have favicons
+                    // (some sites like YouTube may use JS-rendered favicons that load slower)
+                    if (completeCount === tabIds.length && faviconCount >= Math.ceil(tabIds.length * 0.7)) {
+                        allReady = true
+                        console.log(`[loadMockTabs] ✅ All tabs ready (${elapsed}ms)`)
+                        break
+                    }
+                }
+
+                if (!allReady) {
+                    console.warn(`[loadMockTabs] ⚠️ Timeout — proceeding with ${loadedTabs.filter(t => t.favIconUrl).length}/${tabIds.length} favicons`)
+                }
+
+                // 3. Build ClassifiedTab array with spoofed lastAccessed
+                const spoofedTabs: ClassifiedTab[] = loadedTabs.map((tab, idx) => {
+                    const daysAgo = idx < AGE_SPOOF_DAYS.length
+                        ? AGE_SPOOF_DAYS[idx]
+                        : AGE_SPOOF_DAYS[AGE_SPOOF_DAYS.length - 1]
+                    return {
+                        ...ClassifiedTabFactory.fromTab(tab, false),
+                        lastAccessed: now - daysAgo * DAY_MS,
+                    }
+                })
+
+                // 4. Replace store tabs with the 7 mock tabs (reset grouping + marks)
+                this.$patch({
+                    tabs: spoofedTabs,
+                    isGrouped: false,
+                    error: null,
+                })
+
+                // 5. Apply L-bracket age overlays (marks Young/Middle/Old tabs)
+                await this.markOldTabs()
+
+                console.log('[loadMockTabs] ✅ Mock tabs ready:', spoofedTabs.length, {
+                    marked: this.tabs.filter(t => t.isMarked).length,
+                    withFavicons: this.tabs.filter(t => t.favIconUrl).length,
+                })
+            } catch (err) {
+                this.error = err instanceof Error ? err.message : 'Unknown error while loading mock tabs'
+            } finally {
+                this.loading = false
             }
         },
 
