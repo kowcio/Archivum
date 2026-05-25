@@ -421,6 +421,13 @@ export const useTabStore = defineStore('tabStore', {
             this.error = null
             this.loading = true
             try {
+                // Capture the set of previously-marked tab IDs BEFORE removing brackets.
+                // After re-querying, the browser may still return a stale data: favIconUrl
+                // for these tabs (cached by the browser) — we strip it below.
+                const previouslyMarkedIds = new Set(
+                    this.tabs.filter(t => t.isMarked && t.id != null).map(t => t.id as number),
+                )
+
                 // Ungroup first (Chrome-only, silently fails on Firefox)
                 if (this.isGrouped) await this.ungroupAllTabs()
 
@@ -437,7 +444,15 @@ export const useTabStore = defineStore('tabStore', {
 
                 // Reload store from the full browser tab list (no stale marks)
                 const freshTabs: Tabs.Tab[] = await browser.tabs.query({ currentWindow: true })
-                this.tabs = ClassifiedTabFactory.fromTabs(freshTabs)
+                this.tabs = ClassifiedTabFactory.fromTabs(freshTabs).map(tab => {
+                    // Strip stale L-bracket data URL: the browser caches the injected favicon
+                    // even after removeLBracketPageScript runs, so favIconUrl may still be a
+                    // data: URL for tabs that were previously marked.
+                    if (tab.id != null && previouslyMarkedIds.has(tab.id) && tab.favIconUrl?.startsWith('data:')) {
+                        return { ...tab, favIconUrl: undefined }
+                    }
+                    return tab
+                })
                 this.isGrouped = false
 
                 console.log('[reset] ✅ Clean slate — tabs:', this.tabs.length)
@@ -454,8 +469,8 @@ export const useTabStore = defineStore('tabStore', {
         async resetAllTabMarks(): Promise<void> { await this.reset() },
 
         /**
-         * Groups Middle + Old tabs by age. Fresh and Young tabs are NOT grouped.
-         * Old group is leftmost. Returns number of groups created.
+         * Groups Middle + Old + Young tabs by age. Fresh tabs are NOT grouped.
+         * Old group is leftmost, then Middle, then Young. Returns number of groups created.
          */
         async groupTabsByAge(): Promise<number> {
             this.error = null
@@ -479,11 +494,13 @@ export const useTabStore = defineStore('tabStore', {
                 }
 
                 const boundaries = useGlobalStore().thresholdsArray
+                const boundariesYoung = boundaries[0]
                 const boundariesMiddle = boundaries[1]
                 const boundariesOld = boundaries[2]
 
                 const oldTabIds: number[] = []
                 const middleTabIds: number[] = []
+                const youngTabIds: number[] = []
 
                 const tabRows = TabRow.fromTabs(this.tabs, boundaries)
                 const sortedRows = [...tabRows].sort((a, b) => (b.lastAccess ?? 0) - (a.lastAccess ?? 0))
@@ -493,9 +510,10 @@ export const useTabStore = defineStore('tabStore', {
                     const classification = this.getAgeClassification(row, boundaries)
                     if (classification.isOld) oldTabIds.push(row.id)
                     else if (classification.isMiddle) middleTabIds.push(row.id)
+                    else if (classification.isYoung) youngTabIds.push(row.id)
                 }
 
-                if (oldTabIds.length === 0 && middleTabIds.length === 0) {
+                if (oldTabIds.length === 0 && middleTabIds.length === 0 && youngTabIds.length === 0) {
                     console.log('[groupTabsByAge] No tabs older than YOUNG threshold')
                     this.isGrouped = false
                     return 0
@@ -517,9 +535,10 @@ export const useTabStore = defineStore('tabStore', {
                     }
                 }
 
+                let middleGroupId: number | null = null
                 if (middleTabIds.length > 0) {
                     try {
-                        const middleGroupId = await chromeApi.tabs.group!({ tabIds: middleTabIds })
+                        middleGroupId = await chromeApi.tabs.group!({ tabIds: middleTabIds })
                         await chromeApi.tabGroups.update!(middleGroupId, {
                             title: `🟠 Middle (${boundariesMiddle}d+)`,
                             color: 'orange',
@@ -532,11 +551,37 @@ export const useTabStore = defineStore('tabStore', {
                     }
                 }
 
-                if (oldGroupId !== null && chromeApi.tabGroups?.move) {
+                let youngGroupId: number | null = null
+                if (youngTabIds.length > 0) {
                     try {
-                        await chromeApi.tabGroups.move(oldGroupId, { index: 0 })
+                        youngGroupId = await chromeApi.tabs.group!({ tabIds: youngTabIds })
+                        await chromeApi.tabGroups.update!(youngGroupId, {
+                            title: `🟡 Young (${boundariesYoung}d+)`,
+                            color: 'yellow',
+                            collapsed: false,
+                        })
+                        groupsCreated++
+                        console.log(`[groupTabsByAge] ✅ YOUNG group#${youngGroupId} (${youngTabIds.length} tabs)`)
                     } catch (err) {
-                        console.debug('[groupTabsByAge] Move error:', err instanceof Error ? err.message : err)
+                        console.debug('[groupTabsByAge] Young group error:', err instanceof Error ? err.message : err)
+                    }
+                }
+
+                if (chromeApi.tabGroups?.move) {
+                    // Move in reverse order: Young→0, Middle→0, Old→0
+                    // Each subsequent move pushes the previous to the right
+                    // Final order: Old | Middle | Young | <ungrouped Fresh>
+                    for (const [groupId, label] of [
+                        [youngGroupId, 'Young'],
+                        [middleGroupId, 'Middle'],
+                        [oldGroupId, 'Old'],
+                    ] as [number | null, string][]) {
+                        if (groupId === null) continue
+                        try {
+                            await chromeApi.tabGroups.move(groupId, { index: 0 })
+                        } catch (err) {
+                            console.debug(`[groupTabsByAge] Move ${label} error:`, err instanceof Error ? err.message : err)
+                        }
                     }
                 }
 

@@ -266,3 +266,93 @@ describe('TabStore › loadTabsHistory', () => {
   })
 })
 
+describe('TabStore › groupTabsByAge › includes Young tabs', () => {
+    beforeEach(() => {
+        vi.clearAllMocks()
+        setActivePinia(createPinia())
+    })
+
+    it('collects youngTabIds when classification.isYoung', async () => {
+        // Default thresholds: young=7, middle=14, old=21
+        // 10 days → Young (index 1)
+        const store = useTabStore()
+        const youngTab = tabWithAge(10, 10)   // 10 days → Young
+        const oldTab   = tabWithAge(20, 25)   // 25 days → Old
+        store.$patch({ tabs: [youngTab, oldTab] as any })
+
+        // Mock chrome.tabs.group and chrome.tabGroups
+        const groupMock  = vi.fn().mockResolvedValue(1)
+        const updateMock = vi.fn().mockResolvedValue(undefined)
+        const moveMock   = vi.fn().mockResolvedValue(undefined)
+        ;(globalThis as any).chrome = {
+            tabs:      { group: groupMock },
+            tabGroups: { update: updateMock, move: moveMock },
+        }
+
+        const created = await store.groupTabsByAge()
+
+        // Old + Young = 2 groups (no Middle tabs in this test)
+        expect(created).toBeGreaterThanOrEqual(1)
+        expect(groupMock).toHaveBeenCalled()
+    })
+})
+
+describe('TabStore › reset › strips stale L-bracket favicons', () => {
+    beforeEach(() => {
+        vi.clearAllMocks()
+        setActivePinia(createPinia())
+    })
+
+    it('clears data URL favIconUrl for previously marked tabs after reset', async () => {
+        const store = useTabStore()
+        // Tab is marked with isMarked=true
+        const markedTab = {
+            ...tabWithAge(1, 20),
+            isMarked: true,
+            ageColor: '#fb8c00',
+            ageCssClass: 'bg-orange-2 text-orange-10',
+            ageIndex: 2,
+            markedFaviconDataUrl: 'data:image/png;base64,abc123',
+        }
+        store.$patch({ tabs: [markedTab] as any })
+
+        const { default: browser } = await import('webextension-polyfill')
+        // Simulate browser returning the tab with a stale data URL favicon
+        const freshTab = {
+            ...tabWithAge(1, 20),
+            favIconUrl: 'data:image/png;base64,abc123',  // stale L-bracket
+        }
+        vi.mocked(browser.tabs.query).mockResolvedValue([freshTab] as any)
+
+        await store.reset()
+
+        // The stale data URL favicon should be stripped
+        expect(store.tabs[0].favIconUrl).toBeUndefined()
+        expect(store.tabs[0].isMarked).toBe(false)
+    })
+
+    it('preserves normal https favicons for previously-marked tabs after reset', async () => {
+        const store = useTabStore()
+        const markedTab = {
+            ...tabWithAge(1, 20),
+            isMarked: true,
+            ageColor: '#fb8c00',
+            ageCssClass: '',
+            ageIndex: 2,
+        }
+        store.$patch({ tabs: [markedTab] as any })
+
+        const { default: browser } = await import('webextension-polyfill')
+        const freshTab = {
+            ...tabWithAge(1, 20),
+            favIconUrl: 'https://example.com/favicon.ico',
+        }
+        vi.mocked(browser.tabs.query).mockResolvedValue([freshTab] as any)
+
+        await store.reset()
+
+        // Normal HTTPS favicon should be preserved
+        expect(store.tabs[0].favIconUrl).toBe('https://example.com/favicon.ico')
+    })
+})
+

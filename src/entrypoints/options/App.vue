@@ -94,7 +94,7 @@
           wrap-cells
           virtual-scroll
           :rows-per-page-options="[0]"
-          :pagination="{ sortBy: 'lastAccess', descending: true }"
+          :pagination="{ sortBy: 'ordinal', descending: false }"
         >
           <template #body="props">
             <q-tr :props="props" :data-testid="`row-${props.row.rowKey}`">
@@ -256,13 +256,12 @@ const columns: QTableProps["columns"] = [
 ];
 
 const rows = computed(() => {
-  // Sort grouped tabs to the beginning (by groupId), then unrouped tabs
+  // Sort by browser tab position (ordinal/index) ascending, then most recently accessed first
   const sortedTabs = [...storeTabs.value].sort((a, b) => {
-    const aGroupId = a.groupId !== undefined ? 0 : 1
-    const bGroupId = b.groupId !== undefined ? 0 : 1
-    if (aGroupId !== bGroupId) return aGroupId - bGroupId
-    if (aGroupId === 0) return (a.groupId ?? 0) - (b.groupId ?? 0)
-    return 0
+    // Primary: browser tab position (ordinal)
+    if (a.index !== b.index) return a.index - b.index
+    // Secondary: most recently accessed first
+    return (b.lastAccessed ?? 0) - (a.lastAccessed ?? 0)
   })
 
   return TabRow.fromTabs(sortedTabs, global.thresholdsArray)
