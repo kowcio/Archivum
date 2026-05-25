@@ -14,6 +14,17 @@ import { TabsSnapshot } from '@/models/tabs/TabsSnapshot'
 export type { ClassifiedTab }
 export { AgeClassification, TabsSnapshot }
 
+/**
+ * TabRow enriched with display-only fields computed at render time.
+ * Returned by the tabRows getter — use this type in components.
+ */
+export type EnrichedTabRow = TabRow & {
+    /** 1-based position in the sorted list */
+    ordinal: number
+    /** Human-readable age string e.g. "10d" or "—" */
+    lastAccessAge: string
+}
+
 /** @deprecated Use APP_DEFAULTS.TAB_HISTORY_KEY */
 export const TAB_HISTORY_KEY = APP_DEFAULTS.TAB_HISTORY_KEY
 
@@ -35,6 +46,40 @@ export const useTabStore = defineStore('tabStore', {
         error: null,
         isGrouped: false,
     }),
+
+    getters: {
+        /**
+         * Sorted, enriched tab rows ready for display in the table.
+         *
+         * Sort order: youngest (most recently accessed) first → oldest last.
+         * Tabs without a lastAccessed timestamp are placed at the end.
+         *
+         * Each row is a TabRow decorated with:
+         *  - ordinal       — 1-based position in the sorted list
+         *  - lastAccessAge — human-readable age string ("10d" / "—")
+         *  - lastAccessClass — Quasar CSS class from AgeClassification
+         */
+        tabRows(): EnrichedTabRow[] {
+            const globalStore = useGlobalStore()
+            const boundaries = globalStore.thresholdsArray
+
+            const sorted = [...this.tabs].sort(
+                (a, b) => (b.lastAccessed ?? 0) - (a.lastAccessed ?? 0),
+            )
+
+            return TabRow.fromTabs(sorted, boundaries).map((row, index) => {
+                const days = Number.isFinite(row.lastAccessDays) ? (row.lastAccessDays ?? 0) : 0
+                const classification = AgeClassification.fromDays(days, boundaries)
+                return {
+                    ...row,
+                    ordinal: index + 1,
+                    lastAccessAge: Number.isFinite(row.lastAccessDays) ? `${row.lastAccessDays}d` : '—',
+                    lastAccessClass: classification.cssClass,
+                } as EnrichedTabRow
+            })
+        },
+    },
+
     actions: {
         async getAllOpenedTabs(): Promise<ClassifiedTab[]> {
             this.loading = true
