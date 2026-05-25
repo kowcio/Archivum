@@ -256,13 +256,10 @@ const columns: QTableProps["columns"] = [
 ];
 
 const rows = computed(() => {
-  // Sort by browser tab position (ordinal/index) ascending, then most recently accessed first
-  const sortedTabs = [...storeTabs.value].sort((a, b) => {
-    // Primary: browser tab position (ordinal)
-    if (a.index !== b.index) return a.index - b.index
-    // Secondary: most recently accessed first
-    return (b.lastAccessed ?? 0) - (a.lastAccessed ?? 0)
-  })
+  // Sort youngest (most recently accessed) at the top, oldest at the bottom
+  const sortedTabs = [...storeTabs.value].sort(
+    (a, b) => (b.lastAccessed ?? 0) - (a.lastAccessed ?? 0)
+  )
 
   return TabRow.fromTabs(sortedTabs, global.thresholdsArray)
     .map((row, index) => {
