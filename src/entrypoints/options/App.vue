@@ -116,8 +116,7 @@
                   </button>
                 </template>
                 <template v-else-if="col.name === 'thumbnail'">
-                  <div class="favicon-wrapper"
-                       :style="{ '--ring-color': getFaviconBorderColor(props.row) }">
+                  <div class="favicon-wrapper">
                     <img v-if="props.row.thumbnail" :src="props.row.thumbnail" alt="favicon"
                          width="16" height="16" class="favicon-img"/>
                     <span v-else class="favicon-placeholder">—</span>
@@ -167,7 +166,6 @@ import type {QTableProps} from "quasar"
 import {TabRow} from "@/models/tabs/TabRow"
 import Thresholds from "@/components/Thresholds.vue"
 import AppTitle from "@/components/Title.vue"
-import {APP_DEFAULTS} from "@/constants"
 
 const global = useGlobalStore()
 const tabStore = useTabStore()
@@ -336,14 +334,7 @@ async function handleGroupOrUngroup(): Promise<void> {
   }
 }
 
-function getFaviconBorderColor(row: { lastAccessClass?: string }): string {
-  const cls = row.lastAccessClass ?? ''
-  if (cls.includes('green')) return APP_DEFAULTS.AGE_COLOR_LIST.AGE_COLOR_FRESH
-  if (cls.includes('amber')) return APP_DEFAULTS.AGE_COLOR_LIST.AGE_COLOR_YOUNG
-  if (cls.includes('orange')) return APP_DEFAULTS.AGE_COLOR_LIST.AGE_COLOR_MIDDLE
-  if (cls.includes('red')) return APP_DEFAULTS.AGE_COLOR_LIST.AGE_COLOR_OLD
-  return 'transparent'
-}
+function getFaviconBorderColor(_row: unknown): string { return 'transparent' }
 </script>
 
 <style></style>
@@ -401,12 +392,6 @@ function getFaviconBorderColor(row: { lastAccessClass?: string }): string {
   justify-content: center;
   width: 22px;
   height: 22px;
-  padding-left: 2px; /* FAVICON_MARGIN — gap between icon and left border */
-  padding-bottom: 2px; /* FAVICON_MARGIN — gap between icon and bottom border */
-  border-left: 2.5px solid var(--ring-color, transparent);
-  border-bottom: 2.5px solid var(--ring-color, transparent);
-  border-top: none;
-  border-right: none;
 }
 
 .favicon-img {

@@ -13,6 +13,12 @@ export type ClassifiedTab = Tabs.Tab & {
     ageCssClass: string
     /** 0=Fresh 1=Young 2=Middle 3=Old (from AgeClassification.index). */
     ageIndex: number
+    /**
+     * Pre-rendered favicon+L-bracket data URL (OffscreenCanvas in extension context).
+     * Set by markTabWithLBracket, cleared by removeLBracket.
+     * Used by TabRow.thumbnail so the table shows the SAME image as the browser tab bar.
+     */
+    markedFaviconDataUrl?: string | null
 }
 
 /** Factory helpers for creating and mutating ClassifiedTab instances. */
@@ -29,6 +35,7 @@ export class ClassifiedTabFactory {
             ageColor: 'transparent',
             ageCssClass: '',
             ageIndex: 0,
+            markedFaviconDataUrl: undefined,
         }
     }
 

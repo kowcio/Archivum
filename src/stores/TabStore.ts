@@ -42,11 +42,21 @@ export const useTabStore = defineStore('tabStore', {
             try {
                 const fetchedTabs: Tabs.Tab[] = await browser.tabs.query({ currentWindow: true })
 
-                // Preserve isMarked from previous load (by tab ID)
-                const previouslyMarkedIds = new Set(
-                    this.tabs.filter(t => t.isMarked && t.id != null).map(t => t.id!)
-                )
-                this.tabs = ClassifiedTabFactory.fromTabs(fetchedTabs, previouslyMarkedIds)
+                // Build a quick lookup of existing store entries
+                const existingById = new Map(this.tabs.map(t => [t.id, t]))
+
+                // Merge fetched tabs with existing store state:
+                //  - favIconUrl, title, url, status come from browser (fresh)
+                //  - lastAccessed is PRESERVED from store if tab already exists
+                //    → allows mock-spoofed ages to survive a Load Tabs click
+                //  - isMarked is reset to false so markOldTabs() will re-evaluate
+                this.tabs = fetchedTabs.map(fetchedTab => {
+                    const existing = fetchedTab.id != null ? existingById.get(fetchedTab.id) : undefined
+                    const base = ClassifiedTabFactory.fromTab(fetchedTab, false)
+                    return existing != null
+                        ? { ...base, lastAccessed: existing.lastAccessed ?? fetchedTab.lastAccessed }
+                        : base
+                })
 
                 await this.waitForFaviconsLoaded(3000)
                 await this.markOldTabs()
@@ -228,28 +238,52 @@ export const useTabStore = defineStore('tabStore', {
             }
         },
 
-        /** Injects the L-bracket age indicator onto the tab favicon. */
+        /**
+         * Marks a tab with the L-bracket age indicator.
+         *
+         * Flow:
+         *  1. Fetch original favicon (extension context, CORS-safe)
+         *  2. Render favicon + L-bracket via OffscreenCanvas → single data:URL
+         *  3. Store rendered URL in ClassifiedTab.markedFaviconDataUrl → table shows it
+         *  4. Inject the same URL into the page via executeScript → browser tab bar shows it
+         *
+         * isMarked is set BEFORE executeScript so store state is always consistent
+         * even when executeScript fails (restricted pages: chrome://, extension pages).
+         */
         async markTabWithLBracket(tabId: number, color: string): Promise<void> {
-            try {
-                const tabIndex = this.tabs.findIndex((t) => t.id === tabId)
-                if (tabIndex === -1) return
+            // Mark store state immediately — visual tab bar injection is best-effort
+            this.tabs = this.tabs.map(t =>
+                t.id === tabId ? { ...t, isMarked: true } : t
+            )
 
-                const tab = this.tabs[tabIndex]
+            try {
+                const tab = this.tabs.find(t => t.id === tabId)
+                if (!tab) return
+
+                // 1. Fetch original favicon (extension context — CORS-safe)
                 const faviconDataUrl = tab.favIconUrl
                     ? await TabDots.fetchFaviconDataUrl(tab.favIconUrl)
                     : null
 
+                // 2. Render favicon + L-bracket once in extension context (OffscreenCanvas)
+                const renderedDataUrl = await TabDots.renderLBracketDataUrl(faviconDataUrl, color)
+
+                // 3. Store rendered URL → table thumbnail shows the L-bracket image
+                this.tabs = this.tabs.map(t =>
+                    t.id === tabId ? { ...t, markedFaviconDataUrl: renderedDataUrl } : t
+                )
+
+                // 4. Inject pre-rendered URL into the page (no canvas work in page)
                 await browser.scripting.executeScript({
                     target: { tabId },
                     func: TabDots.applyLBracketPageScript,
-                    args: [color, faviconDataUrl],
+                    args: [renderedDataUrl],
                 })
 
-                this.tabs = this.tabs.map(t =>
-                    t.id === tabId ? { ...t, isMarked: true } : t
-                )
                 console.log(`[markTabWithLBracket] tab#${tabId} marked`)
             } catch (err) {
+                // Page cannot have scripts injected (restricted/extension page)
+                // markedFaviconDataUrl may not be set, table falls back to raw favIconUrl
                 console.debug(`[markTabWithLBracket] tab#${tabId}:`, err instanceof Error ? err.message : err)
             }
         },
@@ -270,7 +304,7 @@ export const useTabStore = defineStore('tabStore', {
             }
             // Always reset store state — even if script injection failed
             this.tabs = this.tabs.map(t =>
-                t.id === tabId ? { ...t, isMarked: false } : t
+                t.id === tabId ? { ...t, isMarked: false, markedFaviconDataUrl: undefined } : t
             )
         },
 
@@ -363,19 +397,17 @@ export const useTabStore = defineStore('tabStore', {
                     }
                 })
 
-                // 4. Replace store tabs with the 7 mock tabs (reset grouping + marks)
+                // 4. Replace store tabs with the mock tabs (reset grouping + marks)
                 this.$patch({
                     tabs: spoofedTabs,
                     isGrouped: false,
                     error: null,
                 })
 
-                // 5. Apply L-bracket age overlays (marks Young/Middle/Old tabs)
-                await this.markOldTabs()
-
-                console.log('[loadMockTabs] ✅ Mock tabs ready:', spoofedTabs.length, {
-                    marked: this.tabs.filter(t => t.isMarked).length,
-                    withFavicons: this.tabs.filter(t => t.favIconUrl).length,
+                // ℹ️ Intentionally NOT calling markOldTabs() here.
+                // L-bracket marking happens only when the user clicks "Load Tabs" (getAllOpenedTabs).
+                console.log('[loadMockTabs] ✅ Mock tabs ready (unmarked):', spoofedTabs.length, {
+                    withFavicons: spoofedTabs.filter(t => t.favIconUrl).length,
                 })
             } catch (err) {
                 this.error = err instanceof Error ? err.message : 'Unknown error while loading mock tabs'
