@@ -1,10 +1,10 @@
 <template>
-  <div class="app-options-wrapper q-mb-xl">
+  <div class="app-options-wrapper ">
     <AppTitle>
       <AppTitle/>
     </AppTitle>
 
-    <div class="app-options-wrapper-body">
+    <div class="">
       <p class="text-caption q-mx-sm text-grey-6 q-mt-sm">No tabs loaded yet.</p>
 
       <!-- ── Primary buttons grid (square buttons, 2 columns) ───────────────── -->
@@ -84,7 +84,7 @@ onMounted(() => {
 
 
 .app-options-wrapper {
-  min-width: 250px;
+  min-width: 300px;
 }
 
 /* Grid for square action buttons */
