@@ -76,15 +76,6 @@ export class TabRow {
   }
 
   /**
-   * Truncates text to 100 characters, splitting by "|" first so we get only the relevant title
-   */
-  private truncateText(text: string | undefined): string {
-    if (!text) return '';
-    const firstPart = text.split('|')[0];
-    return firstPart.length > 100 ? firstPart.substring(0, 100) + '...' : firstPart;
-  }
-
-  /**
    * Gets the Quasar background color class based on age in days.
    * Boundaries come from globalStore DEFAULT_THRESHOLDS (young / middle / old).
    */
@@ -105,18 +96,6 @@ export class TabRow {
     return lastIndex !== -1 ? text.slice(0, lastIndex).trim() : text
   }
 
-  /**
-   * Adds a colored dot to the title based on age in days
-   */
-  private addDotToTitle(title: string, days: number, [young, middle, old]: ThresholdBoundaries): string {
-    if (!Number.isFinite(days)) return title;
-    let dot: string;
-    if      (days <= young)  dot = '🟢';
-    else if (days <= middle) dot = '🟡';
-    else if (days <= old)    dot = '🟠';
-    else                     dot = '🔴';
-    return `${dot} ${title}`;
-  }
 
   /**
    * Static factory method to create multiple TabRows from array of Tabs.Tab

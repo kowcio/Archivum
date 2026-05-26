@@ -1,62 +1,60 @@
 <template>
-  <AppTitle>
-  <AppTitle />
-  </AppTitle>
+  <div class="app-options-wrapper q-mb-xl">
+    <AppTitle>
+      <AppTitle/>
+    </AppTitle>
 
-  <!-- ── Tab list ──────────────────────────────────────────────── -->
-  <div class="q-px-md q-pb-sm">
-    <ul class="tab-list" v-if="tabStore.tabs.length">
-      <li class="tab-item" v-for="(tab, index) in tabStore.tabs" :key="tab.id">
-        {{ index + 1 }}. {{ tab.title }}
-      </li>
-    </ul>
-    <p v-else class="text-caption text-grey-6 q-mt-sm">No tabs loaded yet.</p>
+    <div class="app-options-wrapper-body">
+      <p class="text-caption q-mx-sm text-grey-6 q-mt-sm">No tabs loaded yet.</p>
 
-    <!-- ── Primary buttons row ─────────────────────────────────── -->
-    <div class="row q-gutter-sm q-mt-sm">
-      <q-btn
-        class="got-btn-primary col"
-        label="Update Tabs"
-        icon="refresh"
-        :loading="tabStore.loading"
-        @click="loadTabs"
-        unelevated
-        no-caps
-      />
-      <q-btn
-        class="got-btn-secondary col"
-        label="Option Full – Manage Plugin"
-        icon="dashboard_customize"
-        @click="openOptionsPageFull"
-        unelevated
-        no-caps
-      />
-    </div>
+      <!-- ── Primary buttons grid (square buttons, 2 columns) ───────────────── -->
+      <div class="square-grid ">
+        <q-btn
+          class="got-btn-primary  square-btn"
+          label="Update tabs"
+          icon="refresh"
+          :loading="tabStore.loading"
+          @click="loadTabs"
+          elevated
+          no-caps
+          fab
+        />
 
-    <!-- ── Secondary button row ────────────────────────────────── -->
-    <div class="row q-mt-sm">
-      <q-btn
-        class="got-btn-ghost col"
-        label="Option – Browser Plugin Options"
-        icon="settings"
-        size="sm"
-        @click="openOptionsPage"
-        flat
-        no-caps
-      />
+        <q-btn
+          class="got-btn-secondary square-btn"
+          label="Manage plugin"
+          icon="dashboard_customize"
+          @click="openOptionsPageFull"
+          elevated
+          no-caps
+          fab
+        />
+
+        <q-btn
+          class="got-btn-ghost square-btn"
+          label="Browser options"
+          icon="settings"
+          @click="openOptionsPage"
+          elevated
+          no-caps
+          fab
+        />
+      </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import {onMounted} from 'vue'
 import browser from 'webextension-polyfill'
-import { useTabStore } from '@/stores/TabStore'
+import {useTabStore} from '@/stores/TabStore'
 import AppTitle from '@/components/Title.vue'
 
 const tabStore = useTabStore()
+const loadDate = ref<Date>()
 
 async function loadTabs(): Promise<void> {
+
   await tabStore.getAllOpenedTabs()
 }
 
@@ -83,24 +81,41 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.tab-list {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  max-height: 260px;
-  overflow-y: auto;
+
+
+.app-options-wrapper {
+  min-width: 250px;
 }
 
-.tab-item {
-  padding: 5px 8px;
-  margin: 3px 0;
-  border-radius: 6px;
-  background: rgba(255, 255, 255, 0.65);
-  font-size: 0.8rem;
-  color: #37474f;
-  border-left: 3px solid var(--got-orange-light, #ff9e40);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+/* Grid for square action buttons */
+.square-grid {
+  display: grid;
+  /* fixed column size to keep buttons square and predictable */
+  grid-template-columns: repeat(2, 100px);
+  justify-items: center; /* center buttons inside each cell */
+  /* center the whole grid inside its parent and give it a small margin (q-ma-sm like) */
+  margin: 0.5rem auto;
+  width: max-content;
+}
+
+/* Make q-btn appear square and stack icon + label vertically */
+.square-btn {
+  width: 50px;
+  height: 90px;
+  min-width: 90px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  text-align: center;
+  margin: 0.5rem auto;
+
+}
+
+/* Ensure Quasar internal content stacks vertically inside our button */
+.square-btn .q-btn__content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 </style>

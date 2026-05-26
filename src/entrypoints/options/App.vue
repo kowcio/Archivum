@@ -85,7 +85,7 @@
           data-testid="current-tabs-table"
           title="Open Tabs"
           :columns="columns"
-          :rows="rows"
+          :rows="tabRows"
           class="rounded-borders bg-grey-1 q-table--striped table-wrapper"
           row-key="rowKey"
           flat
@@ -158,18 +158,17 @@
 </template>
 
 <script setup lang="ts">
-import {computed, onMounted} from "vue"
+import {onMounted} from "vue"
 import {storeToRefs} from "pinia"
 import {useGlobalStore} from "@/stores/globalStore.ts"
 import {useTabStore} from "@/stores/TabStore"
 import type {QTableProps} from "quasar"
-import {TabRow} from "@/models/tabs/TabRow"
 import Thresholds from "@/components/Thresholds.vue"
 import AppTitle from "@/components/Title.vue"
 
 const global = useGlobalStore()
 const tabStore = useTabStore()
-const {tabs: storeTabs} = storeToRefs(tabStore)
+const { tabRows } = storeToRefs(tabStore)
 const excerptLength = 50
 
 /**
@@ -255,23 +254,6 @@ const columns: QTableProps["columns"] = [
   },
 ];
 
-const rows = computed(() => {
-  // Sort youngest (most recently accessed) at the top, oldest at the bottom
-  const sortedTabs = [...storeTabs.value].sort(
-    (a, b) => (b.lastAccessed ?? 0) - (a.lastAccessed ?? 0)
-  )
-
-  return TabRow.fromTabs(sortedTabs, global.thresholdsArray)
-    .map((row, index) => {
-      const ageClassification = tabStore.getAgeClassification(row, global.thresholdsArray)
-      return {
-        ...row,
-        ordinal: index + 1,
-        lastAccessAge: Number.isFinite(row.lastAccessDays) ? `${row.lastAccessDays}d` : "—",
-        lastAccessClass: ageClassification.cssClass,
-      };
-    })
-});
 
 onMounted(async () => {
   await global.init()
@@ -330,7 +312,6 @@ async function handleGroupOrUngroup(): Promise<void> {
   }
 }
 
-function getFaviconBorderColor(_row: unknown): string { return 'transparent' }
 </script>
 
 <style></style>

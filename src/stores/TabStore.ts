@@ -106,6 +106,19 @@ export const useTabStore = defineStore('tabStore', {
                 await this.waitForFaviconsLoaded(3000)
                 await this.markOldTabs()
 
+                // Edge-case #5: up to 30% of tabs might have missed the favicon poll threshold.
+                // After marking, re-render any marked tab that still has no markedFaviconDataUrl
+                // but now has a favIconUrl (favicon loaded between poll cutoff and now).
+                const lateFaviconTabs = this.tabs.filter(
+                    t => t.isMarked && !t.markedFaviconDataUrl && t.favIconUrl && !t.favIconUrl.startsWith('data:')
+                )
+                if (lateFaviconTabs.length > 0) {
+                    console.log(`[getAllOpenedTabs] Re-rendering ${lateFaviconTabs.length} late-favicon tabs`)
+                    await Promise.all(
+                        lateFaviconTabs.map(t => this.markTabWithLBracket(t.id!, t.ageColor))
+                    )
+                }
+
                 console.log('Loaded opened tabs:', this.tabs.length, {
                     withFavicons: this.tabs.filter(t => t.favIconUrl).length,
                     marked: this.tabs.filter(t => t.isMarked).length,
@@ -141,11 +154,16 @@ export const useTabStore = defineStore('tabStore', {
 
                         if (withFavicons >= Math.max(1, total * 0.7)) {
                             console.log(`[waitForFaviconsLoaded] ✅ ${withFavicons}/${total} favicons ready (${elapsed}ms)`)
-                            // Merge favicon URLs — preserve isMarked + age fields
+                            // Merge favicon URLs — preserve isMarked + age fields.
+                            // IMPORTANT: skip stale data: URLs the browser may have cached from a
+                            // previous markTabWithLBracket run — they would cause a double-bracket.
                             this.tabs = updatedTabs.map(updatedTab => {
                                 const existing = this.tabs.find(t => t.id === updatedTab.id)
+                                const freshFavicon = updatedTab.favIconUrl?.startsWith('data:')
+                                    ? existing?.favIconUrl   // keep existing non-data URL (or undefined)
+                                    : updatedTab.favIconUrl  // use browser value (real URL or undefined)
                                 return existing
-                                    ? { ...existing, favIconUrl: updatedTab.favIconUrl }
+                                    ? { ...existing, favIconUrl: freshFavicon }
                                     : ClassifiedTabFactory.fromTab(updatedTab)
                             })
                             resolve()
@@ -305,9 +323,38 @@ export const useTabStore = defineStore('tabStore', {
                 const tab = this.tabs.find(t => t.id === tabId)
                 if (!tab) return
 
+                // Edge-case #1: browser may cache the previous markTabWithLBracket data: URL
+                // in favIconUrl even after reset(). Rendering L-bracket on top of an L-bracket
+                // produces a broken double-bracket. Treat any data: URL as "no favicon".
+                const rawFaviconUrl = tab.favIconUrl?.startsWith('data:') ? undefined : tab.favIconUrl
+                if (tab.favIconUrl?.startsWith('data:')) {
+                    console.debug(`[markTabWithLBracket] tab#${tabId} stale data: favicon skipped`)
+                }
+
+                // Edge-case #3: executeScript on a still-loading tab silently fails in the tab bar.
+                // Wait up to 2s for the tab to reach status=complete before injecting.
+                if (tab.status !== 'complete') {
+                    console.debug(`[markTabWithLBracket] tab#${tabId} status=${tab.status}, waiting for complete…`)
+                    await new Promise<void>(resolve => {
+                        const POLL = 300
+                        const MAX  = 2000
+                        let elapsed = 0
+                        const check = async () => {
+                            const [updated] = await browser.tabs.query({ currentWindow: true }).then(
+                                ts => ts.filter(t => t.id === tabId)
+                            )
+                            if (updated?.status === 'complete') { resolve(); return }
+                            elapsed += POLL
+                            if (elapsed >= MAX) { resolve(); return }
+                            setTimeout(check, POLL)
+                        }
+                        check()
+                    })
+                }
+
                 // 1. Fetch original favicon (extension context — CORS-safe)
-                const faviconDataUrl = tab.favIconUrl
-                    ? await TabDots.fetchFaviconDataUrl(tab.favIconUrl)
+                const faviconDataUrl = rawFaviconUrl
+                    ? await TabDots.fetchFaviconDataUrl(rawFaviconUrl)
                     : null
 
                 // 2. Render favicon + L-bracket once in extension context (OffscreenCanvas)
