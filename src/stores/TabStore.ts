@@ -321,26 +321,41 @@ export const useTabStore = defineStore('tabStore', {
             }
         },
 
-        /** Full reset: removes overlays from all tabs, ungroups, reloads from browser. */
+        /** Resets marking only: removes L-bracket overlays but preserves lastAccessed timestamps. */
         async reset(): Promise<void> {
             this.error = null
             this.loading = true
             try {
-                const previouslyMarkedIds = new Set(
+                const markedIds = new Set(
                     this.tabs.filter(t => t.isMarked && t.id != null).map(t => t.id as number),
                 )
 
                 if (this.isGrouped) await this.ungroupAllTabs()
 
-                const allTabs: Tabs.Tab[] = await browser.tabs.query({ currentWindow: true })
-                await Promise.all(allTabs.map(tab => tab.id != null ? this.removeLBracket(tab.id) : Promise.resolve()))
+                // Remove visual overlays from browser
+                await Promise.all(Array.from(markedIds).map(tabId => this.removeLBracket(tabId)))
 
+                // Fetch fresh tab data to get updated favicons
                 const freshTabs: Tabs.Tab[] = await browser.tabs.query({ currentWindow: true })
-                this.tabs = ClassifiedTabFactory.fromTabs(freshTabs).map(tab =>
-                    tab.id != null && previouslyMarkedIds.has(tab.id) && tab.favIconUrl?.startsWith('data:')
-                        ? { ...tab, favIconUrl: undefined }
-                        : tab
-                )
+                const freshById = new Map(freshTabs.map(t => [t.id, t]))
+
+                // Merge: preserve lastAccessed, update favicons (but remove stale data: URLs)
+                this.tabs = this.tabs.map(tab => {
+                    const fresh = tab.id != null ? freshById.get(tab.id) : undefined
+                    // If fresh favicon is a data: URL, remove it; otherwise use it
+                    const favIconUrl = fresh?.favIconUrl?.startsWith('data:')
+                        ? undefined
+                        : (fresh?.favIconUrl ?? tab.favIconUrl)
+                    return {
+                        ...tab,
+                        favIconUrl,
+                        isMarked: false,
+                        markedFaviconDataUrl: undefined,
+                        ageCssClass: '',
+                        ageColor: 'transparent',
+                        ageIndex: 0,
+                    }
+                })
                 this.isGrouped = false
             } catch (err) {
                 this.error = err instanceof Error ? err.message : 'Unknown error while resetting tabs'
