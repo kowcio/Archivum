@@ -54,6 +54,7 @@
     "@wxt-dev/module-vue": "^1.0.3",
     "archiver": "^5.3.1",
     "axios-mock-adapter": "^2.1.0",
+    "cross-env": "^10.1.0",
     "eslint": "^9.39.2",
     "eslint-plugin-vue": "^10.6.2",
     "jsdom": "^26.1.0",

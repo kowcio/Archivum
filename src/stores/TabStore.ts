@@ -209,6 +209,22 @@ export const useTabStore = defineStore('tabStore', {
             }
         },
 
+        /** Loads the last save date from storage (called on app mount) */
+        async loadLastSaveDate(storage: Storage.StorageArea = browser.storage.local): Promise<string | null> {
+            try {
+                const result = await storage.get(APP_DEFAULTS.TAB_HISTORY_KEY)
+                const snapshot = result?.[APP_DEFAULTS.TAB_HISTORY_KEY] as TabsSnapshot | undefined
+                if (snapshot?.savedAt) {
+                    this.lastSaveDate = snapshot.savedAt
+                    return snapshot.savedAt
+                }
+                return null
+            } catch (err) {
+                console.debug('[loadLastSaveDate] Error:', err instanceof Error ? err.message : err)
+                return null
+            }
+        },
+
         async loadTabsHistory(storage: Storage.StorageArea = browser.storage.local): Promise<ClassifiedTab[]> {
             this.loading = true
             this.error = null

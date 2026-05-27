@@ -6,14 +6,33 @@
     </div>
     <div class="row">
       <span class="got-version q-ml-auto">v{{ version }}</span>
+      <span class="got-version q-ml-auto">v{{ savedTabsInfo }}</span>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import {APP_CONSTANTS} from '@/constants'
+import { computed, onMounted } from 'vue'
+import { storeToRefs } from 'pinia'
+import { APP_CONSTANTS } from '@/constants'
+import { useTabStore } from "@/stores/TabStore.ts"
 
 const version = APP_CONSTANTS.APP_VERSION
+const tabStore = useTabStore()
+const { lastSaveDate } = storeToRefs(tabStore)
+
+const savedTabsInfo = computed(() => {
+  if (!lastSaveDate.value) return 'No saved tabs'
+
+  // Parse ISO date and format it to a human-readable string
+  const date = new Date(lastSaveDate.value)
+  return `Saved: ${date.toLocaleString()}`
+})
+
+onMounted(async () => {
+  // Load the last save date from storage when component mounts
+  await tabStore.loadLastSaveDate()
+})
 </script>
 
 <style lang="css" scoped>

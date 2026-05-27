@@ -257,6 +257,8 @@ const columns: QTableProps["columns"] = [
 
 onMounted(async () => {
   await global.init()
+  // ✅ Load the last save date from storage
+  await tabStore.loadLastSaveDate()
   // ✅ Load tabs automatically (includes auto-marking)
   await loadTabs()
 })
