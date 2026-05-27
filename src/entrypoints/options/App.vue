@@ -201,8 +201,6 @@ async function onTabActivated({ tabId }: { tabId: number }): Promise<void> {
       lastAccessed:        freshLastAccessed,
       isMarked:            false,
       markedFaviconDataUrl: undefined,
-      ageCssClass:         '',
-      ageColor:            'transparent',
       ageIndex:            0,
     }
   })

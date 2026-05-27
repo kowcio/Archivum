@@ -99,7 +99,7 @@ describe('markTabWithLBracket (store)', () => {
   it('calls executeScript with correct tabId', async () => {
     const { default: browser } = await import('webextension-polyfill')
     const store = useTabStore()
-    store.$patch({ tabs: [{ id: 42, index: 0, windowId: 1, highlighted: false, active: false, pinned: false, incognito: false, isMarked: false, ageColor: 'transparent', ageCssClass: '', ageIndex: 0 }] })
+    store.$patch({ tabs: [{ id: 42, index: 0, windowId: 1, highlighted: false, active: false, pinned: false, incognito: false, isMarked: false, ageIndex: 0 }] })
 
     await store.markTabWithLBracket(42, '#00e676')
 
@@ -110,7 +110,7 @@ describe('markTabWithLBracket (store)', () => {
 
   it('pre-fetches favicon and passes data URL to renderLBracketDataUrl', async () => {
     const store = useTabStore()
-    store.$patch({ tabs: [{ id: 7, index: 0, windowId: 1, highlighted: false, active: false, pinned: false, incognito: false, favIconUrl: 'https://example.com/favicon.ico', isMarked: false, ageColor: 'transparent', ageCssClass: '', ageIndex: 0 }] })
+    store.$patch({ tabs: [{ id: 7, index: 0, windowId: 1, highlighted: false, active: false, pinned: false, incognito: false, favIconUrl: 'https://example.com/favicon.ico', isMarked: false, ageIndex: 0 }] })
     const fetchSpy = vi.spyOn(TabDots, 'fetchFaviconDataUrl').mockResolvedValue('data:image/png;base64,TESTDATA')
     const renderSpy = vi.spyOn(TabDots, 'renderLBracketDataUrl').mockResolvedValue('data:image/png;base64,RENDERED')
 
@@ -130,7 +130,7 @@ describe('markTabWithLBracket (store)', () => {
 
   it('sets isMarked=true on tab after successful mark', async () => {
     const store = useTabStore()
-    store.$patch({ tabs: [{ id: 42, index: 0, windowId: 1, highlighted: false, active: false, pinned: false, incognito: false, isMarked: false, ageColor: 'transparent', ageCssClass: '', ageIndex: 0 }] })
+    store.$patch({ tabs: [{ id: 42, index: 0, windowId: 1, highlighted: false, active: false, pinned: false, incognito: false, isMarked: false, ageIndex: 0 }] })
 
     await store.markTabWithLBracket(42, '#ffd740')
 
@@ -148,7 +148,7 @@ describe('markTabWithLBracket (store)', () => {
 
   it('sets isMarked=false on tab after removeLBracket', async () => {
     const store = useTabStore()
-    store.$patch({ tabs: [{ id: 55, index: 0, windowId: 1, highlighted: false, active: false, pinned: false, incognito: false, isMarked: true, ageColor: '#ffd740', ageCssClass: 'bg-amber-2', ageIndex: 1 }] })
+    store.$patch({ tabs: [{ id: 55, index: 0, windowId: 1, highlighted: false, active: false, pinned: false, incognito: false, isMarked: true, ageIndex: 1 }] })
 
     await store.removeLBracket(55)
 
@@ -161,9 +161,9 @@ describe('markTabWithLBracket (store)', () => {
     const DAY = 24 * 60 * 60 * 1000
     store.$patch({
       tabs: [
-        { id: 1, index: 0, windowId: 1, highlighted: false, active: false, pinned: false, incognito: false, lastAccessed: now - 1  * DAY, isMarked: false, ageColor: 'transparent', ageCssClass: '', ageIndex: 0 },
-        { id: 2, index: 1, windowId: 1, highlighted: false, active: false, pinned: false, incognito: false, lastAccessed: now - 10 * DAY, isMarked: false, ageColor: 'transparent', ageCssClass: '', ageIndex: 0 },
-        { id: 3, index: 2, windowId: 1, highlighted: false, active: false, pinned: false, incognito: false, lastAccessed: now - 30 * DAY, isMarked: false, ageColor: 'transparent', ageCssClass: '', ageIndex: 0 },
+        { id: 1, index: 0, windowId: 1, highlighted: false, active: false, pinned: false, incognito: false, lastAccessed: now - 1  * DAY, isMarked: false, ageIndex: 0 },
+        { id: 2, index: 1, windowId: 1, highlighted: false, active: false, pinned: false, incognito: false, lastAccessed: now - 10 * DAY, isMarked: false, ageIndex: 0 },
+        { id: 3, index: 2, windowId: 1, highlighted: false, active: false, pinned: false, incognito: false, lastAccessed: now - 30 * DAY, isMarked: false, ageIndex: 0 },
       ],
     })
 
@@ -182,8 +182,8 @@ describe('markTabWithLBracket (store)', () => {
     const DAY = 24 * 60 * 60 * 1000
     store.$patch({
       tabs: [
-        { id: 10, index: 0, windowId: 1, highlighted: false, active: false, pinned: false, incognito: false, lastAccessed: now - 30 * DAY, isMarked: true, ageColor: '#ff1744', ageCssClass: 'bg-red-2', ageIndex: 3 },
-        { id: 11, index: 1, windowId: 1, highlighted: false, active: false, pinned: false, incognito: false, lastAccessed: now - 20 * DAY, isMarked: true, ageColor: '#ff6d00', ageCssClass: 'bg-orange-2', ageIndex: 2 },
+        { id: 10, index: 0, windowId: 1, highlighted: false, active: false, pinned: false, incognito: false, lastAccessed: now - 30 * DAY, isMarked: true, ageIndex: 3 },
+        { id: 11, index: 1, windowId: 1, highlighted: false, active: false, pinned: false, incognito: false, lastAccessed: now - 20 * DAY, isMarked: true, ageIndex: 2 },
       ],
     })
 

@@ -7,11 +7,10 @@ import type { Tabs } from 'webextension-polyfill'
 export type ClassifiedTab = Tabs.Tab & {
     /** True when the L-bracket favicon overlay is applied. */
     isMarked: boolean
-    /** Hex color of the L-bracket (from AgeClassification.color). */
-    ageColor: string
-    /** Quasar CSS class for table row background (from AgeClassification.cssClass). */
-    ageCssClass: string
-    /** 0=Fresh 1=Young 2=Middle 3=Old (from AgeClassification.index). */
+    /**
+     * Age classification index: 0=Fresh 1=Young 2=Middle 3=Old.
+     * Use `new AgeClassification(tab.ageIndex)` to get color/cssClass/booleans.
+     */
     ageIndex: number
     /**
      * Pre-rendered favicon+L-bracket data URL (OffscreenCanvas in extension context).
@@ -32,8 +31,6 @@ export class ClassifiedTabFactory {
         return {
             ...tab,
             isMarked,
-            ageColor: 'transparent',
-            ageCssClass: '',
             ageIndex: 0,
             markedFaviconDataUrl: undefined,
         }
@@ -48,14 +45,5 @@ export class ClassifiedTabFactory {
         return tabs.map((tab) =>
             ClassifiedTabFactory.fromTab(tab, !!(tab.id && previouslyMarkedIds.has(tab.id)))
         )
-    }
-
-    /**
-     * Apply age classification fields to an existing ClassifiedTab (mutates in-place).
-     */
-    static applyClassification(tab: ClassifiedTab, cssClass: string, color: string, index: number): void {
-        tab.ageCssClass = cssClass
-        tab.ageColor = color
-        tab.ageIndex = index
     }
 }

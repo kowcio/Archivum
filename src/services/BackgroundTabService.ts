@@ -77,8 +77,6 @@ export class BackgroundTabService {
               classified[idx] = {
                 ...classified[idx],
                 isMarked: true,
-                ageColor: classification.color,
-                ageCssClass: classification.cssClass,
                 ageIndex: classification.index,
                 markedFaviconDataUrl: renderedUrl,
               }

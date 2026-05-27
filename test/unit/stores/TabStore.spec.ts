@@ -226,8 +226,6 @@ describe('TabStore › reset › strips stale L-bracket favicons', () => {
         const markedTab = {
             ...tabWithAge(1, 20),
             isMarked: true,
-            ageColor: '#fb8c00',
-            ageCssClass: 'bg-orange-2 text-orange-10',
             ageIndex: 2,
             markedFaviconDataUrl: 'data:image/png;base64,abc123',
         }
@@ -245,7 +243,7 @@ describe('TabStore › reset › strips stale L-bracket favicons', () => {
 
     it('preserves normal https favicons for previously-marked tabs after reset', async () => {
         const store = useTabStore()
-        const markedTab = { ...tabWithAge(1, 20), isMarked: true, ageColor: '#fb8c00', ageCssClass: '', ageIndex: 2 }
+        const markedTab = { ...tabWithAge(1, 20), isMarked: true, ageIndex: 2 }
         store.$patch({ tabs: [markedTab] as any })
 
         const { default: browser } = await import('webextension-polyfill')

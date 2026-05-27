@@ -178,8 +178,6 @@ export const useTabStore = defineStore('tabStore', {
                         if (classifiedTab && tabIndex !== -1) {
                             this.tabs[tabIndex] = {
                                 ...classifiedTab,
-                                ageCssClass: classification.cssClass,
-                                ageColor: classification.color,
                                 ageIndex: classification.index,
                             }
                         }
@@ -351,8 +349,6 @@ export const useTabStore = defineStore('tabStore', {
                         favIconUrl,
                         isMarked: false,
                         markedFaviconDataUrl: undefined,
-                        ageCssClass: '',
-                        ageColor: 'transparent',
                         ageIndex: 0,
                     }
                 })
