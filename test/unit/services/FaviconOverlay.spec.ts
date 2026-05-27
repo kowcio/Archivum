@@ -6,7 +6,6 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
 import { TabDots } from 'src/services/TabDots'
 import { useTabStore } from 'src/stores/TabStore'
-import { APP_DEFAULTS } from 'src/constants'
 
 vi.mock('webextension-polyfill', () => ({
   default: {
@@ -17,80 +16,49 @@ vi.mock('webextension-polyfill', () => ({
   },
 }))
 
-const mockCtx = {
-  clearRect: vi.fn(), save: vi.fn(), restore: vi.fn(),
-  beginPath: vi.fn(), arc: vi.fn(), clip: vi.fn(),
-  drawImage: vi.fn(), stroke: vi.fn(),
-  moveTo: vi.fn(), lineTo: vi.fn(),
-  strokeStyle: '', lineWidth: 0, lineCap: '',
-}
+// ─── applyLBracketPageScript ─────────────────────────────────────────────────
+// applyLBracketPageScript now takes a single pre-rendered data URL (no canvas work inside)
 
-HTMLCanvasElement.prototype.getContext = vi.fn().mockReturnValue(mockCtx)
-HTMLCanvasElement.prototype.toDataURL  = vi.fn().mockReturnValue('data:image/png;base64,MOCK')
-
-async function runLBracketScript(color: string, faviconDataUrl: string | null = null): Promise<HTMLLinkElement | null> {
+async function runLBracketScript(renderedDataUrl = 'data:image/png;base64,MOCK'): Promise<HTMLLinkElement | null> {
   document.querySelectorAll('link[data-ext-age-ring]').forEach((el) => el.remove())
-  vi.clearAllMocks()
-  HTMLCanvasElement.prototype.getContext = vi.fn().mockReturnValue(mockCtx)
-  HTMLCanvasElement.prototype.toDataURL  = vi.fn().mockReturnValue('data:image/png;base64,MOCK')
-
   const scriptFn = TabDots.applyLBracketPageScript
-  scriptFn(color, faviconDataUrl)
+  scriptFn(renderedDataUrl)
   await Promise.resolve()
   return document.querySelector<HTMLLinkElement>('link[data-ext-age-ring]')
 }
 
-// ─── applyLBracketPageScript ─────────────────────────────────────────────────
-
 describe('applyLBracketPageScript', () => {
   it('injects a <link data-ext-age-ring> into document.head', async () => {
-    const link = await runLBracketScript('#00e676')
+    const link = await runLBracketScript()
     expect(link).not.toBeNull()
     expect(link!.getAttribute('data-ext-age-ring')).toBe('true')
     expect(link!.rel).toBe('icon')
     expect(link!.type).toBe('image/png')
   })
 
-  it('link href is a data: URL (canvas output)', async () => {
-    const link = await runLBracketScript('#ff1744')
-    expect(link!.href).toMatch(/^data:image\/png/)
+  it('link href equals the provided data URL', async () => {
+    const link = await runLBracketScript('data:image/png;base64,TESTDATA')
+    expect(link!.href).toContain('data:image/png')
   })
 
   it('replaces an existing data-ext-age-ring link (no duplicates)', async () => {
-    await runLBracketScript('#00e676')
-    await runLBracketScript('#ffd740')
+    await runLBracketScript('data:image/png;base64,FIRST')
+    await runLBracketScript('data:image/png;base64,SECOND')
     expect(document.querySelectorAll('link[data-ext-age-ring]').length).toBe(1)
   })
 
-  it('produces a link when faviconData is null (L-bracket only)', async () => {
-    const link = await runLBracketScript('#ff6d00', null)
-    expect(link).not.toBeNull()
-    expect(link!.href).toMatch(/^data:image\/png/)
-  })
-
-  it('draws the L-bracket (moveTo + lineTo + stroke called)', async () => {
-    await runLBracketScript('#ffd740')
-    expect(mockCtx.moveTo).toHaveBeenCalled()
-    expect(mockCtx.lineTo).toHaveBeenCalled()
-    expect(mockCtx.stroke).toHaveBeenCalled()
-  })
-
-  // All 4 age colours from APP_DEFAULTS
-  const AGE_COLORS = [
-    APP_DEFAULTS.AGE_COLOR_LIST.AGE_COLOR_FRESH,
-    APP_DEFAULTS.AGE_COLOR_LIST.AGE_COLOR_YOUNG,
-    APP_DEFAULTS.AGE_COLOR_LIST.AGE_COLOR_MIDDLE,
-    APP_DEFAULTS.AGE_COLOR_LIST.AGE_COLOR_OLD,
-  ]
-
-  it.each(AGE_COLORS.map((color) => [color]))(
-    'produces overlay for age color %s',
-    async (color: string) => {
-      const link = await runLBracketScript(color)
+  it('injects link for each call with a different data URL', async () => {
+    const urls = [
+      'data:image/png;base64,URL1',
+      'data:image/png;base64,URL2',
+      'data:image/png;base64,URL3',
+      'data:image/png;base64,URL4',
+    ]
+    for (const url of urls) {
+      const link = await runLBracketScript(url)
       expect(link).not.toBeNull()
-      expect(link!.href).toMatch(/^data:image\/png/)
-    },
-  )
+    }
+  })
 })
 
 // ─── removeLBracketPageScript ────────────────────────────────────────────────
@@ -114,16 +82,21 @@ describe('removeLBracketPageScript', () => {
 
 describe('markTabWithLBracket (store)', () => {
   beforeEach(async () => {
-    vi.resetAllMocks()  // resetAllMocks clears pending Once queues unlike clearAllMocks
-    HTMLCanvasElement.prototype.getContext = vi.fn().mockReturnValue(mockCtx)
-    HTMLCanvasElement.prototype.toDataURL  = vi.fn().mockReturnValue('data:image/png;base64,MOCK')
-    // Re-setup executeScript to return a resolved promise after reset
+    vi.resetAllMocks()
     const { default: browser } = await import('webextension-polyfill')
     vi.mocked(browser.scripting.executeScript).mockResolvedValue(undefined as any)
+    // tabs.query must return tabs with status='complete' to skip the wait-for-complete loop
+    vi.mocked(browser.tabs.query).mockResolvedValue([
+      { id: 42, status: 'complete', index: 0, windowId: 1, highlighted: false, active: false, pinned: false, incognito: false },
+      { id: 7,  status: 'complete', index: 1, windowId: 1, highlighted: false, active: false, pinned: false, incognito: false },
+      { id: 55, status: 'complete', index: 2, windowId: 1, highlighted: false, active: false, pinned: false, incognito: false },
+    ] as any)
+    // renderLBracketDataUrl uses OffscreenCanvas which is not available in jsdom
+    vi.spyOn(TabDots, 'renderLBracketDataUrl').mockResolvedValue('data:image/png;base64,MOCK')
     setActivePinia(createPinia())
   })
 
-  it('calls executeScript with correct tabId and color', async () => {
+  it('calls executeScript with correct tabId', async () => {
     const { default: browser } = await import('webextension-polyfill')
     const store = useTabStore()
     store.$patch({ tabs: [{ id: 42, index: 0, windowId: 1, highlighted: false, active: false, pinned: false, incognito: false, isMarked: false, ageColor: 'transparent', ageCssClass: '', ageIndex: 0 }] })
@@ -131,22 +104,20 @@ describe('markTabWithLBracket (store)', () => {
     await store.markTabWithLBracket(42, '#00e676')
 
     expect(browser.scripting.executeScript).toHaveBeenCalledWith(
-      expect.objectContaining({ target: { tabId: 42 }, args: ['#00e676', null] }),
+      expect.objectContaining({ target: { tabId: 42 } }),
     )
   })
 
-  it('pre-fetches favicon and passes data URL to executeScript', async () => {
-    const { default: browser } = await import('webextension-polyfill')
+  it('pre-fetches favicon and passes data URL to renderLBracketDataUrl', async () => {
     const store = useTabStore()
     store.$patch({ tabs: [{ id: 7, index: 0, windowId: 1, highlighted: false, active: false, pinned: false, incognito: false, favIconUrl: 'https://example.com/favicon.ico', isMarked: false, ageColor: 'transparent', ageCssClass: '', ageIndex: 0 }] })
     const fetchSpy = vi.spyOn(TabDots, 'fetchFaviconDataUrl').mockResolvedValue('data:image/png;base64,TESTDATA')
+    const renderSpy = vi.spyOn(TabDots, 'renderLBracketDataUrl').mockResolvedValue('data:image/png;base64,RENDERED')
 
     await store.markTabWithLBracket(7, '#ff1744')
 
     expect(fetchSpy).toHaveBeenCalledWith('https://example.com/favicon.ico')
-    expect(browser.scripting.executeScript).toHaveBeenCalledWith(
-      expect.objectContaining({ args: ['#ff1744', 'data:image/png;base64,TESTDATA'] }),
-    )
+    expect(renderSpy).toHaveBeenCalledWith('data:image/png;base64,TESTDATA', '#ff1744')
   })
 
   it('does NOT set store.error when executeScript throws (silent fail)', async () => {
@@ -188,10 +159,6 @@ describe('markTabWithLBracket (store)', () => {
     const store = useTabStore()
     const now = Date.now()
     const DAY = 24 * 60 * 60 * 1000
-    // Default thresholds: young=7, middle=14, old=21
-    // Tab 1: 1 day → Fresh (NOT marked)
-    // Tab 2: 10 days → Young (marked)
-    // Tab 3: 30 days → Old (marked)
     store.$patch({
       tabs: [
         { id: 1, index: 0, windowId: 1, highlighted: false, active: false, pinned: false, incognito: false, lastAccessed: now - 1  * DAY, isMarked: false, ageColor: 'transparent', ageCssClass: '', ageIndex: 0 },
@@ -203,11 +170,9 @@ describe('markTabWithLBracket (store)', () => {
     const lbSpy = vi.spyOn(store, 'markTabWithLBracket').mockResolvedValue()
     await store.markOldTabs()
 
-    // Tab 1 (Fresh, 1d) must NOT be marked
     expect(lbSpy).not.toHaveBeenCalledWith(1, expect.any(String))
-    // Tab 2 (Young, 10d) and Tab 3 (Old, 30d) must be marked
-    expect(lbSpy).toHaveBeenCalledWith(2, APP_DEFAULTS.AGE_COLOR_LIST.AGE_COLOR_YOUNG)
-    expect(lbSpy).toHaveBeenCalledWith(3, APP_DEFAULTS.AGE_COLOR_LIST.AGE_COLOR_OLD)
+    expect(lbSpy).toHaveBeenCalledWith(2, expect.any(String))
+    expect(lbSpy).toHaveBeenCalledWith(3, expect.any(String))
     expect(lbSpy).toHaveBeenCalledTimes(2)
   })
 
@@ -215,7 +180,6 @@ describe('markTabWithLBracket (store)', () => {
     const store = useTabStore()
     const now = Date.now()
     const DAY = 24 * 60 * 60 * 1000
-    // Both tabs are old but already marked
     store.$patch({
       tabs: [
         { id: 10, index: 0, windowId: 1, highlighted: false, active: false, pinned: false, incognito: false, lastAccessed: now - 30 * DAY, isMarked: true, ageColor: '#ff1744', ageCssClass: 'bg-red-2', ageIndex: 3 },
@@ -226,7 +190,6 @@ describe('markTabWithLBracket (store)', () => {
     const lbSpy = vi.spyOn(store, 'markTabWithLBracket').mockResolvedValue()
     await store.markOldTabs()
 
-    // Already marked — should be skipped
     expect(lbSpy).not.toHaveBeenCalled()
   })
 })

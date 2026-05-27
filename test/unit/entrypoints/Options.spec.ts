@@ -21,6 +21,7 @@ vi.mock('webextension-polyfill', () => ({
       query: vi.fn(() => Promise.resolve([])),
       remove: vi.fn(() => Promise.resolve()),
       update: vi.fn(() => Promise.resolve()),
+      onActivated: { addListener: vi.fn(), removeListener: vi.fn() },
     },
     action: {
       setBadgeText: vi.fn(),
@@ -75,7 +76,7 @@ describe('Options Entrypoint', () => {
     expect(optionsContainer.element.id).toBe('options')
   })
 
-  it('should render version info', () => {
+  it('should render version info in title bar', () => {
     const wrapper = mount(OptionsApp, {
       global: {
         plugins: [
@@ -87,9 +88,9 @@ describe('Options Entrypoint', () => {
       },
     })
 
-    const versionInfo = wrapper.find('.version-info')
-    expect(versionInfo.exists()).toBe(true)
-    expect(versionInfo.text()).toContain('Version:')
+    // Version is rendered inside the AppTitle component (.got-version span)
+    const versionEl = wrapper.find('.got-version')
+    expect(versionEl.exists()).toBe(true)
   })
 
    it('should render button group container', () => {
