@@ -1,8 +1,7 @@
 import browser from 'webextension-polyfill'
-import { AppBootstrapper } from '@/entrypoints/shared/AppBootstrapper'
 import { ExtensionCleanupService } from '@/services/ExtensionCleanupService'
-import { useTabStore } from '@/stores/TabStore'
-import {APP_DEFAULTS} from "@/constants.ts";
+import { BackgroundTabService } from '@/services/BackgroundTabService'
+import { APP_DEFAULTS } from '@/constants'
 
 console.debug('[EXT-DBG] background initialized - TOKEN:EXT_DBG_BACKGROUND_v1')
 
@@ -10,83 +9,46 @@ console.debug('[EXT-DBG] background initialized - TOKEN:EXT_DBG_BACKGROUND_v1')
  * WXT Background Service Worker Entry Point
  *
  * ⚠️  CRITICAL: main() must be SYNCHRONOUS
- * - All async operations must use .then().catch() pattern
- * - Event listeners MUST be registered inside main()
- * - Use browser.alarms for periodic tasks (persists across SW suspension)
+ * ⚠️  Background runs in its own JS VM — Pinia stores are ISOLATED from UI contexts.
+ *      All state is managed via browser.storage.local (single source of truth).
+ *      BackgroundTabService handles all tab operations without Pinia.
  *
- * Lifecycle:
- * 1. Extension install → onInstalled fires
- * 2. Daily → Alarm fires, triggers tab update
- * 3. Extension disable → (cleanup handled separately)
- * 4. Service worker may suspend/resume (alarms auto-restart on resume)
+ * Flow:
+ *   alarm fires  → BackgroundTabService.loadAndMarkTabs()  → browser.storage (snapshot)
+ *   tab activated → BackgroundTabService.removeLBracketForTab() → browser.scripting
+ *
+ * UI contexts (popup/options) sync from storage via TabStore.initStorageSync().
  */
 export default defineBackground(() => {
   console.debug('[EXT-DBG] background main started - TOKEN:EXT_DBG_BACKGROUND_MAIN_v1')
 
-  // 🔧 Initialize Pinia stores async (non-blocking)
-  // Note: Background main() is synchronous, but we can chain async init
-  // Services will use the store once it's ready
-  AppBootstrapper.initBackground()
-    .then(() => console.log('[background] ✅ Stores initialized'))
-    .catch((err) => console.error('[background] ❌ Store init failed:', err))
-
-  // 🧹 Register extension lifecycle listeners
-  // Must be inside main() — NOT outside (WXT requirement for MV3)
+  // 🧹 Extension lifecycle (install, update, uninstall cleanup)
   ExtensionCleanupService.registerLifecycleListeners()
 
-  // 🔄 Native WXT: Setup alarm for daily tab updates
-  // browser.alarms persists across service worker suspension
-  // Alternative to setInterval (which would be killed on SW suspend)
+  // 🔄 Daily alarm — persists across service worker suspension (MV3)
   browser.alarms.create(APP_DEFAULTS.ALARM_UPDATE_TABS, {
-    periodInMinutes: 24 * 60, // Update every 24 hours
+    periodInMinutes: 24 * 60,
   })
 
-  // 🎯 Listen for alarm trigger
-  browser.alarms.onAlarm.addListener(async (alarm) => {
-    if (alarm.name === APP_DEFAULTS.ALARM_UPDATE_TABS) {
-      console.log('[background] ⏰ Daily update alarm triggered')
-      try {
-        const tabStore = useTabStore()
-
-        // Wait for store to be ready (in case still initializing)
-        if (!tabStore.tabs) {
-          console.warn('[background] Store not ready, skipping update')
-          return
-        }
-
-        // Load fresh tabs from browser API
-        await tabStore.getAllOpenedTabs()
-
-        // Auto-mark old tabs (≥7 days)
-        await tabStore.markOldTabs()
-
-        console.log('[background] ✅ Daily tab update completed')
-      } catch (err) {
-        console.error('[background] ❌ Daily update failed:', err instanceof Error ? err.message : err)
-      }
-    }
+  browser.alarms.onAlarm.addListener((alarm) => {
+    if (alarm.name !== APP_DEFAULTS.ALARM_UPDATE_TABS) return
+    console.log('[background] ⏰ Daily alarm fired — refreshing tabs')
+    BackgroundTabService.loadAndMarkTabs()
+      .catch((err) => console.error('[background] ❌ loadAndMarkTabs error:', err))
   })
 
-
-  // 🖱️ When user activates a tab with an L-bracket (data: favicon) — remove it immediately.
-  // ⚠️ Background has its OWN Pinia instance (separate JS context from options page).
-  //    We cannot check tabStore.tabs here — that store is empty.
-  //    Instead we check the browser tab's favIconUrl directly: L-bracket tabs always
-  //    have a data: URL favicon injected by markTabWithLBracket.
+  // 🖱️ Remove L-bracket when user activates a marked tab
+  // Background cannot reliably check store state (isolated VM) — check favIconUrl directly.
+  // A data: URL favicon = L-bracket is active on that tab.
   browser.tabs.onActivated.addListener(({ tabId }) => {
     browser.tabs.get(tabId)
-      .then(async (tab) => {
-        // L-bracket is only present when favicon is a data: URL we injected
+      .then((tab) => {
         if (!tab.favIconUrl?.startsWith('data:')) return
-
-        console.log(`[background] 🖱️ Activated L-bracket tab#${tabId} — removing bracket`)
-
-        // removeLBracketPageScript restores original favicon in the tab bar
-        // (store update here is for background's own Pinia — options page syncs separately)
-        const tabStore = useTabStore()
-        await tabStore.removeLBracket(tabId)
+        console.log(`[background] 🖱️ Activated marked tab#${tabId} — removing bracket`)
+        BackgroundTabService.removeLBracketForTab(tabId)
+          .catch((err) => console.debug('[background] removeLBracket error:', err))
       })
-      .catch(err => console.debug('[background] onActivated error:', err))
+      .catch((err) => console.debug('[background] onActivated get error:', err))
   })
 
   console.log('[background] ✅ Background service worker ready')

@@ -172,6 +172,9 @@ const tabStore = useTabStore()
 const { tabRows } = storeToRefs(tabStore)
 const excerptLength = 50
 
+// Unsubscribe function returned by TabStore.initStorageSync()
+let unsubscribeStorageSync: (() => void) | null = null
+
 /**
  * Truncates a string to max length and adds ellipsis if needed
  */
@@ -261,6 +264,9 @@ onMounted(async () => {
   await tabStore.loadLastSaveDate()
   await loadTabs()
 
+  // 🔄 Sync with background-written storage changes (background alarm marks tabs → this store updates)
+  unsubscribeStorageSync = tabStore.initStorageSync()
+
   // 🖱️ Sync options-page store when a tab is activated:
   // Background removes the L-bracket visually; here we reset the store entry
   // so the table reflects the change (Fresh age, no mark) without a full reload.
@@ -268,6 +274,7 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
+  unsubscribeStorageSync?.()
   browser.tabs.onActivated.removeListener(onTabActivated)
 })
 

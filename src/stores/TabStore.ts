@@ -738,5 +738,42 @@ export const useTabStore = defineStore('tabStore', {
             this.tabs = this.tabs.map(t => ({ ...t, isMarked: false }))
             this.isGrouped = false
         },
+
+        /**
+         * Listens for background-written storage changes and syncs this store.
+         *
+         * Background writes tab snapshots to storage after alarm-triggered marking.
+         * Call this from UI context onMounted to receive those updates reactively.
+         * Returns an unsubscribe function — call it in onUnmounted.
+         *
+         * Architecture:
+         *   background → browser.storage.local → initStorageSync() → Pinia → Vue UI
+         */
+        initStorageSync(): () => void {
+            if (typeof browser === 'undefined' || !browser?.storage?.onChanged?.addListener) {
+                return () => { /* no-op in environments without browser.storage */ }
+            }
+
+            const handler = (
+                changes: Record<string, Storage.StorageChange>,
+                areaName: string,
+            ) => {
+                if (areaName !== 'local') return
+                const snap = changes[APP_DEFAULTS.TAB_HISTORY_KEY]?.newValue as TabsSnapshot | undefined
+                if (!snap?.tabs) return
+
+                const rawTabs = Array.isArray(snap.tabs)
+                    ? snap.tabs
+                    : Object.values(snap.tabs as Record<string, Tabs.Tab>)
+
+                this.tabs = ClassifiedTabFactory.fromTabs(rawTabs)
+                this.lastSaveDate = snap.savedAt ?? null
+
+                console.debug('[TabStore] initStorageSync: received background snapshot', rawTabs.length, 'tabs')
+            }
+
+            browser.storage.onChanged.addListener(handler)
+            return () => browser.storage.onChanged.removeListener(handler)
+        },
     },
 })
