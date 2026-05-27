@@ -36,15 +36,6 @@ export function useThresholds() {
     await globalStore.setFlags({ thresholds: updated })
   }
 
-  /**
-   * Batch-update multiple threshold values at once.
-   */
-  async function setThresholds(patch: Partial<AppThresholds>): Promise<void> {
-    const updated: AppThresholds = { ...thresholds.value, ...patch }
-    if (!isValid(updated)) return
-    await globalStore.setFlags({ thresholds: updated })
-  }
-
   /** Restore all thresholds to the values defined in APP_DEFAULTS. */
   async function resetToDefaults(): Promise<void> {
     await globalStore.setFlags({ thresholds: { ...DEFAULT_THRESHOLDS } })
@@ -54,7 +45,6 @@ export function useThresholds() {
     thresholds,
     asArray,
     setThreshold,
-    setThresholds,
     resetToDefaults,
     DEFAULT_THRESHOLDS,
   }
