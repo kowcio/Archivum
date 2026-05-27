@@ -158,13 +158,14 @@
 </template>
 
 <script setup lang="ts">
-import {onMounted} from "vue"
+import { onMounted, onUnmounted } from "vue"
 import {storeToRefs} from "pinia"
 import {useGlobalStore} from "@/stores/globalStore.ts"
 import {useTabStore} from "@/stores/TabStore"
 import type {QTableProps} from "quasar"
 import Thresholds from "@/components/Thresholds.vue"
 import AppTitle from "@/components/Title.vue"
+import browser from "webextension-polyfill"
 
 const global = useGlobalStore()
 const tabStore = useTabStore()
@@ -257,11 +258,42 @@ const columns: QTableProps["columns"] = [
 
 onMounted(async () => {
   await global.init()
-  // ✅ Load the last save date from storage
   await tabStore.loadLastSaveDate()
-  // ✅ Load tabs automatically (includes auto-marking)
   await loadTabs()
+
+  // 🖱️ Sync options-page store when a tab is activated:
+  // Background removes the L-bracket visually; here we reset the store entry
+  // so the table reflects the change (Fresh age, no mark) without a full reload.
+  browser.tabs.onActivated.addListener(onTabActivated)
 })
+
+onUnmounted(() => {
+  browser.tabs.onActivated.removeListener(onTabActivated)
+})
+
+async function onTabActivated({ tabId }: { tabId: number }): Promise<void> {
+  const tab = tabStore.tabs.find(t => t.id === tabId)
+  if (!tab?.isMarked) return
+
+  // Background already removed the visual bracket — sync store state to match
+  const [freshTab] = await browser.tabs.query({ currentWindow: true })
+    .then(tabs => tabs.filter(t => t.id === tabId))
+  const freshLastAccessed = freshTab?.lastAccessed ?? Date.now()
+
+  tabStore.$patch(state => {
+    const idx = state.tabs.findIndex(t => t.id === tabId)
+    if (idx === -1) return
+    state.tabs[idx] = {
+      ...state.tabs[idx],
+      lastAccessed:       freshLastAccessed,
+      isMarked:           false,
+      markedFaviconDataUrl: undefined,
+      ageCssClass:        '',
+      ageColor:           'transparent',
+      ageIndex:           0,
+    }
+  })
+}
 
 async function loadTabs(): Promise<void> {
   await tabStore.getAllOpenedTabs()

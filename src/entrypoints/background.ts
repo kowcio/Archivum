@@ -68,36 +68,25 @@ export default defineBackground(() => {
   })
 
 
-  // 🖱️ When user activates a marked (stale) tab — remove L-bracket immediately
-  // and reset its age so it's treated as Fresh on next render.
+  // 🖱️ When user activates a tab with an L-bracket (data: favicon) — remove it immediately.
+  // ⚠️ Background has its OWN Pinia instance (separate JS context from options page).
+  //    We cannot check tabStore.tabs here — that store is empty.
+  //    Instead we check the browser tab's favIconUrl directly: L-bracket tabs always
+  //    have a data: URL favicon injected by markTabWithLBracket.
   browser.tabs.onActivated.addListener(({ tabId }) => {
-    const tabStore = useTabStore()
-    const tab = tabStore.tabs.find(t => t.id === tabId)
+    browser.tabs.get(tabId)
+      .then(async (tab) => {
+        // L-bracket is only present when favicon is a data: URL we injected
+        if (!tab.favIconUrl?.startsWith('data:')) return
 
-    if (!tab?.isMarked) return
+        console.log(`[background] 🖱️ Activated L-bracket tab#${tabId} — removing bracket`)
 
-    console.log(`[background] 🖱️ Activated marked tab#${tabId} — removing bracket`)
-
-    tabStore.removeLBracket(tabId)
-      .then(async () => {
-        // Re-query the tab to get the browser-fresh lastAccessed value
-        const [freshTab] = await browser.tabs.query({ currentWindow: true })
-          .then(tabs => tabs.filter(t => t.id === tabId))
-        const freshLastAccessed = freshTab?.lastAccessed ?? Date.now()
-
-        tabStore.$patch(state => {
-          const idx = state.tabs.findIndex(t => t.id === tabId)
-          if (idx === -1) return
-          state.tabs[idx] = {
-            ...state.tabs[idx],
-            lastAccessed: freshLastAccessed,
-            ageCssClass: '',
-            ageColor:    'transparent',
-            ageIndex:    0,
-          }
-        })
+        // removeLBracketPageScript restores original favicon in the tab bar
+        // (store update here is for background's own Pinia — options page syncs separately)
+        const tabStore = useTabStore()
+        await tabStore.removeLBracket(tabId)
       })
-      .catch(err => console.debug('[background] onActivated removeLBracket error:', err))
+      .catch(err => console.debug('[background] onActivated error:', err))
   })
 
   console.log('[background] ✅ Background service worker ready')
