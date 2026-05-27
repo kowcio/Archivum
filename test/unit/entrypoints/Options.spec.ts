@@ -3,7 +3,7 @@ import { mount } from '@vue/test-utils'
 import { Quasar, QTable, QTd, QTr, QBtn, QBtnGroup, QInput } from 'quasar'
 import { setActivePinia, createPinia } from 'pinia'
 import { useTabStore } from 'src/stores/TabStore'
-import type { Tabs } from 'webextension-polyfill'
+import type { ClassifiedTab } from 'src/models/tabs/ClassifiedTab'
 import OptionsApp from 'src/entrypoints/options/App.vue'
 import tabsData from '../../mocks/tabs_example.json'
 import { nextTick } from 'vue'
@@ -145,7 +145,9 @@ describe('Options Entrypoint', () => {
 
     // Mock the getAllOpenedTabs method to set the tabs data
     tabStore.getAllOpenedTabs = vi.fn(async () => {
-      tabStore.$patch({ tabs: (tabsData as any).tabs as Tabs.Tab[] })
+      const tabs = (tabsData as any).tabs as ClassifiedTab[]
+      tabStore.$patch({ tabs })
+      return tabs
     })
 
     // Wait for component to render
