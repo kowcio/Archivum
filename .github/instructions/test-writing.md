@@ -1,57 +1,53 @@
 ---
 applyTo: "**/*.spec.ts"
-context7:
-  - vitest
-  - "@vue/test-utils"
-  - "@playwright/test"
-  - "@pinia/testing"
 ---
 
-# Test Writing
+# Test Rules (auto-applied)
 
-## Rules
-1. Mock `webextension-polyfill` FIRST
-2. No `any` - explicit types
-3. One test = one behavior
+## Layer Decision
 
-## Vue Component Tests
-**Path**: `src/test/unit/ComponentName.spec.ts`  
-**Mount**: `mount(C, { global: { plugins: [createTestingPinia()] } })`  
-**Async**: `await wrapper.vm.$nextTick()` | `flushPromises()`  
-**Test**: render, props, emits, interactions  
-→ @context7/vue/test-utils, @context7/pinia/testing
+| File path | Layer | Tool |
+|---|---|---|
+| `test/unit/**/*.spec.ts` | Unit | Vitest + jsdom |
+| `test/playwright/**/*.spec.ts` | E2E | Playwright + real Chromium |
 
-## Pinia Store Tests
-**Path**: `src/test/unit/stores/StoreName.spec.ts`  
-**Setup**: `setActivePinia(createPinia())` in beforeEach  
-**Mock**: `axios-mock-adapter` for APIs  
-**Test**: state → getters → actions (success+error)  
-→ @context7/pinia, @context7/axios-mock-adapter
+**Unit when**: store logic, service methods, component rendering, error states  
+**E2E when**: `browser.storage`, service worker lifecycle, favicon injection, real navigation
 
-## Service Tests
-**Path**: `src/test/unit/services/ServiceName.spec.ts`  
-**Test**: pure functions, edge cases, errors  
-**Mock**: dayjs, stores if needed
+## Required in every unit test file
 
-## Playwright E2E
-**Path**: `src/test/playwright/FeatureName.spec.ts`  
-**Load**: extension from `dist/` in `test.beforeAll`  
-**Protocol**: `moz-extension://`  
-**Test**: popup, options, APIs  
-→ @context7/playwright
+```ts
+// 1. vi.mock() FIRST — before all imports (Vitest hoists it)
+vi.mock('webextension-polyfill', () => ({
+  default: {
+    tabs: {
+      query: vi.fn(), remove: vi.fn(), get: vi.fn(), update: vi.fn(),
+      onActivated: { addListener: vi.fn(), removeListener: vi.fn() },
+      onUpdated:   { addListener: vi.fn(), removeListener: vi.fn() },
+    },
+    storage: {
+      local: { get: vi.fn(), set: vi.fn(), remove: vi.fn() },
+      onChanged: { addListener: vi.fn(), removeListener: vi.fn(), hasListener: vi.fn() },
+    },
+    scripting: { executeScript: vi.fn().mockResolvedValue(undefined) },
+    action: { setBadgeText: vi.fn(), setBadgeBackgroundColor: vi.fn(), setIcon: vi.fn() },
+    runtime: { sendMessage: vi.fn(), onMessage: { addListener: vi.fn() } },
+  },
+}))
 
-## Commands
-```bash
-npm run test:unit           # Unit tests
-npm run test:playwright     # E2E
-npx vitest --coverage       # Coverage
+// 2. Subject imports after mocks
+// 3. beforeEach always:
+beforeEach(() => {
+  vi.clearAllMocks()
+  setActivePinia(createPinia())
+})
+// 4. await flushPromises() after mount() with async onMounted
+// 5. Mock storage.onChanged if component calls initStorageSync()
 ```
 
-## Mocks
-Create `src/test/helpers/mocks.ts`:
-- `mockBrowser` (tabs, runtime, storage)
-- `mockWebExtension()`
-- `createMockChartData()`
+## Commands
 
-## Coverage
-Components: 80% | Stores: 90% | Services: 95%
+```bash
+npm run test:unit                              # Vitest (watch)
+SKIP_BUILD=1 npm run test:playwright          # E2E skip rebuild
+```

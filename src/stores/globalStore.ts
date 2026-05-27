@@ -2,20 +2,17 @@ import {defineStore} from 'pinia'
 import StorageService from '@/services/StorageService.ts'
 import {APP_CONSTANTS, APP_DEFAULTS} from "@/constants.ts";
 
-// ─── Threshold type ───────────────────────────────────────────────────────────
-export interface AppThresholds {
+export type AppThresholds = {
   young: number   // 0..young → 🟢 fresh
   middle: number  // young..middle → 🟡 yellow
   old: number     // middle..old → 🟠 orange, >old → 🔴 red
 }
 
-// ─── Persisted flags ──────────────────────────────────────────────────────────
-export interface AppFlags {
+export type AppFlags = {
   thresholds: AppThresholds
 }
 
-// ─── Full store state ─────────────────────────────────────────────────────────
-export interface GlobalState {
+export type GlobalState = {
   appName: string
   version: string
   flags: AppFlags

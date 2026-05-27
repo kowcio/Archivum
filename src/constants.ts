@@ -3,7 +3,7 @@ import packageJson from "../package.json";
 import dayjs from "dayjs";
 
 /** Type definition for app global values (from former globals.ts) */
-export interface GlobalValues {
+export type GlobalValues = {
   APP_VERSION: string
 }
 
