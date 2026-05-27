@@ -12,7 +12,7 @@ import tabsExampleData from '../mocks/tabs_example.json'
 
 vi.mock('webextension-polyfill', () => ({
   default: {
-    tabs: { query: vi.fn(), remove: vi.fn(), update: vi.fn() },
+    tabs: { query: vi.fn(), remove: vi.fn(), update: vi.fn(), onActivated: { addListener: vi.fn(), removeListener: vi.fn() } },
     storage: { local: { set: vi.fn(), get: vi.fn() } },
     action: { setBadgeText: vi.fn(), setBadgeBackgroundColor: vi.fn() },
     scripting: { executeScript: vi.fn() },
@@ -39,10 +39,14 @@ describe('Options App', () => {
     vi.spyOn(tabStore, 'waitForFaviconsLoaded').mockResolvedValue()
     // Prevent real network calls in markTabWithLBracket (avoids race condition)
     vi.spyOn(TabDots, 'fetchFaviconDataUrl').mockResolvedValue(null)
+    // Prevent OffscreenCanvas errors (not available in jsdom) and avoid status-check polling loops
+    vi.spyOn(TabDots, 'renderLBracketDataUrl').mockResolvedValue('data:image/png;base64,MOCK')
 
     // Create tabs that are old enough to be marked (10+ days old)
+    // status: 'complete' is required to skip the tab-status polling loop in markTabWithLBracket
     mockTabs = createMockTabs(3).map((tab, index) => ({
       ...tab,
+      status: 'complete' as const,
       title: `Test Tab ${index + 1}`,
       url: `https://example${index + 1}.com`,
       favIconUrl: `https://example${index + 1}.com/favicon.ico`,
@@ -103,8 +107,8 @@ describe('Options App', () => {
     // Store should have 3 tabs from mock
     expect(store.tabs.length).toBe(3)
 
-    // Check the component rows computed property
-    const rows = (wrapper.vm as any).rows
+    // Check the component rows computed property (tabRows is from storeToRefs in the component)
+    const rows = (wrapper.vm as any).tabRows
     console.log('Rows length:', rows.length)
     console.log('Rows:', rows.map((r: any) => ({ ordinal: r.ordinal, title: r.title })))
 
@@ -152,6 +156,7 @@ describe('Options App', () => {
     // Re-setup mocks cleared by clearAllMocks
     vi.spyOn(tabStore, 'waitForFaviconsLoaded').mockResolvedValue()
     vi.spyOn(TabDots, 'fetchFaviconDataUrl').mockResolvedValue(null)
+    vi.spyOn(TabDots, 'renderLBracketDataUrl').mockResolvedValue('data:image/png;base64,MOCK')
 
     // Initialize global store (needed for component initialization)
     const globalStore = useGlobalStore()

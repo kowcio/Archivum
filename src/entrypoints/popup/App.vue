@@ -45,7 +45,7 @@
 </template>
 
 <script setup lang="ts">
-import {onMounted} from 'vue'
+import { onMounted, ref } from 'vue'
 import browser from 'webextension-polyfill'
 import {useTabStore} from '@/stores/TabStore'
 import AppTitle from '@/components/Title.vue'
