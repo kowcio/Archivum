@@ -68,5 +68,37 @@ export default defineBackground(() => {
   })
 
 
+  // 🖱️ When user activates a marked (stale) tab — remove L-bracket immediately
+  // and reset its age so it's treated as Fresh on next render.
+  browser.tabs.onActivated.addListener(({ tabId }) => {
+    const tabStore = useTabStore()
+    const tab = tabStore.tabs.find(t => t.id === tabId)
+
+    if (!tab?.isMarked) return
+
+    console.log(`[background] 🖱️ Activated marked tab#${tabId} — removing bracket`)
+
+    tabStore.removeLBracket(tabId)
+      .then(async () => {
+        // Re-query the tab to get the browser-fresh lastAccessed value
+        const [freshTab] = await browser.tabs.query({ currentWindow: true })
+          .then(tabs => tabs.filter(t => t.id === tabId))
+        const freshLastAccessed = freshTab?.lastAccessed ?? Date.now()
+
+        tabStore.$patch(state => {
+          const idx = state.tabs.findIndex(t => t.id === tabId)
+          if (idx === -1) return
+          state.tabs[idx] = {
+            ...state.tabs[idx],
+            lastAccessed: freshLastAccessed,
+            ageCssClass: '',
+            ageColor:    'transparent',
+            ageIndex:    0,
+          }
+        })
+      })
+      .catch(err => console.debug('[background] onActivated removeLBracket error:', err))
+  })
+
   console.log('[background] ✅ Background service worker ready')
 })
