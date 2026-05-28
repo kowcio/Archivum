@@ -1,7 +1,7 @@
-import type { PiniaPlugin, PiniaPluginContext } from 'pinia'
+import type { PiniaPlugin, PiniaPluginContext, Pinia } from 'pinia'
 import type { TabState } from '@/stores/TabStore'
 import type { Store } from 'pinia'
-import {APP_CONSTANTS} from "@/constants.ts";
+import { APP_CONSTANTS } from "@/constants.ts";
 
 /**
  * Pinia plugin — auto-wires WXT storage sync for `tabStore` in every UI context.
@@ -42,5 +42,23 @@ export const tabStoreSyncPlugin: PiniaPlugin = (context: PiniaPluginContext) => 
         unwatch()
         originalDispose()
     }
+}
+
+/**
+ * Disposes all stores registered in the given Pinia instance.
+ *
+ * Pinia NIE wywołuje $dispose automatycznie przy app.unmount().
+ * Wywołuj ręcznie w onRemove() content scriptów — inaczej listener
+ * storage.onChanged żyje dalej po invalidacji scripta (memory / event leak).
+ *
+ * @example
+ *   onRemove: ({ pinia, app }) => {
+ *     disposeAllStores(pinia)
+ *     app.unmount()
+ *   }
+ */
+export function disposeAllStores(pinia: Pinia): void {
+    // pinia._s to wewnętrzna Map<string, Store> wszystkich zarejestrowanych store'ów
+    ;(pinia._s as Map<string, Store>).forEach(store => store.$dispose())
 }
 
