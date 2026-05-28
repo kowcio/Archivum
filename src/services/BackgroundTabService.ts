@@ -18,8 +18,7 @@ import { TabRow } from '@/models/tabs/TabRow'
 import { AgeClassification } from '@/models/tabs/AgeClassification'
 import StorageService from '@/services/StorageService'
 import { APP_DEFAULTS, APP_CONSTANTS } from '@/constants'
-import type { AppFlags } from '@/stores/globalStore'
-import { DEFAULT_THRESHOLDS } from '@/stores/globalStore'
+import { AppThresholds, DEFAULT_THRESHOLDS } from '@/models/AppThresholds'
 import { TabsSnapshot } from '@/models/tabs/TabsSnapshot'
 import type { ClassifiedTab } from '@/models/tabs/ClassifiedTab'
 
@@ -28,10 +27,12 @@ export class BackgroundTabService {
    * Reads age thresholds from storage.
    * Falls back to DEFAULT_THRESHOLDS if storage is empty.
    */
-  static async getThresholds(): Promise<readonly [number, number, number]> {
-    const stored = await StorageService.get<{ flags?: AppFlags }>(APP_CONSTANTS.STORAGE_KEY)
-    const t = stored?.flags?.thresholds ?? DEFAULT_THRESHOLDS
-    return [t.young, t.middle, t.old]
+  static async getThresholds(): Promise<AppThresholds> {
+    const stored = await StorageService.get<{ thresholds?: { young: number; middle: number; old: number } }>(APP_CONSTANTS.STORAGE_KEY)
+    if (stored?.thresholds) {
+      return AppThresholds.fromObject(stored.thresholds)
+    }
+    return DEFAULT_THRESHOLDS
   }
 
   /**
@@ -44,14 +45,14 @@ export class BackgroundTabService {
     console.log('[BackgroundTabService] Starting loadAndMarkTabs...')
     try {
       const rawTabs = await browser.tabs.query({ currentWindow: true })
-      const boundaries = await this.getThresholds()
+      const thresholds = await this.getThresholds()
       const classified: ClassifiedTab[] = ClassifiedTabFactory.fromTabs(rawTabs)
-      const rows = TabRow.fromTabs(classified, boundaries)
+      const rows = TabRow.fromTabs(classified, thresholds)
 
       await Promise.all(
         rows.map(async (row) => {
           if (row.id == null) return
-          const classification = AgeClassification.fromDays(row.lastAccessDays ?? 0, boundaries)
+          const classification = AgeClassification.fromDays(row.lastAccessDays ?? 0, thresholds)
           if (classification.isFresh) return
 
           const rawTab = rawTabs.find(t => t.id === row.id)

@@ -2,7 +2,8 @@ import { defineStore } from 'pinia'
 import browser, { type Storage, type Tabs } from 'webextension-polyfill'
 import { TabRow } from '@/models/tabs/TabRow'
 import { TabDots } from '@/services/TabDots.ts'
-import { useGlobalStore, DEFAULT_THRESHOLDS } from '@/stores/globalStore'
+import { useGlobalStore } from '@/stores/globalStore'
+import { AppThresholds, DEFAULT_THRESHOLDS } from '@/models/AppThresholds'
 import { ExtensionCleanupService } from '@/services/ExtensionCleanupService'
 import { APP_DEFAULTS } from '@/constants'
 import { AgeClassification } from '@/models/tabs/AgeClassification'
@@ -49,15 +50,15 @@ export const useTabStore = defineStore('tabStore', {
          */
         tabRows(): EnrichedTabRow[] {
             const globalStore = useGlobalStore()
-            const boundaries = globalStore.thresholdsArray
+            const thresholds = globalStore.thresholds
 
             const sorted = [...this.tabs].sort(
                 (a, b) => (b.lastAccessed ?? 0) - (a.lastAccessed ?? 0),
             )
 
-            return TabRow.fromTabs(sorted, boundaries).map((row, index) => {
+            return TabRow.fromTabs(sorted, thresholds).map((row, index) => {
                 const days = Number.isFinite(row.lastAccessDays) ? (row.lastAccessDays ?? 0) : 0
-                const classification = AgeClassification.fromDays(days, boundaries)
+                const classification = AgeClassification.fromDays(days, thresholds)
                 return {
                     ...row,
                     ordinal: index + 1,
@@ -144,14 +145,10 @@ export const useTabStore = defineStore('tabStore', {
 
         getAgeClassification(
             row: TabRow,
-            boundaries: readonly [number, number, number] = [
-                DEFAULT_THRESHOLDS.young,
-                DEFAULT_THRESHOLDS.middle,
-                DEFAULT_THRESHOLDS.old,
-            ],
+            thresholds: AppThresholds = DEFAULT_THRESHOLDS,
         ): AgeClassification {
             const days = Number.isFinite(row.lastAccessDays) ? row.lastAccessDays ?? 0 : 0
-            return AgeClassification.fromDays(days, boundaries)
+            return AgeClassification.fromDays(days, thresholds)
         },
 
         getLastAccessMsg(row: TabRow): string {
@@ -164,14 +161,14 @@ export const useTabStore = defineStore('tabStore', {
         async markOldTabs(): Promise<void> {
             this.error = null
             try {
-                const boundaries = useGlobalStore().thresholdsArray
-                const tabRows = TabRow.fromTabs(this.tabs, boundaries)
+                const thresholds = useGlobalStore().thresholds
+                const tabRows = TabRow.fromTabs(this.tabs, thresholds)
 
                 await Promise.all(
                     tabRows.map(async (row) => {
                         if (row.id == null) return
 
-                        const classification = this.getAgeClassification(row, boundaries)
+                        const classification = this.getAgeClassification(row, thresholds)
                         const tabIndex = this.tabs.findIndex(t => t.id === row.id)
                         const classifiedTab = tabIndex !== -1 ? this.tabs[tabIndex] : null
 
@@ -382,19 +379,18 @@ export const useTabStore = defineStore('tabStore', {
                     return 0
                 }
 
-                const boundaries = useGlobalStore().thresholdsArray
-                const [boundariesYoung, boundariesMiddle, boundariesOld] = boundaries
+                const thresholds = useGlobalStore().thresholds
 
                 const oldTabIds: number[] = []
                 const middleTabIds: number[] = []
                 const youngTabIds: number[] = []
 
-                const sortedRows = [...TabRow.fromTabs(this.tabs, boundaries)]
+                const sortedRows = [...TabRow.fromTabs(this.tabs, thresholds)]
                     .sort((a, b) => (b.lastAccess ?? 0) - (a.lastAccess ?? 0))
 
                 for (const row of sortedRows) {
                     if (row.id == null) continue
-                    const c = this.getAgeClassification(row, boundaries)
+                    const c = this.getAgeClassification(row, thresholds)
                     if (c.isOld) oldTabIds.push(row.id)
                     else if (c.isMiddle) middleTabIds.push(row.id)
                     else if (c.isYoung) youngTabIds.push(row.id)
@@ -415,9 +411,9 @@ export const useTabStore = defineStore('tabStore', {
                     } catch { return null }
                 }
 
-                const oldGroupId    = await createGroup(oldTabIds,    `🔴 Old (${boundariesOld}d+)`,      'red')
-                const middleGroupId = await createGroup(middleTabIds, `🟠 Middle (${boundariesMiddle}d+)`, 'orange')
-                const youngGroupId  = await createGroup(youngTabIds,  `🟡 Young (${boundariesYoung}d+)`,  'yellow')
+                const oldGroupId    = await createGroup(oldTabIds,    `🔴 Old (${thresholds.old}d+)`,      'red')
+                const middleGroupId = await createGroup(middleTabIds, `🟠 Middle (${thresholds.middle}d+)`, 'orange')
+                const youngGroupId  = await createGroup(youngTabIds,  `🟡 Young (${thresholds.young}d+)`,  'yellow')
 
                 if (chromeApi.tabGroups?.move) {
                     for (const id of [youngGroupId, middleGroupId, oldGroupId]) {

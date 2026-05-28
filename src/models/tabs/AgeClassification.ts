@@ -1,4 +1,5 @@
 import { APP_DEFAULTS } from '@/constants'
+import type { AppThresholds } from '@/models/AppThresholds'
 
 /** Colors indexed by AgeClassification.index — sourced directly from APP_DEFAULTS */
 const AGE_COLORS = [
@@ -24,7 +25,7 @@ const AGE_CSS_CLASSES = [
  * ⚡ Use the boolean getters: classification.isFresh, classification.shouldMark
  *
  * @example
- * const classification = AgeClassification.fromDays(days, boundaries)
+ * const classification = AgeClassification.fromDays(days, thresholds)
  * classification.index        // 0=Fresh 1=Young 2=Middle 3=Old
  * classification.color        // '#00e676' (from APP_DEFAULTS)
  * classification.shouldMark   // false for Fresh, true for all others
@@ -52,11 +53,12 @@ export class AgeClassification {
     get shouldMark(): boolean { return this.index >= 1 }
 
     /**
-     * Factory: compute state from days + boundaries tuple.
+     * Factory: compute state from days + thresholds object.
      * @param days - days since last access (use TabRow.lastAccessDays)
-     * @param boundaries - [young, middle, old] threshold days
+     * @param thresholds - { young, middle, old } threshold days
      */
-    static fromDays(days: number, boundaries: readonly [number, number, number]): AgeClassification {
+    static fromDays(days: number, thresholds: AppThresholds): AgeClassification {
+        const boundaries = [thresholds.young, thresholds.middle, thresholds.old]
         const found = boundaries.findIndex((threshold) => days <= threshold)
         return new AgeClassification(found !== -1 ? found : 3)
     }

@@ -1,31 +1,20 @@
 import {defineStore} from 'pinia'
 import StorageService from '@/services/StorageService.ts'
-import {APP_CONSTANTS, APP_DEFAULTS} from "@/constants.ts";
+import {APP_CONSTANTS} from "@/constants.ts";
+import { AppThresholds, DEFAULT_THRESHOLDS } from '@/models/AppThresholds'
 
-export type AppThresholds = {
-  young: number   // 0..young → 🟢 fresh
-  middle: number  // young..middle → 🟡 yellow
-  old: number     // middle..old → 🟠 orange, >old → 🔴 red
-}
-
-export type AppFlags = {
-  thresholds: AppThresholds
-}
+export { AppThresholds, DEFAULT_THRESHOLDS }
 
 export type GlobalState = {
   appName: string
   version: string
-  flags: AppFlags
+  thresholds: AppThresholds
   lastUpdated: number
 }
 
 // ─── Partial type used when loading from storage ──────────────────────────────
-type PersistedState = Partial<Omit<GlobalState, 'flags'>> & { flags?: Partial<AppFlags> }
-
-export const DEFAULT_THRESHOLDS: AppThresholds = {
-  young:  APP_DEFAULTS.THRESHOLDS.YOUNG,
-  middle: APP_DEFAULTS.THRESHOLDS.MIDDLE,
-  old:    APP_DEFAULTS.THRESHOLDS.OLD,
+type PersistedState = Partial<Omit<GlobalState, 'thresholds'>> & {
+  thresholds?: { young?: number; middle?: number; old?: number }
 }
 
 
@@ -33,34 +22,24 @@ export const useGlobalStore = defineStore('global', {
   state: (): GlobalState => ({
     appName: APP_CONSTANTS.APP_NAME,
     version: APP_CONSTANTS.APP_VERSION,
-    flags: {
-      thresholds: { ...DEFAULT_THRESHOLDS },
-    },
+    thresholds: DEFAULT_THRESHOLDS,
     lastUpdated: Date.now(),
   }),
 
   getters: {
-    /** Current thresholds as sorted array [young, middle, old] */
-    thresholdsArray: (state): readonly [number, number, number] => [
-      state.flags.thresholds.young,
-      state.flags.thresholds.middle,
-      state.flags.thresholds.old,
-    ],
     /** Expose constants so any component can read them via the store */
     constants: (): typeof APP_CONSTANTS => APP_CONSTANTS,
   },
 
   actions: {
-    /** Merge partial flag changes and persist. */
-    async setFlags(patch: Partial<AppFlags>): Promise<void> {
-      this.flags = {
-        ...this.flags,
-        ...patch,
-        // Deep-merge thresholds if provided
-        thresholds: patch.thresholds
-          ? { ...this.flags.thresholds, ...patch.thresholds }
-          : this.flags.thresholds,
+    /** Merge partial threshold changes and persist. */
+    async setThresholds(patch: Partial<AppThresholds>): Promise<void> {
+      const updated = this.thresholds.merge(patch)
+      if (!updated.isValid()) {
+        console.warn('[globalStore] Invalid thresholds rejected:', updated.toJSON())
+        return
       }
+      this.thresholds = updated
       await this.save()
     },
 
@@ -69,14 +48,9 @@ export const useGlobalStore = defineStore('global', {
       if (data) {
         this.appName = data.appName ?? this.appName
         this.lastUpdated = data.lastUpdated ?? this.lastUpdated
-        this.flags = {
-          ...this.flags,
-          ...data.flags,
-          // Deep-merge thresholds so missing keys fall back to defaults
-          thresholds: {
-            ...DEFAULT_THRESHOLDS,
-            ...data.flags?.thresholds,
-          },
+        // Deep-merge thresholds so missing keys fall back to defaults
+        if (data.thresholds) {
+          this.thresholds = DEFAULT_THRESHOLDS.merge(data.thresholds)
         }
       } else {
         // First time — persist the defaults
@@ -109,7 +83,7 @@ export const useGlobalStore = defineStore('global', {
       await StorageService.set(APP_CONSTANTS.STORAGE_KEY, {
         appName: this.appName,
         version: this.version,
-        flags: this.flags,
+        thresholds: this.thresholds.toJSON(),
         lastUpdated: this.lastUpdated,
       })
     },
@@ -121,13 +95,8 @@ export const useGlobalStore = defineStore('global', {
         if (payload.lastUpdated && payload.lastUpdated === this.lastUpdated) return
         this.appName = payload.appName ?? this.appName
         this.lastUpdated = payload.lastUpdated ?? this.lastUpdated
-        this.flags = {
-          ...this.flags,
-          ...payload.flags,
-          thresholds: {
-            ...this.flags.thresholds,
-            ...payload.flags?.thresholds,
-          },
+        if (payload.thresholds) {
+          this.thresholds = this.thresholds.merge(payload.thresholds)
         }
       })
     },

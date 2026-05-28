@@ -1,9 +1,7 @@
 import type {Tabs} from 'webextension-polyfill';
 import type { ClassifiedTab } from '@/models/tabs/ClassifiedTab'
 import dayjs from 'dayjs';
-import { DEFAULT_THRESHOLDS } from '@/stores/globalStore'
-
-export type ThresholdBoundaries = readonly [number, number, number]
+import { AppThresholds, DEFAULT_THRESHOLDS } from '@/models/AppThresholds'
 
 /**
  * Model representing a tab row in the table
@@ -23,11 +21,7 @@ export class TabRow {
   readonly lastAccessHours: number | undefined;
   readonly lastAccessClass: string;
 
-  constructor(tab: Tabs.Tab, boundaries: ThresholdBoundaries = [
-    DEFAULT_THRESHOLDS.young,
-    DEFAULT_THRESHOLDS.middle,
-    DEFAULT_THRESHOLDS.old,
-  ]) {
+  constructor(tab: Tabs.Tab, thresholds: AppThresholds = DEFAULT_THRESHOLDS) {
     // Basic fields
     this.id = tab.id ?? null;
     this.openerTabId = tab.openerTabId ?? null;
@@ -58,7 +52,7 @@ export class TabRow {
       this.lastAccessDays = 0;
       this.lastAccessHours = 0;
     }
-    this.lastAccessClass = this.getAgeBgClass(this.lastAccessDays ?? 0, boundaries);
+    this.lastAccessClass = this.getAgeBgClass(this.lastAccessDays ?? 0, thresholds);
   }
 
   /**
@@ -77,13 +71,13 @@ export class TabRow {
 
   /**
    * Gets the Quasar background color class based on age in days.
-   * Boundaries come from globalStore DEFAULT_THRESHOLDS (young / middle / old).
+   * Thresholds come from globalStore DEFAULT_THRESHOLDS (young / middle / old).
    */
-  private getAgeBgClass(days: number, [young, middle, old]: ThresholdBoundaries): string {
+  private getAgeBgClass(days: number, thresholds: AppThresholds): string {
     if (!Number.isFinite(days) || days === Infinity) return 'bg-negative-3';
-    if (days <= young)  return 'bg-green-3';
-    if (days <= middle) return 'bg-yellow-3';
-    if (days <= old)    return 'bg-orange-3';
+    if (days <= thresholds.young)  return 'bg-green-3';
+    if (days <= thresholds.middle) return 'bg-yellow-3';
+    if (days <= thresholds.old)    return 'bg-orange-3';
     return 'bg-red-3';
   }
 
@@ -100,15 +94,8 @@ export class TabRow {
   /**
    * Static factory method to create multiple TabRows from array of Tabs.Tab
    */
-  static fromTabs(
-    tabs: Tabs.Tab[],
-    boundaries: ThresholdBoundaries = [
-      DEFAULT_THRESHOLDS.young,
-      DEFAULT_THRESHOLDS.middle,
-      DEFAULT_THRESHOLDS.old,
-    ],
-  ): TabRow[] {
+  static fromTabs(tabs: Tabs.Tab[], thresholds: AppThresholds = DEFAULT_THRESHOLDS): TabRow[] {
     if (!Array.isArray(tabs)) return []
-    return tabs.map((tab) => new TabRow(tab, boundaries))
+    return tabs.map((tab) => new TabRow(tab, thresholds))
   }
 }

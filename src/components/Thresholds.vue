@@ -66,23 +66,27 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
-import { useThresholds } from '@/composables/useThresholds'
-import type { AppThresholds } from '@/stores/globalStore'
+import { ref, computed } from 'vue'
+import { useGlobalStore } from '@/stores/globalStore'
+import { AppThresholds, DEFAULT_THRESHOLDS } from '@/models/AppThresholds'
 
-// 🎯 Use explicit property access instead of destructuring
-const thresholdsComposable = useThresholds()
-const thresholds = thresholdsComposable.thresholds
-const setThreshold = thresholdsComposable.setThreshold
-const resetToDefaults = thresholdsComposable.resetToDefaults
-
+const globalStore = useGlobalStore()
+const thresholds = computed(() => globalStore.thresholds)
 const loading = ref(false)
 
 async function onChange(key: keyof AppThresholds, value: number): Promise<void> {
   if (!Number.isFinite(value) || value < 0) return
+
+  // Validate before applying
+  const updated = thresholds.value.merge({ [key]: value })
+  if (!updated.isValid()) {
+    console.warn(`[Thresholds] Invalid ${key}=${value} rejected`)
+    return
+  }
+
   loading.value = true
   try {
-    await setThreshold(key, value)
+    await globalStore.setThresholds({ [key]: value })
   } finally {
     loading.value = false
   }
@@ -91,7 +95,7 @@ async function onChange(key: keyof AppThresholds, value: number): Promise<void> 
 async function handleReset(): Promise<void> {
   loading.value = true
   try {
-    await resetToDefaults()
+    await globalStore.setThresholds(DEFAULT_THRESHOLDS.toJSON())
   } finally {
     loading.value = false
   }
