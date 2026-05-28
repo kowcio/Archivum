@@ -1,15 +1,16 @@
 import { defineStore } from 'pinia'
-import browser, { type Storage, type Tabs } from 'webextension-polyfill'
+import browser, { type Tabs } from 'webextension-polyfill'
 import { TabRow } from '@/models/tabs/TabRow'
 import { TabDots } from '@/services/TabDots.ts'
 import { useGlobalStore } from '@/stores/globalStore'
 import { AppThresholds, DEFAULT_THRESHOLDS } from '@/models/AppThresholds'
 import { ExtensionCleanupService } from '@/services/ExtensionCleanupService'
-import { APP_DEFAULTS } from '@/constants'
 import { AgeClassification } from '@/models/tabs/AgeClassification'
 import type { ClassifiedTab } from '@/models/tabs/ClassifiedTab'
 import { ClassifiedTabFactory } from '@/models/tabs/ClassifiedTab'
 import { TabsSnapshot } from '@/models/tabs/TabsSnapshot'
+import { tabStorageItem } from '@/utils/tabStorage'
+import {APP_CONSTANTS} from "@/constants.ts";
 
 // Re-export models consumed by external code (App.vue, tests)
 export type { ClassifiedTab }
@@ -19,7 +20,7 @@ export { AgeClassification, TabsSnapshot }
  * TabRow enriched with display-only fields computed at render time.
  * Returned by the tabRows getter — use this type in components.
  */
-export type EnrichedTabRow = TabRow & {
+export type OptionsEnrichedTabRow = TabRow & {
     /** 1-based position in the sorted list */
     ordinal: number
     /** Human-readable age string e.g. "10d" or "—" */
@@ -35,7 +36,7 @@ export type TabState = {
     isGrouped: boolean
 }
 
-export const useTabStore = defineStore('tabStore', {
+export const useTabStore = defineStore(APP_CONSTANTS.STORE_TAB_STORE, {
     state: (): TabState => ({
         tabs: [],
         loading: false,
@@ -48,7 +49,7 @@ export const useTabStore = defineStore('tabStore', {
          * Sorted, enriched tab rows ready for display in the table.
          * Sort order: youngest first → oldest last. Tabs without timestamp go to end.
          */
-        tabRows(): EnrichedTabRow[] {
+        tabRows(): OptionsEnrichedTabRow[] {
             const globalStore = useGlobalStore()
             const thresholds = globalStore.thresholds
 
@@ -64,31 +65,129 @@ export const useTabStore = defineStore('tabStore', {
                     ordinal: index + 1,
                     lastAccessAge: Number.isFinite(row.lastAccessDays) ? `${row.lastAccessDays}d` : '—',
                     lastAccessClass: classification.cssClass,
-                } as EnrichedTabRow
+                } as OptionsEnrichedTabRow
             })
         },
     },
 
     actions: {
+        // ─── Storage ──────────────────────────────────────────────────────────────
+
         /**
-         * Persists the full TabState (tabs + isGrouped) to browser.storage.local.
-         * Called after every state mutation so all open UI contexts stay in sync
-         * via initStorageSync() → storage.onChanged → Pinia $patch.
+         * Builds a TabsSnapshot from current local state.
          *
-         * Architecture: write once here, every context reads reactively.
+         * ⚠️  Write pattern & race condition note:
+         *
+         *   Every mutating action follows this sequence:
+         *     1. Mutate this.tabs / this.isGrouped synchronously (local store, instant Vue update)
+         *     2. Call tabStorageItem.setValue(this._snapshot())
+         *        → triggers browser.storage.onChanged
+         *        → initStorageSync() watch fires in ALL contexts (including this one) asynchronously
+         *        → $patch() updates every Pinia instance on next event-loop tick
+         *
+         *   Step 1 is redundant for THIS context (the watch will $patch the same data a tick later)
+         *   but it guarantees instant local reactivity without waiting for the storage round-trip.
+         *
+         *   ⚠️  Rare race condition — last-write-wins:
+         *   If two contexts write simultaneously (e.g. popup calls groupTabsByAge() while the
+         *   background alarm calls loadAndMarkTabs() at the same time), one write will overwrite
+         *   the other because each write is a full snapshot replacement (no partial merge).
+         *
+         *   This is acceptable for a tab-age tracker — the next alarm cycle will self-correct.
+         *   If partial writes ever become critical, migrate to storage.setMeta() or a versioned
+         *   snapshot with a vector clock.
          */
-        async _persist(): Promise<void> {
+        _snapshot(): TabsSnapshot {
+            return new TabsSnapshot(this.tabs, this.isGrouped, new Date().toISOString())
+        },
+
+        // ─── Read ─────────────────────────────────────────────────────────────────
+
+        /**
+         * Hydrates store from the last persisted snapshot in storage.
+         * Called by tabStoreSyncPlugin on store creation (crash recovery / cross-context hydration).
+         *
+         * Restores full ClassifiedTab shape (isMarked, ageIndex, markedFaviconDataUrl)
+         * — does NOT reset them to defaults via ClassifiedTabFactory, so marked tabs
+         * keep their visual state across popup open/close cycles.
+         */
+        async loadTabsHistory(): Promise<ClassifiedTab[]> {
+            this.loading = true
+            this.error = null
             try {
-                const snapshot = new TabsSnapshot(this.tabs, this.isGrouped, new Date().toISOString())
-                await browser.storage.local.set({ [APP_DEFAULTS.TAB_HISTORY_KEY]: snapshot })
+                const snapshot = await tabStorageItem.getValue()
+                if (snapshot?.tabs) {
+                    const rawTabs = Array.isArray(snapshot.tabs)
+                        ? snapshot.tabs
+                        : Object.values(snapshot.tabs as Record<string, unknown>)
+
+                    // Preserve all ClassifiedTab fields stored in the snapshot.
+                    // The snapshot stores ClassifiedTab[] (with isMarked, ageIndex, markedFaviconDataUrl),
+                    // so we cast directly instead of going through ClassifiedTabFactory which would
+                    // reset ageIndex → 0 and markedFaviconDataUrl → undefined.
+                    this.tabs = rawTabs.map(t => ({
+                        ...(t as Tabs.Tab),
+                        isMarked:             (t as ClassifiedTab).isMarked             ?? false,
+                        ageIndex:             (t as ClassifiedTab).ageIndex             ?? 0,
+                        markedFaviconDataUrl: (t as ClassifiedTab).markedFaviconDataUrl ?? undefined,
+                    })) as ClassifiedTab[]
+
+                    this.isGrouped = snapshot.isGrouped ?? false
+                    console.log('[loadTabsHistory] Restored', this.tabs.length, 'tabs from storage, isGrouped:', this.isGrouped)
+                }
+                return this.tabs
             } catch (err) {
-                console.warn('[TabStore._persist] Failed to persist state:', err instanceof Error ? err.message : err)
+                this.error = err instanceof Error ? err.message : 'Unknown error while loading tabs history'
+                return []
+            } finally {
+                this.loading = false
             }
         },
 
         /**
+         * Subscribes to storage changes from any context via WXT typed watch().
+         * Called by tabStoreSyncPlugin — no component should call this directly.
+         * Returns unwatch — called automatically on store.$dispose().
+         *
+         * Flow (any context → this store):
+         *   tabStorageItem.setValue() → storage.onChanged → watch callback → $patch() → Vue
+         *
+         * ⚠️  Same-context watch timing:
+         *   When THIS context calls setValue(), the watch fires asynchronously (next event loop tick).
+         *   this.tabs is already updated synchronously above the setValue call, so the $patch
+         *   here will be idempotent (same data). No visual glitch, no double-render concern.
+         *
+         * ⚠️  Field preservation:
+         *   Restores full ClassifiedTab shape — same logic as loadTabsHistory().
+         */
+        initStorageSync(): () => void {
+            const unwatch = tabStorageItem.watch((snapshot) => {
+                if (!snapshot?.tabs) return
+
+                const rawTabs = Array.isArray(snapshot.tabs)
+                    ? snapshot.tabs
+                    : Object.values(snapshot.tabs as Record<string, unknown>)
+
+                const restoredTabs: ClassifiedTab[] = rawTabs.map(t => ({
+                    ...(t as Tabs.Tab),
+                    isMarked:             (t as ClassifiedTab).isMarked             ?? false,
+                    ageIndex:             (t as ClassifiedTab).ageIndex             ?? 0,
+                    markedFaviconDataUrl: (t as ClassifiedTab).markedFaviconDataUrl ?? undefined,
+                })) as ClassifiedTab[]
+
+                this.$patch({
+                    tabs:      restoredTabs,
+                    isGrouped: snapshot.isGrouped ?? false,
+                })
+                console.debug('[TabStore] Storage sync: received', restoredTabs.length, 'tabs, isGrouped:', snapshot.isGrouped)
+            })
+            return unwatch
+        },
+
+        // ─── Mutations ────────────────────────────────────────────────────────────
+
+        /**
          * Fetches current window tabs, merges with store state, marks old tabs.
-         * Favicons are already loaded by the browser at query time — no polling needed.
          */
         async getAllOpenedTabs(): Promise<ClassifiedTab[]> {
             this.loading = true
@@ -110,9 +209,11 @@ export const useTabStore = defineStore('tabStore', {
 
                 console.log('[getAllOpenedTabs] Loaded:', this.tabs.length, {
                     withFavicons: this.tabs.filter(t => t.favIconUrl).length,
-                    marked: this.tabs.filter(t => t.isMarked).length,
+                    marked:       this.tabs.filter(t => t.isMarked).length,
                 })
-                await this._persist()
+
+                // Write to storage → watch fires async in all contexts (including this one, idempotent)
+                await tabStorageItem.setValue(this._snapshot())
                 return this.tabs
             } catch (err) {
                 this.error = err instanceof Error ? err.message : 'Unknown error while loading tabs'
@@ -127,7 +228,7 @@ export const useTabStore = defineStore('tabStore', {
             try {
                 await tabsApi.remove(tabId)
                 this.tabs = this.tabs.filter((t) => t.id !== tabId)
-                await this._persist()
+                await tabStorageItem.setValue(this._snapshot())
                 return this.tabs
             } catch (err) {
                 this.error = err instanceof Error ? err.message : 'Unknown error while closing tab'
@@ -135,32 +236,7 @@ export const useTabStore = defineStore('tabStore', {
             }
         },
 
-        /**
-         * Hydrates store from the last background-written snapshot in storage.
-         * Called on UI mount for crash recovery — background writes this automatically.
-         */
-        async loadTabsHistory(storage: Storage.StorageArea = browser.storage.local): Promise<ClassifiedTab[]> {
-            this.loading = true
-            this.error = null
-            try {
-                const result = await storage.get(APP_DEFAULTS.TAB_HISTORY_KEY)
-                const snapshot = result?.[APP_DEFAULTS.TAB_HISTORY_KEY] as TabsSnapshot | undefined
-                if (snapshot) {
-                    const rawTabs: Tabs.Tab[] = Array.isArray(snapshot.tabs)
-                        ? snapshot.tabs
-                        : Object.values(snapshot.tabs as Record<string, Tabs.Tab>)
-                    this.tabs = ClassifiedTabFactory.fromTabs(rawTabs)
-                    this.isGrouped = snapshot.isGrouped ?? false
-                    console.log('[loadTabsHistory] Restored', this.tabs.length, 'tabs from storage, isGrouped:', this.isGrouped)
-                }
-                return this.tabs
-            } catch (err) {
-                this.error = err instanceof Error ? err.message : 'Unknown error while loading tabs history'
-                return []
-            } finally {
-                this.loading = false
-            }
-        },
+        // ─── Helpers (non-persisting internal) ───────────────────────────────────
 
         getAgeClassification(
             row: TabRow,
@@ -213,7 +289,7 @@ export const useTabStore = defineStore('tabStore', {
 
         /**
          * Marks a tab with the L-bracket age indicator.
-         * Flow: fetch favicon → render L-bracket (OffscreenCanvas) → store URL → inject into page
+         * Internal — called by markOldTabs(). The caller is responsible for persisting.
          */
         async markTabWithLBracket(tabId: number, color: string): Promise<void> {
             this.tabs = this.tabs.map(t =>
@@ -224,7 +300,6 @@ export const useTabStore = defineStore('tabStore', {
                 const tab = this.tabs.find(t => t.id === tabId)
                 if (!tab) return
 
-                // Skip stale data: URLs to prevent double-bracket
                 const rawFaviconUrl = tab.favIconUrl?.startsWith('data:') ? undefined : tab.favIconUrl
 
                 // Wait for tab to finish loading before injecting (max 2s)
@@ -244,10 +319,9 @@ export const useTabStore = defineStore('tabStore', {
                     })
                 }
 
-                const faviconDataUrl = rawFaviconUrl
+                const faviconDataUrl  = rawFaviconUrl
                     ? await TabDots.fetchFaviconDataUrl(rawFaviconUrl)
                     : null
-
                 const renderedDataUrl = await TabDots.renderLBracketDataUrl(faviconDataUrl, color)
 
                 this.tabs = this.tabs.map(t =>
@@ -256,21 +330,21 @@ export const useTabStore = defineStore('tabStore', {
 
                 await browser.scripting.executeScript({
                     target: { tabId },
-                    func: TabDots.applyLBracketPageScript,
-                    args: [renderedDataUrl],
+                    func:   TabDots.applyLBracketPageScript,
+                    args:   [renderedDataUrl],
                 })
             } catch (err) {
                 console.debug(`[markTabWithLBracket] tab#${tabId}:`, err instanceof Error ? err.message : err)
             }
         },
 
-        /** Removes the L-bracket favicon overlay and restores the original favicon. */
+        /** Removes the L-bracket favicon overlay and restores the original favicon. Internal. */
         async removeLBracket(tabId: number): Promise<void> {
             try {
                 await browser.scripting.executeScript({
                     target: { tabId },
-                    func: TabDots.removeLBracketPageScript,
-                    args: [],
+                    func:   TabDots.removeLBracketPageScript,
+                    args:   [],
                 })
             } catch (err) {
                 console.debug(`[removeLBracket] tab#${tabId}:`, err instanceof Error ? err.message : err)
@@ -302,7 +376,7 @@ export const useTabStore = defineStore('tabStore', {
                 { url: 'https://www.reddit.com',                  daysAgo: 25 },
             ]
             const DAY_MS = 24 * 60 * 60 * 1000
-            const now = Date.now()
+            const now    = Date.now()
 
             try {
                 const tabIds: number[] = []
@@ -318,26 +392,22 @@ export const useTabStore = defineStore('tabStore', {
                     await new Promise(resolve => setTimeout(resolve, 500))
                     const allCurrentTabs = await browser.tabs.query({ currentWindow: true })
                     loadedTabs = allCurrentTabs.filter(t => tabIds.includes(t.id!))
-                    const complete = loadedTabs.filter(t => t.status === 'complete').length
-                    const favicons = loadedTabs.filter(t => t.favIconUrl).length
+                    const complete  = loadedTabs.filter(t => t.status === 'complete').length
+                    const favicons  = loadedTabs.filter(t => t.favIconUrl).length
                     if (complete === tabIds.length && favicons >= Math.ceil(tabIds.length * 0.7)) break
                 }
 
-                // Merge: keep all existing tabs, add the new mock tabs with spoofed lastAccessed.
-                // New tabs are identified by ID so they don't overwrite any existing entry.
                 const newMockTabs = loadedTabs.map((tab, idx) => ({
                     ...ClassifiedTabFactory.fromTab(tab, false),
                     lastAccessed: now - (MOCK_TABS[idx]?.daysAgo ?? 0) * DAY_MS,
                 }))
 
                 const existingIds = new Set(this.tabs.map(t => t.id))
-                const trulyNew = newMockTabs.filter(t => !existingIds.has(t.id))
+                const trulyNew    = newMockTabs.filter(t => !existingIds.has(t.id))
 
-                this.$patch({
-                    tabs: [...this.tabs, ...trulyNew],
-                    error: null,
-                })
-                await this._persist()
+                this.tabs  = [...this.tabs, ...trulyNew]
+                this.error = null
+                await tabStorageItem.setValue(this._snapshot())
             } catch (err) {
                 this.error = err instanceof Error ? err.message : 'Unknown error while loading mock tabs'
             } finally {
@@ -347,7 +417,7 @@ export const useTabStore = defineStore('tabStore', {
 
         /** Resets marking only: removes L-bracket overlays but preserves lastAccessed timestamps. */
         async reset(): Promise<void> {
-            this.error = null
+            this.error   = null
             this.loading = true
             try {
                 const markedIds = new Set(
@@ -356,30 +426,20 @@ export const useTabStore = defineStore('tabStore', {
 
                 if (this.isGrouped) await this.ungroupAllTabs()
 
-                // Remove visual overlays from browser
                 await Promise.all(Array.from(markedIds).map(tabId => this.removeLBracket(tabId)))
 
-                // Fetch fresh tab data to get updated favicons
                 const freshTabs: Tabs.Tab[] = await browser.tabs.query({ currentWindow: true })
                 const freshById = new Map(freshTabs.map(t => [t.id, t]))
 
-                // Merge: preserve lastAccessed, update favicons (but remove stale data: URLs)
                 this.tabs = this.tabs.map(tab => {
-                    const fresh = tab.id != null ? freshById.get(tab.id) : undefined
-                    // If fresh favicon is a data: URL, remove it; otherwise use it
+                    const fresh      = tab.id != null ? freshById.get(tab.id) : undefined
                     const favIconUrl = fresh?.favIconUrl?.startsWith('data:')
                         ? undefined
                         : (fresh?.favIconUrl ?? tab.favIconUrl)
-                    return {
-                        ...tab,
-                        favIconUrl,
-                        isMarked: false,
-                        markedFaviconDataUrl: undefined,
-                        ageIndex: 0,
-                    }
+                    return { ...tab, favIconUrl, isMarked: false, markedFaviconDataUrl: undefined, ageIndex: 0 }
                 })
                 this.isGrouped = false
-                await this._persist()
+                await tabStorageItem.setValue(this._snapshot())
             } catch (err) {
                 this.error = err instanceof Error ? err.message : 'Unknown error while resetting tabs'
             } finally {
@@ -389,7 +449,7 @@ export const useTabStore = defineStore('tabStore', {
 
         /** Groups Middle + Old + Young tabs by age using Chrome tab groups API. */
         async groupTabsByAge(): Promise<number> {
-            this.error = null
+            this.error   = null
             this.loading = true
             let groupsCreated = 0
 
@@ -409,11 +469,10 @@ export const useTabStore = defineStore('tabStore', {
                     return 0
                 }
 
-                const thresholds = useGlobalStore().thresholds
-
-                const oldTabIds: number[] = []
+                const thresholds   = useGlobalStore().thresholds
+                const oldTabIds:    number[] = []
                 const middleTabIds: number[] = []
-                const youngTabIds: number[] = []
+                const youngTabIds:  number[] = []
 
                 const sortedRows = [...TabRow.fromTabs(this.tabs, thresholds)]
                     .sort((a, b) => (b.lastAccess ?? 0) - (a.lastAccess ?? 0))
@@ -421,9 +480,9 @@ export const useTabStore = defineStore('tabStore', {
                 for (const row of sortedRows) {
                     if (row.id == null) continue
                     const c = this.getAgeClassification(row, thresholds)
-                    if (c.isOld) oldTabIds.push(row.id)
+                    if      (c.isOld)    oldTabIds.push(row.id)
                     else if (c.isMiddle) middleTabIds.push(row.id)
-                    else if (c.isYoung) youngTabIds.push(row.id)
+                    else if (c.isYoung)  youngTabIds.push(row.id)
                 }
 
                 if (!oldTabIds.length && !middleTabIds.length && !youngTabIds.length) {
@@ -454,7 +513,7 @@ export const useTabStore = defineStore('tabStore', {
                 }
 
                 this.isGrouped = true
-                await this._persist()
+                await tabStorageItem.setValue(this._snapshot())
                 return groupsCreated
             } catch (err) {
                 this.error = err instanceof Error ? err.message : 'Unknown error while grouping tabs by age'
@@ -466,7 +525,7 @@ export const useTabStore = defineStore('tabStore', {
 
         /** Removes all tab groups in the current window. */
         async ungroupAllTabs(): Promise<void> {
-            this.error = null
+            this.error   = null
             this.loading = true
             try {
                 type ChromeAPI = { chrome?: { tabs?: { ungroup?: (ids: number | number[]) => Promise<void> } } }
@@ -478,10 +537,10 @@ export const useTabStore = defineStore('tabStore', {
                 const allTabIds = this.tabs.map(t => t.id).filter((id): id is number => id != null)
                 if (allTabIds.length > 0) await chromeApi.tabs.ungroup(allTabIds)
                 this.isGrouped = false
-                await this._persist()
+                await tabStorageItem.setValue(this._snapshot())
             } catch {
                 this.isGrouped = false
-                await this._persist()
+                await tabStorageItem.setValue(this._snapshot())
             } finally {
                 this.loading = false
             }
@@ -490,39 +549,9 @@ export const useTabStore = defineStore('tabStore', {
         /** Triggers full extension cleanup on disable/uninstall. */
         async performExtensionCleanup(): Promise<void> {
             await ExtensionCleanupService.performFullCleanup()
-            this.tabs = this.tabs.map(t => ({ ...t, isMarked: false }))
+            this.tabs      = this.tabs.map(t => ({ ...t, isMarked: false }))
             this.isGrouped = false
-        },
-
-        /**
-         * Listens for background-written storage changes and syncs this store.
-         * Call from UI context onMounted. Returns unsubscribe — call in onUnmounted.
-         *
-         * Flow: background → browser.storage.local → initStorageSync() → Pinia → Vue UI
-         */
-        initStorageSync(): () => void {
-            if (typeof browser === 'undefined' || !browser?.storage?.onChanged?.addListener) {
-                return () => {}
-            }
-
-            const handler = (changes: Record<string, Storage.StorageChange>, areaName: string) => {
-                if (areaName !== 'local') return
-                const snap = changes[APP_DEFAULTS.TAB_HISTORY_KEY]?.newValue as TabsSnapshot | undefined
-                if (!snap?.tabs) return
-
-                const rawTabs = Array.isArray(snap.tabs)
-                    ? snap.tabs
-                    : Object.values(snap.tabs as Record<string, Tabs.Tab>)
-
-                this.$patch({
-                    tabs: ClassifiedTabFactory.fromTabs(rawTabs),
-                    isGrouped: snap.isGrouped ?? false,
-                })
-                console.debug('[TabStore] Received snapshot:', rawTabs.length, 'tabs, isGrouped:', snap.isGrouped)
-            }
-
-            browser.storage.onChanged.addListener(handler)
-            return () => browser.storage.onChanged.removeListener(handler)
+            await tabStorageItem.setValue(this._snapshot())
         },
     },
 })

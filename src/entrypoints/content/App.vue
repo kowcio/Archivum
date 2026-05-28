@@ -5,14 +5,8 @@
 </template>
 
 <script setup lang="ts">
-import {onMounted} from 'vue';
-import {useGlobalStore} from '@/stores/globalStore.ts';
-
-const global = useGlobalStore();
-
-onMounted(async () => {
-  await global.init().catch((err: unknown) => console.error('global.init failed', err));
-});
+// AppBootstrapper (called in main.ts) already runs global.init() and registers
+// tabStoreSyncPlugin — no manual store setup needed here.
 </script>
 
 <style>

@@ -17,10 +17,11 @@ import { ClassifiedTabFactory } from '@/models/tabs/ClassifiedTab'
 import { TabRow } from '@/models/tabs/TabRow'
 import { AgeClassification } from '@/models/tabs/AgeClassification'
 import StorageService from '@/services/StorageService'
-import { APP_DEFAULTS, APP_CONSTANTS } from '@/constants'
+import { APP_CONSTANTS } from '@/constants'
 import { AppThresholds, DEFAULT_THRESHOLDS } from '@/models/AppThresholds'
 import { TabsSnapshot } from '@/models/tabs/TabsSnapshot'
 import type { ClassifiedTab } from '@/models/tabs/ClassifiedTab'
+import { tabStorageItem } from '@/utils/tabStorage'
 
 export class BackgroundTabService {
   /**
@@ -89,12 +90,12 @@ export class BackgroundTabService {
         }),
       )
 
-      // Persist snapshot to storage → TabStore.initStorageSync() in UI contexts picks this up
+      // Persist snapshot via WXT typed storage item → TabStore.initStorageSync() watch fires in all UI contexts.
       // Background never groups tabs — preserve existing isGrouped from storage if present.
-      const stored = await browser.storage.local.get(APP_DEFAULTS.TAB_HISTORY_KEY)
-      const prevIsGrouped = (stored?.[APP_DEFAULTS.TAB_HISTORY_KEY] as { isGrouped?: boolean } | undefined)?.isGrouped ?? false
+      const prev = await tabStorageItem.getValue()
+      const prevIsGrouped = prev?.isGrouped ?? false
       const snapshot = new TabsSnapshot(classified, prevIsGrouped, new Date().toISOString())
-      await browser.storage.local.set({ [APP_DEFAULTS.TAB_HISTORY_KEY]: snapshot })
+      await tabStorageItem.setValue(snapshot)
 
       console.log(`[BackgroundTabService] ✅ Loaded & marked ${classified.length} tabs`)
     } catch (err) {

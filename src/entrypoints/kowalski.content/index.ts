@@ -1,10 +1,9 @@
 /// <reference types="../../../.wxt/wxt.d.ts" />
 import './style.css';
-import {type App as VueAppInstance, createApp} from 'vue';
-import {createPinia} from 'pinia';
+import type { App as VueAppInstance } from 'vue';
 import App from './App.vue';
-import {useGlobalStore} from '@/stores/globalStore.ts';
-import type {ContentScriptContext} from 'wxt/utils/content-script-context';
+import { AppBootstrapper } from '@/entrypoints/shared/AppBootstrapper';
+import type { ContentScriptContext } from 'wxt/utils/content-script-context';
 
 export default defineContentScript({
   // upewnij się, że mamy wzorzec dla domeny bez subdomeny oraz z subdomenami
@@ -16,7 +15,6 @@ export default defineContentScript({
     console.log('[DEBUG] Content script init:', {
       url: window.location.href,
       host: location.host,
-      matches: ['*://kowalskipiotr.pl/*', '*://*.kowalskipiotr.pl/*'],
     });
 
     // Nie montujemy jeśli jesteśmy w iframe — WordPress może osadzać treści
@@ -63,25 +61,20 @@ export default defineContentScript({
         `;
         document.head.appendChild(style);
 
-        // Create Vue app with unified pattern (similar to popup/options)
-        const app = createApp(App);
-        const pinia = createPinia();
-        app.use(pinia);
+        // Use AppBootstrapper so tabStoreSyncPlugin is registered automatically.
+        // This gives this content script the same storage sync as popup and options.
+        let appInstance: VueAppInstance | undefined;
+        AppBootstrapper.initUI({ rootComponent: App, mountTarget: container })
+          .then(({ app }) => {
+            appInstance = app;
+            console.log('✅ kowalski.content Vue app mounted via AppBootstrapper');
+          })
+          .catch((err: unknown) => console.error('Failed to mount kowalski.content UI:', err));
 
-        // Initialize shared settings store
-        const global = useGlobalStore();
-        global.init().catch((err: unknown) => console.error('global.init failed', err));
-
-        app.mount(container);
-
-        console.log('✅ Content script Vue app mounted');
-        return {app, style};
+        return { style, getApp: () => appInstance };
       },
-      onRemove: (result: {
-        app: VueAppInstance<Element>;
-        style: HTMLStyleElement;
-      } | undefined) => {
-        result?.app?.unmount();
+      onRemove: (result: { style: HTMLStyleElement; getApp: () => VueAppInstance | undefined } | undefined) => {
+        result?.getApp()?.unmount();
         result?.style?.remove();
       },
     });

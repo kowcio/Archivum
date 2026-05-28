@@ -1,65 +1,249 @@
-# Browser Tab Age Extension
+# 🕰️ Tab Age Tracker
 
-Browser extension that tracks **how old your open tabs are** — marks stale tabs with a color-coded L-bracket favicon overlay and displays a sortable age table.
+> A browser extension that tracks how long your tabs have been open, marks stale ones with a visual L-bracket favicon overlay, and groups them by age — so you finally close the 47 tabs you opened "just for a second".
 
-Built with **WXT** · **Vue 3** · **Pinia** · **Quasar** · **TypeScript** · **Playwright** · **Vitest**
+Built with **WXT 0.20+** · **Vue 3 + Pinia** · **Quasar** · **TypeScript** · **Playwright** · **Vitest**  
+Targets **Chrome MV3** and **Firefox MV3**.
 
 ---
 
-## What it does
+## Why Does This Exist?
 
-| Feature | Description |
-|---|---|
-| **Tab age tracking** | Classifies every open tab as _fresh / young / middle / old_ based on `lastAccessed` timestamp |
-| **L-bracket overlay** | Injects a colored L-bracket onto the favicon of old tabs (rendered via `OffscreenCanvas` in the service worker) |
-| **Options page** | Full sortable table of all tabs with age, favicon, title, URL, and mark status |
-| **Popup** | Quick summary — one-click tab reload/mark trigger |
-| **Content script** | Injected on every page — receives favicon overlay instructions from the background |
-| **Configurable thresholds** | Young / middle / old day boundaries saved in `browser.storage.local` |
+Modern browsers give you zero visibility into tab age. You open a tab to read later, forget it exists, and six months later you have 200 tabs and a 4GB RAM bill.
+
+Tab Age Tracker solves this by:
+
+- **Visually marking** stale tabs with a colour-coded L-bracket overlay rendered directly on the favicon
+- **Grouping** tabs by age category (🟡 Young / 🟠 Middle / 🔴 Old) using Chrome's native tab groups API
+- **Running silently** via a 24h background alarm — marks tabs even if you never open the extension
+- **One-click control** from the popup or full management via the options page
 
 ---
 
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│                  background.ts (service worker)          │
-│   • browser.alarms → daily tab scan                     │
-│   • BackgroundTabService.loadAndMarkTabs()              │
-│   • Writes snapshot → browser.storage.local             │
-│   • NO Pinia (isolated VM)                              │
-└──────────────────────┬──────────────────────────────────┘
-                       │ browser.storage.onChanged
-          ┌────────────┼────────────┐
-          ▼            ▼            ▼
-      popup/        options/    content/
-    App.vue        App.vue      App.vue
-   (Pinia)        (Pinia)    (minimal UI)
-  TabStore       TabStore
-  .initStorageSync()
+┌──────────────────────────────────────────────────────────────┐
+│                   browser.storage.local                       │
+│   "local:tab_history"   → TabsSnapshot { tabs, isGrouped }  │
+│   "local:global_store"  → thresholds, version               │
+└────────────────────────┬─────────────────────────────────────┘
+                         │  WXT tabStorageItem.watch()
+            ┌────────────┼──────────────┬──────────────────┐
+            ▼            ▼              ▼                  ▼
+        [popup]      [options]      [content]        [background]
+        Vue+Pinia    Vue+Pinia      Vue+Pinia         NO Pinia
+            │            │              │           browser.alarms
+            └────────────┴──────────────┘                 │
+             tabStoreSyncPlugin (auto-wired once)          │
+             ├── loadTabsHistory()  on first use           │
+             ├── initStorageSync()  →  $patch()     loadAndMarkTabs()
+             └── $dispose()         →  unwatch()    → tabStorageItem
+                                                       .setValue()
 ```
 
-**Key design decisions:**
-- Background is the **"server"** — manages all tab logic, no Pinia
-- `browser.storage.local` is the **single source of truth** (cross-context)
-- UI contexts (popup, options) use **Pinia + `TabStore.initStorageSync()`** to stay in sync via `storage.onChanged`
-- `StorageService` wraps `browser.storage.local` with localStorage fallback for tests
+**The rule: `browser.storage.local` is the only shared memory between isolated VMs.  
+Background writes → `storage.onChanged` fires in every open context → Pinia `$patch()` → Vue reactivity.**
 
 ---
 
-## Tech Stack
+## Why MV3 Makes Cross-Context State Hard
 
-| Layer | Technology |
-|---|---|
-| Framework | [WXT](https://wxt.dev) — MV3, Chrome + Firefox |
-| UI | Vue 3 `<script setup lang="ts">` + [Quasar](https://quasar.dev) |
-| State | Pinia (UI contexts only) |
-| Styling | Quasar components + `src/assets/global.css` (`got-*` classes) |
-| HTTP | axios |
-| Dates | dayjs |
-| Unit tests | Vitest + jsdom + `@vue/test-utils` |
-| E2E tests | Playwright + real Chromium (no mocks) |
-| Build | WXT + Vite |
+In Manifest V3 every browser extension context runs in a **completely separate JavaScript VM**:
+
+| Context | Pinia instance | Lifetime |
+|---|---|---|
+| Background service worker | ❌ none | Suspends after ~**30s idle** |
+| Popup | ✅ fresh on each open | Lives while popup window is open |
+| Options page | ✅ fresh on each open | Lives while the tab is open |
+| Content script | ✅ fresh per page | Lives with the hosting page |
+
+This means **you cannot share a Pinia store between popup and options**. They are different processes. If the popup calls `tabStore.groupTabsByAge()` and the options page is open simultaneously, options has no idea — unless the change is persisted to `browser.storage.local` and options is listening.
+
+The background service worker is even more restrictive: **it suspends automatically after ~30 seconds of inactivity** (MV3 spec). `setInterval` is unreliable — the timer simply stops running when the worker suspends.
+
+> **WXT official docs on background workers:**
+> *"Service workers can be suspended at any time. Use `browser.alarms` for periodic work instead of `setInterval`."*  
+> — [wxt.dev](https://wxt.dev)
+
+This extension uses `browser.alarms` exclusively for periodic work:
+
+```typescript
+// background.ts
+browser.alarms.create(APP_DEFAULTS.ALARM_UPDATE_TABS, {
+    periodInMinutes: 24 * 60,   // 24h — survives service worker suspension
+})
+browser.alarms.onAlarm.addListener((alarm) => {
+    BackgroundTabService.loadAndMarkTabs()
+})
+```
+
+---
+
+## The WXT Storage Pattern
+
+Instead of trying to share in-memory state (impossible), we treat `browser.storage.local` as the **message bus**. Any write triggers `storage.onChanged` in every open context instantly.
+
+### `storage.defineItem` — typed, per-key, zero boilerplate
+
+WXT wraps raw `browser.storage` with TypeScript types and a clean per-key `watch()` API:
+
+> **WXT official docs:**
+> *"Writing the key and type parameter for the same key over and over again can be annoying. As an alternative, you can use `storage.defineItem` to create a 'storage item'. Storage items contain the same APIs as the `storage` variable, but you can configure its type, default value, and more in a single place."*  
+> — [wxt.dev/storage.html](https://wxt.dev/storage.html)
+
+```typescript
+// src/utils/tabStorage.ts
+import { storage } from '#imports'
+import type { TabsSnapshot } from '@/models/tabs/TabsSnapshot'
+
+export const tabStorageItem = storage.defineItem<TabsSnapshot | null>(
+    'local:tab_history',
+    { fallback: null },
+)
+```
+
+One file. One key string. Fully typed everywhere:
+
+```typescript
+// Write from any context (popup, options, background)
+await tabStorageItem.setValue(snapshot)
+
+// Read once (hydration on startup)
+const snapshot = await tabStorageItem.getValue()
+
+// React to changes from any other context
+const unwatch = tabStorageItem.watch((newSnapshot) => {
+    store.$patch({ tabs: newSnapshot.tabs, isGrouped: newSnapshot.isGrouped })
+})
+unwatch()  // call to stop watching
+```
+
+> **WXT official docs on watchers:**
+> *"To listen for storage changes, use the `storage.watch` function. It lets you set up a listener for a single key... To remove the listener, call the returned `unwatch` function."*  
+> — [wxt.dev/storage.html](https://wxt.dev/storage.html)
+
+---
+
+## The Pinia Plugin — Auto-Sync Every Context
+
+Every Vue context boots a fresh Pinia instance. Without centralisation, every `App.vue` had to manually wire storage sync:
+
+```typescript
+// ❌ Old: duplicated identically in popup, options, content — fragile
+onMounted(async () => {
+    await tabStore.loadTabsHistory()         // hydrate from storage
+    unsubscribe = tabStore.initStorageSync() // start watching
+})
+onUnmounted(() => unsubscribe?.())           // stop watching
+```
+
+Forget it once → that context is permanently desync'd.
+
+**Solution: a Pinia plugin, registered once in `AppBootstrapper`.** Pinia plugins run automatically when a store with the matching `$id` is first instantiated — in any context, with zero component-level code.
+
+```typescript
+// src/stores/tabStoreSyncPlugin.ts
+export const tabStoreSyncPlugin: PiniaPlugin = (context) => {
+    if (context.store.$id !== 'tabStore') return
+
+    const store = context.store as TabStore
+
+    // 1. Hydrate from storage — non-blocking so UI renders immediately
+    store.loadTabsHistory().catch(console.warn)
+
+    // 2. Watch for writes from any other context (background, popup, options)
+    const unwatch = store.initStorageSync()
+
+    // 3. Clean up the watcher on store disposal
+    //    Critical for content scripts — the page lives on but the script can be removed
+    const originalDispose = store.$dispose.bind(store)
+    store.$dispose = () => { unwatch(); originalDispose() }
+}
+```
+
+Registered once in the shared bootstrapper:
+
+```typescript
+// src/entrypoints/shared/AppBootstrapper.ts
+const pinia = createPinia()
+pinia.use(tabStoreSyncPlugin)   // ← one line. covers popup + options + content.
+app.use(pinia)
+```
+
+**Result**: no component ever calls `loadTabsHistory()` or `initStorageSync()`. They just use the store. Adding a new UI context in the future costs zero sync boilerplate.
+
+---
+
+## Tab Age Classification
+
+| Category | Default threshold | Overlay colour |
+|---|---|---|
+| 🟢 Fresh | < 7 days | none |
+| 🟡 Young | 7–13 days | `#ffd740` saturated yellow |
+| 🟠 Middle | 14–20 days | `#ff6d00` deep orange |
+| 🔴 Old | 21+ days | `#ff1744` alarm red |
+
+Thresholds are configurable live in the Options page and persisted to storage.
+
+The **L-bracket favicon** is rendered via `OffscreenCanvas` (available in MV3 service workers), injected via `browser.scripting.executeScript`, and automatically reverts when you click the tab.
+
+---
+
+## Persisted State Shape
+
+```typescript
+// src/models/tabs/TabsSnapshot.ts
+class TabsSnapshot {
+    readonly tabs: Tabs.Tab[]      // ClassifiedTab[] with isMarked, ageIndex, markedFaviconDataUrl
+    readonly isGrouped: boolean    // whether Chrome tab groups are active
+    readonly savedAt: string       // ISO timestamp
+}
+```
+
+Every mutation in `TabStore` calls `_persist()`:
+
+```typescript
+async _persist(): Promise<void> {
+    const snapshot = new TabsSnapshot(this.tabs, this.isGrouped, new Date().toISOString())
+    await tabStorageItem.setValue(snapshot)   // → fires storage.onChanged → $patch in all contexts
+}
+```
+
+---
+
+## Full Data Flows
+
+### User clicks "Group Tabs" in Popup
+
+```
+click → tabStore.groupTabsByAge()
+      → chrome.tabs.group({ tabIds })  ×3 age groups in the browser
+      → this.isGrouped = true
+      → this._persist()
+          → tabStorageItem.setValue({ tabs, isGrouped: true })
+              → storage.onChanged fires in ALL open contexts
+                  → tabStoreSyncPlugin watch callback
+                      → store.$patch({ isGrouped: true })
+                          → Vue re-renders
+                              options page btn: "Group by age" → "Ungroup" ✅
+                              popup btn label:  "Group tabs"   → "Ungroup" ✅
+```
+
+### Background alarm fires (every 24h)
+
+```
+browser.alarms → BackgroundTabService.loadAndMarkTabs()
+    → browser.tabs.query()                         # all current-window tabs
+    → AgeClassification.fromDays() per tab
+    → TabDots.renderLBracketDataUrl() OffscreenCanvas
+    → browser.scripting.executeScript()            # injects overlay into page DOM
+    → preserve existing isGrouped from storage
+    → tabStorageItem.setValue(snapshot)
+        → storage.onChanged
+            → tabStoreSyncPlugin.watch
+                → $patch(fresh tabs)               # popup + options + content update ✅
+```
 
 ---
 
@@ -68,131 +252,98 @@ Built with **WXT** · **Vue 3** · **Pinia** · **Quasar** · **TypeScript** · 
 ```
 src/
 ├── entrypoints/
-│   ├── background.ts          # Service worker — alarms, tab events
-│   ├── popup/                 # Extension popup (Vue app)
-│   ├── options/               # Full options page (Vue app)
-│   ├── content/               # Content script (injected on every page)
+│   ├── background.ts           # Service worker — alarms + tab events. NO Pinia.
+│   ├── popup/                  # Quick controls: Load & Mark, Group tabs
+│   ├── options/                # Full management: table, thresholds, mock tabs
+│   ├── content/                # Per-page overlay (future: age badge on page)
 │   └── shared/
-│       └── AppBootstrapper.ts # Shared Vue + Pinia + Quasar setup
+│       └── AppBootstrapper.ts  # Vue + Pinia (with tabStoreSyncPlugin) + Quasar
 ├── stores/
-│   ├── TabStore.ts            # Tab state + storage sync
-│   └── globalStore.ts         # Settings (thresholds, flags)
+│   ├── TabStore.ts             # All tab mutations, _persist() on every write
+│   ├── tabStoreSyncPlugin.ts   # Pinia plugin — auto hydrate + watch per context
+│   └── globalStore.ts          # Thresholds, version, persisted settings
+├── utils/
+│   └── tabStorage.ts           # WXT defineItem — single typed key 'local:tab_history'
 ├── services/
-│   ├── BackgroundTabService.ts # Tab logic for background (no Pinia)
-│   ├── TabDots.ts             # Favicon L-bracket rendering + injection
-│   ├── StorageService.ts      # browser.storage.local wrapper
-│   ├── TabUpdateService.ts    # Tab classification helpers
-│   └── ExtensionCleanupService.ts
-├── models/tabs/               # TypeScript models
-│   ├── ClassifiedTab.ts
-│   ├── TabRow.ts
-│   ├── TabsSnapshot.ts
-│   └── AgeClassification.ts
-└── assets/global.css          # Global branding (got-* CSS classes)
+│   ├── BackgroundTabService.ts # Background-only tab logic (no Pinia)
+│   ├── TabDots.ts              # OffscreenCanvas L-bracket favicon renderer
+│   └── StorageService.ts       # Low-level storage wrapper (globalStore uses this)
+└── models/
+    ├── tabs/
+    │   ├── ClassifiedTab.ts    # Tabs.Tab + isMarked, ageIndex, markedFaviconDataUrl
+    │   ├── TabsSnapshot.ts     # Persisted shape: { tabs, isGrouped, savedAt }
+    │   ├── TabRow.ts           # Display model for q-table rows
+    │   └── AgeClassification.ts # fromDays() → color/cssClass/isFresh/isOld
+    └── AppThresholds.ts        # Value object: young/middle/old day thresholds
 
 test/
-├── unit/                      # Vitest — fast, jsdom, mocked browser APIs
-└── playwright/                # Playwright — real Chromium, real extension
+├── unit/                       # Vitest + jsdom — fast, mocked browser APIs
+└── playwright/                 # Playwright + real Chromium — real extension, no mocks
 ```
-
----
-
-## Setup
-
-```bash
-# Install dependencies + download Playwright Chromium
-npm install
-
-# Or manually:
-npm run install:chromium
-```
-
-**Requirements:** Node.js ≥ 22
 
 ---
 
 ## Development
 
 ```bash
-# Chrome (uses Playwright's Chromium)
+# Install + download Playwright Chromium
+npm install
+
+# Dev server (Chromium with HMR)
 npm run dev
 
-# Firefox
+# Dev server (Firefox)
 npm run dev:firefox
 
-# Build for both browsers
+# Production build (Chrome MV3 + Firefox MV3)
 npm run build
+
+# Package for publishing
+npm run zip
 ```
+
+**Requirements:** Node.js ≥ 22
+
+### Generate mock tabs for testing
+
+Options page → **Mock tabs** button.
+
+Creates 8 real browser tabs with spoofed `lastAccessed` timestamps spanning all age categories (1d → 25d). Calling it multiple times **adds** tabs — existing ones are untouched. This lets you build up a realistic dataset including intentional URL duplicates (e.g. multiple YouTube tabs at different ages).
 
 ---
 
 ## Testing
 
-The project has **two separate test layers** — choose based on what you need to verify:
-
-### Layer 1 — Unit Tests (Vitest + jsdom) — fast, isolated
-
 ```bash
-npm run test:unit          # run once
-npm run test:unit:watch    # watch mode
+npm run test:unit              # Vitest, jsdom, mocked browser
+npm run test:unit:watch        # watch mode
+npm run test:playwright:chromium  # real Chromium + real extension
+npm run test                   # both suites
+npm run ci                     # type-check + unit + build
 ```
-
-- **Speed:** ~2–3 seconds
-- **Isolation:** mocked `browser.*` APIs via `vi.mock('webextension-polyfill', ...)`
-- **What to test:** store logic, service methods, component rendering, data transformations
-- **11 test files, 83 tests**
-
-### Layer 2 — E2E Tests (Playwright + real Chromium) — real browser, no mocks
-
-```bash
-npm run test:playwright         # build + run E2E
-SKIP_BUILD=1 npm run test:playwright  # skip build (use existing .output/)
-
-# Interactive UI mode
-npm run test:playwright:ui
-```
-
-- **Real browser:** actual Chromium via `chromium.launchPersistentContext()`
-- **Real extension:** loaded via `--load-extension=.output/chrome-mv3`
-- **Real APIs:** `browser.storage`, `browser.tabs`, `browser.scripting` — no mocks
-- **What to test:** full extension lifecycle, popup/options mounting, content script injection, favicon overlay
-- **Covers:** MV3 service worker startup, extension ID resolution, cross-page messaging
-
-```bash
-# Run all
-npm run test
-
-# Type check + unit + build (CI)
-npm run ci
-```
-
-### Why two layers?
 
 | | Vitest (unit) | Playwright (E2E) |
 |---|---|---|
-| Speed | ⚡ 2–3s | 🐢 30–60s |
+| Speed | ⚡ ~3s | 🐢 30–60s |
 | Browser | jsdom (simulated) | **Real Chromium** |
-| `browser.*` APIs | Mocked with `vi.mock` | Real browser APIs |
-| Use for | Logic, components, stores | Extension lifecycle, real behavior |
-| Confidence | Logic correctness | "Does it actually work?" |
+| `browser.*` APIs | `vi.mock` | Real browser APIs |
+| Use for | Logic, stores, components | Extension lifecycle, real behaviour |
 
-> **Playwright with real Chromium is the only way to be 100% sure** the extension behaves correctly — service workers, `executeScript`, `storage.onChanged`, favicon injection all run in the real browser engine.
+> Playwright with a real extension load is the only way to verify `browser.storage.onChanged`, `executeScript` favicon injection, and service worker startup actually work end-to-end.
 
 ---
 
-## Build
+## Key Architectural Rules
 
-```bash
-# Production build (Chrome MV3 + Firefox MV3)
-npm run build
-
-# Create .xpi / .zip for publishing
-npm run zip
-```
-
-Output directories:
-- `.output/chrome-mv3/` — Chrome extension
-- `.output/firefox-mv3/` — Firefox extension
+| Rule | Reason |
+|---|---|
+| **Background has no Pinia** | Isolated VM — any store created there is invisible to popup/options |
+| **No `setInterval`** | MV3 service workers suspend after ~30s; use `browser.alarms` |
+| **Every mutation calls `_persist()`** | The only cross-VM communication channel is storage writes |
+| **`tabStoreSyncPlugin` owns hydration + watch** | Components never call `loadTabsHistory()` or `initStorageSync()` directly |
+| **`tabStorageItem` owns the key string** | `'local:tab_history'` exists in exactly one file — zero magic strings |
+| **`type` not `interface`** | Interfaces leak structural subtyping surprises; `type` is explicit |
+| **No destructuring** | `const { x } = obj` → `obj.x` — explicit, grep-safe, refactor-safe |
 
 ---
 
@@ -200,21 +351,6 @@ Output directories:
 
 | Browser | Support | Notes |
 |---|---|---|
-| Chrome / Chromium | ✅ Primary | MV3, full Playwright E2E support |
-| Firefox | ✅ Secondary | MV3 (Gecko), manual testing + dev server |
+| Chrome / Chromium | ✅ Primary | MV3, full Playwright E2E |
+| Firefox | ✅ Secondary | MV3 (Gecko), `chrome.tabGroups` API not available → grouping disabled gracefully |
 | Edge | ✅ | Chromium-based, same as Chrome |
-
----
-
-## Key Commands
-
-```bash
-npm run dev              # Start dev server (Chrome)
-npm run build            # Build for Chrome + Firefox
-npm run test:unit        # Unit tests (fast, mocked)
-npm run test:playwright  # E2E tests (real Chromium)
-npm run test             # Both test suites
-npm run ci               # type-check + unit + build
-npm run lint             # ESLint fix
-npm run format           # Prettier
-```

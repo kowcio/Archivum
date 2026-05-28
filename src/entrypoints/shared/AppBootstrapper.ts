@@ -3,6 +3,7 @@ import { createPinia, type Pinia } from 'pinia';
 import { useGlobalStore } from '@/stores/globalStore.ts';
 import { Quasar, QTable, QTd, QTr, QBtn, QBtnGroup, QInput, QTooltip } from 'quasar';
 import { APP_CONSTANTS } from '@/constants.ts';
+import { tabStoreSyncPlugin } from '@/stores/tabStoreSyncPlugin';
 
 /**
  * Centralized app bootstrapper for UI extension contexts (popup, options, content).
@@ -10,9 +11,10 @@ import { APP_CONSTANTS } from '@/constants.ts';
  * Architecture:
  * - background.ts does NOT use Pinia — it operates on browser.storage directly
  * - UI contexts (popup, options, content) each get their own Pinia instance
- * - Cross-context state sync is via browser.storage.local:
- *     background → storage → TabStore.initStorageSync() → Pinia → Vue
- *     globalStore → storage (StorageService.onChanged) → all UI contexts
+ * - Cross-context state sync is fully automatic via tabStoreSyncPlugin:
+ *     any context → tabStorageItem.setValue() → WXT watch fires
+ *     → $patch({ tabs, isGrouped }) → Vue reactivity in every open context
+ * - No manual loadTabsHistory() / initStorageSync() calls needed in components
  */
 
 export interface AppBootstrapperOptions {
@@ -39,6 +41,7 @@ export class AppBootstrapper {
     })
 
     const pinia = createPinia()
+    pinia.use(tabStoreSyncPlugin)
     app.use(pinia)
 
     const global = useGlobalStore()

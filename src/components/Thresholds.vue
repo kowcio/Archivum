@@ -67,8 +67,8 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import { useGlobalStore } from '@/stores/globalStore'
-import { AppThresholds, DEFAULT_THRESHOLDS } from '@/models/AppThresholds'
+import { useGlobalStore } from '@/stores/globalStore.ts'
+import { AppThresholds, DEFAULT_THRESHOLDS } from '@/models/AppThresholds.ts'
 
 const globalStore = useGlobalStore()
 const thresholds = computed(() => globalStore.thresholds)

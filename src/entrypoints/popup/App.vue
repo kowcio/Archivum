@@ -11,10 +11,22 @@
       <div class="square-grid ">
         <q-btn
           class="got-btn-primary  square-btn"
-          label="Update tabs"
+          label="Load & Mark"
           icon="refresh"
           :loading="tabStore.loading"
           @click="loadTabs"
+          elevated
+          no-caps
+          fab
+        />
+
+        <q-btn
+          class="square-btn"
+          :label="tabStore.isGrouped ? 'Ungroup' : 'Group tabs'"
+          :icon="tabStore.isGrouped ? 'unfold_more' : 'folder'"
+          :color="tabStore.isGrouped ? 'warning' : 'purple'"
+          :loading="tabStore.loading"
+          @click="handleGroupOrUngroup"
           elevated
           no-caps
           fab
@@ -45,17 +57,27 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { onMounted } from 'vue'
 import browser from 'webextension-polyfill'
-import {useTabStore} from '@/stores/TabStore'
+import { useTabStore } from '@/stores/TabStore'
 import AppTitle from '@/components/Title.vue'
 
 const tabStore = useTabStore()
-const loadDate = ref<Date>()
+
+onMounted(() => {
+  console.debug('[popup] mounted — tabStoreSyncPlugin handles hydration + watch')
+})
 
 async function loadTabs(): Promise<void> {
-
   await tabStore.getAllOpenedTabs()
+}
+
+async function handleGroupOrUngroup(): Promise<void> {
+  if (tabStore.isGrouped) {
+    await tabStore.ungroupAllTabs()
+  } else {
+    await tabStore.groupTabsByAge()
+  }
 }
 
 function openOptionsPage(): void {
@@ -67,17 +89,13 @@ function openOptionsPage(): void {
 async function openOptionsPageFull(): Promise<void> {
   const url = browser.runtime.getURL('options.html')
   try {
-    await browser.tabs.create({url})
+    await browser.tabs.create({ url })
     window.close()
   } catch (error) {
     console.error('Failed to open options via tabs.create, falling back', error)
     await browser.runtime.openOptionsPage()
   }
 }
-
-onMounted(() => {
-  console.log('Popup component mounted!')
-})
 </script>
 
 <style scoped>

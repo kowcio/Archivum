@@ -131,19 +131,15 @@
 
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted } from "vue"
-import { useGlobalStore } from "@/stores/globalStore.ts"
 import { useTabStore } from "@/stores/TabStore"
 import type { QTableProps } from "quasar"
-import Thresholds from "@/components/Thresholds.vue"
+import Thresholds from "../../components/Thresholds.vue"
 import AppTitle from "@/components/Title.vue"
 import browser from "webextension-polyfill"
 
-const global = useGlobalStore()
 const tabStore = useTabStore()
 const tabRows = computed(() => tabStore.tabRows)
 const excerptLength = 50
-
-let unsubscribeStorageSync: (() => void) | null = null
 
 function truncate(text: string, maxLength: number): string {
   if (!text || text.length <= maxLength) return text
@@ -169,19 +165,13 @@ const columns: QTableProps["columns"] = [
   { name: "lastAccessAge", label: "Age",         field: "lastAccessAge", align: "left", headerClasses: "col-auto",  sortable: true },
 ]
 
-onMounted(async () => {
-  //TODO - auto ladowac aktualne zakladki czy historie ze stora zapisanego ?
-  await global.init()
-  // Hydrate from last background snapshot (crash recovery)
-  await tabStore.loadTabsHistory()
-  // Subscribe to future background updates
-  unsubscribeStorageSync = tabStore.initStorageSync()
-  // Sync store when a tab is activated (background removes bracket visually)
+onMounted(() => {
+  // tabStoreSyncPlugin (registered in AppBootstrapper) handles hydration + watch automatically.
+  // Here we only add the context-specific tab activation listener.
   browser.tabs.onActivated.addListener(onTabActivated)
 })
 
 onUnmounted(() => {
-  unsubscribeStorageSync?.()
   browser.tabs.onActivated.removeListener(onTabActivated)
 })
 
@@ -198,12 +188,14 @@ async function onTabActivated({ tabId }: { tabId: number }): Promise<void> {
     if (idx === -1) return
     state.tabs[idx] = {
       ...state.tabs[idx],
-      lastAccessed:        freshLastAccessed,
-      isMarked:            false,
+      lastAccessed:         freshLastAccessed,
+      isMarked:             false,
       markedFaviconDataUrl: undefined,
-      ageIndex:            0,
+      ageIndex:             0,
     }
   })
+  // Persist so popup and content also see the updated state
+  await tabStore._persist()
 }
 
 async function handleLoadTabs(): Promise<void> {

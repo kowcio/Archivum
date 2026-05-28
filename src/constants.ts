@@ -12,6 +12,7 @@ export const APP_CONSTANTS = {
   APP_NAME: 'Tab Age Tracker',
   APP_ID: 'TabAgeTracker',
   STORAGE_KEY: 'global_store',
+  STORE_TAB_STORE: 'tab_store',
   APP_VERSION: `${packageJson.version}-${dayjs().format('YYYYMMDD-HH:mm')}`,
 } as const
 
