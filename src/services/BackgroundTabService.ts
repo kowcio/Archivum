@@ -90,7 +90,10 @@ export class BackgroundTabService {
       )
 
       // Persist snapshot to storage → TabStore.initStorageSync() in UI contexts picks this up
-      const snapshot = new TabsSnapshot(classified, new Date().toISOString())
+      // Background never groups tabs — preserve existing isGrouped from storage if present.
+      const stored = await browser.storage.local.get(APP_DEFAULTS.TAB_HISTORY_KEY)
+      const prevIsGrouped = (stored?.[APP_DEFAULTS.TAB_HISTORY_KEY] as { isGrouped?: boolean } | undefined)?.isGrouped ?? false
+      const snapshot = new TabsSnapshot(classified, prevIsGrouped, new Date().toISOString())
       await browser.storage.local.set({ [APP_DEFAULTS.TAB_HISTORY_KEY]: snapshot })
 
       console.log(`[BackgroundTabService] ✅ Loaded & marked ${classified.length} tabs`)

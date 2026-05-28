@@ -71,6 +71,22 @@ export const useTabStore = defineStore('tabStore', {
 
     actions: {
         /**
+         * Persists the full TabState (tabs + isGrouped) to browser.storage.local.
+         * Called after every state mutation so all open UI contexts stay in sync
+         * via initStorageSync() → storage.onChanged → Pinia $patch.
+         *
+         * Architecture: write once here, every context reads reactively.
+         */
+        async _persist(): Promise<void> {
+            try {
+                const snapshot = new TabsSnapshot(this.tabs, this.isGrouped, new Date().toISOString())
+                await browser.storage.local.set({ [APP_DEFAULTS.TAB_HISTORY_KEY]: snapshot })
+            } catch (err) {
+                console.warn('[TabStore._persist] Failed to persist state:', err instanceof Error ? err.message : err)
+            }
+        },
+
+        /**
          * Fetches current window tabs, merges with store state, marks old tabs.
          * Favicons are already loaded by the browser at query time — no polling needed.
          */
@@ -96,6 +112,7 @@ export const useTabStore = defineStore('tabStore', {
                     withFavicons: this.tabs.filter(t => t.favIconUrl).length,
                     marked: this.tabs.filter(t => t.isMarked).length,
                 })
+                await this._persist()
                 return this.tabs
             } catch (err) {
                 this.error = err instanceof Error ? err.message : 'Unknown error while loading tabs'
@@ -110,6 +127,7 @@ export const useTabStore = defineStore('tabStore', {
             try {
                 await tabsApi.remove(tabId)
                 this.tabs = this.tabs.filter((t) => t.id !== tabId)
+                await this._persist()
                 return this.tabs
             } catch (err) {
                 this.error = err instanceof Error ? err.message : 'Unknown error while closing tab'
@@ -132,7 +150,8 @@ export const useTabStore = defineStore('tabStore', {
                         ? snapshot.tabs
                         : Object.values(snapshot.tabs as Record<string, Tabs.Tab>)
                     this.tabs = ClassifiedTabFactory.fromTabs(rawTabs)
-                    console.log('[loadTabsHistory] Restored', this.tabs.length, 'tabs from storage')
+                    this.isGrouped = snapshot.isGrouped ?? false
+                    console.log('[loadTabsHistory] Restored', this.tabs.length, 'tabs from storage, isGrouped:', this.isGrouped)
                 }
                 return this.tabs
             } catch (err) {
@@ -264,6 +283,9 @@ export const useTabStore = defineStore('tabStore', {
         /**
          * Opens mock tabs with spoofed ages covering all age categories.
          * Dev tool only — used for manual testing of L-bracket marking.
+         *
+         * New mock tabs are ADDED to the existing store — duplicate URLs are intentional
+         * (e.g. YouTube opened 4× with different ages). Existing tabs are untouched.
          */
         async loadMockTabs(): Promise<void> {
             this.loading = true
@@ -301,14 +323,21 @@ export const useTabStore = defineStore('tabStore', {
                     if (complete === tabIds.length && favicons >= Math.ceil(tabIds.length * 0.7)) break
                 }
 
+                // Merge: keep all existing tabs, add the new mock tabs with spoofed lastAccessed.
+                // New tabs are identified by ID so they don't overwrite any existing entry.
+                const newMockTabs = loadedTabs.map((tab, idx) => ({
+                    ...ClassifiedTabFactory.fromTab(tab, false),
+                    lastAccessed: now - (MOCK_TABS[idx]?.daysAgo ?? 0) * DAY_MS,
+                }))
+
+                const existingIds = new Set(this.tabs.map(t => t.id))
+                const trulyNew = newMockTabs.filter(t => !existingIds.has(t.id))
+
                 this.$patch({
-                    tabs: loadedTabs.map((tab, idx) => ({
-                        ...ClassifiedTabFactory.fromTab(tab, false),
-                        lastAccessed: now - (MOCK_TABS[idx]?.daysAgo ?? 0) * DAY_MS,
-                    })),
-                    isGrouped: false,
+                    tabs: [...this.tabs, ...trulyNew],
                     error: null,
                 })
+                await this._persist()
             } catch (err) {
                 this.error = err instanceof Error ? err.message : 'Unknown error while loading mock tabs'
             } finally {
@@ -350,6 +379,7 @@ export const useTabStore = defineStore('tabStore', {
                     }
                 })
                 this.isGrouped = false
+                await this._persist()
             } catch (err) {
                 this.error = err instanceof Error ? err.message : 'Unknown error while resetting tabs'
             } finally {
@@ -424,6 +454,7 @@ export const useTabStore = defineStore('tabStore', {
                 }
 
                 this.isGrouped = true
+                await this._persist()
                 return groupsCreated
             } catch (err) {
                 this.error = err instanceof Error ? err.message : 'Unknown error while grouping tabs by age'
@@ -447,8 +478,10 @@ export const useTabStore = defineStore('tabStore', {
                 const allTabIds = this.tabs.map(t => t.id).filter((id): id is number => id != null)
                 if (allTabIds.length > 0) await chromeApi.tabs.ungroup(allTabIds)
                 this.isGrouped = false
+                await this._persist()
             } catch {
                 this.isGrouped = false
+                await this._persist()
             } finally {
                 this.loading = false
             }
@@ -481,8 +514,11 @@ export const useTabStore = defineStore('tabStore', {
                     ? snap.tabs
                     : Object.values(snap.tabs as Record<string, Tabs.Tab>)
 
-                this.tabs = ClassifiedTabFactory.fromTabs(rawTabs)
-                console.debug('[TabStore] Received background snapshot:', rawTabs.length, 'tabs')
+                this.$patch({
+                    tabs: ClassifiedTabFactory.fromTabs(rawTabs),
+                    isGrouped: snap.isGrouped ?? false,
+                })
+                console.debug('[TabStore] Received snapshot:', rawTabs.length, 'tabs, isGrouped:', snap.isGrouped)
             }
 
             browser.storage.onChanged.addListener(handler)

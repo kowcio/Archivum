@@ -130,8 +130,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, onUnmounted } from "vue"
-import { storeToRefs } from "pinia"
+import { computed, onMounted, onUnmounted } from "vue"
 import { useGlobalStore } from "@/stores/globalStore.ts"
 import { useTabStore } from "@/stores/TabStore"
 import type { QTableProps } from "quasar"
@@ -141,7 +140,7 @@ import browser from "webextension-polyfill"
 
 const global = useGlobalStore()
 const tabStore = useTabStore()
-const { tabRows } = storeToRefs(tabStore)
+const tabRows = computed(() => tabStore.tabRows)
 const excerptLength = 50
 
 let unsubscribeStorageSync: (() => void) | null = null
@@ -171,6 +170,7 @@ const columns: QTableProps["columns"] = [
 ]
 
 onMounted(async () => {
+  //TODO - auto ladowac aktualne zakladki czy historie ze stora zapisanego ?
   await global.init()
   // Hydrate from last background snapshot (crash recovery)
   await tabStore.loadTabsHistory()
