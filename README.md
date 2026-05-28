@@ -125,6 +125,86 @@ unwatch()  // call to stop watching
 
 ---
 
+## Pinia Plugin — Szczegółowy Lifecycle
+
+### Rejestracja (raz per kontekst, sync przed mount)
+
+```
+AppBootstrapper.initUI()
+  ├── const pinia = createPinia()
+  ├── pinia.use(tabStoreSyncPlugin)   ← rejestruje plugin w mapie pluginów Pini
+  └── app.use(pinia)                  ← instaluje Pinię w Vue app
+
+  Plugin NIE odpala w tym momencie. Czeka na pierwszy useTabStore().
+```
+
+### Pierwsze useTabStore() (raz per instancja Pini — singleton)
+
+```
+Komponent wywołuje useTabStore()
+  └── Pinia sprawdza: czy store 'tabStore' już istnieje?
+       ├── TAK → zwraca istniejącą instancję (zero overhead)
+       └── NIE → tworzy nową instancję, wywołuje WSZYSTKIE zarejestrowane pluginy
+
+  tabStoreSyncPlugin({ store, app, pinia, options }) {
+      // store.$id === 'tabStore' → dalej
+
+      // KROK A: Hydratacja
+      store.loadTabsHistory()           // async, non-blocking
+        tabStorageItem.getValue()       // czyta 'local:tab_history'
+        → this.tabs = restoredTabs      // ClassifiedTab[] z zachowaniem ageIndex itp.
+        → this.isGrouped = ...          // odtwarza stan grupowania
+
+      // KROK B: Watcher
+      const unwatch = store.initStorageSync()
+        tabStorageItem.watch(snapshot => {
+            this.$patch({ tabs, isGrouped })
+        })
+        // Każdy setValue() z DOWOLNEGO kontekstu → ten callback
+
+      // KROK C: Dispose override
+      store.$dispose = () => {
+          unwatch()        // ← odrejestruje storage.onChanged listener
+          originalDispose()
+      }
+  }
+```
+
+### ⚡ Kluczowy flow — każda mutacja propaguje do wszystkich kontekstów
+
+```
+np. user klika "Group tabs" w popup:
+
+  this.isGrouped = true                 ← sync, lokalna Vue reactivity (instant)
+  tabStorageItem.setValue(snapshot)     ← async write to storage
+    ↓
+  storage.onChanged fires w WSZYSTKICH otwartych kontekstach jednocześnie
+    ↓
+  tabStorageItem.watch callback w każdym kontekście (popup, options, content)
+    ↓
+  this.$patch({ isGrouped: true })
+    ↓
+  Vue re-renders wszędzie jednocześnie ✅
+  options: "Group by age" → "Ungroup"
+  popup:   "Group tabs"   → "Ungroup"
+```
+
+> **To jest serce architektury.** Nie ma żadnej "komunikacji" między kontekstami —
+> każdy kontekst pisze do storage i każdy kontekst reaguje na zapisy.
+> `browser.storage.local` jest jedynym shared memory między izolowanymi VM-ami MV3.
+
+### Kiedy `$dispose` jest wywoływane?
+
+| Kontekst | Co się dzieje | `$dispose` potrzebny? |
+|---|---|---|
+| **popup zamknięty** | Cała VM JS niszczona przez przeglądarkę → GC | ❌ nie |
+| **options tab zamknięty** | j.w. | ❌ nie |
+| **content script invalidated** (extension update/disable) | Strona żyje, script martwy | ✅ TAK — bez tego `storage.onChanged` listener żyje dalej (memory leak) |
+
+**`$dispose` ≠ odinstalowanie rozszerzenia.** Uninstall/disable obsługuje `ExtensionCleanupService` w `background.ts` (usuwa L-brackety, rozgrupowuje, czyści storage).
+
+---
+
 ## The Pinia Plugin — Auto-Sync Every Context
 
 Every Vue context boots a fresh Pinia instance. Without centralisation, every `App.vue` had to manually wire storage sync:

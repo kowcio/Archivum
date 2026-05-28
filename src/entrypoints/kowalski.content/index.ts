@@ -1,8 +1,10 @@
 /// <reference types="../../../.wxt/wxt.d.ts" />
 import './style.css';
 import type { App as VueAppInstance } from 'vue';
+import type { Pinia } from 'pinia';
 import App from './App.vue';
 import { AppBootstrapper } from '@/entrypoints/shared/AppBootstrapper';
+import { disposeAllStores } from '@/stores/tabStoreSyncPlugin';
 import type { ContentScriptContext } from 'wxt/utils/content-script-context';
 
 export default defineContentScript({
@@ -64,16 +66,24 @@ export default defineContentScript({
         // Use AppBootstrapper so tabStoreSyncPlugin is registered automatically.
         // This gives this content script the same storage sync as popup and options.
         let appInstance: VueAppInstance | undefined;
+        let piniaInstance: Pinia | undefined;
         AppBootstrapper.initUI({ rootComponent: App, mountTarget: container })
-          .then(({ app }) => {
+          .then(({ app, pinia }) => {
             appInstance = app;
+            piniaInstance = pinia;
             console.log('✅ kowalski.content Vue app mounted via AppBootstrapper');
           })
           .catch((err: unknown) => console.error('Failed to mount kowalski.content UI:', err));
 
-        return { style, getApp: () => appInstance };
+        return { style, getApp: () => appInstance, getPinia: () => piniaInstance };
       },
-      onRemove: (result: { style: HTMLStyleElement; getApp: () => VueAppInstance | undefined } | undefined) => {
+      onRemove: (result: { style: HTMLStyleElement; getApp: () => VueAppInstance | undefined; getPinia: () => Pinia | undefined } | undefined) => {
+        // Dispose all Pinia stores before unmounting — Pinia does NOT do this automatically.
+        // Critical: disposeAllStores() calls $dispose() on every store, which calls unwatch()
+        // on the tabStorageItem watcher. Without this, the storage.onChanged listener
+        // leaks and keeps firing after the content script is invalidated.
+        const pinia = result?.getPinia?.()
+        if (pinia) disposeAllStores(pinia)
         result?.getApp()?.unmount();
         result?.style?.remove();
       },
