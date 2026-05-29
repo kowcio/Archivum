@@ -5,7 +5,7 @@
     </AppTitle>
 
     <div class="">
-      <p class="text-caption q-mx-sm text-grey-6 q-mt-sm">No tabs loaded yet.</p>
+      <p v-if="tabStore.tabs.length === 0" class="text-caption q-mx-sm text-grey-6 q-mt-sm">No tabs loaded yet.</p>
 
       <!-- ── Primary buttons grid (square buttons, 2 columns) ───────────────── -->
       <div class="square-grid ">

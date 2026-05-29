@@ -101,6 +101,11 @@ export const useTabStore = defineStore(APP_CONSTANTS.STORE_TAB_STORE, {
             return new TabsSnapshot(this.tabs, this.isGrouped, new Date().toISOString())
         },
 
+        /** Persists current state to storage so all contexts stay in sync. */
+        async _persist(): Promise<void> {
+            await tabStorageItem.setValue(this._snapshot())
+        },
+
         // ─── Read ─────────────────────────────────────────────────────────────────
 
         /**
@@ -428,16 +433,6 @@ export const useTabStore = defineStore(APP_CONSTANTS.STORE_TAB_STORE, {
 
                 await Promise.all(Array.from(markedIds).map(tabId => this.removeLBracket(tabId)))
 
-                const freshTabs: Tabs.Tab[] = await browser.tabs.query({ currentWindow: true })
-                const freshById = new Map(freshTabs.map(t => [t.id, t]))
-
-                this.tabs = this.tabs.map(tab => {
-                    const fresh      = tab.id != null ? freshById.get(tab.id) : undefined
-                    const favIconUrl = fresh?.favIconUrl?.startsWith('data:')
-                        ? undefined
-                        : (fresh?.favIconUrl ?? tab.favIconUrl)
-                    return { ...tab, favIconUrl, isMarked: false, markedFaviconDataUrl: undefined, ageIndex: 0 }
-                })
                 this.isGrouped = false
                 await tabStorageItem.setValue(this._snapshot())
             } catch (err) {
