@@ -129,6 +129,13 @@ describe('global store', () => {
             expect(s.thresholds.toJSON()).toEqual(before) // unchanged
         })
 
+        it('does not persist when setThresholds input is invalid', async () => {
+            const setSpy = vi.spyOn(StorageService as any, 'set').mockResolvedValue(undefined)
+            const s = useGlobalStore()
+            await s.setThresholds({ young: 200 })
+            expect(setSpy).not.toHaveBeenCalled()
+        })
+
         it('persists thresholds via StorageService.set on setThresholds', async () => {
             const setSpy = vi.spyOn(StorageService as any, 'set').mockResolvedValue(undefined)
             const s = useGlobalStore()

@@ -75,4 +75,16 @@ describe('Content Entrypoint', () => {
     expect(root.exists()).toBe(true)
     expect(root.find('[data-testid="debug"]').exists()).toBe(true)
   })
+
+  it('should render the expected debug copy exactly', () => {
+    const wrapper = mount(ContentApp, {
+      global: {
+        stubs: {
+          teleport: true,
+        },
+      },
+    })
+    const debugElement = wrapper.find('[data-testid="debug"]')
+    expect(debugElement.text()).toBe('Hello from App.vue')
+  })
 })

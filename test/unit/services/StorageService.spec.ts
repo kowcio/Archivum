@@ -55,6 +55,20 @@ describe('StorageService', () => {
         expect(cb).toHaveBeenCalledWith({ mykey: { x: 1 } })
     })
 
+    it('ignores storage changes outside local area', () => {
+        const cb = vi.fn()
+        StorageService.onChanged(cb)
+        const listener = (browser.storage.onChanged.addListener as any).mock.calls[0][0]
+        listener({ mykey: { newValue: { x: 1 } } }, 'sync')
+        expect(cb).not.toHaveBeenCalled()
+    })
+
+    it('returns undefined when browser storage get throws', async () => {
+        vi.mocked(browser.storage.local.get).mockRejectedValueOnce(new Error('boom'))
+        const val = await StorageService.get('err-key')
+        expect(val).toBeUndefined()
+    })
+
     it('falls back to localStorage when browser storage unavailable', async () => {
         // Temporarily disable browser storage availability
         ; (StorageService as any).isBrowserStorageAvailable = false

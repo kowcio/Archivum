@@ -60,13 +60,13 @@ test.beforeAll(() => {
 
 test.describe('Tab Sorting and Grouping (Headless)', () => {
 
-    test('options page loads with btn-load-tabs and btn-reset visible', async ({ context, extensionId }) => {
+    test('options page loads with btn-load-tabs visible (toggle button, no tabs loaded)', async ({ context, extensionId }) => {
         test.setTimeout(30_000)
         const page = await context.newPage()
         await page.goto(`chrome-extension://${extensionId}/options.html`, { waitUntil: 'domcontentloaded' })
 
         await expect(page.getByTestId('btn-load-tabs')).toBeVisible({ timeout: 8_000 })
-        await expect(page.getByTestId('btn-reset')).toBeVisible({ timeout: 4_000 })
+        await expect(page.getByTestId('btn-reset')).not.toBeVisible()
         console.log('Options controls visible ✓')
     })
 

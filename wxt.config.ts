@@ -1,12 +1,8 @@
-// @ts-ignore
 import {defineConfig} from 'wxt'
 
 // See https://wxt.dev/api/config.html
-export default defineConfig((env: { browser: string }) => {
-  const browser = env?.browser ?? 'chrome'
-  const isFirefox = browser === 'firefox'
-
-  return {
+const date = `${new Date().toISOString().replace(/[-:T]/g, '').slice(0, 12)}`;
+export default defineConfig({
     modules: ['@wxt-dev/module-vue'],
     srcDir: 'src',
     outDir: '.output',
@@ -56,6 +52,35 @@ export default defineConfig((env: { browser: string }) => {
       ],
     },
 
-    vite: () => ({}),
-  }
+    zip: {
+      artifactTemplate: `{{name}}-{{version}}-{{browser}}-${date}.zip`,
+      excludeSources: [
+        '**/README*',
+        '**/*.md',
+        '**/.github/**',
+        '**/docs/**',
+        '**/.copilot*',
+        '**/reports/**',
+      ],
+    },
+
+    vite: () => ({
+      plugins: [
+        {
+          name: 'exclude-docs-from-bundle',
+          generateBundle(_options: unknown, bundle: Record<string, unknown>) {
+            for (const fileName of Object.keys(bundle)) {
+              if (
+                /README/i.test(fileName) ||
+                /\.md$/i.test(fileName) ||
+                /^\.github\//i.test(fileName) ||
+                /^docs\//i.test(fileName)
+              ) {
+                delete bundle[fileName]
+              }
+            }
+          },
+        },
+      ],
+    }),
 })

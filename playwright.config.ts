@@ -17,7 +17,7 @@ export default defineConfig({
     headless: true,
     viewport: { width: width, height: height },
     launchOptions: {
-      args: ['--window-size='+width+','+height],
+      args: ['--window-size=' + width + ',' + height],
     },
   },
   projects: [
@@ -30,8 +30,8 @@ export default defineConfig({
     {
       // Secondary: Firefox manual testing guide
       // Limited Playwright MV3 support - use for manual testing only
-      // name: 'firefox-mv3-gui',
-      // use: { browserName: 'firefox' },
+      name: 'firefox-mv3',
+      use: { browserName: 'firefox' },
     },
   ],
 })

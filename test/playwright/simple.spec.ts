@@ -11,4 +11,10 @@ test.describe('Playwright Website Test', () => {
         await page.getByRole('link', { name: 'Get started' }).first().click()
         await expect(page).toHaveURL(/.*intro/)
     })
+
+    test('should keep docs navigation visible after opening intro', async ({ page }) => {
+        await page.goto('https://playwright.dev/')
+        await page.getByRole('link', { name: 'Get started' }).first().click()
+        await expect(page.getByRole('navigation')).toBeVisible()
+    })
 })

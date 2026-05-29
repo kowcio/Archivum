@@ -8,8 +8,10 @@ export class TabDots {
      * Runs in EXTENSION context — has full cross-origin access via host_permissions.
      */
     static async fetchFaviconDataUrl(url: string): Promise<string | null> {
+        // Skip URLs that are not fetchable from the extension context
+        if (!url.startsWith('http://') && !url.startsWith('https://')) return null
         try {
-            const resp = await fetch(url)
+            const resp = await fetch(url, { signal: AbortSignal.timeout(3000) })
             const blob = await resp.blob()
             return await new Promise<string>((resolve, reject) => {
                 const reader = new FileReader()

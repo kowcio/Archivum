@@ -5,22 +5,7 @@
       <div class="row justify-center q-mt-md q-gutter-sm">
         <!-- Group 1: Load / Reset -->
         <q-btn-group>
-          <q-btn
-            data-testid="btn-load-tabs"
-            label="Load Tabs"
-            icon="refresh"
-            color="primary"
-            :loading="tabStore.loading"
-            @click="handleLoadTabs"
-          />
-          <q-btn
-            data-testid="btn-reset"
-            label="Reset"
-            icon="restart_alt"
-            color="negative"
-            :loading="tabStore.loading"
-            @click="handleReset"
-          />
+          <LoadResetButton />
         </q-btn-group>
 
         <!-- Group 2: Group by age -->
@@ -135,6 +120,7 @@ import { useTabStore } from "@/stores/TabStore"
 import type { QTableProps } from "quasar"
 import Thresholds from "../../components/Thresholds.vue"
 import AppTitle from "@/components/Title.vue"
+import LoadResetButton from "@/components/LoadResetButton.vue"
 import browser from "webextension-polyfill"
 
 const tabStore = useTabStore()
@@ -198,17 +184,9 @@ async function onTabActivated({ tabId }: { tabId: number }): Promise<void> {
   await tabStore._persist()
 }
 
-async function handleLoadTabs(): Promise<void> {
-  await tabStore.getAllOpenedTabs()
-}
-
 async function handleCloseTab(tabId: number | null): Promise<void> {
   if (tabId == null) return
   await tabStore.closeTab(tabId)
-}
-
-async function handleReset(): Promise<void> {
-  await tabStore.reset()
 }
 
 async function handleGroupOrUngroup(): Promise<void> {

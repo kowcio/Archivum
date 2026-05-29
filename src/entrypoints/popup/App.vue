@@ -9,12 +9,8 @@
 
       <!-- ── Primary buttons grid (square buttons, 2 columns) ───────────────── -->
       <div class="square-grid ">
-        <q-btn
-          class="got-btn-primary  square-btn"
-          label="Load & Mark"
-          icon="refresh"
-          :loading="tabStore.loading"
-          @click="loadTabs"
+        <LoadResetButton
+          class="got-btn-primary square-btn"
           elevated
           no-caps
           fab
@@ -61,16 +57,13 @@ import { onMounted } from 'vue'
 import browser from 'webextension-polyfill'
 import { useTabStore } from '@/stores/TabStore'
 import AppTitle from '@/components/Title.vue'
+import LoadResetButton from '@/components/LoadResetButton.vue'
 
 const tabStore = useTabStore()
 
 onMounted(() => {
   console.debug('[popup] mounted — tabStoreSyncPlugin handles hydration + watch')
 })
-
-async function loadTabs(): Promise<void> {
-  await tabStore.getAllOpenedTabs()
-}
 
 async function handleGroupOrUngroup(): Promise<void> {
   if (tabStore.isGrouped) {
