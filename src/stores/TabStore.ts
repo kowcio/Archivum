@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import browser, { type Tabs } from 'webextension-polyfill'
 import { TabRow } from '@/models/tabs/TabRow'
-import { TabDots } from '@/services/TabDots.ts'
+import { LBracketService } from '@/services/LBracketService'
 import { useGlobalStore } from '@/stores/globalStore'
 import { AppThresholds, DEFAULT_THRESHOLDS } from '@/models/AppThresholds'
 import { ExtensionCleanupService } from '@/services/ExtensionCleanupService'
@@ -324,20 +324,11 @@ export const useTabStore = defineStore(APP_CONSTANTS.STORE_TAB_STORE, {
                     })
                 }
 
-                const faviconDataUrl  = rawFaviconUrl
-                    ? await TabDots.fetchFaviconDataUrl(rawFaviconUrl)
-                    : null
-                const renderedDataUrl = await TabDots.renderLBracketDataUrl(faviconDataUrl, color)
+                const renderedDataUrl = await LBracketService.applyBracket(tabId, rawFaviconUrl, color)
 
                 this.tabs = this.tabs.map(t =>
                     t.id === tabId ? { ...t, markedFaviconDataUrl: renderedDataUrl } : t
                 )
-
-                await browser.scripting.executeScript({
-                    target: { tabId },
-                    func:   TabDots.applyLBracketPageScript,
-                    args:   [renderedDataUrl],
-                })
             } catch (err) {
                 console.debug(`[markTabWithLBracket] tab#${tabId}:`, err instanceof Error ? err.message : err)
             }
@@ -346,11 +337,7 @@ export const useTabStore = defineStore(APP_CONSTANTS.STORE_TAB_STORE, {
         /** Removes the L-bracket favicon overlay and restores the original favicon. Internal. */
         async removeLBracket(tabId: number): Promise<void> {
             try {
-                await browser.scripting.executeScript({
-                    target: { tabId },
-                    func:   TabDots.removeLBracketPageScript,
-                    args:   [],
-                })
+                await LBracketService.removeBracket(tabId)
             } catch (err) {
                 console.debug(`[removeLBracket] tab#${tabId}:`, err instanceof Error ? err.message : err)
             }

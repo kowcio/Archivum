@@ -7,12 +7,12 @@
  *
  * Flow:
  *   browser.alarms → loadAndMarkTabs() → browser.storage (snapshot)
- *                                       → browser.scripting (visual marks)
- *   browser.tabs.onActivated → removeLBracketForTab() → browser.scripting
+ *                                       → LBracketService (visual marks)
+ *   browser.tabs.onActivated → removeLBracketForTab() → LBracketService
  */
 
 import browser from 'webextension-polyfill'
-import { TabDots } from '@/services/TabDots'
+import { LBracketService } from '@/services/LBracketService'
 import { ClassifiedTabFactory } from '@/models/tabs/ClassifiedTab'
 import { TabRow } from '@/models/tabs/TabRow'
 import { AgeClassification } from '@/models/tabs/AgeClassification'
@@ -62,16 +62,7 @@ export class BackgroundTabService {
             : rawTab?.favIconUrl
 
           try {
-            const faviconDataUrl = rawFaviconUrl
-              ? await TabDots.fetchFaviconDataUrl(rawFaviconUrl)
-              : null
-            const renderedUrl = await TabDots.renderLBracketDataUrl(faviconDataUrl, classification.color)
-
-            await browser.scripting.executeScript({
-              target: { tabId: row.id },
-              func: TabDots.applyLBracketPageScript,
-              args: [renderedUrl],
-            })
+            const renderedUrl = await LBracketService.applyBracket(row.id, rawFaviconUrl, classification.color)
 
             // Update classified tab with mark state
             const idx = classified.findIndex(t => t.id === row.id)
@@ -109,15 +100,10 @@ export class BackgroundTabService {
    */
   static async removeLBracketForTab(tabId: number): Promise<void> {
     try {
-      await browser.scripting.executeScript({
-        target: { tabId },
-        func: TabDots.removeLBracketPageScript,
-        args: [],
-      })
+      await LBracketService.removeBracket(tabId)
       console.log(`[BackgroundTabService] Removed L-bracket from tab#${tabId}`)
     } catch (err) {
       console.debug(`[BackgroundTabService] removeLBracket tab#${tabId}:`, err instanceof Error ? err.message : err)
     }
   }
 }
-
