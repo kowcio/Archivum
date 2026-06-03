@@ -2,18 +2,15 @@
  * 🧹 Extension Lifecycle & Cleanup Service
  *
  * Handles plugin enable/disable/uninstall logic with comprehensive cleanup:
- * - Removes all tab marks (L-bracket overlays, badges, title prefixes)
  * - Ungroups all Chrome tab groups
- * - Clears all extension storage (including marked tabs registry)
+ * - Clears all extension storage (including tab history)
  * - Prevents leftover UI artifacts when plugin is disabled/removed
  *
  * WHY IMPORTANT:
  *  - Users expect clean state after uninstall (zero traces)
  *  - Browser extension can be disabled/re-enabled repeatedly
- *  - Chrome/Firefox don't auto-cleanup injected content from extension context removal
+ *  - Chrome/Firefox don't auto-cleanup tab groups from extension context removal
  */
-import browser from 'webextension-polyfill'
-import { TabDots } from '@/services/TabDots'
 import { APP_DEFAULTS } from '@/constants'
 
 export class ExtensionCleanupService {
@@ -27,13 +24,10 @@ export class ExtensionCleanupService {
     static async performFullCleanup(): Promise<void> {
         console.log('[ExtensionCleanupService] Starting full cleanup...')
         try {
-            // 1️⃣ Remove L-bracket overlays and restore original favicons
-            await this.removeAllTabMarks()
-
-            // 2️⃣ Ungroup all Chrome tab groups
+            // 1️⃣ Ungroup all Chrome tab groups
             await this.ungroupAllTabs()
 
-            // 3️⃣ Clear all extension storage (tabs history, settings, marked tabs registry, etc.)
+            // 2️⃣ Clear all extension storage (tabs history, settings, etc.)
             await this.clearAllStorage()
 
             console.log('[ExtensionCleanupService] ✅ Full cleanup completed successfully')
@@ -42,36 +36,6 @@ export class ExtensionCleanupService {
         }
     }
 
-    /**
-     * 🧹 Remove all L-bracket marks from all open tabs
-     * Injects removeLBracketPageScript into every tab to:
-     *  - Disconnect MutationObserver
-     *  - Remove marked favicon links
-     *  - Restore original favicon rel attributes
-     */
-    private static async removeAllTabMarks(): Promise<void> {
-        try {
-            const allTabs = await browser.tabs.query({})
-            console.log(`[removeAllTabMarks] Removing marks from ${allTabs.length} tabs...`)
-
-            await Promise.all(
-                allTabs.map(async (tab) => {
-                    if (!tab.id) return
-                    try {
-                        await browser.scripting.executeScript({
-                            target: { tabId: tab.id },
-                            func: TabDots.removeLBracketPageScript,
-                            args: [],
-                        })
-                    } catch (err) {
-                        console.debug(`[removeAllTabMarks] tab#${tab.id}:`, err instanceof Error ? err.message : err)
-                    }
-                }),
-            )
-        } catch (err) {
-            console.error('[removeAllTabMarks] Error:', err instanceof Error ? err.message : err)
-        }
-    }
 
     /**
      * 🧹 Ungroup all Chrome tab groups
@@ -85,7 +49,8 @@ export class ExtensionCleanupService {
 
             if (!chrome?.tabs?.ungroup) return
 
-            const allTabs = await browser.tabs.query({})
+            // Use chrome.tabs.query for ESM compatibility
+            const allTabs = await chrome.tabs.query({})
             const tabIds = allTabs.filter(t => t.id).map(t => t.id!) as number[]
 
             if (tabIds.length === 0) return
@@ -108,8 +73,8 @@ export class ExtensionCleanupService {
     private static async clearAllStorage(): Promise<void> {
         try {
             console.log('[clearAllStorage] Clearing all storage...')
-            await browser.storage.local.clear()
-            await browser.storage.sync?.clear?.()
+            await chrome.storage.local.clear()
+            await chrome.storage.sync?.clear?.()
             console.log('[clearAllStorage] ✅ All storage cleared')
         } catch (err) {
             console.error('[clearAllStorage] Error:', err instanceof Error ? err.message : err)
@@ -124,15 +89,15 @@ export class ExtensionCleanupService {
         console.log('[registerLifecycleListeners] Setting up extension lifecycle listeners...')
 
         // Called when extension is installed/updated/enabled
-        browser.runtime.onInstalled.addListener((details) => {
+        chrome.runtime.onInstalled.addListener((details) => {
             console.log('[onInstalled]', details.reason)
 
             if (details.reason === 'install') {
                 console.log('[onInstalled] First time install - no cleanup needed')
             } else if (details.reason === 'update') {
                 console.log('[onInstalled] Extension updated - running compatibility cleanup')
-                // Optionally run partial cleanup on update (marked tabs tracking)
-                this.clearMarkedTabsRegistry().catch((err) =>
+                // Optionally run partial cleanup on update (tab history)
+                this.clearTabHistory().catch((err) =>
                     console.error('[onInstalled update] Cleanup error:', err),
                 )
             }
@@ -149,7 +114,7 @@ export class ExtensionCleanupService {
      */
     private static async clearMarkedTabsRegistry(): Promise<void> {
         try {
-            await browser.storage.local.remove(APP_DEFAULTS.TAB_HISTORY_KEY)
+            await chrome.storage.local.remove(APP_DEFAULTS.TAB_HISTORY_KEY)
             console.log('[clearMarkedTabsRegistry] ✅ Cleared')
         } catch (err) {
             console.debug('[clearMarkedTabsRegistry]', err instanceof Error ? err.message : err)

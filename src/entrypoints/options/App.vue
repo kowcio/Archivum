@@ -70,11 +70,17 @@
                   ['title', 'url', 'domain'].includes(col.name) ? 'cell-break-aggressive' : undefined
                 ]"
               >
-                <template v-if="col.name === 'close'">
-                  <button class="btn-close-tab" @click="handleCloseTab(props.row.id)"
-                          :disabled="!props.row.id">
-                    Close
-                  </button>
+                <template v-if="col.name === 'actions'">
+                  <div class="actions-group">
+                    <button class="btn-action btn-add-day" @click="handleAddDay(props.row.id)"
+                            :disabled="!props.row.id" title="Add 24 hours to age">
+                      +24h
+                    </button>
+                    <button class="btn-action btn-close-tab" @click="handleCloseTab(props.row.id)"
+                            :disabled="!props.row.id" title="Close tab">
+                      Close
+                    </button>
+                  </div>
                 </template>
                 <template v-else-if="col.name === 'thumbnail'">
                   <div class="favicon-wrapper">
@@ -142,7 +148,7 @@ function stripProtocol(url: string): string {
 
 const columns: QTableProps["columns"] = [
   { name: "ordinal",       label: "#",           field: "ordinal",       align: "left", headerClasses: "col-auto",  sortable: true },
-  { name: "close",         label: "",            field: "close",         align: "left", headerClasses: "col-auto",  classes: "cell-close" },
+  { name: "actions",       label: "Actions",     field: "actions",       align: "left", headerClasses: "col-auto",  classes: "cell-actions" },
   { name: "thumbnail",     label: "",            field: "thumbnail",     align: "left", headerClasses: "col-auto" },
   { name: "domain",        label: "Domain",      field: "domain",        align: "left", headerClasses: "col-2",     sortable: true },
   { name: "title",         label: "Title",       field: "title",         align: "left", headerClasses: "col-2",     sortable: true },
@@ -189,6 +195,24 @@ async function handleCloseTab(tabId: number | null): Promise<void> {
   await tabStore.closeTab(tabId)
 }
 
+async function handleAddDay(tabId: number | null): Promise<void> {
+  if (tabId == null) return
+  const DAY_MS = 24 * 60 * 60 * 1000
+
+  tabStore.$patch(state => {
+    const idx = state.tabs.findIndex(t => t.id === tabId)
+    if (idx === -1) return
+    const currentLastAccessed = state.tabs[idx].lastAccessed ?? Date.now()
+    state.tabs[idx] = {
+      ...state.tabs[idx],
+      lastAccessed: currentLastAccessed - DAY_MS, // Subtract to make it older
+    }
+  })
+
+  // Persist so all contexts see the updated state
+  await tabStore._persist()
+}
+
 async function handleGroupOrUngroup(): Promise<void> {
   if (tabStore.isGrouped) {
     await tabStore.ungroupAllTabs()
@@ -226,7 +250,41 @@ async function handleGenMockTabs(): Promise<void> {
   white-space: normal;
 }
 
-.btn-close-tab { white-space: nowrap; }
+:deep(.actions-group) {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+:deep(.btn-action) {
+  white-space: nowrap;
+  padding: 2px 6px;
+  font-size: 0.75rem;
+  border: 1px solid #ccc;
+  border-radius: 3px;
+  background: #f5f5f5;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+:deep(.btn-action:hover:not(:disabled)) {
+  background: #e0e0e0;
+  border-color: #999;
+}
+
+:deep(.btn-action:disabled) {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+:deep(.btn-add-day) {
+  color: #1976d2;
+  font-weight: 600;
+}
+
+:deep(.btn-close-tab) {
+  color: #d32f2f;
+}
 
 .favicon-wrapper {
   display: inline-flex;

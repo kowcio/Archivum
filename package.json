@@ -41,8 +41,9 @@
   "devDependencies": {
     "@pinia/testing": "^1.0.3",
     "@playwright/test": "^1.60.0",
-    "@tsconfig/node22": "^22.0.5",
     "@quasar/vite-plugin": "^1.11.0",
+    "@tsconfig/node22": "^22.0.5",
+    "@types/chrome": "^0.1.42",
     "@types/jsdom": "^28.0.3",
     "@types/node": "^25.8.0",
     "@types/webextension-polyfill": "^0.12.4",

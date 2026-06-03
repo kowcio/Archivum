@@ -212,10 +212,7 @@ export const useTabStore = defineStore(APP_CONSTANTS.STORE_TAB_STORE, {
 
                 await this.markOldTabs()
 
-                console.log('[getAllOpenedTabs] Loaded:', this.tabs.length, {
-                    withFavicons: this.tabs.filter(t => t.favIconUrl).length,
-                    marked:       this.tabs.filter(t => t.isMarked).length,
-                })
+                console.log('[getAllOpenedTabs] Loaded:', this.tabs.length, 'tabs')
 
                 // Write to storage → watch fires async in all contexts (including this one, idempotent)
                 await tabStorageItem.setValue(this._snapshot())
@@ -257,36 +254,26 @@ export const useTabStore = defineStore(APP_CONSTANTS.STORE_TAB_STORE, {
             return days === 1 ? '1 day ago' : `${days} days ago`
         },
 
-        /** Marks tabs with L-bracket favicon overlay. Skips Fresh and already-marked tabs. */
+        /** Marks tabs with age classification. No visual L-bracket overlay. */
         async markOldTabs(): Promise<void> {
             this.error = null
             try {
                 const thresholds = useGlobalStore().thresholds
                 const tabRows = TabRow.fromTabs(this.tabs, thresholds)
 
-                await Promise.all(
-                    tabRows.map(async (row) => {
-                        if (row.id == null) return
+                for (const row of tabRows) {
+                    if (row.id == null) continue
 
-                        const classification = this.getAgeClassification(row, thresholds)
-                        const tabIndex = this.tabs.findIndex(t => t.id === row.id)
-                        const classifiedTab = tabIndex !== -1 ? this.tabs[tabIndex] : null
+                    const classification = this.getAgeClassification(row, thresholds)
+                    const tabIndex = this.tabs.findIndex(t => t.id === row.id)
 
-                        if (classifiedTab && tabIndex !== -1) {
-                            this.tabs[tabIndex] = {
-                                ...classifiedTab,
-                                ageIndex: classification.index,
-                            }
+                    if (tabIndex !== -1) {
+                        this.tabs[tabIndex] = {
+                            ...this.tabs[tabIndex],
+                            ageIndex: classification.index,
                         }
-
-                        if (classification.isFresh) return
-
-                        const latestTab = tabIndex !== -1 ? this.tabs[tabIndex] : null
-                        if (latestTab?.isMarked) return
-
-                        await this.markTabWithLBracket(row.id, classification.color)
-                    }),
-                )
+                    }
+                }
             } catch (err) {
                 this.error = err instanceof Error ? err.message : 'Unknown error while marking old tabs'
             }
@@ -531,7 +518,6 @@ export const useTabStore = defineStore(APP_CONSTANTS.STORE_TAB_STORE, {
         /** Triggers full extension cleanup on disable/uninstall. */
         async performExtensionCleanup(): Promise<void> {
             await ExtensionCleanupService.performFullCleanup()
-            this.tabs      = this.tabs.map(t => ({ ...t, isMarked: false }))
             this.isGrouped = false
             await tabStorageItem.setValue(this._snapshot())
         },

@@ -19,14 +19,6 @@ vi.mock('@/utils/tabStorage', () => ({
     },
 }))
 
-vi.mock('@/services/TabDots', () => ({
-    TabDots: {
-        fetchFaviconDataUrl:     vi.fn().mockResolvedValue('data:image/png;base64,favicon'),
-        renderLBracketDataUrl:   vi.fn().mockResolvedValue('data:image/png;base64,marked'),
-        applyLBracketPageScript: vi.fn(),
-        removeLBracketPageScript: vi.fn(),
-    },
-}))
 
 vi.mock('@/stores/globalStore', () => ({
     useGlobalStore: vi.fn(() => ({
@@ -91,15 +83,15 @@ describe('TabStore — load / reset cycle', () => {
         expect(store.tabs).toHaveLength(4)
     })
 
-    it('getAllOpenedTabs: marks non-fresh tabs (Young / Middle / Old)', async () => {
+    it('getAllOpenedTabs: classifies tabs by age (Fresh / Young / Middle / Old)', async () => {
         const store = useTabStore()
         await store.getAllOpenedTabs()
 
         const tabById = (id: number) => store.tabs.find(t => t.id === id)!
-        expect(tabById(1).isMarked).toBe(false) // Fresh
-        expect(tabById(2).isMarked).toBe(true)  // Young
-        expect(tabById(3).isMarked).toBe(true)  // Middle
-        expect(tabById(4).isMarked).toBe(true)  // Old
+        expect(tabById(1).ageIndex).toBe(0) // Fresh
+        expect(tabById(2).ageIndex).toBe(1) // Young
+        expect(tabById(3).ageIndex).toBe(2) // Middle
+        expect(tabById(4).ageIndex).toBe(3) // Old
     })
 
     it('getAllOpenedTabs: persists snapshot to storage', async () => {
@@ -123,18 +115,9 @@ describe('TabStore — load / reset cycle', () => {
 
     // ── reset ─────────────────────────────────────────────────────────────────
 
-    it('reset: removes isMarked flag from all tabs but keeps them in the store', async () => {
-        const store = useTabStore()
-        await store.getAllOpenedTabs()
-        expect(store.tabs.filter(t => t.isMarked)).toHaveLength(3)
+    // (removed - no longer test isMarked state)
 
-        await store.reset()
-        expect(store.tabs).toHaveLength(4)                         // tabs preserved
-        expect(store.tabs.every(t => !t.isMarked)).toBe(true)      // all unmarked
-        expect(store.tabs.every(t => !t.markedFaviconDataUrl)).toBe(true) // overlays cleared
-    })
-
-    it('reset: saves snapshot with tabs intact (only markings cleared)', async () => {
+    it('reset: saves snapshot with tabs intact', async () => {
         const store = useTabStore()
         await store.getAllOpenedTabs()
         vi.clearAllMocks()
@@ -143,8 +126,8 @@ describe('TabStore — load / reset cycle', () => {
         await store.reset()
         expect(tabStorageItem.setValue).toHaveBeenCalledOnce()
         const saved = vi.mocked(tabStorageItem.setValue).mock.calls[0][0]
-        expect(saved?.tabs).toHaveLength(4)                        // tabs preserved in storage
-        expect((saved?.tabs as any[]).every((t: any) => !t.isMarked)).toBe(true)
+        expect(saved?.tabs).toHaveLength(4)
+        expect(saved?.isGrouped).toBe(false)
     })
 
     it('reset: preserves lastAccessed timestamps', async () => {
@@ -166,19 +149,18 @@ describe('TabStore — load / reset cycle', () => {
 
     // ── Full Load → Reset → Load cycle ────────────────────────────────────────
 
-    it('cycle: after reset + reload, ALL non-fresh tabs are marked again', async () => {
+    it('cycle: after reset + reload, tabs are classified by age again', async () => {
         const store = useTabStore()
 
         // First load
         await store.getAllOpenedTabs()
-        expect(store.tabs.filter(t => t.isMarked)).toHaveLength(3) // Young, Middle, Old
+        expect(store.tabs.filter(t => t.ageIndex > 0)).toHaveLength(3) // Young, Middle, Old
 
-        // Reset — tabs stay in store, markings stripped
+        // Reset — tabs stay in store
         await store.reset()
         expect(store.tabs).toHaveLength(4)
-        expect(store.tabs.every(t => !t.isMarked)).toBe(true)
 
-        // Second load — ALL non-fresh tabs must be marked again
+        // Second load — ALL non-fresh tabs must be classified again
         vi.mocked(browser.tabs.query).mockResolvedValue([
             makeTab(1,  3),
             makeTab(2, 10),
@@ -188,20 +170,20 @@ describe('TabStore — load / reset cycle', () => {
         await store.getAllOpenedTabs()
 
         const tabById = (id: number) => store.tabs.find(t => t.id === id)!
-        expect(tabById(1).isMarked).toBe(false) // Fresh
-        expect(tabById(2).isMarked).toBe(true)  // Young
-        expect(tabById(3).isMarked).toBe(true)  // Middle
-        expect(tabById(4).isMarked).toBe(true)  // Old
+        expect(tabById(1).ageIndex).toBe(0) // Fresh
+        expect(tabById(2).ageIndex).toBe(1) // Young
+        expect(tabById(3).ageIndex).toBe(2) // Middle
+        expect(tabById(4).ageIndex).toBe(3) // Old
     })
 
-    it('cycle: isLoaded (any marked tab) toggles correctly', async () => {
+    it('cycle: age classification toggles correctly through load/reset cycle', async () => {
         const store = useTabStore()
 
-        expect(store.tabs.some(t => t.isMarked)).toBe(false) // before load
+        expect(store.tabs.some(t => t.ageIndex > 0)).toBe(false) // before load
         await store.getAllOpenedTabs()
-        expect(store.tabs.some(t => t.isMarked)).toBe(true)  // after load (non-fresh tabs marked)
+        expect(store.tabs.some(t => t.ageIndex > 0)).toBe(true)  // after load (non-fresh tabs classified)
         await store.reset()
-        expect(store.tabs.some(t => t.isMarked)).toBe(false) // after reset (markings stripped, tabs kept)
+        expect(store.tabs).toHaveLength(4) // tabs preserved after reset
     })
 
     // ── _persist ──────────────────────────────────────────────────────────────
