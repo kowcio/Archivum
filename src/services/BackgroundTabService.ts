@@ -132,13 +132,15 @@ export class BackgroundTabService {
    *
    * CROSS-BROWSER BEHAVIOR:
    *   ✅ Chrome/Edge: Ungrouping + moving to rightmost
-   *   ✅ Firefox: Moving to rightmost + updating lastAccessed (no ungrouping API)
+   *   ✅ Firefox: Moving to rightmost + updating lastAccessed
+   *        Firefox Note: No tabs.ungroup() in MV3. Tab stays visually in group but is
+   *        reclassified as "Fresh" and won't be re-grouped next alarm cycle.
    *
    * Steps:
-   *   1. Ungroup the tab (Chrome/Edge only)
+   *   1. Ungroup the tab (Chrome/Edge only via native chrome API callback)
    *   2. Move to rightmost position (index: -1) — all browsers
-   *   3. Update tab's lastAccessed timestamp to now
-   *   4. Persist updated snapshot to storage → TabStore syncs via initStorageSync()
+   *   3. Update tab's lastAccessed timestamp to now (reclassifies as Fresh in Firefox)
+   *   4. Persist updated snapshot to storage → TabStore syncs, Options table updates
    */
   static async onTabActivated(tabId: number): Promise<void> {
     console.log(`[BackgroundTabService] 🔧 onTabActivated called for tab#${tabId}`)
@@ -149,6 +151,9 @@ export class BackgroundTabService {
         console.warn('[BackgroundTabService] ⚠️ browser.tabs not available (should not happen)')
         return
       }
+
+      // Detect Firefox using WXT's compile-time constant (most reliable)
+      const isFirefox = import.meta.env.FIREFOX === true
 
       console.log(`[BackgroundTabService] 🔍 Getting tab#${tabId} info...`)
 
@@ -178,12 +183,15 @@ export class BackgroundTabService {
 
         console.log(`[BackgroundTabService] 🔓 Ungrouping tab#${tabId} from group#${tab.groupId}...`)
 
-        // ✅ Try to ungroup (Chrome/Edge only, Firefox will skip gracefully)
-        if (browser.tabs.ungroup != null) {
+        // ⚠️ Firefox MV3 has NO ungroup API
+        // Chrome/Edge: Use callback-based native chrome.tabs.ungroup()
+        // Firefox: Skip ungroup, move directly. Tab will be reclassified as "Fresh"
+        //          by lastAccessed update, so it won't re-group in next cycle.
+        if (!isFirefox) {
+          console.log(`[BackgroundTabService] ℹ️ Chrome/Edge detected → attempting ungroup via native API`)
           this.ungroupWithRetry(tabId, 0)
         } else {
-          // Firefox: No ungroup API, just move directly
-          console.log('[BackgroundTabService] ℹ️ browser.tabs.ungroup not available (Firefox) - moving directly')
+          console.log('[BackgroundTabService] ℹ️ Firefox detected → skipping ungroup (no MV3 API), moving to rightmost to mark as Fresh')
           this.moveTabWithRetry(tabId, 0)
         }
       })
@@ -195,7 +203,12 @@ export class BackgroundTabService {
   /**
    * Helper: Ungroup tab with retry mechanism (exponential backoff)
    * Handles race conditions when browser is busy with tab operations
-   * Chrome/Edge only: Firefox doesn't have ungroup API
+   *
+   * ⚠️  Chrome/Edge ONLY: Uses callback-based native chrome.tabs.ungroup()
+   * ⚠️  Firefox: NOT CALLED. Firefox MV3 has no ungroup API in service workers.
+   *     Firefox MV3 limitation: tabs.ungroup() is Promise-based, incompatible with MV3
+   *     service worker callbacks. Tab stays in group, but lastAccessed update
+   *     reclassifies it as "Fresh" so it won't re-group on next daily cycle.
    */
   private static ungroupWithRetry(tabId: number, attempt: number): void {
     const maxAttempts = 5
@@ -240,7 +253,12 @@ export class BackgroundTabService {
   /**
    * Helper: Move tab with retry mechanism (exponential backoff)
    * After successful move, updates tab's lastAccessed timestamp and persists to storage.
-   * Works in all browsers (Chrome, Edge, Firefox).
+   *
+   * ✅ Works in all browsers (Chrome, Edge, Firefox).
+   *
+   * ℹ️  Firefox "soft ungroup": Updating lastAccessed to "today" reclassifies tab as "Fresh".
+   *     On next daily grouping cycle, Fresh tabs are grouped separately, so the tab
+   *     effectively leaves the old group without needing explicit ungroup API.
    */
   private static moveTabWithRetry(tabId: number, attempt: number): void {
     const maxAttempts = 5

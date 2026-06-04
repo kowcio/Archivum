@@ -38,13 +38,18 @@ export default defineBackground({
     console.debug('[EXT-DBG] background main started - TOKEN:EXT_DBG_BACKGROUND_MAIN_v1')
 
     // ─────────────────────────────────────────────────────────────────────────
-    // 🔍 DIAGNOSTICS: Check unified browser API availability
+    // 🔍 DIAGNOSTICS: Check browser API availability + detect browser type
     // ─────────────────────────────────────────────────────────────────────────
-    console.log('[DIAGNOSTIC] Browser API Check:')
-    console.log('  typeof browser:', typeof browser)
-    console.log('  browser?.tabs:', !!browser?.tabs)
-    console.log('  browser?.tabGroups:', !!browser?.tabGroups)
-    console.log('  browser?.alarms:', !!browser?.alarms)
+    const isChrome = typeof chrome !== 'undefined'
+    const hasTabGroups = browser.tabGroups != null
+    const hasAlarms = browser.alarms != null
+    const hasTabs = browser.tabs != null
+
+    console.log('[DIAGNOSTIC] Browser Detection:')
+    console.log('  isChrome (native chrome API):', isChrome)
+    console.log('  hasTabGroups (Chrome/Edge only):', hasTabGroups)
+    console.log('  hasAlarms (all browsers):', hasAlarms)
+    console.log('  hasTabs (all browsers):', hasTabs)
     console.log('[DIAGNOSTIC] End of check\n')
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -59,7 +64,8 @@ export default defineBackground({
     // ⏰ browser.alarms.create() + browser.alarms.onAlarm.addListener()
     // Purpose: Persist daily grouping across service worker suspension (MV3)
     // Browser compatibility: ✅ Chrome, ✅ Firefox, ✅ Edge
-    if (browser.alarms != null) {
+    // Note: Uses `browser` API (universal) — no browser-specific handling needed
+    if (hasAlarms) {
       try {
         browser.alarms.create(APP_DEFAULTS.ALARM_UPDATE_TABS, {
           periodInMinutes: 24 * 60,
@@ -72,7 +78,8 @@ export default defineBackground({
             .catch((err: Error) => console.error('[background] ❌ groupTabsByAge error:', err))
         })
 
-        console.log('[background] ✅ Alarm registered (works in all browsers)')
+        const browserName = isChrome ? 'Chrome/Edge' : 'Firefox'
+        console.log(`[background] ✅ Alarm registered (${browserName})`)
       } catch (err) {
         console.error('[background] ❌ Failed to setup alarms:', err instanceof Error ? err.message : err)
       }
@@ -81,9 +88,10 @@ export default defineBackground({
     }
 
     // 🖱️ browser.tabs.onActivated.addListener()
-    // Purpose: When user clicks a tab, ungroup + move to rightmost + update lastAccessed
-    // Browser compatibility: ✅ Chrome, ✅ Firefox, ✅ Edge
-    if (browser.tabs != null) {
+    // Purpose: When user clicks a tab, ungroup (if supported) + move to rightmost + update lastAccessed
+    // Browser compatibility: ✅ Chrome (ungroup + move), ✅ Firefox (move only), ✅ Edge (ungroup + move)
+    // Note: Ungroup is Chrome/Edge only — BackgroundTabService handles fallback for Firefox
+    if (hasTabs) {
       try {
         browser.tabs.onActivated.addListener(({ tabId }) => {
           console.log(`[background] 🖱️ Tab#${tabId} activated`)
@@ -113,7 +121,9 @@ export default defineBackground({
           })
         })
 
-        console.log('[background] ✅ Tab activation listener registered (works in all browsers)')
+        const browserName = isChrome ? 'Chrome/Edge' : 'Firefox'
+        const features = hasTabGroups ? '(ungroup + move)' : '(move only)'
+        console.log(`[background] ✅ Tab activation listener registered (${browserName} ${features})`)
       } catch (err) {
         console.error('[background] ❌ Failed to setup tab activation listener:', err instanceof Error ? err.message : err)
       }
@@ -123,12 +133,13 @@ export default defineBackground({
 
     // ℹ️ Feature detection: Tab grouping API (Chrome/Edge only)
     // Purpose: Alert developer about browser-specific capabilities
-    if (browser.tabGroups != null) {
-      console.log('[background] ✅ Tab grouping API available (Chrome/Edge)')
+    if (hasTabGroups) {
+      console.log('[background] ✅ Tab grouping API available (Chrome/Edge) — will create age-based groups')
     } else {
-      console.log('[background] ℹ️ Tab grouping API not available (Firefox - native UI grouping used instead)')
+      console.log('[background] ℹ️ Tab grouping API not available (Firefox) — native UI grouping used instead')
     }
 
-    console.log('[background] ✅ Background service worker ready (cross-browser mode)')
+    console.log('[background] ✅ Background service worker ready')
+    console.log(`[background] 🌍 Running in ${isChrome ? 'Chrome/Edge' : 'Firefox'} with cross-browser support`)
   },
 })
