@@ -18,14 +18,14 @@ background.ts (service worker — NO Pinia)
 
 **Rule**: background writes, UI reads. Never the other way.
 
-## Tab Grouping Flow (NO L-brackets)
+## Tab Grouping Flow (Cross-browser: Chrome + Firefox + Edge)
 
-| Event | Action |
-|---|---|
-| **Daily alarm (24h)** | BackgroundTabService.groupTabsByAge() → creates Old/Middle/Young groups |
-| **Tab activated in group** | BackgroundTabService.moveActivatedTabToFresh() → ungroup + move to rightmost |
-| **Tab order** | Oldest (left) → Youngest (right) — natural left-to-right flow |
-| **Group titles** | `Old 20d+`, `Middle 10d+`, `Young 3d+` — NO emoji dots |
+| Event | Action | Browser Support |
+|---|---|---|
+| **Daily alarm (24h)** | BackgroundTabService.groupTabsByAge() → creates Old/Middle/Young groups | Chrome + Edge only; Firefox skips gracefully |
+| **Tab activated in group** | BackgroundTabService.onTabActivated() → ungroup + move to rightmost + update lastAccessed | ✅ All browsers (Firefox has no ungroup API, skips step 1) |
+| **Tab order** | Oldest (left) → Youngest (right) — natural left-to-right flow | ✅ All browsers |
+| **Group titles** | `Old 20d+`, `Middle 10d+`, `Young 3d+` — NO emoji dots | Chrome + Edge only |
 
 ## Universal Rules
 
@@ -34,14 +34,14 @@ background.ts (service worker — NO Pinia)
 | **TypeScript** | `type` (not `interface`), no `any`, no `unknown` leaks |
 | **Vue** | `<script setup lang="ts">` only — no Options API |
 | **Pinia** | `type State`, `loading` + `error: string \| null` in every store |
-| **Browser** | `chrome.*` in background context (ESM), `browser` in UI — never mix |
-| **Storage** | `chrome.storage` in background, `browser.storage` in UI via `StorageService` |
+| **Browser** | Use unified `browser` API from `wxt/browser` everywhere — works Chrome + Firefox + Edge. Feature detect for Chrome-only APIs (`tabGroups`). Never mix `chrome` and `browser` |
+| **Storage** | Use `browser.storage` via `tabStorageItem` in background + UI (unified approach). Background writes, UI reads only |
 | **Tests** | Vitest (unit/jsdom) + Playwright (E2E/real Chromium) |
 | **UI** | Quasar: `q-btn`, `q-table`, `q-tooltip`; project CSS: `got-*` from `global.css` |
 | **No destructuring** | `const { x } = obj` ❌ → use `obj.x` (explicit, grep-safe) |
-| **No docs** | NEVER generate `*.md` files unless explicitly asked — saves tokens |
-| **No Pinia in background** | background.ts has no Vue context — use native `chrome.*` API |
-| **No setInterval** | Use `chrome.alarms` — service workers suspend ~30s |
+| **No docs** | NEVER auto-generate `*.md` files. ONLY create `*.md` if user explicitly asks ("create doc", "write guide", etc). Can update existing docs if requested. Saves tokens for code work. |
+| **No Pinia in background** | background.ts has no Vue context — use `browser` API from `wxt/browser`. Callbacks only (no promises) for MV3 service worker compatibility |
+| **No setInterval** | Use `browser.alarms` — service workers suspend ~30s (MV3 constraint) |
 | **L-brackets deprecated** | LBracketService exists for future use but is NOT active — use tab groups |
 | **Token economy** | Code + SHORT explanation only — no long descriptions, no helper scripts |
 | **Minimalism** | Answer query directly — no "how to use" essays, no verbose summaries |

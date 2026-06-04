@@ -2,13 +2,17 @@
  * BackgroundTabService — tab operations for the background service worker.
  *
  * Runs WITHOUT Pinia (background has its own isolated VM).
- * Reads config from chrome.storage, operates directly on chrome.tabs + scripting APIs.
- * Writes tab snapshots to chrome.storage so UI contexts can sync via TabStore.initStorageSync().
+ * Reads config from browser.storage, operates directly on browser.tabs APIs.
+ * Writes tab snapshots to browser.storage so UI contexts can sync via TabStore.initStorageSync().
+ *
+ * CROSS-BROWSER SUPPORT:
+ *   ✅ Chrome/Edge: Full tab grouping support via browser.tabGroups API
+ *   ✅ Firefox: No tabGroups API, gracefully skips grouping
+ *   ✅ All browsers: Tab activation, storage sync, lastAccessed updates
  *
  * Flow:
- *   chrome.alarms → loadAndMarkTabs() → chrome.storage (snapshot)
- *                                      → LBracketService (visual marks)
- *   chrome.tabs.onActivated → removeLBracketForTab() → LBracketService
+ *   browser.alarms → groupTabsByAge() → browser.storage (snapshot)
+ *   browser.tabs.onActivated → onTabActivated() → browser.storage
  */
 
 import { ClassifiedTabFactory } from '@/models/tabs/ClassifiedTab'
@@ -20,6 +24,7 @@ import { AppThresholds, DEFAULT_THRESHOLDS } from '@/models/AppThresholds'
 import { TabsSnapshot } from '@/models/tabs/TabsSnapshot'
 import type { ClassifiedTab } from '@/models/tabs/ClassifiedTab'
 import { tabStorageItem } from '@/utils/tabStorage'
+import { browser } from 'wxt/browser'
 
 export class BackgroundTabService {
   /**
@@ -35,32 +40,25 @@ export class BackgroundTabService {
   }
 
   /**
-   * Groups tabs by age using Chrome tab groups API, then persists snapshot.
+   * Groups tabs by age using tab groups API (Chrome/Edge), then persists snapshot.
    * Called by the daily alarm.
    *
-   * Creates age-based groups: Old / Middle / Young (no emojis, threshold-based titles).
+   * CROSS-BROWSER BEHAVIOR:
+   *   ✅ Chrome/Edge: Creates age-based groups using browser.tabGroups API
+   *   ✅ Firefox: Skips grouping (no tabGroups API), but persists snapshot
+   *              Users can manually group via native UI if desired
+   *
+   * Creates age-based groups: Old / Middle / Young (threshold-based titles).
    * Moves groups to the left so tabs flow: oldest (left) → youngest (right).
    */
   static async groupTabsByAge(): Promise<void> {
     console.log('[BackgroundTabService] Starting groupTabsByAge...')
     try {
-      type ChromeAPI = {
-        chrome?: {
-          tabs?: { group?: (o: { tabIds: number[] }) => Promise<number> }
-          tabGroups?: {
-            update?: (id: number, o: { title?: string; color?: string; collapsed?: boolean }) => Promise<void>
-            move?: (id: number, o: { index: number }) => Promise<void>
-          }
-        }
-      }
-      const chromeApi = (globalThis as unknown as ChromeAPI).chrome
-      if (!chromeApi?.tabs?.group || !chromeApi?.tabGroups?.update) {
-        console.log('[BackgroundTabService] Chrome tab grouping API not available (Firefox?)')
-        return
-      }
+      // ✅ Feature detection: Tab grouping (Chrome/Edge only)
+      const hasTabGroups = browser.tabGroups != null
 
-      // Use chrome.tabs.query instead of browser polyfill for ESM compatibility
-      const rawTabs = await chrome.tabs.query({ currentWindow: true })
+      // ✅ Unified API: Works in all browsers
+      const rawTabs = await browser.tabs.query({ currentWindow: true })
       const thresholds = await this.getThresholds()
       const classified: ClassifiedTab[] = ClassifiedTabFactory.fromTabs(rawTabs)
       const rows = TabRow.fromTabs(classified, thresholds)
@@ -81,69 +79,83 @@ export class BackgroundTabService {
         else if (c.isYoung) youngTabIds.push(row.id)
       }
 
-      const createGroup = async (ids: number[], title: string, color: string): Promise<number | null> => {
-        if (!ids.length) return null
-        try {
-          const id = await chromeApi.tabs!.group!({ tabIds: ids })
-          await chromeApi.tabGroups!.update!(id, { title, color, collapsed: false })
-          return id
-        } catch (err) {
-          console.debug('[BackgroundTabService] createGroup error:', err)
-          return null
+      // ✅ Only attempt grouping in Chrome/Edge
+      if (hasTabGroups) {
+        const createGroup = async (ids: number[], title: string, color: string): Promise<number | null> => {
+          if (!ids.length) return null
+          try {
+            // Use native chrome API for grouping (better compatibility)
+            const id = await (chrome as any).tabs.group({ tabIds: ids })
+            await (chrome as any).tabGroups.update(id, { title, color, collapsed: false })
+            return id
+          } catch (err) {
+            console.debug('[BackgroundTabService] createGroup error:', err)
+            return null
+          }
         }
-      }
 
-      const oldGroupId = await createGroup(oldTabIds, `Old ${thresholds.old}d+`, 'red')
-      const middleGroupId = await createGroup(middleTabIds, `Middle ${thresholds.middle}d+`, 'orange')
-      const youngGroupId = await createGroup(youngTabIds, `Young ${thresholds.young}d+`, 'yellow')
+        const oldGroupId = await createGroup(oldTabIds, `Old ${thresholds.old}d+`, 'red')
+        const middleGroupId = await createGroup(middleTabIds, `Middle ${thresholds.middle}d+`, 'orange')
+        const youngGroupId = await createGroup(youngTabIds, `Young ${thresholds.young}d+`, 'yellow')
 
-      // Move groups to the left: oldest → youngest (left to right flow)
-      if (chromeApi.tabGroups?.move) {
-        for (const id of [oldGroupId, middleGroupId, youngGroupId]) {
-          if (id !== null) {
-            try {
-              await chromeApi.tabGroups.move(id, { index: 0 })
-            } catch (err) {
-              console.debug('[BackgroundTabService] moveGroup error:', err)
+        // Move groups to the left: oldest → youngest (left to right flow)
+        if ((chrome as any)?.tabGroups?.move) {
+          for (const id of [oldGroupId, middleGroupId, youngGroupId]) {
+            if (id !== null) {
+              try {
+                await (chrome as any).tabGroups.move(id, { index: 0 })
+              } catch (err) {
+                console.debug('[BackgroundTabService] moveGroup error:', err)
+              }
             }
           }
         }
+
+        console.log(`[BackgroundTabService] ✅ Grouped ${classified.length} tabs into groups (Chrome/Edge)`)
+      } else {
+        console.log(`[BackgroundTabService] ℹ️ Tab grouping not available (Firefox) - skipping grouping, but storing classification`)
       }
 
-      const snapshot = new TabsSnapshot(classified, true, new Date().toISOString())
+      // ✅ Persist snapshot (works in all browsers)
+      const snapshot = new TabsSnapshot(classified, hasTabGroups, new Date().toISOString())
       await tabStorageItem.setValue(snapshot)
 
-      console.log(`[BackgroundTabService] ✅ Grouped ${classified.length} tabs into ${[oldGroupId, middleGroupId, youngGroupId].filter(id => id !== null).length} groups`)
+      console.log(`[BackgroundTabService] ✅ Persisted ${classified.length} tabs to storage`)
     } catch (err) {
       console.error('[BackgroundTabService] ❌ groupTabsByAge error:', err instanceof Error ? err.message : err)
     }
   }
 
   /**
-   * Moves an activated tab from an old group to the rightmost position as a fresh tab.
+   * Handles tab activation: moves tab from old group to rightmost (fresh), updates lastAccessed.
    * Called when user clicks on a tab in an old/middle/young group.
    *
-   * Ungroups the tab and moves it to the rightmost position (youngest/freshest).
+   * CROSS-BROWSER BEHAVIOR:
+   *   ✅ Chrome/Edge: Ungrouping + moving to rightmost
+   *   ✅ Firefox: Moving to rightmost + updating lastAccessed (no ungrouping API)
    *
-   * ⚠️ Chrome-specific: Uses native chrome.tabs API because Tab Groups are not in webextension-polyfill
-   * ⚠️ Includes retry mechanism for "Tabs cannot be edited right now" errors
+   * Steps:
+   *   1. Ungroup the tab (Chrome/Edge only)
+   *   2. Move to rightmost position (index: -1) — all browsers
+   *   3. Update tab's lastAccessed timestamp to now
+   *   4. Persist updated snapshot to storage → TabStore syncs via initStorageSync()
    */
-  static async moveActivatedTabToFresh(tabId: number): Promise<void> {
-    console.log(`[BackgroundTabService] 🔧 moveActivatedTabToFresh called for tab#${tabId}`)
+  static async onTabActivated(tabId: number): Promise<void> {
+    console.log(`[BackgroundTabService] 🔧 onTabActivated called for tab#${tabId}`)
 
     try {
-      // Check if chrome API is available (Chrome/Chromium only, not Firefox)
-      if (typeof chrome === 'undefined' || !chrome.tabs) {
-        console.warn('[BackgroundTabService] ⚠️ chrome.tabs not available (Firefox or non-Chrome browser)')
+      // ✅ Check if browser.tabs exists (should always be true)
+      if (browser.tabs == null) {
+        console.warn('[BackgroundTabService] ⚠️ browser.tabs not available (should not happen)')
         return
       }
 
       console.log(`[BackgroundTabService] 🔍 Getting tab#${tabId} info...`)
 
-      // Use native chrome.tabs.get to get proper groupId support
-      chrome.tabs.get(tabId, (tab: chrome.tabs.Tab | undefined) => {
-        if (chrome.runtime.lastError) {
-          console.error('[BackgroundTabService] ❌ chrome.tabs.get error:', chrome.runtime.lastError.message)
+      // ✅ Unified API: Works in all browsers (callback-based for MV3)
+      browser.tabs.get(tabId, (tab: any) => {
+        if (browser.runtime.lastError) {
+          console.error('[BackgroundTabService] ❌ browser.tabs.get error:', browser.runtime.lastError.message)
           return
         }
 
@@ -166,17 +178,24 @@ export class BackgroundTabService {
 
         console.log(`[BackgroundTabService] 🔓 Ungrouping tab#${tabId} from group#${tab.groupId}...`)
 
-        // Retry mechanism for "Tabs cannot be edited right now" errors
-        this.ungroupWithRetry(tabId, 0)
+        // ✅ Try to ungroup (Chrome/Edge only, Firefox will skip gracefully)
+        if (browser.tabs.ungroup != null) {
+          this.ungroupWithRetry(tabId, 0)
+        } else {
+          // Firefox: No ungroup API, just move directly
+          console.log('[BackgroundTabService] ℹ️ browser.tabs.ungroup not available (Firefox) - moving directly')
+          this.moveTabWithRetry(tabId, 0)
+        }
       })
     } catch (err) {
-      console.error(`[BackgroundTabService] ❌ Unexpected error in moveActivatedTabToFresh:`, err)
+      console.error(`[BackgroundTabService] ❌ Unexpected error in onTabActivated:`, err)
     }
   }
 
   /**
    * Helper: Ungroup tab with retry mechanism (exponential backoff)
-   * Handles race conditions when Chrome is busy with tab operations
+   * Handles race conditions when browser is busy with tab operations
+   * Chrome/Edge only: Firefox doesn't have ungroup API
    */
   private static ungroupWithRetry(tabId: number, attempt: number): void {
     const maxAttempts = 5
@@ -187,15 +206,16 @@ export class BackgroundTabService {
       return
     }
 
-    chrome.tabs.ungroup(tabId, () => {
-      if (chrome.runtime.lastError) {
-        const errorMsg = chrome.runtime.lastError.message || ''
+    // Chrome/Edge only: browser.tabs.ungroup
+    (browser.tabs as any).ungroup(tabId, () => {
+      if (browser.runtime.lastError) {
+        const errorMsg = browser.runtime.lastError.message || ''
 
-        // Check if error is due to Chrome being busy (can retry)
+        // Check if error is due to browser being busy (can retry)
         if (errorMsg.includes('cannot be edited right now') ||
             errorMsg.includes('dragging') ||
             errorMsg.includes('busy')) {
-          const delay = baseDelay * Math.pow(2, attempt) // Exponential backoff: 100ms, 200ms, 400ms, 800ms, 1600ms
+          const delay = baseDelay * Math.pow(2, attempt) // Exponential backoff
           console.warn(`[BackgroundTabService] ⏳ Tab busy, retrying in ${delay}ms (attempt ${attempt + 1}/${maxAttempts})`)
 
           setTimeout(() => {
@@ -219,6 +239,8 @@ export class BackgroundTabService {
 
   /**
    * Helper: Move tab with retry mechanism (exponential backoff)
+   * After successful move, updates tab's lastAccessed timestamp and persists to storage.
+   * Works in all browsers (Chrome, Edge, Firefox).
    */
   private static moveTabWithRetry(tabId: number, attempt: number): void {
     const maxAttempts = 5
@@ -229,11 +251,11 @@ export class BackgroundTabService {
       return
     }
 
-    chrome.tabs.move(tabId, { index: -1 }, (movedTab: chrome.tabs.Tab | undefined) => {
-      if (chrome.runtime.lastError) {
-        const errorMsg = chrome.runtime.lastError.message || ''
+    browser.tabs.move(tabId, { index: -1 }, async (movedTab: any) => {
+      if (browser.runtime.lastError) {
+        const errorMsg = browser.runtime.lastError.message || ''
 
-        // Check if error is due to Chrome being busy (can retry)
+        // Check if error is due to browser being busy (can retry)
         if (errorMsg.includes('cannot be edited right now') ||
             errorMsg.includes('dragging') ||
             errorMsg.includes('busy')) {
@@ -252,6 +274,27 @@ export class BackgroundTabService {
       }
 
       console.log(`[BackgroundTabService] 🎉 Success! Tab#${tabId} moved to position ${movedTab?.index}`)
+
+      // ✅ Update tab's lastAccessed timestamp to now and persist to storage
+      try {
+        const snapshot = await tabStorageItem.getValue()
+        if (snapshot?.tabs) {
+          const now = Date.now()
+          const updatedTabs = (Array.isArray(snapshot.tabs) ? snapshot.tabs : Object.values(snapshot.tabs as Record<string, unknown>))
+            .map((t: unknown) => {
+              const tab = t as ClassifiedTab
+              return tab.id === tabId ? { ...tab, lastAccessed: now } : tab
+            })
+
+          const updatedSnapshot = new TabsSnapshot(updatedTabs, snapshot.isGrouped ?? false, new Date().toISOString())
+          await tabStorageItem.setValue(updatedSnapshot)
+
+          console.log(`[BackgroundTabService] ⏰ Updated tab#${tabId} lastAccessed to ${new Date(now).toISOString()}`)
+          console.log(`[BackgroundTabService] 📤 Persisted to storage → TabStore will sync via initStorageSync()`)
+        }
+      } catch (err) {
+        console.error('[BackgroundTabService] ❌ Error updating lastAccessed:', err instanceof Error ? err.message : err)
+      }
     })
   }
 }

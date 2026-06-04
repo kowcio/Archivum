@@ -1,6 +1,7 @@
 import { ExtensionCleanupService } from '@/services/ExtensionCleanupService'
 import { BackgroundTabService } from '@/services/BackgroundTabService'
 import { APP_DEFAULTS } from '@/constants'
+import { browser } from 'wxt/browser'
 
 console.debug('[EXT-DBG] background initialized - TOKEN:EXT_DBG_BACKGROUND_v1')
 
@@ -12,12 +13,23 @@ console.debug('[EXT-DBG] background initialized - TOKEN:EXT_DBG_BACKGROUND_v1')
  *      All state is managed via browser.storage.local (single source of truth).
  *      BackgroundTabService handles all tab operations without Pinia.
  *
- * Flow:
- *   alarm fires  → BackgroundTabService.groupTabsByAge()  → Chrome tab groups API + browser.storage
- *   tab activated → BackgroundTabService.moveActivatedTabToFresh() → ungroup + move to rightmost
+ * CROSS-BROWSER COMPATIBILITY:
+ *   ✅ Chrome/Edge: Full support (tabs + tabGroups + alarms)
+ *   ✅ Firefox: Graceful degradation (tabs + alarms, no tabGroups API)
  *
- * UI contexts (popup/options) sync from storage via TabStore.initStorageSync().
+ *   Pattern: Use unified `browser` API from WXT (works everywhere)
+ *   Feature detect: if (browser.tabGroups != null) for Chrome-only features
+ *
+ * ARCHITECTURE:
+ *   Browser API calls (universal callbacks) ─ define listeners inside main()
+ *            ↓
+ *   BackgroundTabService (sync/async business logic) ─ no Pinia here
+ *            ↓
+ *   browser.storage.local (single source of truth)
+ *            ↓
+ *   TabStore.initStorageSync() in UI (popup/options) ─ automatic reactive re-render
  */
+
 export default defineBackground({
   // Enable ESM for better code-splitting and performance in MV3
   type: 'module',
@@ -25,91 +37,98 @@ export default defineBackground({
   main() {
     console.debug('[EXT-DBG] background main started - TOKEN:EXT_DBG_BACKGROUND_MAIN_v1')
 
-    // 🔍 DIAGNOSTIC: Check Chrome API availability
-    console.log('[DIAGNOSTIC] Chrome API Check:')
-    console.log('  typeof chrome:', typeof chrome)
-    console.log('  typeof self.chrome:', typeof self.chrome)
-    console.log('  typeof globalThis.chrome:', typeof globalThis.chrome)
-    console.log('  chrome?.tabs:', !!chrome?.tabs)
-    console.log('  chrome?.tabGroups:', !!chrome?.tabGroups)
-    console.log('  chrome?.tabs?.query:', typeof chrome?.tabs?.query)
-    console.log('  chrome?.tabs?.group:', typeof chrome?.tabs?.group)
-    console.log('  chrome?.tabs?.ungroup:', typeof chrome?.tabs?.ungroup)
-    console.log('  chrome?.alarms:', !!chrome?.alarms)
-    console.log('  chrome?.alarms?.create:', typeof chrome?.alarms?.create)
-
-    if (typeof chrome !== 'undefined' && chrome.tabs) {
-      console.log('✅ Chrome tabs API is available!')
-    } else {
-      console.error('❌ Chrome tabs API is NOT available!')
-    }
-
-    if (typeof chrome !== 'undefined' && chrome.alarms) {
-      console.log('✅ Chrome alarms API is available!')
-    } else {
-      console.error('❌ Chrome alarms API is NOT available - check "alarms" permission in manifest!')
-    }
+    // ─────────────────────────────────────────────────────────────────────────
+    // 🔍 DIAGNOSTICS: Check unified browser API availability
+    // ─────────────────────────────────────────────────────────────────────────
+    console.log('[DIAGNOSTIC] Browser API Check:')
+    console.log('  typeof browser:', typeof browser)
+    console.log('  browser?.tabs:', !!browser?.tabs)
+    console.log('  browser?.tabGroups:', !!browser?.tabGroups)
+    console.log('  browser?.alarms:', !!browser?.alarms)
     console.log('[DIAGNOSTIC] End of check\n')
 
-  // 🧹 Extension lifecycle (install, update, uninstall cleanup)
-  ExtensionCleanupService.registerLifecycleListeners()
+    // ─────────────────────────────────────────────────────────────────────────
+    // 🧹 LIFECYCLE: Extension install/update/uninstall
+    // ─────────────────────────────────────────────────────────────────────────
+    ExtensionCleanupService.registerLifecycleListeners()
 
-  // 🔄 Daily alarm — persists across service worker suspension (MV3)
-  // Use native chrome API because webextension-polyfill may not work in ESM service worker
-  if (typeof chrome !== 'undefined' && chrome.alarms) {
-    chrome.alarms.create(APP_DEFAULTS.ALARM_UPDATE_TABS, {
-      periodInMinutes: 24 * 60,
-    })
+    // ─────────────────────────────────────────────────────────────────────────
+    // 🔄 LISTENERS: Browser APIs for daily grouping + tab activation
+    // ─────────────────────────────────────────────────────────────────────────
 
-    chrome.alarms.onAlarm.addListener((alarm) => {
-      if (alarm.name !== APP_DEFAULTS.ALARM_UPDATE_TABS) return
-      console.log('[background] ⏰ Daily alarm fired — grouping tabs by age')
-      BackgroundTabService.groupTabsByAge()
-        .catch((err: Error) => console.error('[background] ❌ groupTabsByAge error:', err))
-    })
+    // ⏰ browser.alarms.create() + browser.alarms.onAlarm.addListener()
+    // Purpose: Persist daily grouping across service worker suspension (MV3)
+    // Browser compatibility: ✅ Chrome, ✅ Firefox, ✅ Edge
+    if (browser.alarms != null) {
+      try {
+        browser.alarms.create(APP_DEFAULTS.ALARM_UPDATE_TABS, {
+          periodInMinutes: 24 * 60,
+        })
 
-    console.log('[background] ✅ Alarm registered')
-  } else {
-    console.error('[background] ❌ chrome.alarms not available - missing "alarms" permission in manifest!')
-  }
+        browser.alarms.onAlarm.addListener((alarm) => {
+          if (alarm.name !== APP_DEFAULTS.ALARM_UPDATE_TABS) return
+          console.log('[background] ⏰ Daily alarm fired → grouping tabs by age')
+          BackgroundTabService.groupTabsByAge()
+            .catch((err: Error) => console.error('[background] ❌ groupTabsByAge error:', err))
+        })
 
-  // 🖱️ Move activated tab from old group to fresh position (rightmost)
-  // When user clicks on a tab in an old/middle/young group, it becomes fresh.
-  // ⚠️ Chrome-specific: Uses native chrome.tabs API because Tab Groups are not in webextension-polyfill
-  chrome.tabs.onActivated.addListener(({ tabId }) => {
-    console.log(`[background] 🖱️ Tab#${tabId} activated`)
-
-    // Check if chrome API is available (Chrome/Chromium only, not Firefox)
-    if (typeof chrome === 'undefined' || !chrome.tabs || !chrome.tabs.get) {
-      console.log('[background] ℹ️ Native chrome.tabs not available (Firefox or non-Chrome) - skipping')
-      return
+        console.log('[background] ✅ Alarm registered (works in all browsers)')
+      } catch (err) {
+        console.error('[background] ❌ Failed to setup alarms:', err instanceof Error ? err.message : err)
+      }
+    } else {
+      console.error('[background] ❌ browser.alarms not available - missing "alarms" permission!')
     }
 
-    // Use native chrome.tabs.get for proper groupId support
-    chrome.tabs.get(tabId, (tab) => {
-      if (chrome.runtime.lastError) {
-        console.error('[background] ❌ chrome.tabs.get error:', chrome.runtime.lastError.message)
-        return
+    // 🖱️ browser.tabs.onActivated.addListener()
+    // Purpose: When user clicks a tab, ungroup + move to rightmost + update lastAccessed
+    // Browser compatibility: ✅ Chrome, ✅ Firefox, ✅ Edge
+    if (browser.tabs != null) {
+      try {
+        browser.tabs.onActivated.addListener(({ tabId }) => {
+          console.log(`[background] 🖱️ Tab#${tabId} activated`)
+
+          // Callback (not promise) to stay alive in MV3 service worker
+          browser.tabs.get(tabId, (tab) => {
+            if (browser.runtime.lastError) {
+              console.error('[background] ❌ browser.tabs.get error:', browser.runtime.lastError.message)
+              return
+            }
+
+            if (!tab) {
+              console.error(`[background] ❌ Tab#${tabId} not found`)
+              return
+            }
+
+            console.log(`[background] 📋 Tab#${tabId} groupId: ${tab.groupId}, index: ${tab.index}`)
+
+            if (tab.groupId === undefined || tab.groupId === -1) {
+              console.log(`[background] ℹ️ Tab#${tabId} not in a group - skipping`)
+              return
+            }
+
+            console.log(`[background] 🎯 Tab#${tabId} is in group#${tab.groupId} → calling onTabActivated`)
+            BackgroundTabService.onTabActivated(tabId)
+              .catch((err: Error) => console.error('[background] ❌ onTabActivated error:', err))
+          })
+        })
+
+        console.log('[background] ✅ Tab activation listener registered (works in all browsers)')
+      } catch (err) {
+        console.error('[background] ❌ Failed to setup tab activation listener:', err instanceof Error ? err.message : err)
       }
+    } else {
+      console.error('[background] ❌ browser.tabs not available - this should not happen!')
+    }
 
-      if (!tab) {
-        console.error(`[background] ❌ Tab#${tabId} not found`)
-        return
-      }
+    // ℹ️ Feature detection: Tab grouping API (Chrome/Edge only)
+    // Purpose: Alert developer about browser-specific capabilities
+    if (browser.tabGroups != null) {
+      console.log('[background] ✅ Tab grouping API available (Chrome/Edge)')
+    } else {
+      console.log('[background] ℹ️ Tab grouping API not available (Firefox - native UI grouping used instead)')
+    }
 
-      console.log(`[background] 📋 Tab#${tabId} groupId: ${tab.groupId}, index: ${tab.index}`)
-
-      if (tab.groupId === undefined || tab.groupId === -1) {
-        console.log(`[background] ℹ️ Tab#${tabId} not in a group - skipping`)
-        return
-      }
-
-      console.log(`[background] 🎯 Tab#${tabId} is in group#${tab.groupId} — calling moveActivatedTabToFresh`)
-      BackgroundTabService.moveActivatedTabToFresh(tabId)
-        .catch((err: Error) => console.error('[background] ❌ moveActivatedTabToFresh error:', err))
-    })
-  })
-
-  console.log('[background] ✅ Background service worker ready')
+    console.log('[background] ✅ Background service worker ready (cross-browser mode)')
   },
 })

@@ -238,6 +238,31 @@ export const useTabStore = defineStore(APP_CONSTANTS.STORE_TAB_STORE, {
             }
         },
 
+        /**
+         * Updates a tab's lastAccessed timestamp to now.
+         * Called when tab is activated in the background service worker.
+         * Automatically triggers storage sync → all contexts re-render.
+         */
+        async updateTabLastAccessed(tabId: number): Promise<void> {
+            this.error = null
+            try {
+                const now = Date.now()
+                const tabIndex = this.tabs.findIndex(t => t.id === tabId)
+                if (tabIndex === -1) {
+                    console.warn(`[TabStore] Tab#${tabId} not found for lastAccessed update`)
+                    return
+                }
+                this.tabs[tabIndex] = {
+                    ...this.tabs[tabIndex],
+                    lastAccessed: now,
+                }
+                await tabStorageItem.setValue(this._snapshot())
+                console.log(`[TabStore] Updated tab#${tabId} lastAccessed to ${new Date(now).toISOString()}`)
+            } catch (err) {
+                this.error = err instanceof Error ? err.message : 'Unknown error while updating tab lastAccessed'
+            }
+        },
+
         // ─── Helpers (non-persisting internal) ───────────────────────────────────
 
         getAgeClassification(
