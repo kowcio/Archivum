@@ -339,48 +339,6 @@ export const useTabStore = defineStore(APP_CONSTANTS.STORE_TAB_STORE, {
             }
         },
 
-        /**
-         * Marks a tab with the L-bracket age indicator.
-         * Internal — called by markOldTabs(). The caller is responsible for persisting.
-         */
-        async markTabWithLBracket(tabId: number, color: string): Promise<void> {
-            this.tabs = this.tabs.map(t =>
-                t.id === tabId ? { ...t, isMarked: true } : t
-            )
-
-            try {
-                const tab = this.tabs.find(t => t.id === tabId)
-                if (!tab) return
-
-                const rawFaviconUrl = tab.favIconUrl?.startsWith('data:') ? undefined : tab.favIconUrl
-
-                // Wait for tab to finish loading before injecting (max 2s)
-                if (tab.status !== 'complete') {
-                    await new Promise<void>(resolve => {
-                        const POLL = 300, MAX = 2000
-                        let elapsed = 0
-                        const check = async () => {
-                            const [updated] = await browser.tabs.query({ currentWindow: true })
-                                .then(ts => ts.filter(t => t.id === tabId))
-                            if (updated?.status === 'complete') { resolve(); return }
-                            elapsed += POLL
-                            if (elapsed >= MAX) { resolve(); return }
-                            setTimeout(check, POLL)
-                        }
-                        check()
-                    })
-                }
-
-                const renderedDataUrl = await LBracketService.applyBracket(tabId, rawFaviconUrl, color)
-
-                this.tabs = this.tabs.map(t =>
-                    t.id === tabId ? { ...t, markedFaviconDataUrl: renderedDataUrl } : t
-                )
-            } catch (err) {
-                console.debug(`[markTabWithLBracket] tab#${tabId}:`, err instanceof Error ? err.message : err)
-            }
-        },
-
         /** Removes the L-bracket favicon overlay and restores the original favicon. Internal. */
         async removeLBracket(tabId: number): Promise<void> {
             try {

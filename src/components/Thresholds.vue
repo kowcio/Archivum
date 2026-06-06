@@ -59,11 +59,13 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { useGlobalStore } from '@/stores/globalStore.ts'
+import { useTabStore } from '@/stores/TabStore.ts'
 import { AppThresholds, DEFAULT_THRESHOLDS } from '@/models/AppThresholds.ts'
 import { APP_DEFAULTS } from '@/constants.ts'
 import type { ThresholdLevel } from '@/constants.ts'
 
 const globalStore = useGlobalStore()
+const tabStore = useTabStore()
 const loading = ref(false)
 const localError = ref<string | null>(null)
 
@@ -87,6 +89,8 @@ async function handleChangeCount(count: number): Promise<void> {
   localError.value = null
   try {
     await globalStore.setActiveLevels(count)
+    // Trigger tab re-marking with new threshold levels
+    await tabStore.markOldTabs()
   } catch (err) {
     localError.value = err instanceof Error ? err.message : 'Unknown error'
   } finally {
@@ -116,6 +120,8 @@ async function onChange(levelIdx: number, value: number): Promise<void> {
   loading.value = true
   try {
     await globalStore.setThresholds(patch)
+    // Trigger tab re-marking with updated threshold days
+    await tabStore.markOldTabs()
   } finally {
     loading.value = false
   }
@@ -123,12 +129,15 @@ async function onChange(levelIdx: number, value: number): Promise<void> {
 
 async function handleReset(): Promise<void> {
   loading.value = true
+  localError.value = null
   try {
-    const defaultActive = new AppThresholds(
-      DEFAULT_THRESHOLDS.levels,
-      DEFAULT_THRESHOLDS.activeLevels
-    )
-    await globalStore.setThresholds(defaultActive.toJSON() as any)
+    // Reset both threshold levels and activeLevels count to defaults
+    await globalStore.resetToDefaults()
+    // Trigger tab re-marking with default thresholds
+    await tabStore.markOldTabs()
+    console.debug('[Thresholds] Reset to defaults and re-marked tabs')
+  } catch (err) {
+    localError.value = err instanceof Error ? err.message : 'Unknown error'
   } finally {
     loading.value = false
   }

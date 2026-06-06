@@ -56,6 +56,15 @@ export const useGlobalStore = defineStore(APP_CONSTANTS.STORE_GLOBAL_STORE, {
       await this.save()
     },
 
+    /** Reset thresholds to defaults (all levels + activeLevels count) */
+    async resetToDefaults(): Promise<void> {
+      this.thresholds = new AppThresholds(
+        DEFAULT_THRESHOLDS.levels,
+        DEFAULT_THRESHOLDS.activeLevels
+      )
+      await this.save()
+    },
+
     async load(): Promise<void> {
       const data = await StorageService.get<PersistedState>(APP_CONSTANTS.STORE_GLOBAL_STORE)
       if (data) {
