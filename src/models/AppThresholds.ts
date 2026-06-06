@@ -27,7 +27,7 @@ export class AppThresholds {
   constructor(levels: ThresholdLevel[], activeLevels: number = levels.length) {
     this.levels = levels
     // Clamp activeLevels to valid range
-    this.activeLevels = Math.max(3, Math.min(activeLevels, levels.length))
+    this.activeLevels = Math.max(1, Math.min(activeLevels, levels.length))
   }
 
   /**
