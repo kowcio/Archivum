@@ -102,7 +102,7 @@ export class AppThresholds {
   }): AppThresholds {
     return new AppThresholds(
       obj.levels ?? DEFAULT_THRESHOLDS.levels,
-      obj.activeLevels ?? APP_DEFAULTS.THRESHOLDS_LEVELS
+      obj.activeLevels ?? APP_DEFAULTS.THRESHOLDS.activeLevels
     )
   }
 }
@@ -113,6 +113,6 @@ export class AppThresholds {
  */
 export const DEFAULT_THRESHOLDS = new AppThresholds(
   APP_DEFAULTS.THRESHOLDS.presets as ThresholdLevel[],
-  APP_DEFAULTS.THRESHOLDS_LEVELS
+  APP_DEFAULTS.THRESHOLDS.activeLevels
 )
 

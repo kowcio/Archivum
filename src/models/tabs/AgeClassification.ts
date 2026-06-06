@@ -1,9 +1,8 @@
-import { TAB_GROUP_COLORS } from '@/constants'
 import type { AppThresholds } from '@/models/AppThresholds'
 
 /**
  * Tab age state marker with simplified color handling.
- * Uses Chrome's predefined tab group colors, derives hex for display styling.
+ * Uses hex colors from threshold configuration for display styling.
  *
  * ⚡ Properties: color (hex), label, inlineStyle
  * ⚡ Getters: isFresh, shouldMark
@@ -11,7 +10,7 @@ import type { AppThresholds } from '@/models/AppThresholds'
  * @example
  * const c = AgeClassification.fromDays(10, thresholds)
  * c.index          // 0=Fresh, 1+=Level
- * c.color          // Hex color from TAB_GROUP_COLORS
+ * c.color          // Hex color from threshold preset
  * c.label          // From threshold.label or "Fresh"
  * c.inlineStyle    // Direct backgroundColor + text color
  * c.shouldMark     // false for Fresh, true for others
@@ -25,15 +24,12 @@ export class AgeClassification {
         this.index = Math.max(0, Math.min(thresholds.active().length, index))
     }
 
-    /** Hex color derived from Chrome tab group color */
+    /** Hex color derived from threshold preset */
     get color(): string {
         if (this.index === 0) return '#00e676' // Fresh green
         const activeList = this.thresholds.active()
         const level = activeList[this.index - 1]
-        const colorName = level?.color ?? 'grey'
-
-        // Map Chrome color name to hex
-        return TAB_GROUP_COLORS[colorName as keyof typeof TAB_GROUP_COLORS] ?? colorName
+        return level?.color ?? '#777777'
     }
 
     /** Label from threshold level */

@@ -6,7 +6,7 @@ import { AppThresholds, DEFAULT_THRESHOLDS } from '@/models/AppThresholds'
 /**
  * Model representing a tab row in the table
  * All calculated fields are derived in the constructor.
- * Note: Uses active thresholds (only the first N levels enabled by THRESHOLDS_LEVELS).
+ * Note: Uses active thresholds (only the first N levels enabled by THRESHOLDS.activeLevels).
  */
 export class TabRow {
   readonly ordinal?: number;
@@ -70,10 +70,10 @@ export class TabRow {
     }
   }
 
-   /**
-    * Gets the Quasar background color class based on age in days.
-    * Uses only the active thresholds (first N levels from THRESHOLDS_LEVELS).
-    */
+    /**
+     * Gets the Quasar background color class based on age in days.
+     * Uses only the active thresholds (first N levels from THRESHOLDS.activeLevels).
+     */
    private getAgeBgClass(days: number, thresholds: AppThresholds): string {
      if (!Number.isFinite(days) || days === Infinity) return 'bg-negative-3';
 

@@ -529,6 +529,17 @@ export const useTabStore = defineStore(APP_CONSTANTS.STORE_TAB_STORE, {
 
                 // Create groups from oldest to youngest (reverse order)
                 const groupIds: (number | null)[] = []
+                // Hex to Chrome color name mapping
+                const hexToChromeName: Record<string, string> = {
+                    '#188038': 'green',
+                    '#1f73e7': 'blue',
+                    '#f9ab00': 'yellow',
+                    '#d33b27': 'red',
+                    '#e91e63': 'pink',
+                    '#7c3aed': 'purple',
+                    '#9aa0a6': 'grey',
+                }
+
                 for (let i = activeThresholds.active().length - 1; i >= 0; i--) {
                     const level = activeThresholds.active()[i]
                     const tabIds = levelTabIds[i]
@@ -537,14 +548,12 @@ export const useTabStore = defineStore(APP_CONSTANTS.STORE_TAB_STORE, {
 
                     try {
                         const groupId = await chromeApi.tabs!.group!({ tabIds })
-                        // Use Chrome's predefined color name directly
-                        const colorName = level.color as string
-                        const chromeColorNames = ['grey', 'blue', 'red', 'yellow', 'green', 'pink', 'purple', 'cyan']
-                        const groupColor = chromeColorNames.includes(colorName) ? colorName : 'grey'
+                        // Map hex color to Chrome's color name
+                        const chromeName = hexToChromeName[level.color] ?? 'grey'
 
                         await chromeApi.tabGroups!.update!(groupId, {
                             title: `${level.label} (${level.days}d+)`,
-                            color: groupColor,
+                            color: chromeName,
                             collapsed: true,
                         })
                         groupsCreated++

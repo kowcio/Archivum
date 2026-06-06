@@ -13,29 +13,19 @@
         </div>
 
         <!-- Input to change count -->
-        <div class="col-auto">
+        <div class="">
           <q-input
             data-testid="thresholds-levels-input"
             :model-value="globalStore.thresholds.activeLevels"
             label="# Levels"
             type="number"
-            :min="3"
+            :min="1"
             :max="constants.THRESHOLDS.presets.length"
             :disable="loading"
             dense
             class="threshold-levels-input"
             @update:model-value="(v) => handleChangeCount(Number(v))"
           />
-        </div>
-
-        <!-- Display active presets list -->
-        <div class="col">
-          <div class="preset-list">
-            <div v-for="(level, idx) in activeThresholds" :key="`active-preset-${idx}`" class="preset-item active">
-              <span class="preset-label">{{ level.label }}</span>
-              <span class="preset-days">({{ level.days }}d)</span>
-            </div>
-          </div>
         </div>
       </div>
 
@@ -207,10 +197,6 @@ async function handleReset(): Promise<void> {
 .value {
   font-weight: 700;
   color: #1976d2;
-}
-
-.threshold-levels-input {
-  max-width: 80px;
 }
 
 .threshold-input {

@@ -255,8 +255,8 @@ describe('AppThresholds model', () => {
       expect(DEFAULT_THRESHOLDS.isValid()).toBe(true)
     })
 
-    it('has the correct number of levels based on THRESHOLDS_LEVELS', () => {
-      // From APP_DEFAULTS.THRESHOLDS_LEVELS
+    it('has the correct number of levels based on THRESHOLDS.activeLevels', () => {
+      // From APP_DEFAULTS.THRESHOLDS.activeLevels
       expect(DEFAULT_THRESHOLDS.levels.length).toBeGreaterThanOrEqual(3)
     })
 
