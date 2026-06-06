@@ -10,7 +10,7 @@ import type { ClassifiedTab } from '@/models/tabs/ClassifiedTab'
 import { ClassifiedTabFactory } from '@/models/tabs/ClassifiedTab'
 import { TabsSnapshot } from '@/models/tabs/TabsSnapshot'
 import { tabStorageItem } from '@/utils/tabStorage'
-import {APP_CONSTANTS} from "@/constants.ts";
+import { APP_CONSTANTS, THEME_COLORS } from "@/constants.ts";
 
 // Re-export models consumed by external code (App.vue, tests)
 export type { ClassifiedTab }
@@ -529,16 +529,6 @@ export const useTabStore = defineStore(APP_CONSTANTS.STORE_TAB_STORE, {
 
                 // Create groups from oldest to youngest (reverse order)
                 const groupIds: (number | null)[] = []
-                // Hex to Chrome color name mapping
-                const hexToChromeName: Record<string, string> = {
-                    '#188038': 'green',
-                    '#1f73e7': 'blue',
-                    '#f9ab00': 'yellow',
-                    '#d33b27': 'red',
-                    '#e91e63': 'pink',
-                    '#7c3aed': 'purple',
-                    '#9aa0a6': 'grey',
-                }
 
                 for (let i = activeThresholds.active().length - 1; i >= 0; i--) {
                     const level = activeThresholds.active()[i]
@@ -548,8 +538,8 @@ export const useTabStore = defineStore(APP_CONSTANTS.STORE_TAB_STORE, {
 
                     try {
                         const groupId = await chromeApi.tabs!.group!({ tabIds })
-                        // Map hex color to Chrome's color name
-                        const chromeName = hexToChromeName[level.color] ?? 'grey'
+                        // Color name from THRESHOLDS.presets is directly usable by Chrome API
+                        const chromeName = level.color as keyof typeof THEME_COLORS
 
                         await chromeApi.tabGroups!.update!(groupId, {
                             title: `${level.label} (${level.days}d+)`,

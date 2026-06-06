@@ -43,7 +43,15 @@ vi.mock('@/constants', () => ({
     STORE_TAB_STORE: 'tab_store',
     APP_VERSION: '1.0.0-20240101-00:00',
   },
-  TAB_GROUP_COLORS: {},  // Merged into THRESHOLDS.presets
+  HEX_TO_CHROME_NAME: {
+    '#188038': 'green',
+    '#1f73e7': 'blue',
+    '#f9ab00': 'yellow',
+    '#d33b27': 'red',
+    '#e91e63': 'pink',
+    '#7c3aed': 'purple',
+    '#9aa0a6': 'grey',
+  },
   APP_DEFAULTS: {
     THRESHOLDS: {
       activeLevels: 3,

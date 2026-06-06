@@ -1,16 +1,18 @@
+import { THEME_COLORS } from '@/constants'
 import type { AppThresholds } from '@/models/AppThresholds'
 
 /**
- * Tab age state marker with simplified color handling.
- * Uses hex colors from threshold configuration for display styling.
+ * Tab age state marker with unified color handling.
+ * Uses color names from THEME_COLORS for both Chrome API and CSS styling.
  *
- * ⚡ Properties: color (hex), label, inlineStyle
+ * ⚡ Properties: colorName (string), color (hex), label, inlineStyle
  * ⚡ Getters: isFresh, shouldMark
  *
  * @example
  * const c = AgeClassification.fromDays(10, thresholds)
  * c.index          // 0=Fresh, 1+=Level
- * c.color          // Hex color from threshold preset
+ * c.colorName      // Color name (e.g., 'green', 'blue')
+ * c.color          // Hex color from THEME_COLORS
  * c.label          // From threshold.label or "Fresh"
  * c.inlineStyle    // Direct backgroundColor + text color
  * c.shouldMark     // false for Fresh, true for others
@@ -24,12 +26,18 @@ export class AgeClassification {
         this.index = Math.max(0, Math.min(thresholds.active().length, index))
     }
 
-    /** Hex color derived from threshold preset */
-    get color(): string {
-        if (this.index === 0) return '#00e676' // Fresh green
+    /** Color name from THRESHOLD preset (e.g., 'green', 'blue') */
+    get colorName(): string {
+        if (this.index === 0) return 'green' // Fresh
         const activeList = this.thresholds.active()
         const level = activeList[this.index - 1]
-        return level?.color ?? '#777777'
+        return level?.color ?? 'grey'
+    }
+
+    /** Hex color derived from THEME_COLORS mapping */
+    get color(): string {
+        const name = this.colorName as keyof typeof THEME_COLORS
+        return THEME_COLORS[name] ?? '#777777'
     }
 
     /** Label from threshold level */

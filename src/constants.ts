@@ -2,12 +2,28 @@
 import packageJson from "../package.json";
 import dayjs from "dayjs";
 
-/** Single threshold level configuration: key + label + days + hex color. */
+/**
+ * Theme colors mapping: color name → hex value.
+ * PRIMARY SOURCE OF TRUTH for all colors in the application.
+ * Used for: Chrome/Firefox tab groups API + CSS styling + inline styles.
+ */
+export const THEME_COLORS = {
+  green: '#188038',
+  blue: '#1f73e7',
+  yellow: '#f9ab00',
+  red: '#d33b27',
+  pink: '#e91e63',
+  purple: '#7c3aed',
+  grey: '#9aa0a6',
+  cyan: '#00bcd4',
+} as const
+
+/** Single threshold level configuration: key + label + days + color name. */
 export type ThresholdLevel = {
   key: string
   label: string
   days: number
-  /** Hex color value */
+  /** Color name (key from THEME_COLORS) */
   color: string
 }
 
@@ -21,20 +37,24 @@ export const APP_CONSTANTS = {
 } as const
 
 export const APP_DEFAULTS = {
-  // Tab age marking thresholds — all presets with labels, days, and hex colors.
+  // Tab age marking thresholds — all presets with labels, days, and color names.
   THRESHOLDS: {
     /** How many threshold levels are active and editable (from youngest).
      *  Must be >= 3. If you set it to 4, the 4th threshold will also be editable. */
     activeLevels: 3,
 
     // First activeLevels items (from start) are used as active thresholds.
-    // Colors are hex values compatible with Chrome and Firefox tab group colors
+    // Colors reference THEME_COLORS mapping (color names):
+    // - Chrome/Firefox tab groups API uses color names directly
+    // - CSS styling uses THEME_COLORS[colorName] to get hex values
     presets: [
-      { key: 'WEEK',               label: 'Week',      days: 7,   color: '#1f73e7' },    // blue
-      { key: 'WEEKS_2',            label: '2 Week',   days: 14,   color: '#f9ab00' },    // yellow
-      { key: 'MONTH',              label: 'Month',     days: 30,   color: '#d33b27' },    // red
-      { key: 'QUARTERS',           label: 'Quarter',  days: 90,   color: '#e91e63' },    // pink
-      { key: 'YEARS',              label: 'Are You kidding me ?',      days: 365,  color: '#7c3aed' },    // purple
+      { key: 'DAYS',               label: 'Days',      days: 7,    color: 'green' },
+      { key: 'WEEK',               label: 'Week',      days: 14,   color: 'blue' },
+      { key: 'WEEKS_2',            label: '2 Week',   days: 21,   color: 'yellow' },
+      { key: 'MONTH',              label: 'Month',     days: 30,   color: 'red' },
+      { key: 'QUARTERS',           label: 'Quarter',  days: 90,   color: 'pink' },
+      { key: 'YEARS',              label: 'Year',      days: 365,  color: 'purple' },
+      { key: 'ANCIENT', label: 'Are You kidding me ?',  days: 3650, color: 'grey' },
     ] as const satisfies readonly ThresholdLevel[],
   },
 }
