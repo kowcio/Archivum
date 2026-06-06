@@ -3,18 +3,12 @@
     <AppTitle />
 
     <div class="content-wrapper">
-      <p v-if="tabStore.tabs.length === 0" class="text-caption q-mx-sm text-grey-6 q-mt-sm">
+      <p v-if="appStore.tabs.length === 0" class="text-caption q-mx-sm text-grey-6 q-mt-sm">
         No tabs loaded yet.
       </p>
 
       <!-- ── Primary buttons grid (square buttons, 2 columns) ───────────────── -->
       <div class="square-grid">
-        <LoadResetButton
-          class="got-btn-primary square-btn"
-          elevated
-          no-caps
-          fab
-        />
 
         <GroupUngroup
           class="square-btn"
@@ -51,23 +45,22 @@
 <script setup lang="ts">
 import { onMounted } from 'vue'
 import browser from 'webextension-polyfill'
-import { useTabStore } from '@/stores/TabStore'
-import { useGlobalStore } from '@/stores/globalStore'
+import { useAppStore } from '@/stores/appStore'
 import AppTitle from '@/components/Title.vue'
-import LoadResetButton from '@/components/LoadResetButton.vue'
 import GroupUngroup from '@/components/GroupUngroup.vue'
 
-const tabStore = useTabStore()
-const globalStore = useGlobalStore()
+const appStore = useAppStore()
 
 onMounted(async () => {
   console.debug('[popup] mounted — initializing...')
-  // Initialize global store (loads thresholds from storage)
-  await globalStore.init()
-  // Load current tabs
-  await tabStore.getAllOpenedTabs()
-  // Set up storage sync for real-time updates
-  tabStore.initStorageSync()
+  try {
+    // Initialize unified app store (loads config + tabs from storage)
+    await appStore.init()
+  } catch (err) {
+    console.error('[popup] Init error:', err)
+    // Store will have defaults if initialization fails
+  }
+  console.debug('[popup] initialized')
 })
 
 function openOptionsPage(): void {

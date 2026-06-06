@@ -8,7 +8,6 @@ export default defineConfig({
     alias: {
       '@': path.resolve(__dirname, 'src'),
       'src': path.resolve(__dirname, 'src'),
-      '#imports': path.resolve(__dirname, 'test/mocks/wxt-imports.ts'),
       quasar: path.resolve(__dirname, 'node_modules/quasar/dist/quasar.client.js'),
     },
   },

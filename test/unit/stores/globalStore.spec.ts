@@ -1,14 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
 import StorageService from "../../../src/services/StorageService";
-import { useGlobalStore } from "../../../src/stores/globalStore";
+import { useAppStore } from "../../../src/stores/appStore";
 import { AppThresholds, DEFAULT_THRESHOLDS } from "../../../src/models/AppThresholds";
 import { APP_CONSTANTS, APP_DEFAULTS } from "../../../src/constants";
 
 vi.mock('webextension-polyfill', () => ({ default: { storage: { local: { get: vi.fn(), set: vi.fn(), remove: vi.fn() }, onChanged: { addListener: vi.fn() } } } }))
 
 
-describe('global store', () => {
+describe('unified app store', () => {
     beforeEach(() => {
         vi.clearAllMocks()
         setActivePinia(createPinia())
@@ -19,15 +19,15 @@ describe('global store', () => {
             appName: 'proj',
             thresholds: {
                 levels: [
-                    { days: 3, key: 'young', label: 'Young', color: '#ffd740' },
-                    { days: 10, key: 'middle', label: 'Middle', color: '#ff6d00' },
-                    { days: 30, key: 'old', label: 'Old', color: '#ff1744' }
+                    { days: 3, key: 'young', label: 'Young', color: 'green' },
+                    { days: 10, key: 'middle', label: 'Middle', color: 'blue' },
+                    { days: 30, key: 'old', label: 'Old', color: 'yellow' }
                 ]
             },
-            lastUpdated: 1,
+            configLastUpdated: 1,
         })
-        const s = useGlobalStore()
-        await s.load()
+        const s = useAppStore()
+        await s.loadConfig()
         expect(StorageService.get).toHaveBeenCalled()
         expect(s.appName).toBe('proj')
         expect(s.thresholds.levels[0].days).toBe(3)
@@ -35,9 +35,9 @@ describe('global store', () => {
         expect(s.thresholds.levels[2].days).toBe(30)
     })
 
-    it('saves data via StorageService.set and updates lastUpdated', async () => {
+    it('saves data via StorageService.set and updates configLastUpdated', async () => {
         vi.spyOn(StorageService as any, 'set').mockResolvedValueOnce(undefined)
-        const s = useGlobalStore()
+        const s = useAppStore()
         s.appName = 'myapp'
         await s.setThresholds({
             0: { days: 5 },
@@ -53,7 +53,7 @@ describe('global store', () => {
                 }),
             }),
         )
-        expect(s.lastUpdated).toBeGreaterThan(0)
+        expect(s.configLastUpdated).toBeGreaterThan(0)
     })
 
     it('init registers storage onChanged and applies incoming updates', async () => {
@@ -63,7 +63,7 @@ describe('global store', () => {
         })
         vi.spyOn(StorageService as any, 'get').mockResolvedValueOnce(undefined)
 
-        const s = useGlobalStore()
+        const s = useAppStore()
         await s.init()
 
         const incoming = {
@@ -71,12 +71,12 @@ describe('global store', () => {
                 appName: 'carol',
                 thresholds: {
                     levels: [
-                        { days: 4, key: 'young', label: 'Young', color: '#ffd740' },
-                        { days: 11, key: 'middle', label: 'Middle', color: '#ff6d00' },
-                        { days: 28, key: 'old', label: 'Old', color: '#ff1744' }
+                        { days: 4, key: 'young', label: 'Young', color: 'green' },
+                        { days: 11, key: 'middle', label: 'Middle', color: 'blue' },
+                        { days: 28, key: 'old', label: 'Old', color: 'yellow' }
                     ]
                 },
-                lastUpdated: 999,
+                configLastUpdated: 999,
             },
         }
         expect(registeredCb).toBeDefined()
@@ -86,14 +86,14 @@ describe('global store', () => {
         expect(s.thresholds.levels[0].days).toBe(4)
         expect(s.thresholds.levels[1].days).toBe(11)
         expect(s.thresholds.levels[2].days).toBe(28)
-        expect(s.lastUpdated).toBe(999)
+        expect(s.configLastUpdated).toBe(999)
     })
 
     // ─── Thresholds ────────────────────────────────────────────────────────────
 
     describe('thresholds', () => {
         it('initialises with APP_DEFAULTS values', () => {
-            const s = useGlobalStore()
+            const s = useAppStore()
             expect(s.thresholds.levels.length).toBeGreaterThanOrEqual(3)
             expect(s.thresholds.levels[0].days).toBeGreaterThanOrEqual(0)
             expect(s.thresholds.levels[1].days).toBeGreaterThan(s.thresholds.levels[0].days)
@@ -110,7 +110,7 @@ describe('global store', () => {
         })
 
         it('toBoundaries() returns array of days', () => {
-            const s = useGlobalStore()
+            const s = useAppStore()
             const boundaries = s.thresholds.toBoundaries()
             expect(Array.isArray(boundaries)).toBe(true)
             expect(boundaries.length).toBeGreaterThanOrEqual(3)
@@ -118,25 +118,25 @@ describe('global store', () => {
 
         it('isValid() returns true for valid thresholds', () => {
             const valid = new AppThresholds([
-                { key: 'y', label: 'Young', days: 7, color: '#ffd740' },
-                { key: 'm', label: 'Middle', days: 14, color: '#ff6d00' },
-                { key: 'o', label: 'Old', days: 21, color: '#ff1744' }
+                { key: 'y', label: 'Young', days: 7, color: 'green' },
+                { key: 'm', label: 'Middle', days: 14, color: 'blue' },
+                { key: 'o', label: 'Old', days: 21, color: 'yellow' }
             ])
             expect(valid.isValid()).toBe(true)
         })
 
         it('isValid() returns false when level[i] >= level[i+1]', () => {
             const invalid = new AppThresholds([
-                { key: 'y', label: 'Young', days: 14, color: '#ffd740' },
-                { key: 'm', label: 'Middle', days: 14, color: '#ff6d00' },
-                { key: 'o', label: 'Old', days: 21, color: '#ff1744' }
+                { key: 'y', label: 'Young', days: 14, color: 'green' },
+                { key: 'm', label: 'Middle', days: 14, color: 'blue' },
+                { key: 'o', label: 'Old', days: 21, color: 'yellow' }
             ])
             expect(invalid.isValid()).toBe(false)
         })
 
         it('setThresholds deep-merges thresholds without replacing missing keys', async () => {
             vi.spyOn(StorageService as any, 'set').mockResolvedValue(undefined)
-            const s = useGlobalStore()
+            const s = useAppStore()
 
             await s.setThresholds({ 0: { days: 5 } })
 
@@ -148,7 +148,7 @@ describe('global store', () => {
 
         it('setThresholds rejects invalid changes', async () => {
             vi.spyOn(StorageService as any, 'set').mockResolvedValue(undefined)
-            const s = useGlobalStore()
+            const s = useAppStore()
             const before = s.thresholds.toJSON()
 
             await s.setThresholds({ 0: { days: 50 } }) // level[0] >= level[1] → invalid
@@ -158,14 +158,14 @@ describe('global store', () => {
 
         it('does not persist when setThresholds input is invalid', async () => {
             const setSpy = vi.spyOn(StorageService as any, 'set').mockResolvedValue(undefined)
-            const s = useGlobalStore()
+            const s = useAppStore()
             await s.setThresholds({ 0: { days: 200 } })
             expect(setSpy).not.toHaveBeenCalled()
         })
 
         it('persists thresholds via StorageService.set on setThresholds', async () => {
             const setSpy = vi.spyOn(StorageService as any, 'set').mockResolvedValue(undefined)
-            const s = useGlobalStore()
+            const s = useAppStore()
 
             await s.setThresholds({
                 0: { days: 5 },
@@ -187,14 +187,14 @@ describe('global store', () => {
             vi.spyOn(StorageService as any, 'get').mockResolvedValueOnce({
                 thresholds: {
                     levels: [
-                        { days: 3, key: 'y', label: 'Y', color: '#ffd740' },
-                        { days: 10, key: 'm', label: 'M', color: '#ff6d00' },
-                        { days: 30, key: 'o', label: 'O', color: '#ff1744' }
+                        { days: 3, key: 'y', label: 'Y', color: 'green' },
+                        { days: 10, key: 'm', label: 'M', color: 'blue' },
+                        { days: 30, key: 'o', label: 'O', color: 'yellow' }
                     ]
                 },
             })
-            const s = useGlobalStore()
-            await s.load()
+            const s = useAppStore()
+            await s.loadConfig()
 
             expect(s.thresholds.levels[0].days).toBe(3)
             expect(s.thresholds.levels[1].days).toBe(10)
@@ -205,12 +205,12 @@ describe('global store', () => {
             vi.spyOn(StorageService as any, 'get').mockResolvedValueOnce({
                 thresholds: {
                     levels: [
-                        { days: 5, key: 'y', label: 'Y', color: '#ffd740' }
+                        { days: 5, key: 'y', label: 'Y', color: 'green' }
                     ]
                 },
             })
-            const s = useGlobalStore()
-            await s.load()
+            const s = useAppStore()
+            await s.loadConfig()
 
             expect(s.thresholds.levels[0].days).toBe(5)
             // Missing levels fall back to defaults
@@ -226,19 +226,19 @@ describe('global store', () => {
             })
             vi.spyOn(StorageService as any, 'get').mockResolvedValueOnce(undefined)
 
-            const s = useGlobalStore()
+            const s = useAppStore()
             await s.init()
 
             registeredCb?.({
                 [APP_CONSTANTS.STORE_GLOBAL_STORE]: {
                     thresholds: {
                         levels: [
-                            { days: 4, key: 'y', label: 'Y', color: '#ffd740' },
-                            { days: 11, key: 'm', label: 'M', color: '#ff6d00' },
-                            { days: 28, key: 'o', label: 'O', color: '#ff1744' }
+                            { days: 4, key: 'y', label: 'Y', color: 'green' },
+                            { days: 11, key: 'm', label: 'M', color: 'blue' },
+                            { days: 28, key: 'o', label: 'O', color: 'yellow' }
                         ]
                     },
-                    lastUpdated: 9999,
+                    configLastUpdated: 9999,
                 },
             })
 

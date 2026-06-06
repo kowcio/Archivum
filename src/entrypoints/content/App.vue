@@ -6,7 +6,7 @@
 
 <script setup lang="ts">
 // AppBootstrapper (called in main.ts) already runs global.init() and registers
-// tabStoreSyncPlugin — no manual store setup needed here.
+// appStoreSyncPlugin — no manual store setup needed here.
 </script>
 
 <style>

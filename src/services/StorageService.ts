@@ -19,13 +19,17 @@ export default class StorageService {
 
     public static async set(key: string, value: unknown): Promise<void> {
         try {
+            // Convert to plain object to avoid Proxy serialization issues
+            const plainValue = JSON.parse(JSON.stringify(value))
+
             if (this.isBrowserStorageAvailable) {
-                await browser.storage.local.set({ [key]: value })
+                await browser.storage.local.set({ [key]: plainValue })
                 return
             }
-            localStorage.setItem(key, JSON.stringify(value))
+            localStorage.setItem(key, JSON.stringify(plainValue))
         } catch (err) {
             console.error('[StorageService] set error', err)
+            throw err
         }
     }
 

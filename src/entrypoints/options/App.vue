@@ -20,14 +20,14 @@
             label="Mock tabs"
             icon="science"
             color="grey-7"
-            :loading="tabStore.loading"
+            :loading="appStore.loading"
             @click="handleGenMockTabs"
           />
         </q-btn-group>
       </div>
 
-      <div class="row q-mt-sm" v-if="tabStore.error">
-        <span class="error-text">Error: {{ tabStore.error }}</span>
+      <div class="row q-mt-sm" v-if="appStore.error">
+        <span class="error-text">Error: {{ appStore.error }}</span>
       </div>
 
       <!-- Thresholds Configuration (includes levels and values) -->
@@ -89,11 +89,11 @@
                   </div>
                 </template>
                 <template v-else-if="col.name === 'lastAccess'">
-                  {{ tabStore.getLastAccessMsg(props.row) || "—" }}
+                  {{ appStore.getLastAccessMsg(props.row) || "—" }}
                 </template>
                 <template v-else-if="col.name === 'title'">
                   <q-tooltip v-if="props.row.title" class="bg-black text-white" max-width="500px">
-                    <span class="tooltip-age-prefix">{{ tabStore.getLastAccessMsg(props.row) }} — </span>{{ props.row.title }}
+                    <span class="tooltip-age-prefix">{{ appStore.getLastAccessMsg(props.row) }} — </span>{{ props.row.title }}
                   </q-tooltip>
                   <span v-if="props.row.title">{{ truncate(stripProtocol(props.row.title), excerptLength) }}</span>
                   <span v-else>—</span>
@@ -121,18 +121,15 @@
 
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted } from "vue"
-import { useTabStore } from "@/stores/TabStore"
-import { useGlobalStore } from "@/stores/globalStore"
+import { useAppStore } from "@/stores/appStore"
 import type { QTableProps } from "quasar"
 import Thresholds from "../../components/Thresholds.vue"
 import AppTitle from "@/components/Title.vue"
 import GroupUngroup from "@/components/GroupUngroup.vue"
 import browser from "webextension-polyfill"
-import LoadResetButton from "@/components/LoadResetButton.vue";
 
-const tabStore = useTabStore()
-const globalStore = useGlobalStore()
-const tabRows = computed(() => tabStore.tabRows)
+const appStore = useAppStore()
+const tabRows = computed(() => appStore.tabRows)
 const excerptLength = 50
 
 function truncate(text: string, maxLength: number): string {
@@ -162,14 +159,13 @@ const columns: QTableProps["columns"] = [
 onMounted(async () => {
   console.debug('[options] mounted — initializing...')
 
-  // Initialize global store (loads thresholds from storage)
-  await globalStore.init()
-
-  // Load current tabs and classify them
-  await tabStore.getAllOpenedTabs()
-
-  // Set up storage sync for real-time updates from other contexts
-  tabStore.initStorageSync()
+  try {
+    // Initialize unified app store (loads config + tabs from storage)
+    await appStore.init()
+  } catch (err) {
+    console.error('[options] Init error:', err)
+    // Store will have defaults if initialization fails
+  }
 
   // Add tab activation listener
   browser.tabs.onActivated.addListener(onTabActivated)
@@ -182,14 +178,14 @@ onUnmounted(() => {
 })
 
 async function onTabActivated({ tabId }: { tabId: number }): Promise<void> {
-  const tab = tabStore.tabs.find(t => t.id === tabId)
+  const tab = appStore.tabs.find(t => t.id === tabId)
   if (!tab?.isMarked) return
 
   const [freshTab] = await browser.tabs.query({ currentWindow: true })
     .then(tabs => tabs.filter(t => t.id === tabId))
   const freshLastAccessed = freshTab?.lastAccessed ?? Date.now()
 
-  tabStore.$patch(state => {
+  appStore.$patch(state => {
     const idx = state.tabs.findIndex(t => t.id === tabId)
     if (idx === -1) return
     state.tabs[idx] = {
@@ -200,20 +196,20 @@ async function onTabActivated({ tabId }: { tabId: number }): Promise<void> {
       ageIndex:             0,
     }
   })
-  // Persist so popup and content also see the updated state
-  await tabStore._persist()
+  // Persist so popup and background also see the updated state
+  await appStore.persistTabs()
 }
 
 async function handleCloseTab(tabId: number | null): Promise<void> {
   if (tabId == null) return
-  await tabStore.closeTab(tabId)
+  await appStore.closeTab(tabId)
 }
 
 async function handleAddDay(tabId: number | null): Promise<void> {
   if (tabId == null) return
   const DAY_MS = 24 * 60 * 60 * 1000
 
-  tabStore.$patch(state => {
+  appStore.$patch(state => {
     const idx = state.tabs.findIndex(t => t.id === tabId)
     if (idx === -1) return
     const currentLastAccessed = state.tabs[idx].lastAccessed ?? Date.now()
@@ -224,12 +220,12 @@ async function handleAddDay(tabId: number | null): Promise<void> {
   })
 
   // Persist so all contexts see the updated state
-  await tabStore._persist()
+  await appStore.persistTabs()
 }
 
 
 async function handleGenMockTabs(): Promise<void> {
-  await tabStore.loadMockTabs()
+  await appStore.loadMockTabs()
 }
 </script>
 

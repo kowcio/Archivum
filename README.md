@@ -35,7 +35,7 @@ Tab Age Tracker solves this by:
         Vue+Pinia    Vue+Pinia      Vue+Pinia         NO Pinia
             │            │              │           browser.alarms
             └────────────┴──────────────┘                 │
-             tabStoreSyncPlugin (auto-wired once)          │
+             appStoreSyncPlugin (auto-wired once)          │
              ├── loadTabsHistory()  on first use           │
              ├── initStorageSync()  →  $patch()     loadAndMarkTabs()
              └── $dispose()         →  unwatch()    → tabStorageItem
@@ -132,7 +132,7 @@ unwatch()  // call to stop watching
 ```
 AppBootstrapper.initUI()
   ├── const pinia = createPinia()
-  ├── pinia.use(tabStoreSyncPlugin)   ← rejestruje plugin w mapie pluginów Pini
+  ├── pinia.use(appStoreSyncPlugin)   ← rejestruje plugin w mapie pluginów Pini
   └── app.use(pinia)                  ← instaluje Pinię w Vue app
 
   Plugin NIE odpala w tym momencie. Czeka na pierwszy useTabStore().
@@ -146,7 +146,7 @@ Komponent wywołuje useTabStore()
        ├── TAK → zwraca istniejącą instancję (zero overhead)
        └── NIE → tworzy nową instancję, wywołuje WSZYSTKIE zarejestrowane pluginy
 
-  tabStoreSyncPlugin({ store, app, pinia, options }) {
+  appStoreSyncPlugin({ store, app, pinia, options }) {
       // store.$id === 'tabStore' → dalej
 
       // KROK A: Hydratacja
@@ -223,8 +223,8 @@ Forget it once → that context is permanently desync'd.
 **Solution: a Pinia plugin, registered once in `AppBootstrapper`.** Pinia plugins run automatically when a store with the matching `$id` is first instantiated — in any context, with zero component-level code.
 
 ```typescript
-// src/stores/tabStoreSyncPlugin.ts
-export const tabStoreSyncPlugin: PiniaPlugin = (context) => {
+// src/stores/appStoreSyncPlugin.ts
+export const appStoreSyncPlugin: PiniaPlugin = (context) => {
     if (context.store.$id !== 'tabStore') return
 
     const store = context.store as TabStore
@@ -247,7 +247,7 @@ Registered once in the shared bootstrapper:
 ```typescript
 // src/entrypoints/shared/AppBootstrapper.ts
 const pinia = createPinia()
-pinia.use(tabStoreSyncPlugin)   // ← one line. covers popup + options + content.
+pinia.use(appStoreSyncPlugin)   // ← one line. covers popup + options + content.
 app.use(pinia)
 ```
 
@@ -303,7 +303,7 @@ click → tabStore.groupTabsByAge()
       → this._persist()
           → tabStorageItem.setValue({ tabs, isGrouped: true })
               → storage.onChanged fires in ALL open contexts
-                  → tabStoreSyncPlugin watch callback
+                  → appStoreSyncPlugin watch callback
                       → store.$patch({ isGrouped: true })
                           → Vue re-renders
                               options page btn: "Group by age" → "Ungroup" ✅
@@ -321,7 +321,7 @@ browser.alarms → BackgroundTabService.loadAndMarkTabs()
     → preserve existing isGrouped from storage
     → tabStorageItem.setValue(snapshot)
         → storage.onChanged
-            → tabStoreSyncPlugin.watch
+            → appStoreSyncPlugin.watch
                 → $patch(fresh tabs)               # popup + options + content update ✅
 ```
 
@@ -337,10 +337,10 @@ src/
 │   ├── options/                # Full management: table, thresholds, mock tabs
 │   ├── content/                # Per-page overlay (future: age badge on page)
 │   └── shared/
-│       └── AppBootstrapper.ts  # Vue + Pinia (with tabStoreSyncPlugin) + Quasar
+│       └── AppBootstrapper.ts  # Vue + Pinia (with appStoreSyncPlugin) + Quasar
 ├── stores/
 │   ├── TabStore.ts             # All tab mutations, _persist() on every write
-│   ├── tabStoreSyncPlugin.ts   # Pinia plugin — auto hydrate + watch per context
+│   ├── appStoreSyncPlugin.ts   # Pinia plugin — auto hydrate + watch per context
 │   └── globalStore.ts          # Thresholds, version, persisted settings
 ├── utils/
 │   └── tabStorage.ts           # WXT defineItem — single typed key 'local:tab_history'
@@ -420,7 +420,7 @@ npm run ci                     # type-check + unit + build
 | **Background has no Pinia** | Isolated VM — any store created there is invisible to popup/options |
 | **No `setInterval`** | MV3 service workers suspend after ~30s; use `browser.alarms` |
 | **Every mutation calls `_persist()`** | The only cross-VM communication channel is storage writes |
-| **`tabStoreSyncPlugin` owns hydration + watch** | Components never call `loadTabsHistory()` or `initStorageSync()` directly |
+| **`appStoreSyncPlugin` owns hydration + watch** | Components never call `loadTabsHistory()` or `initStorageSync()` directly |
 | **`tabStorageItem` owns the key string** | `'local:tab_history'` exists in exactly one file — zero magic strings |
 | **`type` not `interface`** | Interfaces leak structural subtyping surprises; `type` is explicit |
 | **No destructuring** | `const { x } = obj` → `obj.x` — explicit, grep-safe, refactor-safe |

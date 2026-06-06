@@ -37,6 +37,11 @@ export const APP_CONSTANTS = {
 } as const
 
 export const APP_DEFAULTS = {
+  // Background alarm for daily tab grouping (24 hours)
+  ALARM_UPDATE_TABS: 'updateTabsDaily',
+  // WXT Storage key for tab history
+  TAB_HISTORY_KEY: 'local:tab_history',
+
   // Tab age marking thresholds — all presets with labels, days, and color names.
   THRESHOLDS: {
     /** How many threshold levels are active and editable (from youngest).

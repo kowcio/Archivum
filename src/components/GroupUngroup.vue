@@ -14,7 +14,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { useTabStore } from '@/stores/TabStore'
+import { useAppStore } from '@/stores/appStore'
 
 // Props for customization
 type Props = {
@@ -35,16 +35,16 @@ withDefaults(defineProps<Props>(), {
   ungroupColor: 'warning',
 })
 
-const tabStore = useTabStore()
+const appStore = useAppStore()
 
-const isGrouped = computed(() => tabStore.isGrouped)
-const isLoading = computed(() => tabStore.loading)
+const isGrouped = computed(() => appStore.isGrouped)
+const isLoading = computed(() => appStore.loading)
 
 async function handleToggle(): Promise<void> {
-  if (tabStore.isGrouped) {
-    await tabStore.ungroupAllTabs()
+  if (appStore.isGrouped) {
+    await appStore.ungroupAllTabs()
   } else {
-    await tabStore.groupTabsByAge()
+    await appStore.groupTabsByAge()
   }
 }
 </script>

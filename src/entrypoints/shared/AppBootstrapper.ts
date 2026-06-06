@@ -1,9 +1,9 @@
 import { createApp, type App as VueApp } from 'vue';
 import { createPinia, type Pinia } from 'pinia';
-import { useGlobalStore } from '@/stores/globalStore.ts';
+import { useAppStore } from '@/stores/appStore.ts';
 import { Quasar, QTable, QTd, QTr, QBtn, QBtnGroup, QInput, QTooltip } from 'quasar';
 import { APP_CONSTANTS } from '@/constants.ts';
-import { tabStoreSyncPlugin } from '@/stores/tabStoreSyncPlugin';
+import { appStoreSyncPlugin } from '@/stores/appStoreSyncPlugin.ts';
 
 /**
  * Centralized app bootstrapper for UI extension contexts (popup, options, content).
@@ -11,7 +11,7 @@ import { tabStoreSyncPlugin } from '@/stores/tabStoreSyncPlugin';
  * Architecture:
  * - background.ts does NOT use Pinia — it operates on browser.storage directly
  * - UI contexts (popup, options, content) each get their own Pinia instance
- * - Cross-context state sync is fully automatic via tabStoreSyncPlugin:
+ * - Cross-context state sync is fully automatic via appStoreSyncPlugin:
  *     any context → tabStorageItem.setValue() → WXT watch fires
  *     → $patch({ tabs, isGrouped }) → Vue reactivity in every open context
  * - No manual loadTabsHistory() / initStorageSync() calls needed in components
@@ -41,11 +41,11 @@ export class AppBootstrapper {
     })
 
     const pinia = createPinia()
-    pinia.use(tabStoreSyncPlugin)
+    pinia.use(appStoreSyncPlugin)
     app.use(pinia)
 
-    const global = useGlobalStore()
-    await global.init().catch((err) => console.error('GlobalStore.init failed:', err))
+    const appStore = useAppStore()
+    await appStore.init().catch((err) => console.error('AppStore.init failed:', err))
 
     app.mount(options.mountTarget)
 

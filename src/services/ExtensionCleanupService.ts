@@ -44,14 +44,14 @@ export class ExtensionCleanupService {
     private static async ungroupAllTabs(): Promise<void> {
         try {
             const chrome = (globalThis as unknown as {
-                chrome?: { tabs?: { ungroup?: (ids: number | number[]) => Promise<void> } }
+                chrome?: { tabs?: { query?: (query: any) => Promise<any[]>; ungroup?: (ids: number | number[]) => Promise<void> } }
             }).chrome
 
             if (!chrome?.tabs?.ungroup) return
 
             // Use chrome.tabs.query for ESM compatibility
             const allTabs = await chrome.tabs.query({})
-            const tabIds = allTabs.filter(t => t.id).map(t => t.id!) as number[]
+            const tabIds = allTabs.filter((t: any) => t.id).map((t: any) => t.id!) as number[]
 
             if (tabIds.length === 0) return
 
@@ -73,8 +73,16 @@ export class ExtensionCleanupService {
     private static async clearAllStorage(): Promise<void> {
         try {
             console.log('[clearAllStorage] Clearing all storage...')
-            await chrome.storage.local.clear()
-            await chrome.storage.sync?.clear?.()
+            const chrome = (globalThis as unknown as {
+                chrome?: { storage?: { local?: { clear?: () => Promise<void> }; sync?: { clear?: () => Promise<void> } } }
+            }).chrome
+
+            if (chrome?.storage?.local?.clear) {
+                await chrome.storage.local.clear()
+            }
+            if (chrome?.storage?.sync?.clear) {
+                await chrome.storage.sync.clear()
+            }
             console.log('[clearAllStorage] ✅ All storage cleared')
         } catch (err) {
             console.error('[clearAllStorage] Error:', err instanceof Error ? err.message : err)
@@ -87,6 +95,15 @@ export class ExtensionCleanupService {
      */
     static registerLifecycleListeners(): void {
         console.log('[registerLifecycleListeners] Setting up extension lifecycle listeners...')
+
+        const chrome = (globalThis as unknown as {
+            chrome?: { runtime?: { onInstalled?: { addListener?: (callback: (details: any) => void) => void } } }
+        }).chrome
+
+        if (!chrome?.runtime?.onInstalled?.addListener) {
+            console.warn('[registerLifecycleListeners] ⚠️ chrome.runtime.onInstalled not available')
+            return
+        }
 
         // Called when extension is installed/updated/enabled
         chrome.runtime.onInstalled.addListener((details) => {
@@ -109,17 +126,28 @@ export class ExtensionCleanupService {
     }
 
     /**
-     * 🧹 Clear only the marked tabs registry (subset of full cleanup)
-     * Useful for resets without removing all storage
+     * 🧹 Clear only tab history (saved tabs snapshot)
+     * Used on extension update to clear old tab data
      */
-    private static async clearMarkedTabsRegistry(): Promise<void> {
+    private static async clearTabHistory(): Promise<void> {
         try {
-            await chrome.storage.local.remove(APP_DEFAULTS.TAB_HISTORY_KEY)
-            console.log('[clearMarkedTabsRegistry] ✅ Cleared')
+            console.log('[clearTabHistory] Clearing tab history...')
+            const chrome = (globalThis as unknown as {
+                chrome?: { storage?: { local?: { remove?: (keys: string | string[]) => Promise<void> } } }
+            }).chrome
+
+            if (chrome?.storage?.local?.remove) {
+                // Clear tab storage: WXT storage (local:tab_history) and tab_store key
+                await chrome.storage.local.remove(['local:tab_history', 'tab_store'])
+                console.log('[clearTabHistory] ✅ Tab history cleared')
+            } else {
+                console.warn('[clearTabHistory] ⚠️ chrome.storage.local.remove not available')
+            }
         } catch (err) {
-            console.debug('[clearMarkedTabsRegistry]', err instanceof Error ? err.message : err)
+            console.debug('[clearTabHistory]', err instanceof Error ? err.message : err)
         }
     }
+
 
     /**
      * 🎬 Trigger cleanup before extension disables

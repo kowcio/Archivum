@@ -4,12 +4,12 @@
     <div class="config-row">
       <div class="info-box">
         <span class="label">Active Levels:</span>
-        <span class="value">{{ globalStore.thresholds.activeLevels }} / {{ constants.THRESHOLDS.presets.length }}</span>
+        <span class="value">{{ appStore.thresholds.activeLevels }} / {{ constants.THRESHOLDS.presets.length }}</span>
       </div>
 
       <q-input
         data-testid="thresholds-levels-input"
-        :model-value="globalStore.thresholds.activeLevels"
+        :model-value="appStore.thresholds.activeLevels"
         label="Levels"
         type="number"
         :min="1"
@@ -58,19 +58,17 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import { useGlobalStore } from '@/stores/globalStore.ts'
-import { useTabStore } from '@/stores/TabStore.ts'
+import { useAppStore } from '@/stores/appStore.ts'
 import { AppThresholds, DEFAULT_THRESHOLDS } from '@/models/AppThresholds.ts'
 import { APP_DEFAULTS } from '@/constants.ts'
 import type { ThresholdLevel } from '@/constants.ts'
 
-const globalStore = useGlobalStore()
-const tabStore = useTabStore()
+const appStore = useAppStore()
 const loading = ref(false)
 const localError = ref<string | null>(null)
 
 const constants = computed(() => APP_DEFAULTS)
-const activeThresholds = computed(() => globalStore.thresholds.active())
+const activeThresholds = computed(() => appStore.thresholds.active())
 
 function getLevelEmoji(idx: number): string {
   const emojis = ['🟢', '🟡', '🟠', '🔴', '🔴', '🔴', '💀']
@@ -88,9 +86,8 @@ async function handleChangeCount(count: number): Promise<void> {
   loading.value = true
   localError.value = null
   try {
-    await globalStore.setActiveLevels(count)
-    // Trigger tab re-marking with new threshold levels
-    await tabStore.markOldTabs()
+    await appStore.setActiveLevels(count)
+    await appStore.markOldTabs()
   } catch (err) {
     localError.value = err instanceof Error ? err.message : 'Unknown error'
   } finally {
@@ -111,7 +108,7 @@ async function onChange(levelIdx: number, value: number): Promise<void> {
     }
   }
 
-  const updated = globalStore.thresholds.merge(patch)
+  const updated = appStore.thresholds.merge(patch)
   if (!updated.isValid()) {
     console.warn(`[Thresholds] Invalid level[${levelIdx}]=${value} rejected`)
     return
@@ -119,9 +116,8 @@ async function onChange(levelIdx: number, value: number): Promise<void> {
 
   loading.value = true
   try {
-    await globalStore.setThresholds(patch)
-    // Trigger tab re-marking with updated threshold days
-    await tabStore.markOldTabs()
+    await appStore.setThresholds(patch)
+    await appStore.markOldTabs()
   } finally {
     loading.value = false
   }
@@ -131,10 +127,8 @@ async function handleReset(): Promise<void> {
   loading.value = true
   localError.value = null
   try {
-    // Reset both threshold levels and activeLevels count to defaults
-    await globalStore.resetToDefaults()
-    // Trigger tab re-marking with default thresholds
-    await tabStore.markOldTabs()
+    await appStore.resetToDefaults()
+    await appStore.markOldTabs()
     console.debug('[Thresholds] Reset to defaults and re-marked tabs')
   } catch (err) {
     localError.value = err instanceof Error ? err.message : 'Unknown error'

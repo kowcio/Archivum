@@ -43,32 +43,60 @@ vi.mock('@/constants', () => ({
     STORE_TAB_STORE: 'tab_store',
     APP_VERSION: '1.0.0-20240101-00:00',
   },
-  HEX_TO_CHROME_NAME: {
-    '#188038': 'green',
-    '#1f73e7': 'blue',
-    '#f9ab00': 'yellow',
-    '#d33b27': 'red',
-    '#e91e63': 'pink',
-    '#7c3aed': 'purple',
-    '#9aa0a6': 'grey',
+  THEME_COLORS: {
+    green: '#188038',
+    blue: '#1f73e7',
+    yellow: '#f9ab00',
+    red: '#d33b27',
+    pink: '#e91e63',
+    purple: '#7c3aed',
+    grey: '#9aa0a6',
+    cyan: '#00bcd4',
   },
   APP_DEFAULTS: {
     THRESHOLDS: {
       activeLevels: 3,
       presets: [
-        { key: 'DAYS', label: 'Days', days: 7, color: '#188038' },
-        { key: 'WEEK', label: 'Week', days: 14, color: '#1f73e7' },
-        { key: 'WEEKS_2', label: '2 Week', days: 21, color: '#f9ab00' },
-        { key: 'MONTH', label: 'Month', days: 30, color: '#d33b27' },
-        { key: 'QUARTERS', label: 'Quarter', days: 90, color: '#e91e63' },
-        { key: 'YEARS', label: 'Year', days: 365, color: '#7c3aed' },
-        { key: 'ANCIENT', label: 'Are You kidding me ?', days: 3650, color: '#9aa0a6' },
+        { key: 'DAYS', label: 'Days', days: 7, color: 'green' },
+        { key: 'WEEK', label: 'Week', days: 14, color: 'blue' },
+        { key: 'WEEKS_2', label: '2 Week', days: 21, color: 'yellow' },
+        { key: 'MONTH', label: 'Month', days: 30, color: 'red' },
+        { key: 'QUARTERS', label: 'Quarter', days: 90, color: 'pink' },
+        { key: 'YEARS', label: 'Year', days: 365, color: 'purple' },
+        { key: 'ANCIENT', label: 'Are You kidding me ?', days: 3650, color: 'grey' },
       ],
     },
   },
   type: {
     ThresholdLevel: {},
   },
+}))
+
+// Mock appStore
+vi.mock('@/stores/appStore', () => ({
+  useAppStore: () => ({
+    tabs: [],
+    loading: false,
+    error: null,
+    isGrouped: false,
+    tabRows: [],
+    thresholds: {
+      levels: [
+        { key: 'DAYS', label: 'Days', days: 7, color: 'green' },
+        { key: 'WEEK', label: 'Week', days: 14, color: 'blue' },
+        { key: 'WEEKS_2', label: '2 Week', days: 21, color: 'yellow' },
+      ],
+      activeLevels: 3,
+      active: () => [
+        { key: 'DAYS', label: 'Days', days: 7, color: 'green' },
+        { key: 'WEEK', label: 'Week', days: 14, color: 'blue' },
+        { key: 'WEEKS_2', label: '2 Week', days: 21, color: 'yellow' },
+      ],
+    },
+    init: vi.fn(() => Promise.resolve()),
+    $patch: vi.fn(),
+    persistTabs: vi.fn(() => Promise.resolve()),
+  }),
 }))
 
 // ── Test Suite ─────────────────────────────────────────────────────────────

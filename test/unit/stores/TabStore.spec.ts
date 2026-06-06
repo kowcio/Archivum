@@ -19,19 +19,11 @@ vi.mock('@/utils/tabStorage', () => ({
     },
 }))
 
-
-vi.mock('@/stores/globalStore', () => ({
-    useGlobalStore: vi.fn(() => ({
-        thresholds: DEFAULT_THRESHOLDS,
-        init:       vi.fn().mockResolvedValue(undefined),
-    })),
-}))
-
 // ── Imports after mocks ───────────────────────────────────────────────────────
 
 import browser from 'webextension-polyfill'
 import { tabStorageItem } from '@/utils/tabStorage'
-import { useTabStore } from '@/stores/TabStore'
+import { useAppStore } from '@/stores/appStore'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -78,13 +70,13 @@ describe('TabStore — load / reset cycle', () => {
     // ── getAllOpenedTabs ───────────────────────────────────────────────────────
 
     it('getAllOpenedTabs: loads tabs into store', async () => {
-        const store = useTabStore()
+        const store = useAppStore()
         await store.getAllOpenedTabs()
         expect(store.tabs).toHaveLength(4)
     })
 
     it('getAllOpenedTabs: classifies tabs by age (Fresh / Young / Middle / Old)', async () => {
-        const store = useTabStore()
+        const store = useAppStore()
         await store.getAllOpenedTabs()
 
         const tabById = (id: number) => store.tabs.find(t => t.id === id)!
@@ -95,13 +87,13 @@ describe('TabStore — load / reset cycle', () => {
     })
 
     it('getAllOpenedTabs: persists snapshot to storage', async () => {
-        const store = useTabStore()
+        const store = useAppStore()
         await store.getAllOpenedTabs()
         expect(tabStorageItem.setValue).toHaveBeenCalledOnce()
     })
 
     it('getAllOpenedTabs: clears any pre-existing isMarked state', async () => {
-        const store = useTabStore()
+        const store = useAppStore()
         // Manually pre-set a tab as marked (simulates stale state)
         await store.getAllOpenedTabs()
         expect(store.tabs.find(t => t.id === 1)?.isMarked).toBe(false) // Fresh stays false
@@ -118,7 +110,7 @@ describe('TabStore — load / reset cycle', () => {
     // (removed - no longer test isMarked state)
 
     it('reset: saves snapshot with tabs intact', async () => {
-        const store = useTabStore()
+        const store = useAppStore()
         await store.getAllOpenedTabs()
         vi.clearAllMocks()
         vi.mocked(tabStorageItem.setValue).mockResolvedValue(undefined)
@@ -131,7 +123,7 @@ describe('TabStore — load / reset cycle', () => {
     })
 
     it('reset: preserves lastAccessed timestamps', async () => {
-        const store = useTabStore()
+        const store = useAppStore()
         await store.getAllOpenedTabs()
         const lastAccessedBefore = store.tabs.map(t => t.lastAccessed)
 
@@ -141,7 +133,7 @@ describe('TabStore — load / reset cycle', () => {
     })
 
     it('reset: sets loading to false after completion', async () => {
-        const store = useTabStore()
+        const store = useAppStore()
         await store.getAllOpenedTabs()
         await store.reset()
         expect(store.loading).toBe(false)
@@ -150,7 +142,7 @@ describe('TabStore — load / reset cycle', () => {
     // ── Full Load → Reset → Load cycle ────────────────────────────────────────
 
     it('cycle: after reset + reload, tabs are classified by age again', async () => {
-        const store = useTabStore()
+        const store = useAppStore()
 
         // First load
         await store.getAllOpenedTabs()
@@ -177,7 +169,7 @@ describe('TabStore — load / reset cycle', () => {
     })
 
     it('cycle: age classification toggles correctly through load/reset cycle', async () => {
-        const store = useTabStore()
+        const store = useAppStore()
 
         expect(store.tabs.some(t => t.ageIndex > 0)).toBe(false) // before load
         await store.getAllOpenedTabs()
@@ -189,12 +181,12 @@ describe('TabStore — load / reset cycle', () => {
     // ── _persist ──────────────────────────────────────────────────────────────
 
     it('_persist: writes current snapshot to storage', async () => {
-        const store = useTabStore()
+        const store = useAppStore()
         await store.getAllOpenedTabs()
         vi.clearAllMocks()
         vi.mocked(tabStorageItem.setValue).mockResolvedValue(undefined)
 
-        await store._persist()
+        await store.persistTabs()
 
         expect(tabStorageItem.setValue).toHaveBeenCalledOnce()
         const saved = vi.mocked(tabStorageItem.setValue).mock.calls[0][0]
