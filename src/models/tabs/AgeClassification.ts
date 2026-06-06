@@ -59,7 +59,6 @@ export class AgeClassification {
     }
 
     get isFresh(): boolean  { return this.index === 0 }
-    get shouldMark(): boolean { return this.index >= 1 }
 
     static fromDays(days: number, thresholds: AppThresholds): AgeClassification {
         const boundaries = thresholds.toBoundaries()

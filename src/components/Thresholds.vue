@@ -1,76 +1,57 @@
 <template>
   <div class="thresholds-config" data-testid="thresholds-config">
-    <!-- Section 1: Threshold Levels Management -->
-    <div class="config-section">
-      <h6 class="section-header">Configure Threshold Levels</h6>
-      <div class="row q-col-gutter-md items-center">
-        <!-- Display current count -->
-        <div class="col-auto">
-          <div class="info-box">
-            <span class="label">Active Levels:</span>
-            <span class="value">{{ globalStore.thresholds.activeLevels }} / {{ constants.THRESHOLDS.presets.length }}</span>
-          </div>
-        </div>
-
-        <!-- Input to change count -->
-        <div class="">
-          <q-input
-            data-testid="thresholds-levels-input"
-            :model-value="globalStore.thresholds.activeLevels"
-            label="# Levels"
-            type="number"
-            :min="1"
-            :max="constants.THRESHOLDS.presets.length"
-            :disable="loading"
-            dense
-            class="threshold-levels-input"
-            @update:model-value="(v) => handleChangeCount(Number(v))"
-          />
-        </div>
+    <!-- Row 1: Active Levels Control + Reset -->
+    <div class="config-row">
+      <div class="info-box">
+        <span class="label">Active Levels:</span>
+        <span class="value">{{ globalStore.thresholds.activeLevels }} / {{ constants.THRESHOLDS.presets.length }}</span>
       </div>
 
-      <!-- Error message for levels change -->
-      <div v-if="localError" class="error-text q-mt-sm">
-        Error: {{ localError }}
+      <q-input
+        data-testid="thresholds-levels-input"
+        :model-value="globalStore.thresholds.activeLevels"
+        label="Levels"
+        type="number"
+        :min="1"
+        :max="constants.THRESHOLDS.presets.length"
+        :disable="loading"
+        dense
+        class="levels-input"
+        @update:model-value="(v) => handleChangeCount(Number(v))"
+      />
+
+      <q-btn
+        data-testid="threshold-reset"
+        icon="refresh"
+        label="Reset"
+        color="secondary"
+        dense
+        flat
+        :disable="loading"
+        @click="handleReset"
+      />
+
+      <div v-if="localError" class="error-text">
+        {{ localError }}
       </div>
     </div>
 
-    <!-- Section 2: Threshold Values Configuration -->
-    <div class="config-section q-mt-lg">
-      <h6 class="section-header">Configure Threshold Days</h6>
-      <div class="row q-col-gutter-md items-center">
-        <!-- Dynamic threshold inputs -->
-        <template v-for="(level, idx) in activeThresholds" :key="`threshold-${idx}`">
-          <div class="col-auto">
-            <q-input
-              :data-testid="`threshold-${idx}`"
-              :model-value="level.days"
-              :label="`${getLevelEmoji(idx)} ${level.label} (days)`"
-              type="number"
-              :min="idx === 0 ? 0 : activeThresholds[idx - 1].days + 1"
-              :max="idx === activeThresholds.length - 1 ? undefined : activeThresholds[idx + 1].days - 1"
-              :disable="loading"
-              :hint="getHint(idx, level.label)"
-              class="threshold-input"
-              @update:model-value="(v) => onChange(idx, Number(v))"
-            />
-          </div>
-        </template>
-
-        <!-- Reset button -->
-        <div class="col-auto">
-          <q-btn
-            data-testid="threshold-reset"
-            icon="refresh"
-            label="Reset"
-            color="secondary"
-            dense
-            flat
-            :disable="loading"
-            @click="handleReset"
-          />
-        </div>
-      </div>
+    <!-- Row 2: Threshold Days Configuration -->
+    <div class="thresholds-grid q-mt-md">
+      <template v-for="(level, idx) in activeThresholds" :key="`threshold-${idx}`">
+        <q-input
+          :data-testid="`threshold-${idx}`"
+          :model-value="level.days"
+          :label="`${getLevelEmoji(idx)} ${level.label}`"
+          type="number"
+          :min="idx === 0 ? 0 : activeThresholds[idx - 1].days + 1"
+          :max="idx === activeThresholds.length - 1 ? undefined : activeThresholds[idx + 1].days - 1"
+          :disable="loading"
+          :hint="getHint(idx, level.label)"
+          dense
+          @update:model-value="(v) => onChange(idx, Number(v))"
+        />
+      </template>
     </div>
   </div>
 </template>
@@ -95,14 +76,13 @@ function getLevelEmoji(idx: number): string {
 }
 
 function getHint(idx: number, label: string): string {
-  if (idx === 0) return `0 → ${label} = fresh 🟢`
+  if (idx === 0) return `0 → ${label}`
   const prev = activeThresholds.value[idx - 1]
-  return `${prev.label} → ${label}`
+  return `${prev.label} (${prev.days}d) → ${label}`
 }
 
 async function handleChangeCount(count: number): Promise<void> {
-  if (!Number.isFinite(count) || count < 3) return
-
+  if (!Number.isFinite(count) || count < 1) return
   loading.value = true
   localError.value = null
   try {
@@ -117,7 +97,6 @@ async function handleChangeCount(count: number): Promise<void> {
 async function onChange(levelIdx: number, value: number): Promise<void> {
   if (!Number.isFinite(value) || value < 0) return
 
-  // Preserve other fields, update only days
   const currentLevel = activeThresholds.value[levelIdx]
   const patch: Record<string, Partial<ThresholdLevel>> = {
     [levelIdx]: {
@@ -128,7 +107,6 @@ async function onChange(levelIdx: number, value: number): Promise<void> {
     }
   }
 
-  // Validate before applying
   const updated = globalStore.thresholds.merge(patch)
   if (!updated.isValid()) {
     console.warn(`[Thresholds] Invalid level[${levelIdx}]=${value} rejected`)
@@ -146,7 +124,6 @@ async function onChange(levelIdx: number, value: number): Promise<void> {
 async function handleReset(): Promise<void> {
   loading.value = true
   try {
-    // Reset to default active thresholds
     const defaultActive = new AppThresholds(
       DEFAULT_THRESHOLDS.levels,
       DEFAULT_THRESHOLDS.activeLevels
@@ -163,19 +140,15 @@ async function handleReset(): Promise<void> {
   width: 100%;
 }
 
-.config-section {
+.config-row {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
+  flex-wrap: wrap;
   padding: 1rem;
   background: #fafafa;
   border-radius: 6px;
   border-left: 4px solid #1976d2;
-}
-
-.section-header {
-  margin: 0 0 0.8rem 0;
-  font-size: 0.95rem;
-  font-weight: 600;
-  color: #333;
-  padding-bottom: 0.4rem;
 }
 
 .info-box {
@@ -187,6 +160,7 @@ async function handleReset(): Promise<void> {
   border-radius: 4px;
   border: 1px solid #ddd;
   font-size: 0.9rem;
+  white-space: nowrap;
 }
 
 .label {
@@ -199,41 +173,24 @@ async function handleReset(): Promise<void> {
   color: #1976d2;
 }
 
-.threshold-input {
-  min-width: 130px;
+.levels-input {
+  min-width: 120px;
 }
 
-.preset-list {
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
-  align-items: center;
-}
-
-.preset-item {
-  display: inline-flex;
-  gap: 4px;
-  padding: 4px 8px;
-  border-radius: 3px;
-  font-size: 0.85rem;
-  background: #e3f2fd;
-  border: 1px solid #1976d2;
-  color: #0d47a1;
-  font-weight: 500;
-}
-
-.preset-label {
-  font-weight: 500;
-}
-
-.preset-days {
-  opacity: 0.8;
-  font-size: 0.8rem;
+.thresholds-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 1rem;
+  padding: 1rem;
+  background: #fafafa;
+  border-radius: 6px;
 }
 
 .error-text {
   font-size: 0.8rem;
   color: #d32f2f;
+  width: 100%;
+  margin-top: 0.5rem;
 }
 </style>
 

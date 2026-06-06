@@ -30,9 +30,8 @@ export const APP_DEFAULTS = {
     // First activeLevels items (from start) are used as active thresholds.
     // Colors are hex values compatible with Chrome and Firefox tab group colors
     presets: [
-      { key: 'DAYS',               label: 'Days',      days: 7,    color: '#188038' },    // green
-      { key: 'WEEK',               label: 'Week',      days: 14,   color: '#1f73e7' },    // blue
-      { key: 'WEEKS_2',            label: '2 Week',   days: 21,   color: '#f9ab00' },    // yellow
+      { key: 'WEEK',               label: 'Week',      days: 7,   color: '#1f73e7' },    // blue
+      { key: 'WEEKS_2',            label: '2 Week',   days: 14,   color: '#f9ab00' },    // yellow
       { key: 'MONTH',              label: 'Month',     days: 30,   color: '#d33b27' },    // red
       { key: 'QUARTERS',           label: 'Quarter',  days: 90,   color: '#e91e63' },    // pink
       { key: 'YEARS',              label: 'Year',      days: 365,  color: '#7c3aed' },    // purple
