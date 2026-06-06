@@ -48,14 +48,12 @@ export const APP_DEFAULTS = {
     // - Chrome/Firefox tab groups API uses color names directly
     // - CSS styling uses THEME_COLORS[colorName] to get hex values
     presets: [
-      { key: 'DAYS',               label: 'Days',      days: 7,    color: 'green' },
-      { key: 'WEEK',               label: 'Week',      days: 14,   color: 'blue' },
-      { key: 'WEEKS_2',            label: '2 Week',   days: 21,   color: 'yellow' },
-      { key: 'MONTH',              label: 'Month',     days: 30,   color: 'red' },
-      { key: 'QUARTERS',           label: 'Quarter',  days: 90,   color: 'pink' },
-      { key: 'YEARS',              label: 'Year',      days: 365,  color: 'purple' },
-      { key: 'ANCIENT', label: 'Are You kidding me ?',  days: 3650, color: 'grey' },
+      { key: 'WEEK',               label: 'Week',         days: 7,    color: 'green' },
+      { key: 'WEEKS_2',               label: '2 Weeks',       days: 14,   color: 'blue' },
+      { key: 'MONTH',            label: 'Month',        days: 28,   color: 'yellow' },
+      { key: 'QUARTERS',              label: 'Quarter',      days: 90,   color: 'red' },
+      { key: 'YEARS',           label: 'Are You kidding me ?',         days: 365,   color: 'pink' },
+      // { key: 'YEARS',              label: 'Are You kidding me ?',      days: 365,  color: 'purple' },
     ] as const satisfies readonly ThresholdLevel[],
   },
 }
-

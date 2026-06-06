@@ -408,11 +408,11 @@ export const useTabStore = defineStore(APP_CONSTANTS.STORE_TAB_STORE, {
                 { url: 'https://en.wikipedia.org/wiki/Main_Page', daysAgo:  1 },
                 { url: 'https://codeberg.com',                    daysAgo:  5 },
                 { url: 'https://developer.mozilla.org',           daysAgo: 10 },
-                { url: 'https://stackoverflow.com',               daysAgo: 13 },
-                { url: 'https://www.youtube.com',                 daysAgo: 16 },
-                { url: 'https://www.kowalskipiotr.pl',            daysAgo: 19 },
-                { url: 'https://news.wykop.pl',                   daysAgo: 22 },
-                { url: 'https://www.reddit.com',                  daysAgo: 25 },
+                { url: 'https://stackoverflow.com',               daysAgo: 19 },
+                { url: 'https://www.youtube.com',                 daysAgo: 33 },
+                { url: 'https://www.kowalskipiotr.pl',            daysAgo: 45 },
+                { url: 'https://news.wykop.pl',                   daysAgo: 377 },
+                { url: 'https://www.reddit.com',                  daysAgo: 678 },
             ]
             const DAY_MS = 24 * 60 * 60 * 1000
             const now    = Date.now()
