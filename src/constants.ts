@@ -34,8 +34,7 @@ export const APP_DEFAULTS = {
       { key: 'WEEKS_2',            label: '2 Week',   days: 14,   color: '#f9ab00' },    // yellow
       { key: 'MONTH',              label: 'Month',     days: 30,   color: '#d33b27' },    // red
       { key: 'QUARTERS',           label: 'Quarter',  days: 90,   color: '#e91e63' },    // pink
-      { key: 'YEARS',              label: 'Year',      days: 365,  color: '#7c3aed' },    // purple
-      { key: 'ANCIENT', label: 'Are You kidding me ?',  days: 3650, color: '#9aa0a6' },  // grey
+      { key: 'YEARS',              label: 'Are You kidding me ?',      days: 365,  color: '#7c3aed' },    // purple
     ] as const satisfies readonly ThresholdLevel[],
   },
 }
