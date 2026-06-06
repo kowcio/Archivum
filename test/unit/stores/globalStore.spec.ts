@@ -33,7 +33,7 @@ describe('global store', () => {
         s.appName = 'myapp'
         await s.setThresholds({ young: 5, middle: 12, old: 25 })
         expect(StorageService.set).toHaveBeenCalledWith(
-            APP_CONSTANTS.STORAGE_KEY,
+            APP_CONSTANTS.STORE_GLOBAL_STORE,
             expect.objectContaining({
                 appName: 'myapp',
                 thresholds: { young: 5, middle: 12, old: 25 },
@@ -53,7 +53,7 @@ describe('global store', () => {
         await s.init()
 
         const incoming = {
-            [APP_CONSTANTS.STORAGE_KEY]: {
+            [APP_CONSTANTS.STORE_GLOBAL_STORE]: {
                 appName: 'carol',
                 thresholds: { young: 4, middle: 11, old: 28 },
                 lastUpdated: 999,
@@ -143,7 +143,7 @@ describe('global store', () => {
             await s.setThresholds({ young: 5, middle: 12, old: 25 })
 
             expect(setSpy).toHaveBeenCalledWith(
-                APP_CONSTANTS.STORAGE_KEY,
+                APP_CONSTANTS.STORE_GLOBAL_STORE,
                 expect.objectContaining({
                     thresholds: { young: 5, middle: 12, old: 25 },
                 }),
@@ -185,7 +185,7 @@ describe('global store', () => {
             await s.init()
 
             registeredCb?.({
-                [APP_CONSTANTS.STORAGE_KEY]: {
+                [APP_CONSTANTS.STORE_GLOBAL_STORE]: {
                     thresholds: { young: 4, middle: 11, old: 28 },
                     lastUpdated: 9999,
                 },

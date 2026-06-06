@@ -296,6 +296,7 @@ export const useTabStore = defineStore(APP_CONSTANTS.STORE_TAB_STORE, {
                         this.tabs[tabIndex] = {
                             ...this.tabs[tabIndex],
                             ageIndex: classification.index,
+                            isMarked: !classification.isFresh,
                         }
                     }
                 }

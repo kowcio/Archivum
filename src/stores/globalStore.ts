@@ -18,7 +18,7 @@ type PersistedState = Partial<Omit<GlobalState, 'thresholds'>> & {
 }
 
 
-export const useGlobalStore = defineStore('global', {
+export const useGlobalStore = defineStore(APP_CONSTANTS.STORE_GLOBAL_STORE, {
   state: (): GlobalState => ({
     appName: APP_CONSTANTS.APP_NAME,
     version: APP_CONSTANTS.APP_VERSION,
@@ -44,7 +44,7 @@ export const useGlobalStore = defineStore('global', {
     },
 
     async load(): Promise<void> {
-      const data = await StorageService.get<PersistedState>(APP_CONSTANTS.STORAGE_KEY)
+      const data = await StorageService.get<PersistedState>(APP_CONSTANTS.STORE_GLOBAL_STORE)
       if (data) {
         this.appName = data.appName ?? this.appName
         this.lastUpdated = data.lastUpdated ?? this.lastUpdated
@@ -80,7 +80,7 @@ export const useGlobalStore = defineStore('global', {
 
     async save(): Promise<void> {
       this.lastUpdated = Date.now()
-      await StorageService.set(APP_CONSTANTS.STORAGE_KEY, {
+      await StorageService.set(APP_CONSTANTS.STORE_GLOBAL_STORE, {
         appName: this.appName,
         version: this.version,
         thresholds: this.thresholds.toJSON(),
@@ -90,7 +90,7 @@ export const useGlobalStore = defineStore('global', {
 
     initStorageSync(): void {
       StorageService.onChanged((changes) => {
-        const payload = changes[APP_CONSTANTS.STORAGE_KEY] as PersistedState | undefined
+        const payload = changes[APP_CONSTANTS.STORE_GLOBAL_STORE] as PersistedState | undefined
         if (!payload) return
         if (payload.lastUpdated && payload.lastUpdated === this.lastUpdated) return
         this.appName = payload.appName ?? this.appName

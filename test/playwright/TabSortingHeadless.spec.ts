@@ -55,6 +55,8 @@ test.beforeAll(() => {
         return
     }
     console.log('Building extension…')
+    // Clean stale output to avoid WXT rename collisions
+    execSync('rm -rf .output/chrome-mv3 .output/firefox-mv3', { cwd: process.cwd() })
     execSync('npm run build-only', { stdio: 'inherit', cwd: process.cwd() })
 })
 
@@ -122,15 +124,43 @@ test.describe('Tab Sorting and Grouping (Headless)', () => {
     })
 
     test('reset button clears tab marks', async ({ context, extensionId }) => {
-        test.setTimeout(40_000)
+        test.setTimeout(60_000)
         const page = await context.newPage()
 
-        await page.goto(`chrome-extension://${extensionId}/options.html`, { waitUntil: 'domcontentloaded' })
-        await expect(page.getByTestId('btn-load-tabs')).toBeVisible({ timeout: 8_000 })
+        page.on('console', msg => {
+            if (msg.type() === 'error') console.error('[page]', msg.text())
+        })
 
-        // Load tabs
+        await page.goto(`chrome-extension://${extensionId}/options.html`, { waitUntil: 'domcontentloaded' })
+        await expect(page.getByTestId('btn-load-tabs')).toBeVisible({ timeout: 10_000 })
+
+        // Generate mock tabs first to have tabs with age data
+        await expect(page.getByTestId('btn-gen-mock-tabs')).toBeVisible({ timeout: 5_000 })
+        await page.getByTestId('btn-gen-mock-tabs').click()
+
+        // Wait for mock tabs to finish
+        await page.waitForFunction(
+            () => {
+                const btn = document.querySelector('[data-testid="btn-gen-mock-tabs"]')
+                return btn?.getAttribute('aria-disabled') !== 'true'
+            },
+            { timeout: 60_000 }
+        )
+
+        // Wait for some age cells to appear
+        await page.waitForFunction(
+            () => document.querySelectorAll('[data-testid^="cell-lastAccessAge-"]').length >= 3,
+            { timeout: 30_000 }
+        )
+
+        // Now load & mark
         await page.getByTestId('btn-load-tabs').click()
-        await expect(page.getByTestId('current-tabs-table')).toBeVisible({ timeout: 15_000 })
+
+        // Wait for table to appear
+        await expect(page.getByTestId('current-tabs-table')).toBeVisible({ timeout: 20_000 })
+
+        // Wait for btn-reset to appear (load + mark complete)
+        await expect(page.getByTestId('btn-reset')).toBeVisible({ timeout: 30_000 })
 
         // Click Reset
         await page.getByTestId('btn-reset').click()
@@ -140,5 +170,3 @@ test.describe('Tab Sorting and Grouping (Headless)', () => {
         console.log('Reset completed without errors ✓')
     })
 })
-
-

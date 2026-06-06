@@ -32,7 +32,7 @@ export class BackgroundTabService {
    * Falls back to DEFAULT_THRESHOLDS if storage is empty.
    */
   static async getThresholds(): Promise<AppThresholds> {
-    const stored = await StorageService.get<{ thresholds?: { young: number; middle: number; old: number } }>(APP_CONSTANTS.STORAGE_KEY)
+    const stored = await StorageService.get<{ thresholds?: { young: number; middle: number; old: number } }>(APP_CONSTANTS.STORE_GLOBAL_STORE)
     if (stored?.thresholds) {
       return AppThresholds.fromObject(stored.thresholds)
     }
@@ -146,173 +146,84 @@ export class BackgroundTabService {
     console.log(`[BackgroundTabService] 🔧 onTabActivated called for tab#${tabId}`)
 
     try {
-      // ✅ Check if browser.tabs exists (should always be true)
       if (browser.tabs == null) {
         console.warn('[BackgroundTabService] ⚠️ browser.tabs not available (should not happen)')
         return
       }
 
-      // Detect Firefox using WXT's compile-time constant (most reliable)
       const isFirefox = import.meta.env.FIREFOX === true
 
       console.log(`[BackgroundTabService] 🔍 Getting tab#${tabId} info...`)
 
-      // ✅ Unified API: Works in all browsers (callback-based for MV3)
-      browser.tabs.get(tabId, (tab: any) => {
-        if (browser.runtime.lastError) {
-          console.error('[BackgroundTabService] ❌ browser.tabs.get error:', browser.runtime.lastError.message)
-          return
-        }
+      const tab = await browser.tabs.get(tabId)
 
-        if (!tab) {
-          console.error(`[BackgroundTabService] ❌ Tab#${tabId} not found`)
-          return
-        }
-
-        console.log(`[BackgroundTabService] 📋 Tab#${tabId} info:`, {
-          groupId: tab.groupId,
-          index: tab.index,
-          title: tab.title?.substring(0, 50),
-          url: tab.url?.substring(0, 50)
-        })
-
-        if (tab.groupId === undefined || tab.groupId === -1) {
-          console.log(`[BackgroundTabService] ℹ️ Tab#${tabId} is not in a group (groupId: ${tab.groupId}) - skipping`)
-          return
-        }
-
-        console.log(`[BackgroundTabService] 🔓 Ungrouping tab#${tabId} from group#${tab.groupId}...`)
-
-        // ⚠️ Firefox MV3 has NO ungroup API
-        // Chrome/Edge: Use callback-based native chrome.tabs.ungroup()
-        // Firefox: Skip ungroup, move directly. Tab will be reclassified as "Fresh"
-        //          by lastAccessed update, so it won't re-group in next cycle.
-        if (!isFirefox) {
-          console.log(`[BackgroundTabService] ℹ️ Chrome/Edge detected → attempting ungroup via native API`)
-          this.ungroupWithRetry(tabId, 0)
-        } else {
-          console.log('[BackgroundTabService] ℹ️ Firefox detected → skipping ungroup (no MV3 API), moving to rightmost to mark as Fresh')
-          this.moveTabWithRetry(tabId, 0)
-        }
+      console.log(`[BackgroundTabService] 📋 Tab#${tabId} info:`, {
+        groupId: tab.groupId,
+        index: tab.index,
+        title: tab.title?.substring(0, 50),
+        url: tab.url?.substring(0, 50)
       })
+
+      if (tab.groupId === undefined || tab.groupId === -1) {
+        console.log(`[BackgroundTabService] ℹ️ Tab#${tabId} is not in a group (groupId: ${tab.groupId}) - skipping`)
+        return
+      }
+
+      console.log(`[BackgroundTabService] 🔓 Ungrouping tab#${tabId} from group#${tab.groupId}...`)
+
+      if (!isFirefox) {
+        console.log(`[BackgroundTabService] ℹ️ Chrome/Edge detected → attempting ungroup`)
+        await this.ungroupAndMoveTab(tabId)
+      } else {
+        console.log('[BackgroundTabService] ℹ️ Firefox detected → skipping ungroup (no MV3 API), moving to rightmost')
+        await this.moveTabAndUpdate(tabId)
+      }
     } catch (err) {
       console.error(`[BackgroundTabService] ❌ Unexpected error in onTabActivated:`, err)
     }
   }
 
   /**
-   * Helper: Ungroup tab with retry mechanism (exponential backoff)
-   * Handles race conditions when browser is busy with tab operations
-   *
-   * ⚠️  Chrome/Edge ONLY: Uses callback-based native chrome.tabs.ungroup()
-   * ⚠️  Firefox: NOT CALLED. Firefox MV3 has no ungroup API in service workers.
-   *     Firefox MV3 limitation: tabs.ungroup() is Promise-based, incompatible with MV3
-   *     service worker callbacks. Tab stays in group, but lastAccessed update
-   *     reclassifies it as "Fresh" so it won't re-group on next daily cycle.
+   * Ungroups a tab (Chrome/Edge) then moves it to rightmost and updates lastAccessed.
    */
-  private static ungroupWithRetry(tabId: number, attempt: number): void {
-    const maxAttempts = 5
-    const baseDelay = 100 // ms
-
-    if (attempt >= maxAttempts) {
-      console.error(`[BackgroundTabService] ❌ Failed to ungroup tab#${tabId} after ${maxAttempts} attempts`)
-      return
+  private static async ungroupAndMoveTab(tabId: number): Promise<void> {
+    try {
+      await (browser.tabs as any).ungroup(tabId)
+      console.log(`[BackgroundTabService] ✅ Ungrouped tab#${tabId}`)
+    } catch (err) {
+      console.warn(`[BackgroundTabService] ⚠️ ungroup failed for tab#${tabId}:`, err)
+      // Continue anyway — try to move
     }
 
-    // Chrome/Edge only: browser.tabs.ungroup
-    (browser.tabs as any).ungroup(tabId, () => {
-      if (browser.runtime.lastError) {
-        const errorMsg = browser.runtime.lastError.message || ''
-
-        // Check if error is due to browser being busy (can retry)
-        if (errorMsg.includes('cannot be edited right now') ||
-            errorMsg.includes('dragging') ||
-            errorMsg.includes('busy')) {
-          const delay = baseDelay * Math.pow(2, attempt) // Exponential backoff
-          console.warn(`[BackgroundTabService] ⏳ Tab busy, retrying in ${delay}ms (attempt ${attempt + 1}/${maxAttempts})`)
-
-          setTimeout(() => {
-            this.ungroupWithRetry(tabId, attempt + 1)
-          }, delay)
-          return
-        }
-
-        // Other errors - don't retry
-        console.error('[BackgroundTabService] ❌ ungroup error (not retrying):', errorMsg)
-        return
-      }
-
-      // Success - now move the tab
-      console.log(`[BackgroundTabService] ✅ Ungrouped tab#${tabId}`)
-      console.log(`[BackgroundTabService] ➡️ Moving tab#${tabId} to rightmost position...`)
-
-      this.moveTabWithRetry(tabId, 0)
-    })
+    await this.moveTabAndUpdate(tabId)
   }
 
   /**
-   * Helper: Move tab with retry mechanism (exponential backoff)
-   * After successful move, updates tab's lastAccessed timestamp and persists to storage.
-   *
-   * ✅ Works in all browsers (Chrome, Edge, Firefox).
-   *
-   * ℹ️  Firefox "soft ungroup": Updating lastAccessed to "today" reclassifies tab as "Fresh".
-   *     On next daily grouping cycle, Fresh tabs are grouped separately, so the tab
-   *     effectively leaves the old group without needing explicit ungroup API.
+   * Moves a tab to rightmost position and updates lastAccessed timestamp.
+   * Works in all browsers.
    */
-  private static moveTabWithRetry(tabId: number, attempt: number): void {
-    const maxAttempts = 5
-    const baseDelay = 100 // ms
-
-    if (attempt >= maxAttempts) {
-      console.error(`[BackgroundTabService] ❌ Failed to move tab#${tabId} after ${maxAttempts} attempts`)
-      return
-    }
-
-    browser.tabs.move(tabId, { index: -1 }, async (movedTab: any) => {
-      if (browser.runtime.lastError) {
-        const errorMsg = browser.runtime.lastError.message || ''
-
-        // Check if error is due to browser being busy (can retry)
-        if (errorMsg.includes('cannot be edited right now') ||
-            errorMsg.includes('dragging') ||
-            errorMsg.includes('busy')) {
-          const delay = baseDelay * Math.pow(2, attempt)
-          console.warn(`[BackgroundTabService] ⏳ Tab busy, retrying move in ${delay}ms (attempt ${attempt + 1}/${maxAttempts})`)
-
-          setTimeout(() => {
-            this.moveTabWithRetry(tabId, attempt + 1)
-          }, delay)
-          return
-        }
-
-        // Other errors - don't retry
-        console.error('[BackgroundTabService] ❌ move error (not retrying):', errorMsg)
-        return
-      }
-
+  private static async moveTabAndUpdate(tabId: number): Promise<void> {
+    try {
+      const movedTab = await browser.tabs.move(tabId, { index: -1 })
       console.log(`[BackgroundTabService] 🎉 Success! Tab#${tabId} moved to position ${movedTab?.index}`)
 
-      // ✅ Update tab's lastAccessed timestamp to now and persist to storage
-      try {
-        const snapshot = await tabStorageItem.getValue()
-        if (snapshot?.tabs) {
-          const now = Date.now()
-          const updatedTabs = (Array.isArray(snapshot.tabs) ? snapshot.tabs : Object.values(snapshot.tabs as Record<string, unknown>))
-            .map((t: unknown) => {
-              const tab = t as ClassifiedTab
-              return tab.id === tabId ? { ...tab, lastAccessed: now } : tab
-            })
+      // Update lastAccessed timestamp
+      const snapshot = await tabStorageItem.getValue()
+      if (snapshot?.tabs) {
+        const now = Date.now()
+        const updatedTabs = (Array.isArray(snapshot.tabs) ? snapshot.tabs : Object.values(snapshot.tabs as Record<string, unknown>))
+          .map((t: unknown) => {
+            const tab = t as ClassifiedTab
+            return tab.id === tabId ? { ...tab, lastAccessed: now } : tab
+          })
 
-          const updatedSnapshot = new TabsSnapshot(updatedTabs, snapshot.isGrouped ?? false, new Date().toISOString())
-          await tabStorageItem.setValue(updatedSnapshot)
+        const updatedSnapshot = new TabsSnapshot(updatedTabs, snapshot.isGrouped ?? false, new Date().toISOString())
+        await tabStorageItem.setValue(updatedSnapshot)
 
-          console.log(`[BackgroundTabService] ⏰ Updated tab#${tabId} lastAccessed to ${new Date(now).toISOString()}`)
-          console.log(`[BackgroundTabService] 📤 Persisted to storage → TabStore will sync via initStorageSync()`)
-        }
-      } catch (err) {
-        console.error('[BackgroundTabService] ❌ Error updating lastAccessed:', err instanceof Error ? err.message : err)
+        console.log(`[BackgroundTabService] ⏰ Updated tab#${tabId} lastAccessed to ${new Date(now).toISOString()}`)
       }
-    })
+    } catch (err) {
+      console.warn(`[BackgroundTabService] ⚠️ move failed for tab#${tabId}:`, err)
+    }
   }
 }

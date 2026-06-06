@@ -30,8 +30,13 @@ test.describe('Tab Grouping - Activation Behavior', () => {
     console.log('📄 Created 3 test tabs')
     await new Promise(resolve => setTimeout(resolve, 1500))
 
+    // Open extension options page to get access to chrome.tabs API
+    const extPage = await context.newPage()
+    await extPage.goto(`chrome-extension://${extId}/options.html`, { waitUntil: 'domcontentloaded' })
+    await new Promise(resolve => setTimeout(resolve, 1000))
+
     // Test: Group tabs, then activate one and check if it moves
-    const result = await page1.evaluate(async () => {
+    const result = await extPage.evaluate(async () => {
       const logs: string[] = []
 
       try {
@@ -111,6 +116,8 @@ test.describe('Tab Grouping - Activation Behavior', () => {
       }
     })
 
+    await extPage.close()
+
     console.log('\n📊 Test result:', JSON.stringify(result, null, 2))
     console.log('\n📝 Logs:')
     result.logs?.forEach(log => console.log(`  ${log}`))
@@ -125,4 +132,3 @@ test.describe('Tab Grouping - Activation Behavior', () => {
     await context.close()
   })
 })
-

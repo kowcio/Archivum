@@ -6,6 +6,7 @@
  */
 import { test, expect, chromium } from '@playwright/test'
 import path from 'path'
+import fs from 'fs'
 
 const TARGET_WIDTH  = 1280
 const TARGET_HEIGHT = 800
@@ -14,9 +15,15 @@ const EXT_DIR = path.resolve(process.cwd(), '.output', 'chrome-mv3')
 test('browser window size is applied via launchPersistentContext', async () => {
   test.setTimeout(30_000)
 
-  const context = await chromium.launchPersistentContext('', {
+  const userDataDir = path.resolve(process.cwd(), '.output', 'pw-profile-window-size')
+  if (fs.existsSync(userDataDir)) {
+    fs.rmSync(userDataDir, { recursive: true, force: true })
+  }
+  fs.mkdirSync(userDataDir, { recursive: true })
+
+  const context = await chromium.launchPersistentContext(userDataDir, {
     channel: 'chromium',
-    headless: false,
+    headless: true,
     args: [
       `--disable-extensions-except=${EXT_DIR}`,
       `--load-extension=${EXT_DIR}`,
@@ -31,7 +38,6 @@ test('browser window size is applied via launchPersistentContext', async () => {
   const page = await context.newPage()
   await page.goto('about:blank')
 
-  // Read actual inner dimensions from JS
   const innerWidth  = await page.evaluate(() => window.innerWidth)
   const innerHeight = await page.evaluate(() => window.innerHeight)
   const outerWidth  = await page.evaluate(() => window.outerWidth)
@@ -41,7 +47,6 @@ test('browser window size is applied via launchPersistentContext', async () => {
   console.log(`[window-size] innerWidth=${innerWidth}  innerHeight=${innerHeight}`)
   console.log(`[window-size] outerWidth=${outerWidth}  outerHeight=${outerHeight}`)
 
-  // viewport() — what Playwright reports
   const vp = page.viewportSize()
   console.log(`[window-size] page.viewportSize()=${JSON.stringify(vp)}`)
 
@@ -49,5 +54,7 @@ test('browser window size is applied via launchPersistentContext', async () => {
   expect(vp?.height).toBe(TARGET_HEIGHT)
 
   await context.close()
+  if (fs.existsSync(userDataDir)) {
+    fs.rmSync(userDataDir, { recursive: true, force: true })
+  }
 })
-

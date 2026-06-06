@@ -93,15 +93,11 @@ export default defineBackground({
     // Note: Ungroup is Chrome/Edge only — BackgroundTabService handles fallback for Firefox
     if (hasTabs) {
       try {
-        browser.tabs.onActivated.addListener(({ tabId }) => {
+        browser.tabs.onActivated.addListener(async ({ tabId }) => {
           console.log(`[background] 🖱️ Tab#${tabId} activated`)
 
-          // Callback (not promise) to stay alive in MV3 service worker
-          browser.tabs.get(tabId, (tab) => {
-            if (browser.runtime.lastError) {
-              console.error('[background] ❌ browser.tabs.get error:', browser.runtime.lastError.message)
-              return
-            }
+          try {
+            const tab = await browser.tabs.get(tabId)
 
             if (!tab) {
               console.error(`[background] ❌ Tab#${tabId} not found`)
@@ -118,7 +114,9 @@ export default defineBackground({
             console.log(`[background] 🎯 Tab#${tabId} is in group#${tab.groupId} → calling onTabActivated`)
             BackgroundTabService.onTabActivated(tabId)
               .catch((err: Error) => console.error('[background] ❌ onTabActivated error:', err))
-          })
+          } catch (err) {
+            console.error(`[background] ❌ browser.tabs.get error:`, err instanceof Error ? err.message : err)
+          }
         })
 
         const browserName = isChrome ? 'Chrome/Edge' : 'Firefox'

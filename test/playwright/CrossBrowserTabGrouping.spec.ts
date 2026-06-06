@@ -88,6 +88,8 @@ test.beforeAll(() => {
     return
   }
   console.log('Building extension for Chrome + Firefox…')
+  // Clean stale output to avoid WXT rename collisions
+  execSync('rm -rf .output/chrome-mv3 .output/firefox-mv3', { cwd: process.cwd() })
   execSync('npm run build-only', { stdio: 'inherit', cwd: process.cwd() })
 })
 
@@ -269,13 +271,3 @@ test.describe('Cross-Browser Tab Grouping Flow', () => {
     await page.close()
   })
 })
-
-
-
-
-
-
-
-
-
-

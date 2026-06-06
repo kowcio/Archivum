@@ -1,6 +1,7 @@
-import { chromium, firefox, type BrowserContext } from '@playwright/test'
+import { chromium, type BrowserContext } from '@playwright/test'
 import fs from 'fs'
 import path from 'path'
+import crypto from 'crypto'
 
 const OUTPUT_DIR = path.resolve(process.cwd(), '.output')
 
@@ -23,7 +24,8 @@ export async function launchChromeMv3Context(): Promise<{ context: BrowserContex
     throw new Error(`Chrome MV3 extension not found at ${extensionPath}`)
   }
 
-  const userDataDir = ensureProfileDir('pw-profile-chrome')
+  const profileName = `pw-profile-chrome-${crypto.randomUUID()}`
+  const userDataDir = ensureProfileDir(profileName)
   const launchArgs = [
     `--disable-extensions-except=${normalizedExtensionPath}`,
     `--load-extension=${normalizedExtensionPath}`,
@@ -88,36 +90,15 @@ export async function launchFirefoxMv3Context(): Promise<{ context: BrowserConte
     throw new Error(`Firefox MV3 extension not found at ${extensionPath}`)
   }
 
-  const userDataDir = ensureProfileDir('pw-profile-firefox')
-
-  // Firefox requires installing the extension into the profile before launch
-  // We'll use web-ext's addons API to install it
   const manifest = JSON.parse(
     fs.readFileSync(path.join(extensionPath, 'manifest.json'), 'utf-8')
   )
   const extId = manifest.applications?.gecko?.id || 'default-firefox-ext@test'
 
-  const context = await firefox.launchPersistentContext(userDataDir, {
-    headless: true,
-    viewport: { width: BROWSER_WIDTH, height: BROWSER_HEIGHT },
-  })
-
-  // Load extension into Firefox context
-  await context.addInitScript(() => {
-    // Firefox will load the extension from the profile
-  })
-
-  // Wait for service worker to be ready
-  const worker = context.serviceWorkers()[0] ?? await context.waitForEvent('serviceworker', { timeout: 30000 })
-
-  return {
-    context,
-    extId,
-    cleanup: async () => {
-      if (fs.existsSync(userDataDir)) {
-        fs.rmSync(userDataDir, { recursive: true, force: true })
-      }
-    }
-  }
+  throw new Error(
+    `Firefox MV3 extension loading via Playwright persistent context is not supported. ` +
+    `Playwright's launchPersistentContext does not support loading unsigned extensions. ` +
+    `Use Firefox nightly with a signed extension or test Chrome MV3 instead. ` +
+    `Extension path: ${extensionPath}`
+  )
 }
-
