@@ -9,16 +9,7 @@
         </q-btn-group>
 
         <!-- Group 2: Group by age -->
-        <q-btn-group>
-          <q-btn
-            :data-testid="tabStore.isGrouped ? 'btn-ungroup-tabs' : 'btn-group-by-age'"
-            :label="tabStore.isGrouped ? 'Ungroup' : 'Group by age'"
-            :icon="tabStore.isGrouped ? 'unfold_more' : 'folder'"
-            :color="tabStore.isGrouped ? 'warning' : 'purple'"
-            :loading="tabStore.loading"
-            @click="handleGroupOrUngroup"
-          />
-        </q-btn-group>
+        <GroupUngroup />
 
         <!-- Group 3: Dev tools -->
         <q-btn-group>
@@ -37,8 +28,11 @@
         <span class="error-text">Error: {{ tabStore.error }}</span>
       </div>
 
-      <div class="row q-mt-md">
-        <Thresholds/>
+      <!-- Thresholds Configuration (includes levels and values) -->
+      <div class="row q-mt-lg">
+        <div class="col">
+          <Thresholds />
+        </div>
       </div>
 
       <div class="table-container">
@@ -58,14 +52,17 @@
           :pagination="{ sortBy: 'ordinal', descending: false }"
         >
           <template #body="props">
-            <q-tr :props="props" :data-testid="`row-${props.row.rowKey}`">
+            <q-tr
+              :props="props"
+              :data-testid="`row-${props.row.rowKey}`"
+            >
               <q-td
                 v-for="col in props.cols"
                 :key="col.name"
                 :props="props"
                 :data-testid="`cell-${col.name}-${props.row.rowKey}`"
+                :style="col.name === 'lastAccess' ? props.row.rowStyle : undefined"
                 :class="[
-                  col.name === 'lastAccess' ? props.row.lastAccessClass : undefined,
                   'table-cell-text-break',
                   ['title', 'url', 'domain'].includes(col.name) ? 'cell-break-aggressive' : undefined
                 ]"
@@ -89,7 +86,7 @@
                     <span v-else class="favicon-placeholder">—</span>
                   </div>
                 </template>
-                <template v-else-if="col.name === 'lastAccess'" :class="props.row.lastAccessClass">
+                <template v-else-if="col.name === 'lastAccess'">
                   {{ tabStore.getLastAccessMsg(props.row) || "—" }}
                 </template>
                 <template v-else-if="col.name === 'title'">
@@ -123,13 +120,16 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted } from "vue"
 import { useTabStore } from "@/stores/TabStore"
+import { useGlobalStore } from "@/stores/globalStore"
 import type { QTableProps } from "quasar"
 import Thresholds from "../../components/Thresholds.vue"
 import AppTitle from "@/components/Title.vue"
 import LoadResetButton from "@/components/LoadResetButton.vue"
+import GroupUngroup from "@/components/GroupUngroup.vue"
 import browser from "webextension-polyfill"
 
 const tabStore = useTabStore()
+const globalStore = useGlobalStore()
 const tabRows = computed(() => tabStore.tabRows)
 const excerptLength = 50
 
@@ -157,10 +157,22 @@ const columns: QTableProps["columns"] = [
   { name: "lastAccessAge", label: "Age",         field: "lastAccessAge", align: "left", headerClasses: "col-auto",  sortable: true },
 ]
 
-onMounted(() => {
-  // tabStoreSyncPlugin (registered in AppBootstrapper) handles hydration + watch automatically.
-  // Here we only add the context-specific tab activation listener.
+onMounted(async () => {
+  console.debug('[options] mounted — initializing...')
+
+  // Initialize global store (loads thresholds from storage)
+  await globalStore.init()
+
+  // Load current tabs and classify them
+  await tabStore.getAllOpenedTabs()
+
+  // Set up storage sync for real-time updates from other contexts
+  tabStore.initStorageSync()
+
+  // Add tab activation listener
   browser.tabs.onActivated.addListener(onTabActivated)
+
+  console.debug('[options] initialized')
 })
 
 onUnmounted(() => {
@@ -213,13 +225,6 @@ async function handleAddDay(tabId: number | null): Promise<void> {
   await tabStore._persist()
 }
 
-async function handleGroupOrUngroup(): Promise<void> {
-  if (tabStore.isGrouped) {
-    await tabStore.ungroupAllTabs()
-  } else {
-    await tabStore.groupTabsByAge()
-  }
-}
 
 async function handleGenMockTabs(): Promise<void> {
   await tabStore.loadMockTabs()
@@ -242,6 +247,15 @@ async function handleGenMockTabs(): Promise<void> {
 .error-text {
   font-size: 0.8rem;
   color: red;
+}
+
+.config-header {
+  margin: 0.5rem 0 0.8rem 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #333;
+  border-bottom: 2px solid #1976d2;
+  padding-bottom: 0.4rem;
 }
 
 .table-cell-text-break {

@@ -20,6 +20,7 @@ import { TabRow } from '@/models/tabs/TabRow'
 import { AgeClassification } from '@/models/tabs/AgeClassification'
 import StorageService from '@/services/StorageService'
 import { APP_CONSTANTS } from '@/constants'
+import type { ThresholdLevel } from '@/constants'
 import { AppThresholds, DEFAULT_THRESHOLDS } from '@/models/AppThresholds'
 import { TabsSnapshot } from '@/models/tabs/TabsSnapshot'
 import type { ClassifiedTab } from '@/models/tabs/ClassifiedTab'
@@ -32,12 +33,13 @@ export class BackgroundTabService {
    * Falls back to DEFAULT_THRESHOLDS if storage is empty.
    */
   static async getThresholds(): Promise<AppThresholds> {
-    const stored = await StorageService.get<{ thresholds?: { young: number; middle: number; old: number } }>(APP_CONSTANTS.STORE_GLOBAL_STORE)
-    if (stored?.thresholds) {
+    const stored = await StorageService.get<{ thresholds?: { levels?: Partial<ThresholdLevel>[]; activeLevels?: number } }>(APP_CONSTANTS.STORE_GLOBAL_STORE)
+    if (stored?.thresholds?.levels) {
       return AppThresholds.fromObject(stored.thresholds)
     }
     return DEFAULT_THRESHOLDS
   }
+
 
   /**
    * Groups tabs by age using tab groups API (Chrome/Edge), then persists snapshot.
@@ -59,13 +61,17 @@ export class BackgroundTabService {
 
       // ✅ Unified API: Works in all browsers
       const rawTabs = await browser.tabs.query({ currentWindow: true })
-      const thresholds = await this.getThresholds()
+      const thresholds = await this.getThresholds()  // Already has activeLevels property
+
       const classified: ClassifiedTab[] = ClassifiedTabFactory.fromTabs(rawTabs)
       const rows = TabRow.fromTabs(classified, thresholds)
 
-      const oldTabIds: number[] = []
-      const middleTabIds: number[] = []
-      const youngTabIds: number[] = []
+      // Create arrays for each active threshold level
+      const activeThresholdsList = thresholds.active()
+      const levelTabIds: number[][] = []
+      for (let i = 0; i < activeThresholdsList.length; i++) {
+        levelTabIds[i] = []
+      }
 
       for (const row of rows) {
         if (row.id == null) continue
@@ -74,9 +80,10 @@ export class BackgroundTabService {
         if (idx !== -1) {
           classified[idx] = { ...classified[idx], ageIndex: c.index }
         }
-        if (c.isOld) oldTabIds.push(row.id)
-        else if (c.isMiddle) middleTabIds.push(row.id)
-        else if (c.isYoung) youngTabIds.push(row.id)
+        // Add tab to appropriate level
+        if (c.index > 0 && c.index <= activeThresholdsList.length) {
+          levelTabIds[c.index - 1].push(row.id)
+        }
       }
 
       // ✅ Only attempt grouping in Chrome/Edge
@@ -94,13 +101,17 @@ export class BackgroundTabService {
           }
         }
 
-        const oldGroupId = await createGroup(oldTabIds, `Old ${thresholds.old}d+`, 'red')
-        const middleGroupId = await createGroup(middleTabIds, `Middle ${thresholds.middle}d+`, 'orange')
-        const youngGroupId = await createGroup(youngTabIds, `Young ${thresholds.young}d+`, 'yellow')
+        const groupIds: (number | null)[] = []
+        // Create groups from oldest to youngest (in reverse)
+        for (let i = activeThresholdsList.length - 1; i >= 0; i--) {
+          const level = activeThresholdsList[i]
+          const groupId = await createGroup(levelTabIds[i], `${level.label} (${level.days}d+)`, level.color)
+          groupIds.push(groupId)
+        }
 
         // Move groups to the left: oldest → youngest (left to right flow)
         if ((chrome as any)?.tabGroups?.move) {
-          for (const id of [oldGroupId, middleGroupId, youngGroupId]) {
+          for (const id of groupIds.reverse()) {
             if (id !== null) {
               try {
                 await (chrome as any).tabGroups.move(id, { index: 0 })

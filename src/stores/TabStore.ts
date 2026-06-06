@@ -25,6 +25,8 @@ export type OptionsEnrichedTabRow = TabRow & {
     ordinal: number
     /** Human-readable age string e.g. "10d" or "—" */
     lastAccessAge: string
+    /** Inline styles for row background and text color */
+    rowStyle: Record<string, string>
 }
 
 type Nullable<T> = T | null
@@ -48,23 +50,27 @@ export const useTabStore = defineStore(APP_CONSTANTS.STORE_TAB_STORE, {
         /**
          * Sorted, enriched tab rows ready for display in the table.
          * Sort order: youngest first → oldest last. Tabs without timestamp go to end.
+         * Uses active thresholds (first N levels from thresholds.activeLevels).
          */
         tabRows(): OptionsEnrichedTabRow[] {
             const globalStore = useGlobalStore()
-            const thresholds = globalStore.thresholds
+            const activeThresholds = new AppThresholds(
+              globalStore.thresholds.levels,
+              globalStore.thresholds.activeLevels
+            )
 
             const sorted = [...this.tabs].sort(
                 (a, b) => (b.lastAccessed ?? 0) - (a.lastAccessed ?? 0),
             )
 
-            return TabRow.fromTabs(sorted, thresholds).map((row, index) => {
+            return TabRow.fromTabs(sorted, activeThresholds).map((row, index) => {
                 const days = Number.isFinite(row.lastAccessDays) ? (row.lastAccessDays ?? 0) : 0
-                const classification = AgeClassification.fromDays(days, thresholds)
+                const classification = AgeClassification.fromDays(days, activeThresholds)
                 return {
                     ...row,
                     ordinal: index + 1,
                     lastAccessAge: Number.isFinite(row.lastAccessDays) ? `${row.lastAccessDays}d` : '—',
-                    lastAccessClass: classification.cssClass,
+                    rowStyle: classification.inlineStyle,
                 } as OptionsEnrichedTabRow
             })
         },
@@ -75,6 +81,10 @@ export const useTabStore = defineStore(APP_CONSTANTS.STORE_TAB_STORE, {
 
         /**
          * Builds a TabsSnapshot from current local state.
+         *
+         * ⚠️  CRITICAL: Convert reactive proxies to plain objects before storage
+         * The Pinia store is reactive, but browser.storage only accepts cloneable objects.
+         * This method converts state to a plain serializable object.
          *
          * ⚠️  Write pattern & race condition note:
          *
@@ -98,7 +108,27 @@ export const useTabStore = defineStore(APP_CONSTANTS.STORE_TAB_STORE, {
          *   snapshot with a vector clock.
          */
         _snapshot(): TabsSnapshot {
-            return new TabsSnapshot(this.tabs, this.isGrouped, new Date().toISOString())
+            // Convert reactive proxies to plain objects (fixes DataCloneError)
+            const plainTabs = this.tabs.map(t => ({
+                id: t.id,
+                url: t.url,
+                title: t.title,
+                favIconUrl: t.favIconUrl,
+                status: t.status,
+                index: t.index,
+                windowId: t.windowId,
+                highlighted: t.highlighted,
+                active: t.active,
+                pinned: t.pinned,
+                sessionId: t.sessionId,
+                incognito: t.incognito ?? false,
+                lastAccessed: t.lastAccessed,
+                isMarked: t.isMarked,
+                ageIndex: t.ageIndex,
+                markedFaviconDataUrl: t.markedFaviconDataUrl,
+            })) as Tabs.Tab[]
+
+            return new TabsSnapshot(plainTabs, this.isGrouped, new Date().toISOString())
         },
 
         /** Persists current state to storage so all contexts stay in sync. */
@@ -283,13 +313,17 @@ export const useTabStore = defineStore(APP_CONSTANTS.STORE_TAB_STORE, {
         async markOldTabs(): Promise<void> {
             this.error = null
             try {
-                const thresholds = useGlobalStore().thresholds
-                const tabRows = TabRow.fromTabs(this.tabs, thresholds)
+                const globalStore = useGlobalStore()
+                const activeThresholds = new AppThresholds(
+                  globalStore.thresholds.levels,
+                  globalStore.thresholds.activeLevels
+                )
+                const tabRows = TabRow.fromTabs(this.tabs, activeThresholds)
 
                 for (const row of tabRows) {
                     if (row.id == null) continue
 
-                    const classification = this.getAgeClassification(row, thresholds)
+                    const classification = this.getAgeClassification(row, activeThresholds)
                     const tabIndex = this.tabs.findIndex(t => t.id === row.id)
 
                     if (tabIndex !== -1) {
@@ -464,45 +498,71 @@ export const useTabStore = defineStore(APP_CONSTANTS.STORE_TAB_STORE, {
                     return 0
                 }
 
-                const thresholds   = useGlobalStore().thresholds
-                const oldTabIds:    number[] = []
-                const middleTabIds: number[] = []
-                const youngTabIds:  number[] = []
+                const globalStore = useGlobalStore()
+                const activeThresholds = new AppThresholds(
+                  globalStore.thresholds.levels,
+                  globalStore.thresholds.activeLevels
+                )
 
-                const sortedRows = [...TabRow.fromTabs(this.tabs, thresholds)]
-                    .sort((a, b) => (b.lastAccess ?? 0) - (a.lastAccess ?? 0))
-
-                for (const row of sortedRows) {
-                    if (row.id == null) continue
-                    const c = this.getAgeClassification(row, thresholds)
-                    if      (c.isOld)    oldTabIds.push(row.id)
-                    else if (c.isMiddle) middleTabIds.push(row.id)
-                    else if (c.isYoung)  youngTabIds.push(row.id)
+                // Create arrays for each threshold level
+                const levelTabIds: number[][] = []
+                for (let i = 0; i < activeThresholds.active().length; i++) {
+                    levelTabIds[i] = []
                 }
 
-                if (!oldTabIds.length && !middleTabIds.length && !youngTabIds.length) {
+                const sortedRows = [...TabRow.fromTabs(this.tabs, activeThresholds)]
+                    .sort((a, b) => (b.lastAccess ?? 0) - (a.lastAccess ?? 0))
+
+                // Classify tabs into levels
+                for (const row of sortedRows) {
+                    if (row.id == null) continue
+                    const c = AgeClassification.fromDays(row.lastAccessDays ?? 0, activeThresholds)
+                    if (c.index > 0 && c.index <= activeThresholds.active().length) {
+                        levelTabIds[c.index - 1].push(row.id)
+                    }
+                }
+
+                if (!levelTabIds.some(ids => ids.length > 0)) {
                     this.isGrouped = false
                     return 0
                 }
 
-                const createGroup = async (ids: number[], title: string, color: string): Promise<number | null> => {
-                    if (!ids.length) return null
+                // Create groups from oldest to youngest (reverse order)
+                const groupIds: (number | null)[] = []
+                for (let i = activeThresholds.active().length - 1; i >= 0; i--) {
+                    const level = activeThresholds.active()[i]
+                    const tabIds = levelTabIds[i]
+
+                    if (tabIds.length === 0) continue
+
                     try {
-                        const id = await chromeApi.tabs!.group!({ tabIds: ids })
-                        await chromeApi.tabGroups!.update!(id, { title, color, collapsed: false })
+                        const groupId = await chromeApi.tabs!.group!({ tabIds })
+                        // Use Chrome's predefined color name directly
+                        const colorName = level.color as string
+                        const chromeColorNames = ['grey', 'blue', 'red', 'yellow', 'green', 'pink', 'purple', 'cyan']
+                        const groupColor = chromeColorNames.includes(colorName) ? colorName : 'grey'
+
+                        await chromeApi.tabGroups!.update!(groupId, {
+                            title: `${level.label} (${level.days}d+)`,
+                            color: groupColor,
+                            collapsed: true,
+                        })
                         groupsCreated++
-                        return id
-                    } catch { return null }
+                        groupIds.push(groupId)
+                    } catch {
+                        groupIds.push(null)
+                    }
                 }
 
-                const oldGroupId    = await createGroup(oldTabIds,    `🔴 Old (${thresholds.old}d+)`,      'red')
-                const middleGroupId = await createGroup(middleTabIds, `🟠 Middle (${thresholds.middle}d+)`, 'orange')
-                const youngGroupId  = await createGroup(youngTabIds,  `🟡 Young (${thresholds.young}d+)`,  'yellow')
-
+                // Move groups to the left (youngest first)
                 if (chromeApi.tabGroups?.move) {
-                    for (const id of [youngGroupId, middleGroupId, oldGroupId]) {
+                    for (const id of groupIds.reverse()) {
                         if (id !== null) {
-                            try { await chromeApi.tabGroups.move(id, { index: 0 }) } catch { /* silent */ }
+                            try {
+                                await chromeApi.tabGroups.move(id, { index: 0 })
+                            } catch {
+                                // Silent fail on move
+                            }
                         }
                     }
                 }

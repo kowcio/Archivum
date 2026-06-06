@@ -1,7 +1,8 @@
 import {defineStore} from 'pinia'
 import StorageService from '@/services/StorageService.ts'
-import {APP_CONSTANTS} from "@/constants.ts";
+import {APP_CONSTANTS, APP_DEFAULTS} from "@/constants.ts";
 import { AppThresholds, DEFAULT_THRESHOLDS } from '@/models/AppThresholds'
+import type { ThresholdLevel } from '@/constants'
 
 export { AppThresholds, DEFAULT_THRESHOLDS }
 
@@ -14,7 +15,7 @@ export type GlobalState = {
 
 // ─── Partial type used when loading from storage ──────────────────────────────
 type PersistedState = Partial<Omit<GlobalState, 'thresholds'>> & {
-  thresholds?: { young?: number; middle?: number; old?: number }
+  thresholds?: { levels?: Partial<ThresholdLevel>[]; activeLevels?: number }
 }
 
 
@@ -33,7 +34,7 @@ export const useGlobalStore = defineStore(APP_CONSTANTS.STORE_GLOBAL_STORE, {
 
   actions: {
     /** Merge partial threshold changes and persist. */
-    async setThresholds(patch: Partial<AppThresholds>): Promise<void> {
+    async setThresholds(patch: Partial<Record<number, Partial<ThresholdLevel>>>): Promise<void> {
       const updated = this.thresholds.merge(patch)
       if (!updated.isValid()) {
         console.warn('[globalStore] Invalid thresholds rejected:', updated.toJSON())
@@ -43,14 +44,31 @@ export const useGlobalStore = defineStore(APP_CONSTANTS.STORE_GLOBAL_STORE, {
       await this.save()
     },
 
+    /** Update the number of active threshold levels */
+    async setActiveLevels(count: number): Promise<void> {
+      const min = 3
+      const max = APP_DEFAULTS.THRESHOLDS.presets.length
+      if (count < min || count > max) {
+        console.warn(`[globalStore] Invalid activeLevels: ${count} (must be ${min}-${max})`)
+        return
+      }
+      this.thresholds = this.thresholds.withActiveLevels(count)
+      await this.save()
+    },
+
     async load(): Promise<void> {
       const data = await StorageService.get<PersistedState>(APP_CONSTANTS.STORE_GLOBAL_STORE)
       if (data) {
         this.appName = data.appName ?? this.appName
         this.lastUpdated = data.lastUpdated ?? this.lastUpdated
         // Deep-merge thresholds so missing keys fall back to defaults
-        if (data.thresholds) {
-          this.thresholds = DEFAULT_THRESHOLDS.merge(data.thresholds)
+        if (data.thresholds?.levels) {
+          const merged = DEFAULT_THRESHOLDS.merge(
+            Object.fromEntries(
+              data.thresholds.levels.map((level, idx) => [idx, level])
+            )
+          )
+          this.thresholds = merged.withActiveLevels(data.thresholds.activeLevels ?? DEFAULT_THRESHOLDS.activeLevels)
         }
       } else {
         // First time — persist the defaults
@@ -95,8 +113,13 @@ export const useGlobalStore = defineStore(APP_CONSTANTS.STORE_GLOBAL_STORE, {
         if (payload.lastUpdated && payload.lastUpdated === this.lastUpdated) return
         this.appName = payload.appName ?? this.appName
         this.lastUpdated = payload.lastUpdated ?? this.lastUpdated
-        if (payload.thresholds) {
-          this.thresholds = this.thresholds.merge(payload.thresholds)
+        if (payload.thresholds?.levels) {
+          const merged = this.thresholds.merge(
+            Object.fromEntries(
+              payload.thresholds.levels.map((level, idx) => [idx, level])
+            )
+          )
+          this.thresholds = merged.withActiveLevels(payload.thresholds.activeLevels ?? this.thresholds.activeLevels)
         }
       })
     },

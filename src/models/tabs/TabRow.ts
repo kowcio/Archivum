@@ -5,7 +5,8 @@ import { AppThresholds, DEFAULT_THRESHOLDS } from '@/models/AppThresholds'
 
 /**
  * Model representing a tab row in the table
- * All calculated fields are derived in the constructor
+ * All calculated fields are derived in the constructor.
+ * Note: Uses active thresholds (only the first N levels enabled by THRESHOLDS_LEVELS).
  */
 export class TabRow {
   readonly ordinal?: number;
@@ -69,17 +70,35 @@ export class TabRow {
     }
   }
 
-  /**
-   * Gets the Quasar background color class based on age in days.
-   * Thresholds come from globalStore DEFAULT_THRESHOLDS (young / middle / old).
-   */
-  private getAgeBgClass(days: number, thresholds: AppThresholds): string {
-    if (!Number.isFinite(days) || days === Infinity) return 'bg-negative-3';
-    if (days <= thresholds.young)  return 'bg-green-3';
-    if (days <= thresholds.middle) return 'bg-yellow-3';
-    if (days <= thresholds.old)    return 'bg-orange-3';
-    return 'bg-red-3';
-  }
+   /**
+    * Gets the Quasar background color class based on age in days.
+    * Uses only the active thresholds (first N levels from THRESHOLDS_LEVELS).
+    */
+   private getAgeBgClass(days: number, thresholds: AppThresholds): string {
+     if (!Number.isFinite(days) || days === Infinity) return 'bg-negative-3';
+
+     // Determine age index based on active thresholds
+     const boundaries = thresholds.toBoundaries()
+     for (let i = 0; i < boundaries.length; i++) {
+       if (days <= boundaries[i]) {
+         return this.getBgClassForIndex(i)
+       }
+     }
+     // Beyond the last threshold
+     return this.getBgClassForIndex(boundaries.length)
+   }
+
+   private getBgClassForIndex(idx: number): string {
+     const classes = [
+       'bg-green-3',   // Fresh (before first)
+       'bg-yellow-3',  // Level 0
+       'bg-orange-3',  // Level 1
+       'bg-red-3',     // Level 2+
+       'bg-red-4',     // Level 3+
+       'bg-red-5',     // Level 4+
+     ]
+     return classes[idx] ?? 'bg-red-5'
+   }
 
   /**
    * Removes everything after the last dash in the text

@@ -1,65 +1,75 @@
-import { APP_DEFAULTS } from '@/constants'
+import { TAB_GROUP_COLORS } from '@/constants'
 import type { AppThresholds } from '@/models/AppThresholds'
 
-/** Colors indexed by AgeClassification.index — sourced directly from APP_DEFAULTS */
-const AGE_COLORS = [
-    APP_DEFAULTS.AGE_COLOR_LIST.AGE_COLOR_FRESH,
-    APP_DEFAULTS.AGE_COLOR_LIST.AGE_COLOR_YOUNG,
-    APP_DEFAULTS.AGE_COLOR_LIST.AGE_COLOR_MIDDLE,
-    APP_DEFAULTS.AGE_COLOR_LIST.AGE_COLOR_OLD,
-] as const
-
-/** Quasar row classes indexed by AgeClassification.index */
-const AGE_CSS_CLASSES = [
-    'bg-green-2 text-green-10',
-    'bg-amber-2 text-amber-10',
-    'bg-orange-2 text-orange-10',
-    'bg-red-2 text-red-10',
-] as const
-
 /**
- * Tab age state marker. Stores only the index — color and cssClass are
- * computed from APP_DEFAULTS so there is no duplication.
+ * Tab age state marker with simplified color handling.
+ * Uses Chrome's predefined tab group colors, derives hex for display styling.
  *
- * ⚡ Use the getter properties: classification.color, classification.cssClass
- * ⚡ Use the boolean getters: classification.isFresh, classification.shouldMark
+ * ⚡ Properties: color (hex), label, inlineStyle
+ * ⚡ Getters: isFresh, shouldMark
  *
  * @example
- * const classification = AgeClassification.fromDays(days, thresholds)
- * classification.index        // 0=Fresh 1=Young 2=Middle 3=Old
- * classification.color        // '#00e676' (from APP_DEFAULTS)
- * classification.shouldMark   // false for Fresh, true for all others
+ * const c = AgeClassification.fromDays(10, thresholds)
+ * c.index          // 0=Fresh, 1+=Level
+ * c.color          // Hex color from TAB_GROUP_COLORS
+ * c.label          // From threshold.label or "Fresh"
+ * c.inlineStyle    // Direct backgroundColor + text color
+ * c.shouldMark     // false for Fresh, true for others
  */
 export class AgeClassification {
-    /** 0=Fresh  1=Young  2=Middle  3=Old */
     readonly index: number
+    private thresholds: AppThresholds
 
-    constructor(index: number) {
-        this.index = Math.max(0, Math.min(3, index))
+    constructor(index: number, thresholds: AppThresholds) {
+        this.thresholds = thresholds
+        this.index = Math.max(0, Math.min(thresholds.active().length, index))
     }
 
-    /** Hex color from APP_DEFAULTS.AGE_COLOR_LIST */
-    get color(): string { return AGE_COLORS[this.index] }
+    /** Hex color derived from Chrome tab group color */
+    get color(): string {
+        if (this.index === 0) return '#00e676' // Fresh green
+        const activeList = this.thresholds.active()
+        const level = activeList[this.index - 1]
+        const colorName = level?.color ?? 'grey'
 
-    /** Quasar CSS class for table row background */
-    get cssClass(): string { return AGE_CSS_CLASSES[this.index] }
+        // Map Chrome color name to hex
+        return TAB_GROUP_COLORS[colorName as keyof typeof TAB_GROUP_COLORS] ?? colorName
+    }
+
+    /** Label from threshold level */
+    get label(): string {
+        if (this.index === 0) return 'Fresh'
+        const activeList = this.thresholds.active()
+        const level = activeList[this.index - 1]
+        return level?.label ?? 'Unknown'
+    }
+
+    /** Inline style with backgroundColor and contrast text color */
+    get inlineStyle(): Record<string, string> {
+        return {
+            backgroundColor: this.color,
+            color: this.getTextColor(),
+        }
+    }
+
+    private getTextColor(): string {
+        // Calculate brightness to determine if dark or light text is needed
+        const rgb = parseInt(this.color.replace('#', ''), 16)
+        const r = (rgb >> 16) & 255
+        const g = (rgb >> 8) & 255
+        const b = rgb & 255
+        const brightness = (r * 299 + g * 587 + b * 114) / 1000
+        return brightness > 155 ? '#000000' : '#ffffff'
+    }
 
     get isFresh(): boolean  { return this.index === 0 }
-    get isYoung(): boolean  { return this.index === 1 }
-    get isMiddle(): boolean { return this.index === 2 }
-    get isOld(): boolean    { return this.index === 3 }
-
-    /** True when the tab should receive an L-bracket overlay (not Fresh) */
     get shouldMark(): boolean { return this.index >= 1 }
 
-    /**
-     * Factory: compute state from days + thresholds object.
-     * @param days - days since last access (use TabRow.lastAccessDays)
-     * @param thresholds - { young, middle, old } threshold days
-     */
     static fromDays(days: number, thresholds: AppThresholds): AgeClassification {
-        const boundaries = [thresholds.young, thresholds.middle, thresholds.old]
+        const boundaries = thresholds.toBoundaries()
         const found = boundaries.findIndex((threshold) => days <= threshold)
-        return new AgeClassification(found !== -1 ? found : 3)
+        const indexInThresholds = found !== -1 ? found : thresholds.active().length
+        return new AgeClassification(indexInThresholds, thresholds)
     }
 }
+
