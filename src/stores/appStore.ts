@@ -392,8 +392,15 @@ export const useAppStore = defineStore(APP_CONSTANTS.STORE_GLOBAL_STORE, {
             const groupId = await chromeApi.tabs!.group!({ tabIds })
             const chromeName = level.color as keyof typeof THEME_COLORS
 
+
+            const queryResult = await chrome.tabs.query({
+              currentWindow: true,
+              groupId
+            });
+            const tabCountInGroup = queryResult.length;
+
             await chromeApi.tabGroups!.update!(groupId, {
-              title: `${level.label} (${level.days}d+)`,
+              title: `${level.label} (${level.days}d+) (${tabCountInGroup}t)`,
               color: chromeName,
               collapsed: true,
             })
