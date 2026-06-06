@@ -46,7 +46,7 @@ export const useGlobalStore = defineStore(APP_CONSTANTS.STORE_GLOBAL_STORE, {
 
     /** Update the number of active threshold levels */
     async setActiveLevels(count: number): Promise<void> {
-      const min = 3
+      const min = 1
       const max = APP_DEFAULTS.THRESHOLDS.presets.length
       if (count < min || count > max) {
         console.warn(`[globalStore] Invalid activeLevels: ${count} (must be ${min}-${max})`)

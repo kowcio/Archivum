@@ -40,7 +40,7 @@ export const APP_DEFAULTS = {
   // Tab age marking thresholds — all presets with labels, days, and color names.
   THRESHOLDS: {
     /** How many threshold levels are active and editable (from youngest).
-     *  Must be >= 3. If you set it to 4, the 4th threshold will also be editable. */
+     *  Can be set from 1 to the total number of presets. Default is 3. */
     activeLevels: 3,
 
     // First activeLevels items (from start) are used as active thresholds.

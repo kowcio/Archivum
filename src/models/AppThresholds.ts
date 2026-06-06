@@ -4,7 +4,7 @@ import { APP_DEFAULTS, type ThresholdLevel } from '@/constants'
  * Age threshold configuration with dynamic active levels.
  * Stores all threshold levels + activeLevels count to determine how many are enabled.
  * Invariant: 0 ≤ level[0] < level[1] < level[2] < ... < level[N-1]
- * Invariant: 3 ≤ activeLevels ≤ levels.length
+ * Invariant: 1 ≤ activeLevels ≤ levels.length
  *
  * @example
  * const thresholds = new AppThresholds(

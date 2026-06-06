@@ -3,15 +3,17 @@
   <div id="options" class="row">
     <div class="col-10 offset-1">
       <div class="row justify-center q-mt-md q-gutter-sm">
-        <!-- Group 1: Load / Reset -->
-        <q-btn-group>
-          <LoadResetButton />
-        </q-btn-group>
+        <LoadResetButton
+          data-testid="btn-load-reset"
+          class="got-btn-primary"
+          elevated
+          no-caps
+        />
 
-        <!-- Group 2: Group by age -->
+        <!-- Group: Group by age (main action) -->
         <GroupUngroup />
 
-        <!-- Group 3: Dev tools -->
+        <!-- Dev tools -->
         <q-btn-group>
           <q-btn
             data-testid="btn-gen-mock-tabs"
@@ -124,9 +126,9 @@ import { useGlobalStore } from "@/stores/globalStore"
 import type { QTableProps } from "quasar"
 import Thresholds from "../../components/Thresholds.vue"
 import AppTitle from "@/components/Title.vue"
-import LoadResetButton from "@/components/LoadResetButton.vue"
 import GroupUngroup from "@/components/GroupUngroup.vue"
 import browser from "webextension-polyfill"
+import LoadResetButton from "@/components/LoadResetButton.vue";
 
 const tabStore = useTabStore()
 const globalStore = useGlobalStore()
