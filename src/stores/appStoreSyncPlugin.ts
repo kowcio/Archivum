@@ -7,17 +7,20 @@ import { APP_CONSTANTS } from "@/constants.ts";
  * Pinia plugin — auto-wires WXT storage sync for `appStore` in every UI context.
  *
  * Registered once in AppBootstrapper.initUI() via `pinia.use(appStoreSyncPlugin)`.
- * No manual calls needed in popup / options / content components.
- *
+ * 
  * Per context lifecycle:
- *   1. store created → hydrate from tabStorageItem (crash recovery / cross-context state)
- *   2. tabStorageItem.watch() → $patch() → Vue reactivity
- *   3. store.$dispose() → unwatch() (important for content scripts)
+ *   1. AppBootstrapper.initUI() calls useAppStore() (plugin runs)
+ *   2. AppBootstrapper calls appStore.init() → hydrates + sets up watchers (idempotent)
+ *   3. App mounts with populated store
+ *   4. store.$dispose() → cleanup on unmount (important for content scripts)
+ *
+ * Note: Watchers are idempotent - calling initStorageSync() multiple times only sets
+ * them up once. This ensures smooth initialization without duplicate watchers.
  */
 
 type AppStoreType = Store<typeof APP_CONSTANTS.STORE_GLOBAL_STORE, AppState> & {
     loadTabsHistory: () => Promise<unknown>
-    initTabStorageSync: () => () => void
+    initStorageSync: () => void
 }
 
 export const appStoreSyncPlugin: PiniaPlugin = (context: PiniaPluginContext) => {
@@ -25,21 +28,11 @@ export const appStoreSyncPlugin: PiniaPlugin = (context: PiniaPluginContext) => 
 
     const store = context.store as AppStoreType
 
-    // Hydrate from storage (non-blocking — UI renders immediately with empty state,
-    // tabs appear as soon as the promise resolves and $patch fires)
-    store.loadTabsHistory().catch((err: unknown) => {
-        console.warn('[appStoreSyncPlugin] hydration failed:', err instanceof Error ? err.message : err)
-    })
-
-    // Watch for changes produced by any other context (popup, options, background alarm)
-    const unwatch = store.initTabStorageSync()
-
     // Clean up the watcher when the store is disposed.
     // Critical for content scripts — the page stays alive but the script can be removed.
     // For popup/options the whole VM is destroyed on close so this is a safety net.
     const originalDispose = store.$dispose.bind(store)
     store.$dispose = () => {
-        unwatch()
         originalDispose()
     }
 }

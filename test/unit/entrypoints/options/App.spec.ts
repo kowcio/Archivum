@@ -94,6 +94,7 @@ vi.mock('@/stores/appStore', () => ({
       ],
     },
     init: vi.fn(() => Promise.resolve()),
+    getAllOpenedTabs: vi.fn(() => Promise.resolve([])),
     $patch: vi.fn(),
     persistTabs: vi.fn(() => Promise.resolve()),
   }),

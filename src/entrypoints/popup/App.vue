@@ -51,16 +51,21 @@ import GroupUngroup from '@/components/GroupUngroup.vue'
 
 const appStore = useAppStore()
 
-onMounted(async () => {
-  console.debug('[popup] mounted — initializing...')
-  try {
-    // Initialize unified app store (loads config + tabs from storage)
-    await appStore.init()
-  } catch (err) {
-    console.error('[popup] Init error:', err)
-    // Store will have defaults if initialization fails
-  }
-  console.debug('[popup] initialized')
+/**
+ * Non-blocking initialization pattern:
+ * - AppBootstrapper already started init() in background
+ * - loadTabsHistory() has restored saved data to state
+ * - UI renders immediately with saved tabs
+ * - getAllOpenedTabs() refreshes in background
+ * - Store updates automatically via storage watchers
+ */
+onMounted(() => {
+  console.debug('[popup] mounted')
+
+  // Fire refresh in background - user sees saved data immediately
+  appStore.getAllOpenedTabs().catch((err) => {
+    console.error('[popup] Failed to refresh tabs:', err)
+  })
 })
 
 function openOptionsPage(): void {
@@ -86,6 +91,8 @@ async function openOptionsPageFull(): Promise<void> {
   min-width: 300px;
   display: flex;
   flex-direction: column;
+  background: linear-gradient(180deg, rgba(255, 109, 0, 0.04) 0%, rgba(21, 101, 192, 0.04) 100%);
+  min-height: 100vh;
 }
 
 .content-wrapper {

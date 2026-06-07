@@ -156,21 +156,16 @@ const columns: QTableProps["columns"] = [
   { name: "lastAccessAge", label: "Age",         field: "lastAccessAge", align: "left", headerClasses: "col-auto",  sortable: true },
 ]
 
-onMounted(async () => {
-  console.debug('[options] mounted — initializing...')
+onMounted(() => {
+  console.debug('[options] mounted')
 
-  try {
-    // Initialize unified app store (loads config + tabs from storage)
-    await appStore.init()
-  } catch (err) {
-    console.error('[options] Init error:', err)
-    // Store will have defaults if initialization fails
-  }
+  // Fire refresh in background - user sees saved data immediately
+  appStore.getAllOpenedTabs().catch((err) => {
+    console.error('[options] Failed to refresh tabs:', err)
+  })
 
   // Add tab activation listener
   browser.tabs.onActivated.addListener(onTabActivated)
-
-  console.debug('[options] initialized')
 })
 
 onUnmounted(() => {
@@ -188,13 +183,12 @@ async function onTabActivated({ tabId }: { tabId: number }): Promise<void> {
   appStore.$patch(state => {
     const idx = state.tabs.findIndex(t => t.id === tabId)
     if (idx === -1) return
-    state.tabs[idx] = {
-      ...state.tabs[idx],
+    state.tabs[idx] = Object.assign({}, state.tabs[idx], {
       lastAccessed:         freshLastAccessed,
       isMarked:             false,
       markedFaviconDataUrl: undefined,
       ageIndex:             0,
-    }
+    })
   })
   // Persist so popup and background also see the updated state
   await appStore.persistTabs()
@@ -213,10 +207,9 @@ async function handleAddDay(tabId: number | null): Promise<void> {
     const idx = state.tabs.findIndex(t => t.id === tabId)
     if (idx === -1) return
     const currentLastAccessed = state.tabs[idx].lastAccessed ?? Date.now()
-    state.tabs[idx] = {
-      ...state.tabs[idx],
+    state.tabs[idx] = Object.assign({}, state.tabs[idx], {
       lastAccessed: currentLastAccessed - DAY_MS, // Subtract to make it older
-    }
+    })
   })
 
   // Persist so all contexts see the updated state
@@ -230,6 +223,12 @@ async function handleGenMockTabs(): Promise<void> {
 </script>
 
 <style scoped>
+#options {
+  background: linear-gradient(180deg, rgba(255, 109, 0, 0.04) 0%, rgba(21, 101, 192, 0.04) 100%);
+  min-height: 100vh;
+  padding: 1rem 0;
+}
+
 .table-container {
   display: flex;
   justify-content: center;

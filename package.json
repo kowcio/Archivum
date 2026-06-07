@@ -36,6 +36,7 @@
     "@quasar/extras": "1.17.0",
     "@vueuse/core": "^13.5.0",
     "axios": "^1.16.1",
+    "context7": "^1.0.3",
     "dayjs": "^1.11.20",
     "pinia": "^3.0.4",
     "quasar": "^2.19.3",

@@ -31,9 +31,28 @@
         @click="handleReset"
       />
 
+
+
       <div v-if="localError" class="error-text">
         {{ localError }}
       </div>
+    </div>
+
+    <div class="config-right">
+      <div class="debug-label">Summary</div>
+      <div class="debug-inline q-ml-sm" aria-hidden="false" title="Tab groups">
+        <div
+          v-for="(count, ageIdx) in groupedTabCounts"
+          :key="`dbg-${ageIdx}`"
+          class="dbg-badge"
+          :style="getGroupStyle(Number(ageIdx))"
+          :title="getRangeLabel(Number(ageIdx)) + ' — ' + getGroupLabel(Number(ageIdx)) + ': ' + count"
+        >
+          <span class="dbg-emoji">{{ getLevelEmoji(Number(ageIdx)) }}</span>
+          <span class="dbg-num">{{ count }}</span>
+        </div>
+      </div>
+      <div class="dbg-resources q-ml-sm">Tabs: {{ appStore.tabs.length }} — Marked: {{ totalMarked }}</div>
     </div>
 
     <!-- Row 2: Threshold Days Configuration -->
@@ -61,6 +80,7 @@ import { ref, computed } from 'vue'
 import { useAppStore } from '@/stores/appStore.ts'
 import { AppThresholds, DEFAULT_THRESHOLDS } from '@/models/AppThresholds.ts'
 import { APP_DEFAULTS } from '@/constants.ts'
+import { AgeClassification } from '@/models/tabs/AgeClassification.ts'
 import type { ThresholdLevel } from '@/constants.ts'
 
 const appStore = useAppStore()
@@ -69,6 +89,71 @@ const localError = ref<string | null>(null)
 
 const constants = computed(() => APP_DEFAULTS)
 const activeThresholds = computed(() => appStore.thresholds.active())
+
+// Debug: Group tabs by ageIndex and ranges
+const groupedTabCounts = computed(() => {
+  const counts: Record<number, number> = {}
+  const maxIdx = appStore.thresholds.active().length
+
+  // Initialize counts for all possible age groups (0 .. maxIdx)
+  for (let i = 0; i <= maxIdx; i++) {
+    counts[i] = 0
+  }
+
+  // Count tabs by ageIndex
+  appStore.tabs.forEach(tab => {
+    const idx = (tab as any).ageIndex ?? 0
+    const bounded = Math.max(0, Math.min(maxIdx, idx))
+    counts[bounded] = (counts[bounded] ?? 0) + 1
+  })
+
+  return counts
+})
+
+const totalMarked = computed(() => appStore.tabs.filter(t => (t as any).isMarked).length)
+
+function getRangeLabel(ageIdx: number): string {
+  const boundaries = appStore.thresholds.toBoundaries()
+  const maxIdx = appStore.thresholds.active().length
+
+  if (ageIdx === 0) {
+    const end = boundaries[0] ?? '∞'
+    return `0–${end}d`
+  }
+
+  if (ageIdx > 0 && ageIdx < boundaries.length) {
+    const start = (boundaries[ageIdx - 1] ?? 0) + 1
+    const end = boundaries[ageIdx]
+    return `${start}–${end}d`
+  }
+
+  if (ageIdx === boundaries.length) {
+    const start = (boundaries[boundaries.length - 1] ?? 0) + 1
+    return `${start}d+`
+  }
+
+  // Fallback
+  return '—'
+}
+
+function getGroupLabel(ageIdx: number): string {
+  const emojis = ['🟢', '🟡', '🟠', '🔴', '🔴', '🔴', '💀']
+  const emoji = emojis[ageIdx] ?? '⚫'
+
+  if (ageIdx === 0) return `${emoji} Fresh`
+
+  const activeList = appStore.thresholds.active()
+  if (ageIdx <= activeList.length) {
+    return `${emoji} ${activeList[ageIdx - 1]?.label ?? 'Unknown'}`
+  }
+
+  return `${emoji} Beyond Thresholds`
+}
+
+function getGroupStyle(ageIdx: number): Record<string, string> {
+  const classification = new AgeClassification(ageIdx, appStore.thresholds)
+  return classification.inlineStyle
+}
 
 function getLevelEmoji(idx: number): string {
   const emojis = ['🟢', '🟡', '🟠', '🔴', '🔴', '🔴', '💀']
@@ -195,5 +280,61 @@ async function handleReset(): Promise<void> {
   width: 100%;
   margin-top: 0.5rem;
 }
+
+/* Compact Debug Styles */
+.config-right {
+  margin-left: auto;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.debug-label {
+  font-size: 0.8rem;
+  color: #666;
+  font-weight: 600;
+}
+
+.debug-inline {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.dbg-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 6px;
+  border-radius: 999px;
+  min-width: 28px;
+  height: 22px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: rgba(255,255,255,0.95);
+  box-shadow: none;
+}
+
+.dbg-emoji {
+  font-size: 0.8rem;
+  line-height: 1;
+}
+
+.dbg-num {
+  font-size: 0.8rem;
+  line-height: 1;
+  min-width: 16px;
+  text-align: center;
+}
+
+.dbg-resources {
+  font-size: 0.78rem;
+  color: #444;
+  font-weight: 600;
+}
+
+/* remove hover/tooling noise for compact view */
+.dbg-badge:hover { transform: none; box-shadow: none; }
+
 </style>
 

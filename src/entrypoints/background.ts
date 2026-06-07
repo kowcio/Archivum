@@ -137,6 +137,39 @@ export default defineBackground({
       console.log('[background] ℹ️ Tab grouping API not available (Firefox) — native UI grouping used instead')
     }
 
+    // 💬 browser.runtime.onMessage.addListener()
+    // Purpose: Handle messages from UI contexts (popup, options) - e.g., groupTabsByAge on demand
+    // Browser compatibility: ✅ Chrome, ✅ Firefox, ✅ Edge
+    try {
+      browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
+        if (typeof message !== 'object' || !message.action) return
+
+        const { action } = message as { action: string }
+
+        // Handle groupTabsByAge message from UI
+        if (action === 'groupTabsByAge') {
+          console.log('[background] 💬 Received groupTabsByAge message from UI')
+          BackgroundTabService.groupTabsByAge()
+            .then(() => {
+              console.log('[background] ✅ groupTabsByAge completed')
+              sendResponse({ groupsCreated: 0, error: null })
+            })
+            .catch((err: any) => {
+              // Extract plain error message to avoid Proxy serialization issues
+              const errorMsg = err instanceof Error ? err.message : typeof err === 'string' ? err : 'Unknown error'
+              console.error('[background] ❌ groupTabsByAge error:', errorMsg)
+              sendResponse({ groupsCreated: 0, error: errorMsg })
+            })
+          // Return true to keep the message channel open for async sendResponse
+          return true
+        }
+      })
+
+      console.log('[background] ✅ Message handler registered (UI → background communication)')
+    } catch (err) {
+      console.error('[background] ❌ Failed to setup message listener:', err instanceof Error ? err.message : err)
+    }
+
     console.log('[background] ✅ Background service worker ready')
     console.log(`[background] 🌍 Running in ${isChrome ? 'Chrome/Edge' : 'Firefox'} with cross-browser support`)
   },

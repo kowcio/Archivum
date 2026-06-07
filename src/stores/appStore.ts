@@ -39,9 +39,15 @@ export type AppState = {
   isGrouped: boolean
   tabsLastUpdated: number
 
+  // ─── Browser Capabilities ─────────────────────────────────────────────
+  canGroup: boolean
+
   // ─── UI State ──────────────────────────────────────────────────────────
   loading: boolean
   error: Nullable<string>
+
+  // ─── Internal State ────────────────────────────────────────────────────
+  storageWatchersInitialized: boolean
 }
 
 // ─── Persisted State Types ────────────────────────────────────────────────
@@ -65,9 +71,15 @@ export const useAppStore = defineStore(APP_CONSTANTS.STORE_GLOBAL_STORE, {
     isGrouped: false,
     tabsLastUpdated: Date.now(),
 
+    // Browser Capabilities
+    canGroup: false,
+
     // UI
     loading: false,
     error: null,
+
+    // Internal state
+    storageWatchersInitialized: false,
   }),
 
   getters: {
@@ -90,12 +102,11 @@ export const useAppStore = defineStore(APP_CONSTANTS.STORE_GLOBAL_STORE, {
       return rows.map((row, index) => {
         const days = Number.isFinite(row.lastAccessDays) ? (row.lastAccessDays ?? 0) : 0
         const classification = AgeClassification.fromDays(days, activeThresholds)
-        return {
-          ...row,
+        return Object.assign({}, row, {
           ordinal: index + 1,
           lastAccessAge: Number.isFinite(row.lastAccessDays) ? `${row.lastAccessDays}d` : '—',
           rowStyle: classification.inlineStyle,
-        } as OptionsEnrichedTabRow
+        }) as OptionsEnrichedTabRow
       })
     },
 
@@ -171,7 +182,7 @@ export const useAppStore = defineStore(APP_CONSTANTS.STORE_GLOBAL_STORE, {
           const existing = fetchedTab.id != null ? existingById.get(fetchedTab.id) : undefined
           const base = ClassifiedTabFactory.fromTab(fetchedTab, false)
           return existing != null
-            ? { ...base, lastAccessed: existing.lastAccessed ?? fetchedTab.lastAccessed }
+            ? Object.assign({}, base, { lastAccessed: existing.lastAccessed ?? fetchedTab.lastAccessed })
             : base
         })
 
@@ -211,7 +222,7 @@ export const useAppStore = defineStore(APP_CONSTANTS.STORE_GLOBAL_STORE, {
         // Apply all updates in single pass
         this.tabs = this.tabs.map(tab => {
           const update = tab.id != null ? updateMap.get(tab.id) : undefined
-          return update ? { ...tab, ...update } : tab
+          return Object.assign({}, tab, update || {})
         })
       } catch (err) {
         this.error = err instanceof Error ? err.message : 'Unknown error while marking old tabs'
@@ -242,9 +253,9 @@ export const useAppStore = defineStore(APP_CONSTANTS.STORE_GLOBAL_STORE, {
         this.tabs = this.tabs.map(t => {
           if (t.id === tabId) {
             found = true
-            return { ...t, lastAccessed: now }
+            return Object.assign({}, t, { lastAccessed: now })
           }
-          return t
+          return Object.assign({}, t)
         })
 
         if (!found) {
@@ -295,10 +306,12 @@ export const useAppStore = defineStore(APP_CONSTANTS.STORE_GLOBAL_STORE, {
           if (complete === tabIds.length && favicons >= Math.ceil(tabIds.length * 0.7)) break
         }
 
-        const newMockTabs = loadedTabs.map((tab, idx) => ({
-          ...ClassifiedTabFactory.fromTab(tab, false),
-          lastAccessed: now - (MOCK_TABS[idx]?.daysAgo ?? 0) * DAY_MS,
-        }))
+        const newMockTabs = loadedTabs.map((tab, idx) => {
+          const classified = ClassifiedTabFactory.fromTab(tab, false)
+          return Object.assign({}, classified, {
+            lastAccessed: now - (MOCK_TABS[idx]?.daysAgo ?? 0) * DAY_MS,
+          })
+        })
 
         const existingIds = new Set(this.tabs.map(t => t.id))
         const trulyNew = newMockTabs.filter(t => !existingIds.has(t.id))
@@ -322,7 +335,10 @@ export const useAppStore = defineStore(APP_CONSTANTS.STORE_GLOBAL_STORE, {
         )
 
         if (this.isGrouped) await this.ungroupAllTabs()
-        await Promise.all(Array.from(markedIds).map(tabId => this.removeLBracket(tabId)))
+        await Promise.all(Array.from(markedIds).map(tabId => LBracketService.removeBracket(tabId).catch(() => {
+          // Silently fail on restricted pages (chrome://, extensions pages)
+          console.debug(`[appStore] Could not remove bracket from tab#${tabId} (restricted page)`)
+        })))
 
         this.isGrouped = false
         await this.persistTabs()
@@ -336,96 +352,25 @@ export const useAppStore = defineStore(APP_CONSTANTS.STORE_GLOBAL_STORE, {
     async groupTabsByAge(): Promise<number> {
       this.error = null
       this.loading = true
-      let groupsCreated = 0
-
       try {
-        type ChromeAPI = {
-          chrome?: {
-            tabs?: { group?: (o: { tabIds: number[] }) => Promise<number> }
-            tabGroups?: {
-              update?: (id: number, o: { title?: string; color?: string; collapsed?: boolean }) => Promise<void>
-              move?: (id: number, o: { index: number }) => Promise<void>
-            }
-          }
-        }
-        const chromeApi = (globalThis as unknown as ChromeAPI).chrome
-        if (!chromeApi?.tabs?.group || !chromeApi?.tabGroups?.update) {
-          this.error = 'Chrome tab grouping API not available (Firefox?)'
+        if (!this.canGroup) {
+          this.error = 'Tab grouping not supported in this browser'
           return 0
         }
 
-        const activeThresholds = new AppThresholds(
-          this.thresholds.levels,
-          this.thresholds.activeLevels
-        )
+        // Delegate to background service via message — background holds source of truth
+        const response = await browser.runtime.sendMessage<{ action: string }, { groupsCreated?: number; error?: string }>({
+          action: 'groupTabsByAge',
+        })
 
-        const levelTabIds: number[][] = []
-        for (let i = 0; i < activeThresholds.active().length; i++) {
-          levelTabIds[i] = []
-        }
-
-        const sortedRows = [...TabRow.fromTabs(this.tabs, activeThresholds)]
-          .sort((a, b) => (b.lastAccess ?? 0) - (a.lastAccess ?? 0))
-
-        for (const row of sortedRows) {
-          if (row.id == null) continue
-          const c = AgeClassification.fromDays(row.lastAccessDays ?? 0, activeThresholds)
-          if (c.index > 0 && c.index <= activeThresholds.active().length) {
-            levelTabIds[c.index - 1].push(row.id)
-          }
-        }
-
-        if (!levelTabIds.some(ids => ids.length > 0)) {
-          this.isGrouped = false
+        if (response?.error) {
+          this.error = response.error
           return 0
-        }
-
-        const groupIds: (number | null)[] = []
-
-        for (let i = activeThresholds.active().length - 1; i >= 0; i--) {
-          const level = activeThresholds.active()[i]
-          const tabIds = levelTabIds[i]
-
-          if (tabIds.length === 0) continue
-
-          try {
-            const groupId = await chromeApi.tabs!.group!({ tabIds })
-            const chromeName = level.color as keyof typeof THEME_COLORS
-
-
-            const queryResult = await chrome.tabs.query({
-              currentWindow: true,
-              groupId
-            });
-            const tabCountInGroup = queryResult.length;
-
-            await chromeApi.tabGroups!.update!(groupId, {
-              title: `${level.label} (${level.days}d+) (${tabCountInGroup}t)`,
-              color: chromeName,
-              collapsed: true,
-            })
-            groupsCreated++
-            groupIds.push(groupId)
-          } catch {
-            groupIds.push(null)
-          }
-        }
-
-        if (chromeApi.tabGroups?.move) {
-          for (const id of groupIds.reverse()) {
-            if (id !== null) {
-              try {
-                await chromeApi.tabGroups.move(id, { index: 0 })
-              } catch {
-                // Silent fail on move
-              }
-            }
-          }
         }
 
         this.isGrouped = true
         await this.persistTabs()
-        return groupsCreated
+        return response?.groupsCreated ?? 0
       } catch (err) {
         this.error = err instanceof Error ? err.message : 'Unknown error while grouping tabs by age'
         return 0
@@ -438,73 +383,24 @@ export const useAppStore = defineStore(APP_CONSTANTS.STORE_GLOBAL_STORE, {
       this.error = null
       this.loading = true
       try {
-        type ChromeAPI = { chrome?: { tabs?: { ungroup?: (ids: number | number[]) => Promise<void> } } }
-        const chromeApi = (globalThis as unknown as ChromeAPI).chrome
-        if (!chromeApi?.tabs?.ungroup) {
-          this.error = 'Chrome tab ungrouping API not available (Firefox?)'
-          return
-        }
         const allTabIds = this.tabs.map(t => t.id).filter((id): id is number => id != null)
-        if (allTabIds.length > 0) await chromeApi.tabs.ungroup(allTabIds)
+        if (allTabIds.length > 0) {
+          try {
+            // Use universal browser API (Chrome/Edge only, Firefox gracefully fails)
+            await (browser.tabs as any).ungroup(allTabIds)
+          } catch (err) {
+            // Feature not available (Firefox) — graceful fallback
+            console.debug('[appStore] ungroup not available:', err)
+          }
+        }
         this.isGrouped = false
         await this.persistTabs()
-      } catch {
+      } catch (err) {
+        console.error('[appStore] Error ungrouping tabs:', err)
         this.isGrouped = false
         await this.persistTabs()
       } finally {
         this.loading = false
-      }
-    },
-
-    async markTabWithLBracket(tabId: number, color: string): Promise<void> {
-      // Mark in-place without re-allocating entire array
-      const tabIndex = this.tabs.findIndex(t => t.id === tabId)
-      if (tabIndex !== -1) {
-        this.tabs[tabIndex] = { ...this.tabs[tabIndex], isMarked: true }
-      }
-
-      try {
-        const tab = this.tabs.find(t => t.id === tabId)
-        if (!tab) return
-
-        const rawFaviconUrl = tab.favIconUrl?.startsWith('data:') ? undefined : tab.favIconUrl
-
-        if (tab.status !== 'complete') {
-          await new Promise<void>(resolve => {
-            const POLL = 300, MAX = 2000
-            let elapsed = 0
-            const check = async () => {
-              const [updated] = await browser.tabs.query({ currentWindow: true })
-                .then(ts => ts.filter(t => t.id === tabId))
-              if (updated?.status === 'complete') { resolve(); return }
-              elapsed += POLL
-              if (elapsed >= MAX) { resolve(); return }
-              setTimeout(check, POLL)
-            }
-            check()
-          })
-        }
-
-        const renderedDataUrl = await LBracketService.applyBracket(tabId, rawFaviconUrl, color)
-
-        const idx = this.tabs.findIndex(t => t.id === tabId)
-        if (idx !== -1) {
-          this.tabs[idx] = { ...this.tabs[idx], markedFaviconDataUrl: renderedDataUrl }
-        }
-      } catch (err) {
-        console.debug(`[markTabWithLBracket] tab#${tabId}:`, err instanceof Error ? err.message : err)
-      }
-    },
-
-    async removeLBracket(tabId: number): Promise<void> {
-      try {
-        await LBracketService.removeBracket(tabId)
-      } catch (err) {
-        console.debug(`[removeLBracket] tab#${tabId}:`, err instanceof Error ? err.message : err)
-      }
-      const idx = this.tabs.findIndex(t => t.id === tabId)
-      if (idx !== -1) {
-        this.tabs[idx] = { ...this.tabs[idx], isMarked: false, markedFaviconDataUrl: undefined }
       }
     },
 
@@ -519,26 +415,7 @@ export const useAppStore = defineStore(APP_CONSTANTS.STORE_GLOBAL_STORE, {
     // ─────────────────────────────────────────────────────────────────────
 
     _snapshotTabs(): TabsSnapshot {
-      const plainTabs = this.tabs.map(t => ({
-        id: t.id,
-        url: t.url,
-        title: t.title,
-        favIconUrl: t.favIconUrl,
-        status: t.status,
-        index: t.index,
-        windowId: t.windowId,
-        highlighted: t.highlighted,
-        active: t.active,
-        pinned: t.pinned,
-        sessionId: t.sessionId,
-        incognito: t.incognito ?? false,
-        lastAccessed: t.lastAccessed,
-        isMarked: t.isMarked,
-        ageIndex: t.ageIndex,
-        markedFaviconDataUrl: t.markedFaviconDataUrl,
-      })) as Tabs.Tab[]
-
-      return new TabsSnapshot(plainTabs, this.isGrouped, new Date().toISOString())
+      return new TabsSnapshot(this.tabs, this.isGrouped, new Date().toISOString())
     },
 
     async persistTabs(): Promise<void> {
@@ -556,12 +433,15 @@ export const useAppStore = defineStore(APP_CONSTANTS.STORE_GLOBAL_STORE, {
             ? snapshot.tabs
             : Object.values(snapshot.tabs as Record<string, unknown>)
 
-          this.tabs = rawTabs.map(t => ({
-            ...(t as Tabs.Tab),
-            isMarked: (t as ClassifiedTab).isMarked ?? false,
-            ageIndex: (t as ClassifiedTab).ageIndex ?? 0,
-            markedFaviconDataUrl: (t as ClassifiedTab).markedFaviconDataUrl ?? undefined,
-          })) as ClassifiedTab[]
+          // Convert to plain objects to avoid Proxy serialization issues
+          this.tabs = rawTabs.map(t => {
+            const tab = t as unknown as Record<string, any>
+            return Object.assign({}, tab, {
+              isMarked: tab.isMarked ?? false,
+              ageIndex: tab.ageIndex ?? 0,
+              markedFaviconDataUrl: tab.markedFaviconDataUrl ?? undefined,
+            }) as ClassifiedTab
+          })
 
           this.isGrouped = snapshot.isGrouped ?? false
           console.log('[appStore] Restored', this.tabs.length, 'tabs from storage')
@@ -583,11 +463,19 @@ export const useAppStore = defineStore(APP_CONSTANTS.STORE_GLOBAL_STORE, {
       }
     },
 
-    initTabStorageSync(): () => void {
-      let lastPatchTime = 0
+    initStorageSync(): void {
+      // Guard: Only initialize watchers once (plugin + init() both try to call this)
+      // This is necessary because both appStoreSyncPlugin (via Pinia hook) and
+      // AppBootstrapper (calling init()) may run initialization. The guard ensures
+      // watchers are set up exactly once, preventing duplicate listeners.
+      if (this.storageWatchersInitialized) return
+      this.storageWatchersInitialized = true
+
+      let lastTabPatchTime = 0
       let lastTabCount = this.tabs.length
 
-      const unwatch = tabStorageItem.watch((snapshot) => {
+      // Watch tabs storage
+      tabStorageItem.watch((snapshot) => {
         if (!snapshot?.tabs) return
 
         const rawTabs = Array.isArray(snapshot.tabs)
@@ -596,18 +484,22 @@ export const useAppStore = defineStore(APP_CONSTANTS.STORE_GLOBAL_STORE, {
 
         // GATE: Ignore own changes within 100ms (persistTabs → watch → $patch delay)
         const now = Date.now()
-        if (now - lastPatchTime < 100 && rawTabs.length === lastTabCount) {
+        if (now - lastTabPatchTime < 100 && rawTabs.length === lastTabCount) {
           return
         }
-        lastPatchTime = now
+        lastTabPatchTime = now
         lastTabCount = rawTabs.length
 
-        const restoredTabs: ClassifiedTab[] = rawTabs.map(t => ({
-          ...(t as Tabs.Tab),
-          isMarked: (t as ClassifiedTab).isMarked ?? false,
-          ageIndex: (t as ClassifiedTab).ageIndex ?? 0,
-          markedFaviconDataUrl: (t as ClassifiedTab).markedFaviconDataUrl ?? undefined,
-        })) as ClassifiedTab[]
+        // Convert to plain objects to avoid Proxy serialization issues
+        // Use Object.assign to ensure all Tabs.Tab properties are preserved
+        const restoredTabs: ClassifiedTab[] = rawTabs.map(t => {
+          const tab = t as unknown as Record<string, any>
+          return Object.assign({}, tab, {
+            isMarked: tab.isMarked ?? false,
+            ageIndex: tab.ageIndex ?? 0,
+            markedFaviconDataUrl: tab.markedFaviconDataUrl ?? undefined,
+          }) as ClassifiedTab
+        })
 
         this.$patch({
           tabs: restoredTabs,
@@ -616,7 +508,27 @@ export const useAppStore = defineStore(APP_CONSTANTS.STORE_GLOBAL_STORE, {
         })
         console.debug('[appStore] Tab storage sync: received', restoredTabs.length, 'tabs')
       })
-      return unwatch
+
+      // Watch config storage
+      StorageService.onChanged((changes) => {
+        const payload = changes[APP_CONSTANTS.STORE_GLOBAL_STORE] as PersistedConfigState | undefined
+        if (!payload) return
+        if (payload.configLastUpdated && payload.configLastUpdated === this.configLastUpdated) return
+
+        this.appName = payload.appName ?? this.appName
+        this.configLastUpdated = payload.configLastUpdated ?? this.configLastUpdated
+        if (payload.thresholds?.levels) {
+          const merged = this.thresholds.merge(
+            Object.fromEntries(
+              payload.thresholds.levels.map((level, idx) => [idx, level])
+            )
+          )
+          this.thresholds = merged.withActiveLevels(payload.thresholds.activeLevels ?? this.thresholds.activeLevels)
+        }
+        console.debug('[appStore] Config storage sync: thresholds updated')
+      })
+
+      console.debug('[appStore] Storage sync initialized (tabs + config watchers)')
     },
 
     async loadConfig(): Promise<void> {
@@ -662,31 +574,11 @@ export const useAppStore = defineStore(APP_CONSTANTS.STORE_GLOBAL_STORE, {
       }
     },
 
-    initConfigStorageSync(): void {
-      StorageService.onChanged((changes) => {
-        const payload = changes[APP_CONSTANTS.STORE_GLOBAL_STORE] as PersistedConfigState | undefined
-        if (!payload) return
-        if (payload.configLastUpdated && payload.configLastUpdated === this.configLastUpdated) return
-
-        this.appName = payload.appName ?? this.appName
-        this.configLastUpdated = payload.configLastUpdated ?? this.configLastUpdated
-        if (payload.thresholds?.levels) {
-          const merged = this.thresholds.merge(
-            Object.fromEntries(
-              payload.thresholds.levels.map((level, idx) => [idx, level])
-            )
-          )
-          this.thresholds = merged.withActiveLevels(payload.thresholds.activeLevels ?? this.thresholds.activeLevels)
-        }
-        console.debug('[appStore] Config storage sync: thresholds updated')
-      })
-    },
-
     async init(): Promise<void> {
       console.debug('[appStore] Initializing unified store...')
       try {
+        // Load config first (needed for threshold validation)
         await this.loadConfig()
-        this.initConfigStorageSync()
         console.debug('[appStore] Config initialized')
       } catch (err) {
         console.error('[appStore] Fatal error loading config:', err)
@@ -695,14 +587,25 @@ export const useAppStore = defineStore(APP_CONSTANTS.STORE_GLOBAL_STORE, {
       }
 
       try {
+        // Load tabs history
         await this.loadTabsHistory()
-        this.initTabStorageSync()
         console.debug('[appStore] Tabs initialized')
       } catch (err) {
         console.error('[appStore] Fatal error loading tabs history:', err)
         // Ensure tabs array exists even if loading fails
         this.tabs = []
       }
+
+      try {
+        // Detect browser grouping capability once and cache in state
+        this.canGroup = browser.tabGroups != null
+        console.debug('[appStore] Browser capability detected: canGroup =', this.canGroup)
+      } catch {
+        this.canGroup = false
+      }
+
+      // Initialize unified storage sync (both tabs + config in single watcher setup)
+      this.initStorageSync()
 
       console.debug('[appStore] ✅ Initialization complete')
     },

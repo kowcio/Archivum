@@ -6,8 +6,10 @@ import AppOptions from './App.vue';
 
 console.debug('[EXT-DBG] options initializing - TOKEN:EXT_DBG_OPTIONS_v1');
 
-// Initialize UI with centralized bootstrapper
+// Non-blocking UI initialization
 AppBootstrapper.initUI({
   rootComponent: AppOptions,
   mountTarget: '#app',
-}).catch((err: unknown) => console.error('Failed to initialize options:', err));
+});
+
+console.debug('[EXT-DBG] options mounting in background');
