@@ -3,10 +3,6 @@
     <AppTitle />
 
     <div class="content-wrapper">
-      <p v-if="appStore.tabs.length === 0" class="text-caption q-mx-sm text-grey-6 q-mt-sm">
-        No tabs loaded yet.
-      </p>
-
       <!-- ── Primary buttons grid (square buttons, 2 columns) ───────────────── -->
       <div class="square-grid">
 
@@ -45,11 +41,8 @@
 <script setup lang="ts">
 import { onMounted } from 'vue'
 import browser from 'webextension-polyfill'
-import { useAppStore } from '@/stores/appStore'
 import AppTitle from '@/components/Title.vue'
 import GroupUngroup from '@/components/GroupUngroup.vue'
-
-const appStore = useAppStore()
 
 /**
  * Non-blocking initialization pattern:
@@ -61,11 +54,6 @@ const appStore = useAppStore()
  */
 onMounted(() => {
   console.debug('[popup] mounted')
-
-  // Fire refresh in background - user sees saved data immediately
-  // appStore.getAllOpenedTabs().catch((err) => {
-  //   console.error('[popup] Failed to refresh tabs:', err)
-  // })
 })
 
 function openOptionsPage(): void {

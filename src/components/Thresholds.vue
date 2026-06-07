@@ -79,62 +79,6 @@ const localError = ref<string | null>(null)
 const constants = computed(() => APP_DEFAULTS)
 const activeThresholds = computed(() => appStore.thresholds.active())
 
-// Debug: Group tabs by ageIndex and ranges
-const groupedTabCounts = computed(() => {
-  const counts: Record<number, number> = {}
-  const maxIdx = appStore.thresholds.active().length
-
-  // Initialize counts for all possible age groups (0 .. maxIdx)
-  for (let i = 0; i <= maxIdx; i++) {
-    counts[i] = 0
-  }
-
-  // Count tabs by ageIndex
-  appStore.tabs.forEach(tab => {
-    const idx = (tab as any).ageIndex ?? 0
-    const bounded = Math.max(0, Math.min(maxIdx, idx))
-    counts[bounded] = (counts[bounded] ?? 0) + 1
-  })
-
-  return counts
-})
-
-const totalMarked = computed(() => appStore.tabs.filter(t => (t as any).isMarked).length)
-
-function getRangeLabel(ageIdx: number): string {
-  const boundaries = appStore.thresholds.toBoundaries()
-  const maxIdx = appStore.thresholds.active().length
-
-  if (ageIdx === 0) {
-    const end = boundaries[0] ?? '∞'
-    return `0–${end}d`
-  }
-
-  if (ageIdx > 0 && ageIdx < boundaries.length) {
-    const start = (boundaries[ageIdx - 1] ?? 0) + 1
-    const end = boundaries[ageIdx]
-    return `${start}–${end}d`
-  }
-
-  if (ageIdx === boundaries.length) {
-    const start = (boundaries[boundaries.length - 1] ?? 0) + 1
-    return `${start}d+`
-  }
-
-  // Fallback
-  return '—'
-}
-
-function getGroupStyle(ageIdx: number): Record<string, string> {
-  const classification = new AgeClassification(ageIdx, appStore.thresholds)
-  return classification.inlineStyle
-}
-
-function getLevelEmoji(idx: number): string {
-  const emojis = ['🟢', '🟡', '🟠', '🔴', '🔴', '🔴', '💀']
-  return emojis[idx] ?? '⚫'
-}
-
 function getHint(idx: number, label: string): string {
   if (idx === 0) return `0 → ${label}`
   const prev = activeThresholds.value[idx - 1]

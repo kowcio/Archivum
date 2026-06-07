@@ -10,7 +10,7 @@ import dayjs from "dayjs";
 export const THEME_COLORS = {
   green: '#188038',
   blue: '#1f73e7',
-  yellow: '#f9ab00',
+  orange: '#ffa500',
   red: '#d33b27',
   pink: '#e91e63',
   purple: '#7c3aed',
@@ -55,7 +55,7 @@ export const APP_DEFAULTS = {
     presets: [
       { key: 'WEEK',               label: 'Week',         days: 7,    color: 'green' },
       { key: 'WEEKS_2',               label: '2 Weeks',       days: 14,   color: 'blue' },
-      { key: 'MONTH',            label: 'Month',        days: 28,   color: 'yellow' },
+      { key: 'MONTH',            label: 'Month',        days: 28,   color: 'orange' },
       { key: 'QUARTERS',              label: 'Quarter',      days: 90,   color: 'red' },
       { key: 'YEARS',           label: 'Are You kidding me ?',         days: 365,   color: 'pink' },
       // { key: 'YEARS',              label: 'Are You kidding me ?',      days: 365,  color: 'purple' },
