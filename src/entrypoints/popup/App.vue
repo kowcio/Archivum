@@ -63,9 +63,9 @@ onMounted(() => {
   console.debug('[popup] mounted')
 
   // Fire refresh in background - user sees saved data immediately
-  appStore.getAllOpenedTabs().catch((err) => {
-    console.error('[popup] Failed to refresh tabs:', err)
-  })
+  // appStore.getAllOpenedTabs().catch((err) => {
+  //   console.error('[popup] Failed to refresh tabs:', err)
+  // })
 })
 
 function openOptionsPage(): void {
