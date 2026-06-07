@@ -27,6 +27,8 @@
 
 import { test as base, expect, type BrowserContext, type TestInfo } from '@playwright/test'
 import { execSync } from 'child_process'
+import fs from 'fs'
+import path from 'path'
 import { launchChromeMv3Context } from './helpers/extensions.js'
 
 type ExtFixtures = {
@@ -88,8 +90,14 @@ test.beforeAll(() => {
     return
   }
   console.log('Building extension for Chrome + Firefox…')
-  // Clean stale output to avoid WXT rename collisions
-  execSync('rm -rf .output/chrome-mv3 .output/firefox-mv3', { cwd: process.cwd() })
+  // Clean stale output to avoid WXT rename collisions (cross-platform)
+  const outputDirs = ['.output/chrome-mv3', '.output/firefox-mv3']
+  for (const dir of outputDirs) {
+    const fullPath = path.join(process.cwd(), dir)
+    if (fs.existsSync(fullPath)) {
+      fs.rmSync(fullPath, { recursive: true, force: true })
+    }
+  }
   execSync('npm run build-only', { stdio: 'inherit', cwd: process.cwd() })
 })
 
@@ -126,10 +134,10 @@ test.describe('Cross-Browser Tab Grouping Flow', () => {
       })
 
       // Check for UI elements
-      const loadBtn = page.getByTestId('btn-load-tabs')
+      const groupBtn = page.getByTestId('btn-group-by-age')
       const mockBtn = page.getByTestId('btn-gen-mock-tabs')
 
-      await expect(loadBtn).toBeVisible({ timeout: 8_000 })
+      await expect(groupBtn).toBeVisible({ timeout: 8_000 })
       await expect(mockBtn).toBeVisible({ timeout: 5_000 })
 
       console.log(`  ✓ Options page loaded`)

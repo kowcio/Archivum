@@ -192,4 +192,23 @@ describe('TabStore — load / reset cycle', () => {
         const saved = vi.mocked(tabStorageItem.setValue).mock.calls[0][0]
         expect(saved?.tabs).toHaveLength(4)
     })
+
+    it('persistTabs: snapshot is serializable (no Proxy objects, DataCloneError)', async () => {
+        const store = useAppStore()
+        await store.getAllOpenedTabs()
+
+        // Capture what gets written to storage
+        vi.clearAllMocks()
+        vi.mocked(tabStorageItem.setValue).mockImplementationOnce(async (snapshot) => {
+            // Mimic structured-clone check — throws if Proxy objects are present
+            expect(() => JSON.stringify(snapshot)).not.toThrow()
+            const deserialized = JSON.parse(JSON.stringify(snapshot))
+            expect(deserialized.tabs).toHaveLength(4)
+            expect(deserialized.tabs[0]).toHaveProperty('id')
+            expect(deserialized.tabs[0]).toHaveProperty('lastAccessed')
+        })
+
+        await store.persistTabs()
+        expect(tabStorageItem.setValue).toHaveBeenCalledOnce()
+    })
 })

@@ -7,6 +7,14 @@ import { APP_CONSTANTS, APP_DEFAULTS } from "../../../src/constants";
 
 vi.mock('webextension-polyfill', () => ({ default: { storage: { local: { get: vi.fn(), set: vi.fn(), remove: vi.fn() }, onChanged: { addListener: vi.fn() } } } }))
 
+vi.mock('@/utils/tabStorage', () => ({
+    tabStorageItem: {
+        getValue: vi.fn().mockResolvedValue(null),
+        setValue: vi.fn().mockResolvedValue(undefined),
+        watch: vi.fn().mockReturnValue(() => {}),
+    },
+}))
+
 
 describe('unified app store', () => {
     beforeEach(() => {

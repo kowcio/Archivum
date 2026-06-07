@@ -22,7 +22,6 @@ import StorageService from '@/services/StorageService'
 import { APP_CONSTANTS } from '@/constants'
 import type { ThresholdLevel } from '@/constants'
 import { AppThresholds, DEFAULT_THRESHOLDS } from '@/models/AppThresholds'
-import { TabsSnapshot } from '@/models/tabs/TabsSnapshot'
 import type { ClassifiedTab } from '@/models/tabs/ClassifiedTab'
 import { tabStorageItem } from '@/utils/tabStorage'
 import { browser } from 'wxt/browser'
@@ -45,25 +44,39 @@ export class BackgroundTabService {
    * Groups tabs by age using tab groups API (Chrome/Edge), then persists snapshot.
    * Called by the daily alarm.
    *
+   * Preserves custom lastAccessed values from storage (e.g. mock/backdated tabs).
+   * Browser's native lastAccessed is only used as fallback when no stored value exists.
+   *
    * CROSS-BROWSER BEHAVIOR:
    *   ✅ Chrome/Edge: Creates age-based groups using browser.tabGroups API
    *   ✅ Firefox: Skips grouping (no tabGroups API), but persists snapshot
-   *              Users can manually group via native UI if desired
-   *
-   * Creates age-based groups: Old / Middle / Young (threshold-based titles).
-   * Moves groups to the left so tabs flow: oldest (left) → youngest (right).
    */
   static async groupTabsByAge(): Promise<void> {
     console.log('[BackgroundTabService] Starting groupTabsByAge...')
     try {
-      // ✅ Feature detection: Tab grouping (Chrome/Edge only)
       const hasTabGroups = browser.tabGroups != null
-
-      // ✅ Unified API: Works in all browsers
       const rawTabs = await browser.tabs.query({ currentWindow: true })
-      const thresholds = await this.getThresholds()  // Already has activeLevels property
+      const thresholds = await this.getThresholds()
 
-      const classified: ClassifiedTab[] = ClassifiedTabFactory.fromTabs(rawTabs)
+      // Load existing snapshot to preserve custom/mock lastAccessed timestamps.
+      // Browser's native tab.lastAccessed reflects real user activity, not our stored values.
+      const stored = await tabStorageItem.getValue()
+      const storedLastAccessed = new Map<number, number>()
+      for (const t of (stored?.tabs ?? []) as Array<Record<string, unknown>>) {
+        if (t.id != null && t.lastAccessed != null) {
+          storedLastAccessed.set(t.id as number, t.lastAccessed as number)
+        }
+      }
+
+      // Classify tabs, preferring stored lastAccessed over the browser's real-time value
+      const classified: ClassifiedTab[] = rawTabs.map(rawTab => {
+        const base = ClassifiedTabFactory.fromTab(rawTab, false)
+        const savedLastAccessed = rawTab.id != null ? storedLastAccessed.get(rawTab.id) : undefined
+        return Object.assign({}, base, {
+          lastAccessed: savedLastAccessed ?? rawTab.lastAccessed,
+        })
+      })
+
       const rows = TabRow.fromTabs(classified, thresholds)
 
       // Create arrays for each active threshold level
@@ -78,10 +91,8 @@ export class BackgroundTabService {
         const c = AgeClassification.fromDays(row.lastAccessDays ?? 0, thresholds)
         const idx = classified.findIndex(t => t.id === row.id)
         if (idx !== -1) {
-          // Use Object.assign to preserve all properties while updating ageIndex
           classified[idx] = Object.assign({}, classified[idx], { ageIndex: c.index })
         }
-        // Add tab to appropriate level
         if (c.index > 0 && c.index <= activeThresholdsList.length) {
           levelTabIds[c.index - 1].push(row.id)
         }
@@ -92,9 +103,8 @@ export class BackgroundTabService {
         const createGroup = async (ids: number[], title: string, color: string): Promise<number | null> => {
           if (!ids.length) return null
           try {
-            // Use native chrome API for grouping (better compatibility)
             const id = await (chrome as any).tabs.group({ tabIds: ids })
-            await (chrome as any).tabGroups.update(id, { title, color, collapsed: false })
+            await (chrome as any).tabGroups.update(id, { title, color, collapsed: true })
             return id
           } catch (err) {
             console.debug('[BackgroundTabService] createGroup error:', err)
@@ -103,14 +113,12 @@ export class BackgroundTabService {
         }
 
         const groupIds: (number | null)[] = []
-        // Create groups from oldest to youngest (in reverse)
         for (let i = activeThresholdsList.length - 1; i >= 0; i--) {
           const level = activeThresholdsList[i]
           const groupId = await createGroup(levelTabIds[i], `${level.label} (${level.days}d+)`, level.color)
           groupIds.push(groupId)
         }
 
-        // Move groups to the left: oldest → youngest (left to right flow)
         if ((chrome as any)?.tabGroups?.move) {
           for (const id of groupIds.reverse()) {
             if (id !== null) {
@@ -125,12 +133,15 @@ export class BackgroundTabService {
 
         console.log(`[BackgroundTabService] ✅ Grouped ${classified.length} tabs into groups (Chrome/Edge)`)
       } else {
-        console.log(`[BackgroundTabService] ℹ️ Tab grouping not available (Firefox) - skipping grouping, but storing classification`)
+        console.log(`[BackgroundTabService] ℹ️ Tab grouping not available (Firefox) - storing classification only`)
       }
 
-      // ✅ Persist snapshot (works in all browsers)
-      const snapshot = new TabsSnapshot(classified, hasTabGroups, new Date().toISOString())
-      await tabStorageItem.setValue(snapshot)
+      // Persist plain snapshot — structured clone safe (no class instances, no Proxies)
+      await tabStorageItem.setValue({
+        tabs: classified,
+        isGrouped: hasTabGroups,
+        savedAt: new Date().toISOString(),
+      })
 
       console.log(`[BackgroundTabService] ✅ Persisted ${classified.length} tabs to storage`)
     } catch (err) {
@@ -145,14 +156,6 @@ export class BackgroundTabService {
    * CROSS-BROWSER BEHAVIOR:
    *   ✅ Chrome/Edge: Ungrouping + moving to rightmost
    *   ✅ Firefox: Moving to rightmost + updating lastAccessed
-   *        Firefox Note: No tabs.ungroup() in MV3. Tab stays visually in group but is
-   *        reclassified as "Fresh" and won't be re-grouped next alarm cycle.
-   *
-   * Steps:
-   *   1. Ungroup the tab (Chrome/Edge only via native chrome API callback)
-   *   2. Move to rightmost position (index: -1) — all browsers
-   *   3. Update tab's lastAccessed timestamp to now (reclassifies as Fresh in Firefox)
-   *   4. Persist updated snapshot to storage → TabStore syncs, Options table updates
    */
   static async onTabActivated(tabId: number): Promise<void> {
     console.log(`[BackgroundTabService] 🔧 onTabActivated called for tab#${tabId}`)
@@ -164,9 +167,6 @@ export class BackgroundTabService {
       }
 
       const isFirefox = import.meta.env.FIREFOX === true
-
-      console.log(`[BackgroundTabService] 🔍 Getting tab#${tabId} info...`)
-
       const tab = await browser.tabs.get(tabId)
 
       console.log(`[BackgroundTabService] 📋 Tab#${tabId} info:`, {
@@ -181,10 +181,7 @@ export class BackgroundTabService {
         return
       }
 
-      console.log(`[BackgroundTabService] 🔓 Ungrouping tab#${tabId} from group#${tab.groupId}...`)
-
       if (!isFirefox) {
-        console.log(`[BackgroundTabService] ℹ️ Chrome/Edge detected → attempting ungroup`)
         await this.ungroupAndMoveTab(tabId)
       } else {
         console.log('[BackgroundTabService] ℹ️ Firefox detected → skipping ungroup (no MV3 API), moving to rightmost')
@@ -204,7 +201,6 @@ export class BackgroundTabService {
       console.log(`[BackgroundTabService] ✅ Ungrouped tab#${tabId}`)
     } catch (err) {
       console.warn(`[BackgroundTabService] ⚠️ ungroup failed for tab#${tabId}:`, err)
-      // Continue anyway — try to move
     }
 
     await this.moveTabAndUpdate(tabId)
@@ -219,18 +215,22 @@ export class BackgroundTabService {
       const movedTab = await browser.tabs.move(tabId, { index: -1 })
       console.log(`[BackgroundTabService] 🎉 Success! Tab#${tabId} moved to position ${movedTab?.index}`)
 
-      // Update lastAccessed timestamp
       const snapshot = await tabStorageItem.getValue()
       if (snapshot?.tabs) {
         const now = Date.now()
         const updatedTabs = (Array.isArray(snapshot.tabs) ? snapshot.tabs : Object.values(snapshot.tabs as Record<string, unknown>))
           .map((t: unknown) => {
             const tab = t as ClassifiedTab
-            return tab.id === tabId ? { ...tab, lastAccessed: now } : tab
+            return tab.id === tabId
+              ? Object.assign({}, tab, { lastAccessed: now })
+              : Object.assign({}, tab)
           })
 
-        const updatedSnapshot = new TabsSnapshot(updatedTabs, snapshot.isGrouped ?? false, new Date().toISOString())
-        await tabStorageItem.setValue(updatedSnapshot)
+        await tabStorageItem.setValue({
+          tabs: updatedTabs,
+          isGrouped: snapshot.isGrouped ?? false,
+          savedAt: new Date().toISOString(),
+        })
 
         console.log(`[BackgroundTabService] ⏰ Updated tab#${tabId} lastAccessed to ${new Date(now).toISOString()}`)
       }
@@ -239,3 +239,4 @@ export class BackgroundTabService {
     }
   }
 }
+

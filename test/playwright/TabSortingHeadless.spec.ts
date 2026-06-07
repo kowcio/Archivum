@@ -13,6 +13,7 @@
 import { test as base, chromium, expect, type BrowserContext } from '@playwright/test'
 import { execSync } from 'child_process'
 import path from 'path'
+import fs from 'fs'
 const EXT_DIR = path.resolve(process.cwd(), '.output', 'chrome-mv3')
 
 type ExtFixtures = {
@@ -55,20 +56,26 @@ test.beforeAll(() => {
         return
     }
     console.log('Building extension…')
-    // Clean stale output to avoid WXT rename collisions
-    execSync('rm -rf .output/chrome-mv3 .output/firefox-mv3', { cwd: process.cwd() })
+    // Clean stale output to avoid WXT rename collisions (cross-platform)
+    const outputDirs = ['.output/chrome-mv3', '.output/firefox-mv3']
+    for (const dir of outputDirs) {
+      const fullPath = path.join(process.cwd(), dir)
+      if (fs.existsSync(fullPath)) {
+        fs.rmSync(fullPath, { recursive: true, force: true })
+      }
+    }
     execSync('npm run build-only', { stdio: 'inherit', cwd: process.cwd() })
 })
 
 test.describe('Tab Sorting and Grouping (Headless)', () => {
 
-    test('options page loads with btn-load-tabs visible (toggle button, no tabs loaded)', async ({ context, extensionId }) => {
+    test('options page loads with group-by-age button visible (ungrouped initial state)', async ({ context, extensionId }) => {
         test.setTimeout(30_000)
         const page = await context.newPage()
         await page.goto(`chrome-extension://${extensionId}/options.html`, { waitUntil: 'domcontentloaded' })
 
-        await expect(page.getByTestId('btn-load-tabs')).toBeVisible({ timeout: 8_000 })
-        await expect(page.getByTestId('btn-reset')).not.toBeVisible()
+        await expect(page.getByTestId('btn-group-by-age')).toBeVisible({ timeout: 8_000 })
+        await expect(page.getByTestId('btn-ungroup-tabs')).not.toBeVisible()
         console.log('Options controls visible ✓')
     })
 
@@ -82,27 +89,31 @@ test.describe('Tab Sorting and Grouping (Headless)', () => {
         console.log('Group by age button visible ✓')
     })
 
-    test('tabs table renders after loading tabs with rows sorted by ordinal', async ({ context, extensionId }) => {
-        test.setTimeout(40_000)
+    test('tabs table renders after generating mock tabs with rows sorted by ordinal', async ({ context, extensionId }) => {
+        test.setTimeout(60_000)
         const page = await context.newPage()
 
-        // Collect console errors for debugging
         page.on('console', msg => {
             if (msg.type() === 'error') console.error('[page]', msg.text())
         })
 
         await page.goto(`chrome-extension://${extensionId}/options.html`, { waitUntil: 'domcontentloaded' })
-        await expect(page.getByTestId('btn-load-tabs')).toBeVisible({ timeout: 8_000 })
+        await expect(page.getByTestId('btn-gen-mock-tabs')).toBeVisible({ timeout: 8_000 })
 
-        // Click Load Tabs
-        await page.getByTestId('btn-load-tabs').click()
+        // Generate mock tabs to populate the table
+        await page.getByTestId('btn-gen-mock-tabs').click()
+
+        // Wait for loading to complete
+        await page.waitForFunction(
+            () => document.querySelector('[data-testid="btn-gen-mock-tabs"]')?.getAttribute('aria-disabled') !== 'true',
+            { timeout: 60_000 }
+        )
 
         // Wait for table to appear with at least one row
         const table = page.getByTestId('current-tabs-table')
         await expect(table).toBeVisible({ timeout: 15_000 })
 
-        // Find all rows and check that ordinal column values are sorted ascending
-        // The ordinal column has header "#" and cells have data-testid="cell-ordinal-<rowKey>"
+        // Verify ordinal cells are sorted ascending
         const ordinalCells = page.locator('[data-testid^="cell-ordinal-"]')
         const count = await ordinalCells.count()
         console.log(`Found ${count} ordinal cells`)
@@ -115,7 +126,6 @@ test.describe('Tab Sorting and Grouping (Headless)', () => {
                 if (!isNaN(num)) ordinals.push(num)
             }
             console.log('Ordinals:', ordinals)
-            // Ordinals should be sorted ascending (1, 2, 3, ...)
             for (let i = 1; i < ordinals.length; i++) {
                 expect(ordinals[i]).toBeGreaterThan(ordinals[i - 1])
             }
@@ -123,8 +133,8 @@ test.describe('Tab Sorting and Grouping (Headless)', () => {
         }
     })
 
-    test('reset button clears tab marks', async ({ context, extensionId }) => {
-        test.setTimeout(60_000)
+    test('group/ungroup flow works after generating mock tabs', async ({ context, extensionId }) => {
+        test.setTimeout(90_000)
         const page = await context.newPage()
 
         page.on('console', msg => {
@@ -132,41 +142,30 @@ test.describe('Tab Sorting and Grouping (Headless)', () => {
         })
 
         await page.goto(`chrome-extension://${extensionId}/options.html`, { waitUntil: 'domcontentloaded' })
-        await expect(page.getByTestId('btn-load-tabs')).toBeVisible({ timeout: 10_000 })
+        await expect(page.getByTestId('btn-group-by-age')).toBeVisible({ timeout: 10_000 })
 
-        // Generate mock tabs first to have tabs with age data
+        // Generate mock tabs (provides tabs with real age data for grouping)
         await expect(page.getByTestId('btn-gen-mock-tabs')).toBeVisible({ timeout: 5_000 })
         await page.getByTestId('btn-gen-mock-tabs').click()
 
-        // Wait for mock tabs to finish
         await page.waitForFunction(
-            () => {
-                const btn = document.querySelector('[data-testid="btn-gen-mock-tabs"]')
-                return btn?.getAttribute('aria-disabled') !== 'true'
-            },
+            () => document.querySelector('[data-testid="btn-gen-mock-tabs"]')?.getAttribute('aria-disabled') !== 'true',
             { timeout: 60_000 }
         )
 
-        // Wait for some age cells to appear
         await page.waitForFunction(
             () => document.querySelectorAll('[data-testid^="cell-lastAccessAge-"]').length >= 3,
             { timeout: 30_000 }
         )
 
-        // Now load & mark
-        await page.getByTestId('btn-load-tabs').click()
+        // Group by age → button should change to Ungroup
+        await page.getByTestId('btn-group-by-age').click()
+        await expect(page.getByTestId('btn-ungroup-tabs')).toBeVisible({ timeout: 20_000 })
+        console.log('Group by age completed ✓')
 
-        // Wait for table to appear
-        await expect(page.getByTestId('current-tabs-table')).toBeVisible({ timeout: 20_000 })
-
-        // Wait for btn-reset to appear (load + mark complete)
-        await expect(page.getByTestId('btn-reset')).toBeVisible({ timeout: 30_000 })
-
-        // Click Reset
-        await page.getByTestId('btn-reset').click()
-
-        // After reset, the table should still be visible (reload happens)
-        await expect(page.getByTestId('current-tabs-table')).toBeVisible({ timeout: 10_000 })
-        console.log('Reset completed without errors ✓')
+        // Ungroup → button should change back to Group by age
+        await page.getByTestId('btn-ungroup-tabs').click()
+        await expect(page.getByTestId('btn-group-by-age')).toBeVisible({ timeout: 10_000 })
+        console.log('Ungroup completed ✓')
     })
 })

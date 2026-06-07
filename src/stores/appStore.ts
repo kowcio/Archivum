@@ -7,15 +7,28 @@ import { AppThresholds, DEFAULT_THRESHOLDS } from '@/models/AppThresholds'
 import { AgeClassification } from '@/models/tabs/AgeClassification'
 import type { ClassifiedTab } from '@/models/tabs/ClassifiedTab'
 import { ClassifiedTabFactory } from '@/models/tabs/ClassifiedTab'
-import { TabsSnapshot } from '@/models/tabs/TabsSnapshot'
+import type { TabsSnapshot } from '@/models/tabs/TabsSnapshot'
 import { APP_CONSTANTS, APP_DEFAULTS, THEME_COLORS } from '@/constants.ts'
 import type { ThresholdLevel } from '@/constants'
 import { ExtensionCleanupService } from '@/services/ExtensionCleanupService'
 import { LBracketService } from '@/services/LBracketService'
 
 // Re-export models consumed by external code
-export type { ClassifiedTab }
-export { AgeClassification, TabsSnapshot, AppThresholds, DEFAULT_THRESHOLDS }
+export type { ClassifiedTab, TabsSnapshot }
+export { AgeClassification, AppThresholds, DEFAULT_THRESHOLDS }
+
+/**
+ * Deserializes raw storage tab objects into typed ClassifiedTab instances.
+ * Ensures isMarked/ageIndex defaults are present for data stored before those fields existed.
+ */
+function rawToClassified(rawTabs: unknown[]): ClassifiedTab[] {
+  return (rawTabs as Record<string, unknown>[]).map(tab =>
+    Object.assign({}, tab, {
+      isMarked: (tab.isMarked as boolean) ?? false,
+      ageIndex: (tab.ageIndex as number) ?? 0,
+    }) as ClassifiedTab
+  )
+}
 
 /** Enriched tab row for display */
 export type OptionsEnrichedTabRow = TabRow & {
@@ -102,11 +115,12 @@ export const useAppStore = defineStore(APP_CONSTANTS.STORE_GLOBAL_STORE, {
       return rows.map((row, index) => {
         const days = Number.isFinite(row.lastAccessDays) ? (row.lastAccessDays ?? 0) : 0
         const classification = AgeClassification.fromDays(days, activeThresholds)
-        return Object.assign({}, row, {
+        return {
+          ...row,
           ordinal: index + 1,
           lastAccessAge: Number.isFinite(row.lastAccessDays) ? `${row.lastAccessDays}d` : '—',
           rowStyle: classification.inlineStyle,
-        }) as OptionsEnrichedTabRow
+        } as OptionsEnrichedTabRow
       })
     },
 
@@ -316,7 +330,8 @@ export const useAppStore = defineStore(APP_CONSTANTS.STORE_GLOBAL_STORE, {
         const existingIds = new Set(this.tabs.map(t => t.id))
         const trulyNew = newMockTabs.filter(t => !existingIds.has(t.id))
 
-        this.tabs = [...this.tabs, ...trulyNew]
+        // Single assignment avoids incremental Proxy-wrapping from repeated push()
+        this.tabs = this.tabs.concat(trulyNew)
         this.error = null
         await this.persistTabs()
       } catch (err) {
@@ -418,13 +433,16 @@ export const useAppStore = defineStore(APP_CONSTANTS.STORE_GLOBAL_STORE, {
     // PERSISTENCE & SYNC
     // ─────────────────────────────────────────────────────────────────────
 
-    _snapshotTabs(): TabsSnapshot {
-      return new TabsSnapshot(this.tabs, this.isGrouped, new Date().toISOString())
-    },
-
     async persistTabs(): Promise<void> {
       this.tabsLastUpdated = Date.now()
-      await tabStorageItem.setValue(this._snapshotTabs())
+      // JSON round-trip strips all Pinia Proxy wrappers (including nested mutedInfo etc.)
+      // so browser.storage.local.set() structured-clone never sees a Proxy object.
+      const plainTabs: ClassifiedTab[] = JSON.parse(JSON.stringify(this.tabs))
+      await tabStorageItem.setValue({
+        tabs: plainTabs,
+        isGrouped: this.isGrouped,
+        savedAt: new Date().toISOString(),
+      })
     },
 
     async loadTabsHistory(): Promise<ClassifiedTab[]> {
@@ -436,21 +454,10 @@ export const useAppStore = defineStore(APP_CONSTANTS.STORE_GLOBAL_STORE, {
           const rawTabs = Array.isArray(snapshot.tabs)
             ? snapshot.tabs
             : Object.values(snapshot.tabs as Record<string, unknown>)
-
-          // Convert to plain objects to avoid Proxy serialization issues
-          this.tabs = rawTabs.map(t => {
-            const tab = t as unknown as Record<string, any>
-            return Object.assign({}, tab, {
-              isMarked: tab.isMarked ?? false,
-              ageIndex: tab.ageIndex ?? 0,
-              markedFaviconDataUrl: tab.markedFaviconDataUrl ?? undefined,
-            }) as ClassifiedTab
-          })
-
+          this.tabs = rawToClassified(rawTabs)
           this.isGrouped = snapshot.isGrouped ?? false
           console.log('[appStore] Restored', this.tabs.length, 'tabs from storage')
         } else {
-          // No tabs in storage yet - start with empty array
           this.tabs = []
           this.isGrouped = false
           console.log('[appStore] No saved tabs, starting fresh')
@@ -458,7 +465,6 @@ export const useAppStore = defineStore(APP_CONSTANTS.STORE_GLOBAL_STORE, {
         return this.tabs
       } catch (err) {
         console.error('[appStore] Error loading tabs history:', err)
-        // Ensure tabs array exists even if loading fails
         this.tabs = []
         this.isGrouped = false
         return []
@@ -468,49 +474,23 @@ export const useAppStore = defineStore(APP_CONSTANTS.STORE_GLOBAL_STORE, {
     },
 
     initStorageSync(): void {
-      // Guard: Only initialize watchers once (plugin + init() both try to call this)
-      // This is necessary because both appStoreSyncPlugin (via Pinia hook) and
-      // AppBootstrapper (calling init()) may run initialization. The guard ensures
-      // watchers are set up exactly once, preventing duplicate listeners.
+      // Guard: only initialize once — both AppBootstrapper and the Pinia plugin call this
       if (this.storageWatchersInitialized) return
       this.storageWatchersInitialized = true
 
-      let lastTabPatchTime = 0
-      let lastTabCount = this.tabs.length
-
-      // Watch tabs storage
+      // Watch tabs snapshot — fires for ALL writes including from background service worker
+      // No gate: every write (isGrouped change, lastAccessed update, new tabs) must propagate
       tabStorageItem.watch((snapshot) => {
         if (!snapshot?.tabs) return
-
         const rawTabs = Array.isArray(snapshot.tabs)
           ? snapshot.tabs
           : Object.values(snapshot.tabs as Record<string, unknown>)
-
-        // GATE: Ignore own changes within 100ms (persistTabs → watch → $patch delay)
-        const now = Date.now()
-        if (now - lastTabPatchTime < 100 && rawTabs.length === lastTabCount) {
-          return
-        }
-        lastTabPatchTime = now
-        lastTabCount = rawTabs.length
-
-        // Convert to plain objects to avoid Proxy serialization issues
-        // Use Object.assign to ensure all Tabs.Tab properties are preserved
-        const restoredTabs: ClassifiedTab[] = rawTabs.map(t => {
-          const tab = t as unknown as Record<string, any>
-          return Object.assign({}, tab, {
-            isMarked: tab.isMarked ?? false,
-            ageIndex: tab.ageIndex ?? 0,
-            markedFaviconDataUrl: tab.markedFaviconDataUrl ?? undefined,
-          }) as ClassifiedTab
-        })
-
         this.$patch({
-          tabs: restoredTabs,
+          tabs: rawToClassified(rawTabs),
           isGrouped: snapshot.isGrouped ?? false,
           tabsLastUpdated: Date.now(),
         })
-        console.debug('[appStore] Tab storage sync: received', restoredTabs.length, 'tabs')
+        console.debug('[appStore] Tab storage sync:', rawTabs.length, 'tabs, isGrouped:', snapshot.isGrouped)
       })
 
       // Watch config storage

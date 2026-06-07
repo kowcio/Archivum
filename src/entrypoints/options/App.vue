@@ -3,13 +3,6 @@
   <div id="options" class="row">
     <div class="col-10 offset-1">
       <div class="row justify-center q-mt-md q-gutter-sm">
-        <LoadResetButton
-          data-testid="btn-load-reset"
-          class="got-btn-primary"
-          elevated
-          no-caps
-        />
-
         <!-- Group: Group by age (main action) -->
         <GroupUngroup />
 
