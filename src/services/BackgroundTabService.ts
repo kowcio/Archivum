@@ -115,7 +115,7 @@ export class BackgroundTabService {
         const groupIds: (number | null)[] = []
         for (let i = activeThresholdsList.length - 1; i >= 0; i--) {
           const level = activeThresholdsList[i]
-          const groupId = await createGroup(levelTabIds[i], `${level.label} (${level.days}d+)`, level.color)
+          const groupId = await createGroup(levelTabIds[i], `${level.label}+ (${levelTabIds[i].length})`, level.color)
           groupIds.push(groupId)
         }
 
