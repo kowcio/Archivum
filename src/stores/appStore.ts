@@ -368,8 +368,11 @@ export const useAppStore = defineStore(APP_CONSTANTS.STORE_GLOBAL_STORE, {
           return 0
         }
 
-        this.isGrouped = true
-        await this.persistTabs()
+        // ✅ Background will persist updated snapshot with current lastAccessed values
+        // ✅ Storage watcher will automatically sync tabs to UI
+        // (isGrouped and tabs will be set by watcher, not by us)
+        // This prevents the gate from blocking the background's update
+
         return response?.groupsCreated ?? 0
       } catch (err) {
         this.error = err instanceof Error ? err.message : 'Unknown error while grouping tabs by age'
@@ -393,6 +396,7 @@ export const useAppStore = defineStore(APP_CONSTANTS.STORE_GLOBAL_STORE, {
             console.debug('[appStore] ungroup not available:', err)
           }
         }
+        // Persist local UI state change (tabs are now ungrouped)
         this.isGrouped = false
         await this.persistTabs()
       } catch (err) {

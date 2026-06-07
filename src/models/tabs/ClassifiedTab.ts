@@ -23,17 +23,17 @@ export type ClassifiedTab = Tabs.Tab & {
 /** Factory helpers for creating and mutating ClassifiedTab instances. */
 export class ClassifiedTabFactory {
     /**
-     * Wrap a raw Tabs.Tab into a ClassifiedTab with default age/mark state.
+     * Factory helper: wrap a raw Tabs.Tab into a ClassifiedTab with default age/mark state.
+     * Uses Object.assign to preserve all tab properties and avoid Proxy issues.
      * @param tab - raw browser tab
      * @param isMarked - carry over previous marking state (default false)
      */
     static fromTab(tab: Tabs.Tab, isMarked = false): ClassifiedTab {
-        return {
-            ...tab,
+        return Object.assign({}, tab, {
             isMarked,
             ageIndex: 0,
             markedFaviconDataUrl: undefined,
-        }
+        }) as ClassifiedTab
     }
 
     /**

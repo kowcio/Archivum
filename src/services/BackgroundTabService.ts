@@ -78,7 +78,8 @@ export class BackgroundTabService {
         const c = AgeClassification.fromDays(row.lastAccessDays ?? 0, thresholds)
         const idx = classified.findIndex(t => t.id === row.id)
         if (idx !== -1) {
-          classified[idx] = { ...classified[idx], ageIndex: c.index }
+          // Use Object.assign to preserve all properties while updating ageIndex
+          classified[idx] = Object.assign({}, classified[idx], { ageIndex: c.index })
         }
         // Add tab to appropriate level
         if (c.index > 0 && c.index <= activeThresholdsList.length) {
