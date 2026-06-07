@@ -11,7 +11,6 @@ import type { TabsSnapshot } from '@/models/tabs/TabsSnapshot'
 import { APP_CONSTANTS, APP_DEFAULTS, THEME_COLORS } from '@/constants.ts'
 import type { ThresholdLevel } from '@/constants'
 import { ExtensionCleanupService } from '@/services/ExtensionCleanupService'
-import { LBracketService } from '@/services/LBracketService'
 
 // Re-export models consumed by external code
 export type { ClassifiedTab, TabsSnapshot }
@@ -143,12 +142,12 @@ export const useAppStore = defineStore(APP_CONSTANTS.STORE_GLOBAL_STORE, {
     },
 
     async setActiveLevels(count: number): Promise<void> {
-      const min = 1
-      const max = APP_DEFAULTS.THRESHOLDS.presets.length
-      if (count < min || count > max) {
-        console.warn(`[appStore] Invalid activeLevels: ${count} (must be ${min}-${max})`)
-        return
-      }
+      // const min = 1
+      // const max = APP_DEFAULTS.THRESHOLDS.presets.length
+      // if (count < min || count > max) {
+      //   console.warn(`[appStore] Invalid activeLevels: ${count} (must be ${min}-${max})`)
+      //   return
+      // }
       this.thresholds = this.thresholds.withActiveLevels(count)
       await this.saveConfig()
     },
@@ -345,15 +344,7 @@ export const useAppStore = defineStore(APP_CONSTANTS.STORE_GLOBAL_STORE, {
       this.error = null
       this.loading = true
       try {
-        const markedIds = new Set(
-          this.tabs.filter(t => t.isMarked && t.id != null).map(t => t.id as number),
-        )
-
         if (this.isGrouped) await this.ungroupAllTabs()
-        await Promise.all(Array.from(markedIds).map(tabId => LBracketService.removeBracket(tabId).catch(() => {
-          // Silently fail on restricted pages (chrome://, extensions pages)
-          console.debug(`[appStore] Could not remove bracket from tab#${tabId} (restricted page)`)
-        })))
 
         this.isGrouped = false
         await this.persistTabs()

@@ -166,7 +166,7 @@ export class BackgroundTabService {
         return
       }
 
-      const isFirefox = import.meta.env.FIREFOX === true
+      const isFirefox = import.meta.env.FIREFOX
       const tab = await browser.tabs.get(tabId)
 
       console.log(`[BackgroundTabService] 📋 Tab#${tabId} info:`, {
