@@ -19,6 +19,7 @@
 import { TabRow } from '@/models/tabs/TabRow'
 import { AgeClassification } from '@/models/tabs/AgeClassification'
 import { configStorage } from '@/utils/configStorage'
+import { mockOverrides } from '@/utils/mockStorage'
 import { AppThresholds, DEFAULT_THRESHOLDS } from '@/models/AppThresholds'
 import { browser } from 'wxt/browser'
 
@@ -29,6 +30,26 @@ export class BackgroundTabService {
       return AppThresholds.fromObject(stored.thresholds)
     }
     return DEFAULT_THRESHOLDS
+  }
+
+  /**
+   * Applies mock lastAccessed overrides to raw tabs (debug).
+   * When a mock override exists for a tabId, it replaces tab.lastAccessed.
+   * Overrides are then cleared so they only apply once.
+   */
+  private static async applyMockOverrides(tabs: { id?: number; lastAccessed?: number }[]): Promise<void> {
+    const overrides = await mockOverrides.getValue()
+    const ids = Object.keys(overrides).map(Number)
+    if (!ids.length) return
+
+    for (const tab of tabs) {
+      if (tab.id != null && overrides[tab.id] != null) {
+        tab.lastAccessed = overrides[tab.id]
+      }
+    }
+    // Clear after one use
+    await mockOverrides.setValue({})
+    console.log('[BackgroundTabService] Applied mock overrides to', ids.length, 'tabs')
   }
 
   static async groupTabsByAge(): Promise<number> {
@@ -42,6 +63,10 @@ export class BackgroundTabService {
 
       const rawTabs = await browser.tabs.query({ currentWindow: true })
       const thresholds = await this.getThresholds()
+
+      // Apply mock overrides if present (debug)
+      await this.applyMockOverrides(rawTabs)
+
       const rows = TabRow.fromTabs(rawTabs, thresholds)
       const activeLevels = thresholds.active()
       const levelTabIds: number[][] = Array.from({ length: activeLevels.length }, () => [])

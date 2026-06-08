@@ -7,7 +7,15 @@
         <GroupUngroup />
 
         <q-btn
-          label="Refresh tabs"
+          label="Mock 10 tabs"
+          icon="science"
+          color="grey-7"
+          :loading="mockLoading"
+          @click="handleCreateMock"
+        />
+
+        <q-btn
+          label="Load current tabs"
           icon="refresh"
           color="grey-7"
           :loading="loading"
@@ -16,8 +24,8 @@
       </div>
 
       <!-- Error display -->
-      <div class="row q-mt-sm" v-if="error">
-        <span class="error-text">{{ error }}</span>
+      <div class="row q-mt-sm" v-if="error || mockError">
+        <span class="error-text">{{ error || mockError }}</span>
       </div>
 
       <!-- Thresholds Configuration -->
@@ -85,11 +93,9 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { browser } from 'wxt/browser'
-import type { Tabs } from 'wxt/browser'
 import { useConfigStore } from '@/stores/configStore'
 import { TabRow } from '@/models/tabs/TabRow'
 import { AgeClassification } from '@/models/tabs/AgeClassification'
-import type { QTableProps } from 'quasar'
 import Thresholds from '../../components/Thresholds.vue'
 import AppTitle from '@/components/Title.vue'
 import GroupUngroup from '@/components/GroupUngroup.vue'
@@ -97,11 +103,22 @@ import GroupUngroup from '@/components/GroupUngroup.vue'
 const configStore = useConfigStore()
 const loading = ref(false)
 const error = ref<string | null>(null)
-const tabs = ref<Tabs.Tab[]>([])
+const tabs = ref<any[]>([])
+
+const columns: { name: string; label: string; field: string; align: 'left' | 'right'; sortable?: boolean }[] = [
+  { name: 'ordinal', label: '#', field: 'ordinal', align: 'left', sortable: true },
+  { name: 'actions', label: '', field: 'actions', align: 'left' },
+  { name: 'thumbnail', label: '', field: 'thumbnail', align: 'left' },
+  { name: 'domain', label: 'Domain', field: 'domain', align: 'left', sortable: true },
+  { name: 'title', label: 'Title', field: 'title', align: 'left', sortable: true },
+  { name: 'url', label: 'URL', field: 'url', align: 'left' },
+  { name: 'lastAccess', label: 'Access', field: 'lastAccess', align: 'left', sortable: true },
+  { name: 'lastAccessAge', label: 'Age', field: 'lastAccessAge', align: 'left', sortable: true },
+]
 
 const tabRows = computed(() => {
   const rows = TabRow.fromTabs(tabs.value, configStore.thresholds)
-  return rows.map((row, i) => {
+  return rows.map((row: any, i: number) => {
     const days = row.lastAccessDays ?? 0
     const c = AgeClassification.fromDays(days, configStore.thresholds)
     return {
@@ -123,16 +140,22 @@ function truncate(text: string, max: number): string {
   return !text || text.length <= max ? text : text.substring(0, max) + '…'
 }
 
-const columns: QTableProps['columns'] = [
-  { name: 'ordinal', label: '#', field: 'ordinal', align: 'left', sortable: true },
-  { name: 'actions', label: '', field: 'actions', align: 'left' },
-  { name: 'thumbnail', label: '', field: 'thumbnail', align: 'left' },
-  { name: 'domain', label: 'Domain', field: 'domain', align: 'left', sortable: true },
-  { name: 'title', label: 'Title', field: 'title', align: 'left', sortable: true },
-  { name: 'url', label: 'URL', field: 'url', align: 'left' },
-  { name: 'lastAccess', label: 'Access', field: 'lastAccess', align: 'left', sortable: true },
-  { name: 'lastAccessAge', label: 'Age', field: 'lastAccessAge', align: 'left', sortable: true },
-]
+// Mock helpers
+const mockLoading = ref(false)
+const mockError = ref<string | null>(null)
+
+async function handleCreateMock(): Promise<void> {
+  mockLoading.value = true
+  mockError.value = null
+  try {
+    await browser.runtime.sendMessage({ action: 'createMockTabs' })
+    await refreshTabs()
+  } catch (err) {
+    mockError.value = err instanceof Error ? err.message : 'Failed to create mock tabs'
+  } finally {
+    mockLoading.value = false
+  }
+}
 
 async function refreshTabs(): Promise<void> {
   loading.value = true
@@ -149,7 +172,7 @@ async function refreshTabs(): Promise<void> {
 async function closeTab(tabId: number | null): Promise<void> {
   if (tabId == null) return
   await browser.tabs.remove(tabId)
-  tabs.value = tabs.value.filter(t => t.id !== tabId)
+  tabs.value = tabs.value.filter((t: any) => t.id !== tabId)
 }
 
 onMounted(() => {
@@ -161,8 +184,7 @@ onUnmounted(() => {
   browser.tabs.onActivated.removeListener(onTabActivated)
 })
 
-async function onTabActivated({ tabId }: { tabId: number }): Promise<void> {
-  // Refresh the table data when a different tab is activated
+async function onTabActivated(_tabId: { tabId: number }): Promise<void> {
   await refreshTabs()
 }
 </script>

@@ -1,7 +1,9 @@
 import { ExtensionCleanupService } from '@/services/ExtensionCleanupService'
 import { BackgroundTabService } from '@/services/BackgroundTabService'
+import { mockOverrides } from '@/utils/mockStorage'
 import { APP_DEFAULTS } from '@/constants'
 import { browser } from 'wxt/browser'
+import { MOCK_TABS, MOCK_DAYS } from '@/utils/mockTabData'
 
 console.debug('[EXT-DBG] background initialized - TOKEN:EXT_DBG_BACKGROUND_v1')
 
@@ -47,6 +49,13 @@ export default defineBackground({
         return true
       }
 
+      if (action === 'createMockTabs') {
+        createMockTabs()
+          .then(() => sendResponse({ error: null }))
+          .catch((err: any) => sendResponse({ error: String(err) }))
+        return true
+      }
+
       if (action === 'getBrowserCaps') {
         sendResponse({
           hasTabGroups: browser.tabGroups != null,
@@ -59,3 +68,37 @@ export default defineBackground({
     console.log('[background] ✅ Ready')
   },
 })
+
+/**
+ * Creates mock tabs using realistic data from tabs_example.json.
+ * Each tab gets a backdated lastAccessed for testing grouping.
+ */
+async function createMockTabs(): Promise<void> {
+  const now = Date.now()
+  const DAY_MS = 86400000
+  const tabIds: number[] = []
+
+  // Create tabs using realistic mock data
+  for (let i = 0; i < MOCK_TABS.length; i++) {
+    const mock = MOCK_TABS[i]
+    try {
+      const tab = await browser.tabs.create({
+        url: mock.url,
+        active: false,
+      })
+      if (tab.id != null) tabIds.push(tab.id)
+    } catch {
+      // Some URLs may fail — create simpler tabs as fallback
+      const tab = await browser.tabs.create({ url: `https://example.com/mock-${i}`, active: false })
+      if (tab.id != null) tabIds.push(tab.id)
+    }
+  }
+
+  // Store mock overrides — applied on next groupTabsByAge
+  const overrides: Record<number, number> = {}
+  for (let i = 0; i < tabIds.length; i++) {
+    overrides[tabIds[i]] = now - MOCK_DAYS[i] * DAY_MS
+  }
+  await mockOverrides.setValue(overrides)
+  console.log(`[background] Created ${tabIds.length} mock tabs with backdated lastAccessed`)
+}
