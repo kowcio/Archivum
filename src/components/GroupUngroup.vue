@@ -13,10 +13,9 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
-import { useAppStore } from '@/stores/appStore'
+import { ref } from 'vue'
+import { browser } from 'wxt/browser'
 
-// Props for customization
 type Props = {
   groupLabel?: string
   ungroupLabel?: string
@@ -35,17 +34,21 @@ withDefaults(defineProps<Props>(), {
   ungroupColor: 'warning',
 })
 
-const appStore = useAppStore()
-
-const isGrouped = computed(() => appStore.isGrouped)
-const isLoading = computed(() => appStore.loading)
+const isGrouped = ref(false)
+const isLoading = ref(false)
 
 async function handleToggle(): Promise<void> {
-  if (appStore.isGrouped) {
-    await appStore.ungroupAllTabs()
-  } else {
-    await appStore.groupTabsByAge()
+  isLoading.value = true
+  try {
+    if (isGrouped.value) {
+      await browser.runtime.sendMessage({ action: 'ungroupAllTabs' })
+      isGrouped.value = false
+    } else {
+      const res = await browser.runtime.sendMessage<{ action: string }, { groupsCreated?: number }>({ action: 'groupTabsByAge' })
+      if ((res?.groupsCreated ?? 0) > 0) isGrouped.value = true
+    }
+  } finally {
+    isLoading.value = false
   }
 }
 </script>
-

@@ -30,10 +30,7 @@ export default defineContentScript({
           rootComponent: App,
           mountTarget: container,
         })
-          .then(() => console.log('✅ Content script UI mounted via AppBootstrapper'))
-          .catch((err) => console.error('Failed to mount content UI:', err));
-
-        // Return container for WXT lifecycle management
+        console.log('✅ Content script UI mounted via AppBootstrapper')
         return { userScript: false };
       },
       onRemove: () => {

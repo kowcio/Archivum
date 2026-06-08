@@ -3,12 +3,24 @@
     <AppTitle />
 
     <div class="content-wrapper">
-      <!-- ── Primary buttons grid (square buttons, 2 columns) ───────────────── -->
       <div class="square-grid">
+        <q-btn
+          class="got-btn-primary square-btn"
+          label="Group tabs"
+          icon="folder"
+          :loading="loading"
+          @click="handleGroup"
+          elevated
+          no-caps
+          fab
+        />
 
-        <GroupUngroup
-          class="square-btn"
-          :group-label="'Group tabs'"
+        <q-btn
+          class="got-btn-primary square-btn"
+          label="Ungroup"
+          icon="unfold_more"
+          :loading="loading"
+          @click="handleUngroup"
           elevated
           no-caps
           fab
@@ -39,38 +51,38 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted } from 'vue'
-import browser from 'webextension-polyfill'
+import { ref } from 'vue'
+import { browser } from 'wxt/browser'
 import AppTitle from '@/components/Title.vue'
-import GroupUngroup from '@/components/GroupUngroup.vue'
 
-/**
- * Non-blocking initialization pattern:
- * - AppBootstrapper already started init() in background
- * - loadTabsHistory() has restored saved data to state
- * - UI renders immediately with saved tabs
- * - getAllOpenedTabs() refreshes in background
- * - Store updates automatically via storage watchers
- */
-onMounted(() => {
-  console.debug('[popup] mounted')
-})
+const loading = ref(false)
+
+async function handleGroup(): Promise<void> {
+  loading.value = true
+  try {
+    await browser.runtime.sendMessage({ action: 'groupTabsByAge' })
+  } finally {
+    loading.value = false
+  }
+}
+
+async function handleUngroup(): Promise<void> {
+  loading.value = true
+  try {
+    await browser.runtime.sendMessage({ action: 'ungroupAllTabs' })
+  } finally {
+    loading.value = false
+  }
+}
 
 function openOptionsPage(): void {
   browser.runtime.openOptionsPage()
-    .then(() => console.log('[popup] Options opened'))
-    .catch((error) => console.error('[popup] Failed to open options', error))
 }
 
 async function openOptionsPageFull(): Promise<void> {
   const url = browser.runtime.getURL('options.html')
-  try {
-    await browser.tabs.create({ url })
-    window.close()
-  } catch (error) {
-    console.error('[popup] Failed to open options via tabs.create, falling back', error)
-    await browser.runtime.openOptionsPage()
-  }
+  await browser.tabs.create({ url })
+  window.close()
 }
 </script>
 
@@ -82,13 +94,10 @@ async function openOptionsPageFull(): Promise<void> {
   background: linear-gradient(180deg, rgba(255, 109, 0, 0.04) 0%, rgba(21, 101, 192, 0.04) 100%);
   min-height: 100vh;
 }
-
 .content-wrapper {
   flex: 1;
   padding: 0.5rem;
 }
-
-/* Grid for square action buttons */
 .square-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -98,8 +107,6 @@ async function openOptionsPageFull(): Promise<void> {
   width: 100%;
   max-width: 250px;
 }
-
-/* Make q-btn appear square and stack icon + label vertically */
 .square-btn {
   width: 100%;
   aspect-ratio: 1;
@@ -111,8 +118,6 @@ async function openOptionsPageFull(): Promise<void> {
   flex-direction: column;
   text-align: center;
 }
-
-/* Ensure Quasar internal content stacks vertically inside our button */
 .square-btn :deep(.q-btn__content) {
   display: flex;
   flex-direction: column;
