@@ -8,13 +8,19 @@ import { createPinia, setActivePinia } from 'pinia'
 vi.mock('wxt/browser', () => ({
   browser: {
     runtime: {
-      sendMessage: vi.fn(async () => ({ groupsCreated: 1, error: null })),
+      sendMessage: vi.fn(async (_msg: any) => {
+        // getTabs returns tabs with overrides applied
+        return {
+          error: null,
+          tabs: [
+            { id: 1, url: 'https://example.com', title: 'Example', favIconUrl: '', lastAccessed: Date.now() - 86400000 * 10 },
+            { id: 2, url: 'https://test.org', title: 'Test', favIconUrl: '', lastAccessed: Date.now() - 86400000 * 3 },
+          ],
+        }
+      }),
     },
     tabs: {
-      query: vi.fn(() => Promise.resolve([
-        { id: 1, url: 'https://example.com', title: 'Example', favIconUrl: '', lastAccessed: Date.now() - 86400000 * 10 },
-        { id: 2, url: 'https://test.org', title: 'Test', favIconUrl: '', lastAccessed: Date.now() - 86400000 * 3 },
-      ])),
+      query: vi.fn(() => Promise.resolve([])),
       get: vi.fn(() => Promise.resolve({ id: 1, url: 'http://example.com' })),
       remove: vi.fn(() => Promise.resolve()),
       onActivated: { addListener: vi.fn(), removeListener: vi.fn() },

@@ -51,8 +51,15 @@ export default defineBackground({
 
       if (action === 'createMockTabs') {
         createMockTabs()
-          .then(() => sendResponse({ error: null }))
-          .catch((err: any) => sendResponse({ error: String(err) }))
+          .then((tabs) => sendResponse({ error: null, tabs: JSON.parse(JSON.stringify(tabs)) }))
+          .catch((err: any) => sendResponse({ error: String(err), tabs: [] }))
+        return true
+      }
+
+      if (action === 'getTabs') {
+        BackgroundTabService.getTabs()
+          .then((tabs) => sendResponse({ error: null, tabs: JSON.parse(JSON.stringify(tabs)) }))
+          .catch((err: any) => sendResponse({ error: String(err), tabs: [] }))
         return true
       }
 
@@ -72,8 +79,9 @@ export default defineBackground({
 /**
  * Creates mock tabs using realistic data from tabs_example.json.
  * Each tab gets a backdated lastAccessed for testing grouping.
+ * Returns the created tabs with overrides already applied so the UI sees correct data.
  */
-async function createMockTabs(): Promise<void> {
+async function createMockTabs(): Promise<browser.tabs.Tab[]> {
   const now = Date.now()
   const DAY_MS = 86400000
   const tabIds: number[] = []
@@ -100,5 +108,17 @@ async function createMockTabs(): Promise<void> {
     overrides[tabIds[i]] = now - MOCK_DAYS[i] * DAY_MS
   }
   await mockOverrides.setValue(overrides)
+
+  // Re-query and apply overrides so returned tabs have correct lastAccessed
+  const allTabs = await browser.tabs.query({ currentWindow: true })
+  const applied: browser.tabs.Tab[] = []
+  for (const tab of allTabs) {
+    if (tab.id != null && overrides[tab.id] != null) {
+      applied.push({ ...(tab as any), lastAccessed: overrides[tab.id] })
+    } else {
+      applied.push(tab)
+    }
+  }
   console.log(`[background] Created ${tabIds.length} mock tabs with backdated lastAccessed`)
+  return applied
 }

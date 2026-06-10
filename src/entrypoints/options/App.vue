@@ -148,8 +148,9 @@ async function handleCreateMock(): Promise<void> {
   mockLoading.value = true
   mockError.value = null
   try {
-    await browser.runtime.sendMessage({ action: 'createMockTabs' })
-    await refreshTabs()
+    const resp: any = await browser.runtime.sendMessage({ action: 'createMockTabs' })
+    if (resp?.error) throw new Error(resp.error)
+    tabs.value = resp?.tabs ?? []
   } catch (err) {
     mockError.value = err instanceof Error ? err.message : 'Failed to create mock tabs'
   } finally {
@@ -161,7 +162,9 @@ async function refreshTabs(): Promise<void> {
   loading.value = true
   error.value = null
   try {
-    tabs.value = await browser.tabs.query({ currentWindow: true })
+    const resp: any = await browser.runtime.sendMessage({ action: 'getTabs' })
+    if (resp?.error) throw new Error(resp.error)
+    tabs.value = resp?.tabs ?? []
   } catch (err) {
     error.value = err instanceof Error ? err.message : 'Failed to load tabs'
   } finally {
