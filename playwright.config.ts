@@ -30,8 +30,8 @@ export default defineConfig({
     {
       // Secondary: Firefox manual testing guide
       // Limited Playwright MV3 support - use for manual testing only
-      name: 'firefox-mv3',
-      use: { browserName: 'firefox' },
+      // name: 'firefox-mv3',
+      // use: { browserName: 'firefox' },
     },
   ],
 })

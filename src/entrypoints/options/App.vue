@@ -8,6 +8,7 @@
 
         <q-btn
           label="Mock 10 tabs"
+          data-testid="mock-tabs"
           icon="science"
           color="grey-7"
           :loading="mockLoading"

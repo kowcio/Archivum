@@ -34,7 +34,7 @@ background.ts (service worker — NO Pinia)
 | **TypeScript** | `type` (not `interface`), no `any`, no `unknown` leaks |
 | **Vue** | `<script setup lang="ts">` only — no Options API |
 | **Pinia** | `type State`, `loading` + `error: string \| null` in every store |
-| **Browser** | Use unified `browser` API from `wxt/browser` everywhere — works Chrome + Firefox + Edge. Feature detect for Chrome-only APIs (`tabGroups`). Never mix `chrome` and `browser` |
+| **Browser** | Use unified `browser` API from `wxt/browser` everywhere — works Chrome + Firefox + Edge. Feature detect for Chrome-only APIs (`tabGroups`). Never mix `chrome` and `browser`. **Import rule:** `import { browser } from 'wxt/browser'` (runtime) + `import type { Browser } from 'wxt/browser'` (type namespace, np. `Browser.tabs.Tab[]`). WXT v0.20+ uses `@types/chrome` — namespace to `Browser`, nie `Tabs` |
 | **Storage** | Use `browser.storage` via `tabStorageItem` in background + UI (unified approach). Background writes, UI reads only |
 | **Tests** | Vitest (unit/jsdom) + Playwright (E2E/real Chromium) |
 | **UI** | Quasar: `q-btn`, `q-table`, `q-tooltip`; project CSS: `got-*` from `global.css` |

@@ -81,7 +81,7 @@ export default defineBackground({
  * Each tab gets a backdated lastAccessed for testing grouping.
  * Returns the created tabs with overrides already applied so the UI sees correct data.
  */
-async function createMockTabs(): Promise<browser.tabs.Tab[]> {
+async function createMockTabs(): Promise<Browser.tabs.Tab[]> {
   const now = Date.now()
   const DAY_MS = 86400000
   const tabIds: number[] = []
@@ -111,7 +111,7 @@ async function createMockTabs(): Promise<browser.tabs.Tab[]> {
 
   // Re-query and apply overrides so returned tabs have correct lastAccessed
   const allTabs = await browser.tabs.query({ currentWindow: true })
-  const applied: browser.tabs.Tab[] = []
+  const applied: Browser.tabs.Tab[] = []
   for (const tab of allTabs) {
     if (tab.id != null && overrides[tab.id] != null) {
       applied.push({ ...(tab as any), lastAccessed: overrides[tab.id] })

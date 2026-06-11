@@ -19,9 +19,10 @@
 import { TabRow } from '@/models/tabs/TabRow'
 import { AgeClassification } from '@/models/tabs/AgeClassification'
 import { configStorage } from '@/utils/configStorage'
-import { mockOverrides } from '@/utils/mockStorage'
+import { mockOverrides, activatedTimestamps } from '@/utils/mockStorage'
 import { AppThresholds, DEFAULT_THRESHOLDS } from '@/models/AppThresholds'
 import { browser } from 'wxt/browser'
+import type { Browser } from 'wxt/browser'
 
 export class BackgroundTabService {
   static async getThresholds(): Promise<AppThresholds> {
@@ -32,11 +33,17 @@ export class BackgroundTabService {
     return DEFAULT_THRESHOLDS
   }
 
-  /**
-   * Applies mock lastAccessed overrides to raw tabs (debug).
-   * When a mock override exists for a tabId, it replaces tab.lastAccessed.
-   * Overrides are then cleared so they only apply once.
-   */
+  private static async applyTimestampOverrides(tabs: { id?: number; lastAccessed?: number }[]): Promise<void> {
+    const stamps = await activatedTimestamps.getValue()
+    const ids = Object.keys(stamps).map(Number)
+    if (!ids.length) return
+    for (const tab of tabs) {
+      if (tab.id != null && stamps[tab.id] != null) {
+        tab.lastAccessed = stamps[tab.id]
+      }
+    }
+  }
+
   /**
    * Applies mock lastAccessed overrides to raw tabs (debug).
    * When a mock override exists for a tabId, it replaces tab.lastAccessed.
@@ -67,7 +74,8 @@ export class BackgroundTabService {
       const rawTabs = await browser.tabs.query({ currentWindow: true })
       const thresholds = await this.getThresholds()
 
-      // Apply mock overrides if present (debug)
+      // Apply real activation timestamps + mock overrides
+      await this.applyTimestampOverrides(rawTabs)
       await this.applyMockOverrides(rawTabs)
 
       const rows = TabRow.fromTabs(rawTabs, thresholds)
@@ -99,8 +107,8 @@ export class BackgroundTabService {
       const createGroup = async (ids: number[], title: string, color: string): Promise<number | null> => {
         if (!ids.length) return null
         try {
-          const id = await (chrome as any).tabs.group({ tabIds: ids })
-          await (chrome as any).tabGroups.update(id, { title, color, collapsed: true })
+          const id = await (browser.tabs as any).group({ tabIds: ids })
+          await (browser.tabGroups as any).update(id, { title, color, collapsed: true })
           return id
         } catch {
           return null
@@ -155,15 +163,20 @@ export class BackgroundTabService {
 
   static async onTabActivated(tabId: number): Promise<void> {
     try {
-      const tab = await browser.tabs.get(tabId)
-      if (tab.groupId === undefined || tab.groupId === -1) return
+      // 💾 Save real activation timestamp — always, regardless of group status
+      const now = Date.now()
+      const stamps: Record<number, number> = await activatedTimestamps.getValue()
+      stamps[tabId] = now
+      await activatedTimestamps.setValue(stamps)
 
-      if (browser.tabGroups != null) {
-        try { await (browser.tabs as any).ungroup(tabId) } catch { }
-      }
+      // 🧩 ungroup BEFORE move — move alone keeps the tab inside its group (Chrome/Edge).
+      // Without ungroup, the tab stays grouped and the whole group moves to the right.
+      // Firefox lacks tabGroups API so ungroup throws — caught silently.
+      try { await (browser.tabs as any).ungroup(tabId) } catch { /* Firefox / not grouped */ }
 
+      // ➡️ Move to rightmost — works whether the tab was grouped or not
       await browser.tabs.move(tabId, { index: -1 })
-      console.log(`[BackgroundTabService] ✅ Tab#${tabId} moved to rightmost`)
+      console.log(`[BackgroundTabService] ✅ Tab#${tabId} activated → timestamp saved + moved to rightmost`)
     } catch (err) {
       console.error(`[BackgroundTabService] ❌ onTabActivated error:`, err)
     }
@@ -173,10 +186,11 @@ export class BackgroundTabService {
    * Queries tabs from current window with mock overrides applied.
    * Used by UI contexts to get correct lastAccessed values for display.
    */
-  static async getTabs(): Promise<browser.tabs.Tab[]> {
+  static async getTabs(): Promise<Browser.tabs.Tab[]> {
     const rawTabs = await browser.tabs.query({ currentWindow: true })
     // Deep clone to avoid mutating the original tab objects
-    const tabs: browser.tabs.Tab[] = JSON.parse(JSON.stringify(rawTabs))
+    const tabs: Browser.tabs.Tab[] = JSON.parse(JSON.stringify(rawTabs))
+    await this.applyTimestampOverrides(tabs)
     await this.applyMockOverrides(tabs)
     return tabs
   }
