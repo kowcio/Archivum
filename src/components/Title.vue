@@ -1,8 +1,9 @@
 <template>
   <div class="got-title-bar">
     <div class="row title-row">
-      <span class="got-title-icon">🕰️</span>
-      <h1 class="got-title">Good old tabs</h1>
+<!--      <span class="got-title-icon">🕰️</span>-->
+      <img class="got-title-icon" src="../assets/icon.png" alt="Archivum plugin" width="64"></img>
+      <h1 class="got-title">Archivum</h1>
     </div>
     <div class="row">
       <span class="got-version q-ml-auto">v{{ version }}</span>
