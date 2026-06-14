@@ -3,7 +3,7 @@ import {defineConfig} from 'wxt'
 // See https://wxt.dev/api/config.html
 const date = `${new Date().toISOString().replace(/[-:T]/g, '').slice(0, 12)}`;
 export default defineConfig({
-    modules: ['@wxt-dev/module-vue'],
+    modules: ['@wxt-dev/module-vue', '@wxt-dev/auto-icons'],
     srcDir: 'src',
     outDir: '.output',
     publicDir: 'public',
