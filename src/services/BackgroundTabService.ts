@@ -24,8 +24,17 @@ import { AppThresholds, DEFAULT_THRESHOLDS } from '@/models/AppThresholds'
 import { browser } from 'wxt/browser'
 import type { Browser } from 'wxt/browser'
 import { MOCK_TABS, MOCK_DAYS } from '@/utils/mockTabData'
+import { APP_DEFAULTS } from '@/constants'
 
 export class BackgroundTabService {
+  /**
+   * Get array of possible plugin-created group titles based on threshold labels.
+   * Titles follow pattern: "Label+ (count)"
+   */
+  private static getPluginGroupTitles(): string[] {
+    return APP_DEFAULTS.THRESHOLDS.presets.map(p => p.label)
+  }
+
   static async getThresholds(): Promise<AppThresholds> {
     const stored = await configStorage.getValue()
     if (stored?.thresholds?.levels) {
@@ -120,7 +129,7 @@ export class BackgroundTabService {
       let groupsCreated = 0
       for (let i = activeLevels.length - 1; i >= 0; i--) {
         const level = activeLevels[i]
-        const gid = await createGroup(levelTabIds[i], `${level.label}+ (${levelTabIds[i].length})`, level.color)
+        const gid = await createGroup(levelTabIds[i], `${level.label} (${levelTabIds[i].length})`, level.color)
         if (gid !== null) groupsCreated++
       }
 
@@ -170,6 +179,13 @@ export class BackgroundTabService {
       stamps[tabId] = now
       await activatedTimestamps.setValue(stamps)
 
+      // 🎯 Filter: Only modify tabs NOT in plugin-created groups
+      const inPluginGroup = await this.isInPluginGroup(tabId)
+      if (inPluginGroup) {
+        console.log(`[BackgroundTabService] ⏭️ Tab#${tabId} is in plugin group → skip modification (timestamp saved only)`)
+        return
+      }
+
       // 🧩 ungroup BEFORE move — move alone keeps the tab inside its group (Chrome/Edge).
       // Without ungroup, the tab stays grouped and the whole group moves to the right.
       // Firefox lacks tabGroups API so ungroup throws — caught silently.
@@ -180,7 +196,7 @@ export class BackgroundTabService {
       for (let attempt = 0; attempt < maxRetries; attempt++) {
         try {
           await browser.tabs.move(tabId, { index: -1 })
-          console.log(`[BackgroundTabService] ✅ Tab#${tabId} activated → timestamp saved + moved to rightmost`)
+          console.log(`[BackgroundTabService] ✅ Tab#${tabId} activated → timestamp saved + ungrouped + moved to rightmost`)
           return
         } catch (err: any) {
           // If tabs cannot be edited (user dragging), retry with backoff
@@ -260,4 +276,26 @@ export class BackgroundTabService {
     console.log(`[BackgroundTabService] Created ${tabIds.length} mock tabs with backdated lastAccessed`)
     return applied
   }
+
+  /**
+   * Check if a tab is in a plugin-created group.
+   * Plugin groups have titles like: "Week+ (5)", "Month+ (2)", etc.
+   */
+  private static async isInPluginGroup(tabId: number): Promise<boolean> {
+    try {
+      if (browser.tabGroups == null) return false // Firefox has no groups
+
+      const tab = await browser.tabs.get(tabId)
+      if (tab.groupId == null || tab.groupId === -1) return false // Not grouped
+
+      const group = await (browser.tabGroups as any).get(tab.groupId)
+
+      // Check if group title starts with any plugin label
+      const pluginTitles = this.getPluginGroupTitles()
+      return pluginTitles.some(title => group.title.startsWith(title))
+    } catch {
+      return false
+    }
+  }
 }
+
