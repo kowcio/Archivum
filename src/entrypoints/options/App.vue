@@ -23,7 +23,7 @@
       </div>
 
       <!-- Error display -->
-      <div class="row q-mt-sm" v-if="error">
+      <div class="row q-mt-sm" data-testid="options-error" v-if="error">
         <span>Error : </span>
         <span class="error-text">{{ error }}</span>
       </div>
@@ -101,6 +101,7 @@ import AppTitle from '@/components/Title.vue'
 import GroupUngroup from '@/components/GroupUngroup.vue'
 import MockButton from '@/components/MockButton.vue'
 import CloseAllTabsButton from '@/components/CloseAllTabsButton.vue'
+import DebugServiceWorkerButton from '@/components/DebugServiceWorkerButton.vue'
 
 const configStore = useConfigStore()
 const loading = ref(false)
