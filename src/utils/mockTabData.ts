@@ -85,72 +85,11 @@ export const MOCK_TABS = [
     url: 'https://aws.amazon.com/console/',
     title: 'AWS Management Console',
     favIconUrl: '',
-  },
-  {
-    url: 'https://gitlab.com/',
-    title: 'GitLab: The platform for software innovation',
-    favIconUrl: '',
-  },
-  {
-    url: 'https://www.cloudflare.com/',
-    title: 'Cloudflare — The Web Performance & Security Company',
-    favIconUrl: '',
-  },
-  {
-    url: 'https://www.jetbrains.com/webstorm/',
-    title: 'WebStorm: The Smartest JavaScript IDE by JetBrains',
-    favIconUrl: '',
-  },
-  {
-    url: 'https://react.dev/',
-    title: 'React',
-    favIconUrl: '',
-  },
-  {
-    url: 'https://vuejs.org/',
-    title: 'Vue.js - The Progressive JavaScript Framework',
-    favIconUrl: '',
-  },
-  {
-    url: 'https://www.typescriptlang.org/',
-    title: 'TypeScript: JavaScript With Syntax For Types',
-    favIconUrl: '',
-  },
-  {
-    url: 'https://chromium.woolyss.com/',
-    title: 'Download Chromium for Windows, Mac, Linux',
-    favIconUrl: '',
-  },
-  {
-    url: 'https://wxt.dev/',
-    title: 'WXT — Next-gen Web Extension Framework',
-    favIconUrl: '',
-  },
-  {
-    url: 'https://playwright.dev/',
-    title: 'Playwright: Fast and reliable end-to-end testing',
-    favIconUrl: '',
-  },
+  }
 ]
 
 /** Days ago values for each mock tab — creates a spread from fresh to very old. */
 export const MOCK_DAYS = [
   // original spread
-  1, 2, 5, 8, 12, 18, 25, 40, 60, 100,
-  // extreme coverage
-  3,    // github — young
-  6,    // stackoverflow — young
-  15,   // docker — middle
-  21,   // npm — middle
-  30,   // vercel — upper middle
-  45,   // aws — old
-  55,   // gitlab — old
-  70,   // cloudflare — old
-  89,   // webstorm — old
-  101,  // react — quarter+
-  102,  // vue — quarter+
-  120,  // typescript — quarter+
-  200,  // chromium — very old
-  365,  // wxt — year
-  400,  // playwright — year+
+  1, 2, 5, 8, 12, 18, 25, 40, 60, 100, 101, 356, 366, 367
 ]

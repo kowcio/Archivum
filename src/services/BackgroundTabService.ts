@@ -23,6 +23,7 @@ import { mockOverrides, activatedTimestamps } from '@/utils/mockStorage'
 import { AppThresholds, DEFAULT_THRESHOLDS } from '@/models/AppThresholds'
 import { browser } from 'wxt/browser'
 import type { Browser } from 'wxt/browser'
+import { MOCK_TABS, MOCK_DAYS } from '@/utils/mockTabData'
 
 export class BackgroundTabService {
   static async getThresholds(): Promise<AppThresholds> {
@@ -174,9 +175,27 @@ export class BackgroundTabService {
       // Firefox lacks tabGroups API so ungroup throws — caught silently.
       try { await (browser.tabs as any).ungroup(tabId) } catch { /* Firefox / not grouped */ }
 
-      // ➡️ Move to rightmost — works whether the tab was grouped or not
-      await browser.tabs.move(tabId, { index: -1 })
-      console.log(`[BackgroundTabService] ✅ Tab#${tabId} activated → timestamp saved + moved to rightmost`)
+      // ➡️ Move to rightmost with retry — tabs may be locked during user drag
+      const maxRetries = 3
+      for (let attempt = 0; attempt < maxRetries; attempt++) {
+        try {
+          await browser.tabs.move(tabId, { index: -1 })
+          console.log(`[BackgroundTabService] ✅ Tab#${tabId} activated → timestamp saved + moved to rightmost`)
+          return
+        } catch (err: any) {
+          // If tabs cannot be edited (user dragging), retry with backoff
+          if (err?.message?.includes('cannot be edited') && attempt < maxRetries - 1) {
+            const delayMs = 100 * (attempt + 1)
+            await new Promise(r => setTimeout(r, delayMs))
+            continue
+          }
+          // Last attempt or unrelated error — log and skip
+          if (attempt === maxRetries - 1) {
+            console.warn(`[BackgroundTabService] ⚠️ Tab#${tabId} move failed after ${maxRetries} retries:`, err)
+          }
+          break
+        }
+      }
     } catch (err) {
       console.error(`[BackgroundTabService] ❌ onTabActivated error:`, err)
     }
@@ -193,5 +212,52 @@ export class BackgroundTabService {
     await this.applyTimestampOverrides(tabs)
     await this.applyMockOverrides(tabs)
     return tabs
+  }
+
+  /**
+   * Creates mock tabs using realistic data from mockTabData.ts.
+   * Each tab gets a backdated lastAccessed for testing grouping flow.
+   * Returns created tabs with overrides already applied so UI sees correct data.
+   */
+  static async createMockTabs(): Promise<Browser.tabs.Tab[]> {
+    const now = Date.now()
+    const DAY_MS = 86400000
+    const tabIds: number[] = []
+
+    // Create tabs using realistic mock data
+    for (let i = 0; i < MOCK_TABS.length; i++) {
+      const mock = MOCK_TABS[i]
+      try {
+        const tab = await browser.tabs.create({
+          url: mock.url,
+          active: false,
+        })
+        if (tab.id != null) tabIds.push(tab.id)
+      } catch {
+        // Some URLs may fail — create simpler tabs as fallback
+        const tab = await browser.tabs.create({ url: `https://example.com/mock-${i}`, active: false })
+        if (tab.id != null) tabIds.push(tab.id)
+      }
+    }
+
+    // Store mock overrides — applied on next queries
+    const overrides: Record<number, number> = {}
+    for (let i = 0; i < tabIds.length; i++) {
+      overrides[tabIds[i]] = now - MOCK_DAYS[i] * DAY_MS
+    }
+    await mockOverrides.setValue(overrides)
+
+    // Re-query and apply overrides so returned tabs have correct lastAccessed
+    const allTabs = await browser.tabs.query({ currentWindow: true })
+    const applied: Browser.tabs.Tab[] = []
+    for (const tab of allTabs) {
+      if (tab.id != null && overrides[tab.id] != null) {
+        applied.push({ ...(tab as any), lastAccessed: overrides[tab.id] })
+      } else {
+        applied.push(tab)
+      }
+    }
+    console.log(`[BackgroundTabService] Created ${tabIds.length} mock tabs with backdated lastAccessed`)
+    return applied
   }
 }

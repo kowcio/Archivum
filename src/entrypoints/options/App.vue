@@ -6,14 +6,7 @@
       <div class="row justify-center q-mt-md q-gutter-sm">
         <GroupUngroup />
 
-        <q-btn
-          label="Mock 10 tabs"
-          data-testid="mock-tabs"
-          icon="science"
-          color="grey-7"
-          :loading="mockLoading"
-          @click="handleCreateMock"
-        />
+        <MockButton @mock-created="handleMockCreated" />
 
         <q-btn
           label="Load current tabs"
@@ -22,11 +15,17 @@
           :loading="loading"
           @click="refreshTabs"
         />
+
+        <CloseAllTabsButton
+          @success="refreshTabs"
+          @error="(msg) => error = msg"
+        />
       </div>
 
       <!-- Error display -->
-      <div class="row q-mt-sm" v-if="error || mockError">
-        <span class="error-text">{{ error || mockError }}</span>
+      <div class="row q-mt-sm" v-if="error">
+        <span>Error : </span>
+        <span class="error-text">{{ error }}</span>
       </div>
 
       <!-- Thresholds Configuration -->
@@ -100,6 +99,8 @@ import { AgeClassification } from '@/models/tabs/AgeClassification'
 import Thresholds from '../../components/Thresholds.vue'
 import AppTitle from '@/components/Title.vue'
 import GroupUngroup from '@/components/GroupUngroup.vue'
+import MockButton from '@/components/MockButton.vue'
+import CloseAllTabsButton from '@/components/CloseAllTabsButton.vue'
 
 const configStore = useConfigStore()
 const loading = ref(false)
@@ -141,21 +142,10 @@ function truncate(text: string, max: number): string {
   return !text || text.length <= max ? text : text.substring(0, max) + '…'
 }
 
-// Mock helpers
-const mockLoading = ref(false)
-const mockError = ref<string | null>(null)
-
-async function handleCreateMock(): Promise<void> {
-  mockLoading.value = true
-  mockError.value = null
-  try {
-    const resp: any = await browser.runtime.sendMessage({ action: 'createMockTabs' })
-    if (resp?.error) throw new Error(resp.error)
-    tabs.value = resp?.tabs ?? []
-  } catch (err) {
-    mockError.value = err instanceof Error ? err.message : 'Failed to create mock tabs'
-  } finally {
-    mockLoading.value = false
+function handleMockCreated(mockTabs: any[], err: string | null): void {
+  error.value = err
+  if (!err && mockTabs.length > 0) {
+    tabs.value = mockTabs
   }
 }
 
@@ -164,7 +154,10 @@ async function refreshTabs(): Promise<void> {
   error.value = null
   try {
     const resp: any = await browser.runtime.sendMessage({ action: 'getTabs' })
-    if (resp?.error) throw new Error(resp.error)
+    if (resp?.error) {
+      error.value = resp.error
+      return
+    }
     tabs.value = resp?.tabs ?? []
   } catch (err) {
     error.value = err instanceof Error ? err.message : 'Failed to load tabs'
@@ -178,6 +171,7 @@ async function closeTab(tabId: number | null): Promise<void> {
   await browser.tabs.remove(tabId)
   tabs.value = tabs.value.filter((t: any) => t.id !== tabId)
 }
+
 
 onMounted(() => {
   refreshTabs()

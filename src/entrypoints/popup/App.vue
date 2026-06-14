@@ -4,27 +4,7 @@
 
     <div class="content-wrapper">
       <div class="square-grid">
-        <q-btn
-          class="got-btn-primary square-btn"
-          label="Group tabs"
-          icon="folder"
-          :loading="loading"
-          @click="handleGroup"
-          elevated
-          no-caps
-          fab
-        />
-
-        <q-btn
-          class="got-btn-primary square-btn"
-          label="Ungroup"
-          icon="unfold_more"
-          :loading="loading"
-          @click="handleUngroup"
-          elevated
-          no-caps
-          fab
-        />
+        <GroupUngroup />
 
         <q-btn
           class="got-btn-secondary square-btn"
@@ -54,6 +34,7 @@
 import { ref } from 'vue'
 import { browser } from 'wxt/browser'
 import AppTitle from '@/components/Title.vue'
+import GroupUngroup from "@/components/GroupUngroup.vue";
 
 const loading = ref(false)
 

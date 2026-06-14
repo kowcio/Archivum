@@ -1,9 +1,7 @@
 import { ExtensionCleanupService } from '@/services/ExtensionCleanupService'
 import { BackgroundTabService } from '@/services/BackgroundTabService'
-import { mockOverrides } from '@/utils/mockStorage'
 import { APP_DEFAULTS } from '@/constants'
 import { browser } from 'wxt/browser'
-import { MOCK_TABS, MOCK_DAYS } from '@/utils/mockTabData'
 
 console.debug('[EXT-DBG] background initialized - TOKEN:EXT_DBG_BACKGROUND_v1')
 
@@ -50,7 +48,7 @@ export default defineBackground({
       }
 
       if (action === 'createMockTabs') {
-        createMockTabs()
+        BackgroundTabService.createMockTabs()
           .then((tabs) => sendResponse({ error: null, tabs: JSON.parse(JSON.stringify(tabs)) }))
           .catch((err: any) => sendResponse({ error: String(err), tabs: [] }))
         return true
@@ -76,49 +74,3 @@ export default defineBackground({
   },
 })
 
-/**
- * Creates mock tabs using realistic data from tabs_example.json.
- * Each tab gets a backdated lastAccessed for testing grouping.
- * Returns the created tabs with overrides already applied so the UI sees correct data.
- */
-async function createMockTabs(): Promise<Browser.tabs.Tab[]> {
-  const now = Date.now()
-  const DAY_MS = 86400000
-  const tabIds: number[] = []
-
-  // Create tabs using realistic mock data
-  for (let i = 0; i < MOCK_TABS.length; i++) {
-    const mock = MOCK_TABS[i]
-    try {
-      const tab = await browser.tabs.create({
-        url: mock.url,
-        active: false,
-      })
-      if (tab.id != null) tabIds.push(tab.id)
-    } catch {
-      // Some URLs may fail — create simpler tabs as fallback
-      const tab = await browser.tabs.create({ url: `https://example.com/mock-${i}`, active: false })
-      if (tab.id != null) tabIds.push(tab.id)
-    }
-  }
-
-  // Store mock overrides — applied on next groupTabsByAge
-  const overrides: Record<number, number> = {}
-  for (let i = 0; i < tabIds.length; i++) {
-    overrides[tabIds[i]] = now - MOCK_DAYS[i] * DAY_MS
-  }
-  await mockOverrides.setValue(overrides)
-
-  // Re-query and apply overrides so returned tabs have correct lastAccessed
-  const allTabs = await browser.tabs.query({ currentWindow: true })
-  const applied: Browser.tabs.Tab[] = []
-  for (const tab of allTabs) {
-    if (tab.id != null && overrides[tab.id] != null) {
-      applied.push({ ...(tab as any), lastAccessed: overrides[tab.id] })
-    } else {
-      applied.push(tab)
-    }
-  }
-  console.log(`[background] Created ${tabIds.length} mock tabs with backdated lastAccessed`)
-  return applied
-}
