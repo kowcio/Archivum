@@ -10,6 +10,7 @@
 
         <q-btn
           label="Load current tabs"
+          data-testid="btn-load-tabs"
           icon="refresh"
           color="grey-7"
           :loading="loading"
@@ -39,6 +40,7 @@
       <div class="table-container" v-if="tabs.length">
         <q-table
           title="Open Tabs"
+          data-testid="table-open-tabs"
           :columns="columns"
           :rows="tabRows"
           class="rounded-borders bg-grey-1 q-table--striped table-wrapper"

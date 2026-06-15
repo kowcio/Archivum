@@ -9,15 +9,15 @@ export class OptionsPage {
 
   /** GroupUngroup button (label changes: Group by age / Ungroup) */
   get groupToggleBtn() {
-    return this.wrapper.find('[data-testid="btn-group-by-age"], [data-testid="btn-ungroup-tabs"]')
+    return this.wrapper.find('[data-testid="popup-btn-group-tabs"], [data-testid="popup-btn-ungroup-tabs"]')
   }
 
   get groupBtn() {
-    return this.wrapper.find('[data-testid="btn-group-by-age"]')
+    return this.wrapper.find('[data-testid="popup-btn-group-tabs"]')
   }
 
   get ungroupBtn() {
-    return this.wrapper.find('[data-testid="btn-ungroup-tabs"]')
+    return this.wrapper.find('[data-testid="popup-btn-ungroup-tabs"]')
   }
 
    get mockTabsBtn() {

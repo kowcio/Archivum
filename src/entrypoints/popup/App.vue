@@ -9,6 +9,7 @@
         <q-btn
           class="got-btn-secondary square-btn"
           label="Manage plugin"
+          data-testid="popup-btn-open-option-page"
           icon="dashboard_customize"
           @click="openOptionsPageFull"
           elevated
@@ -19,6 +20,7 @@
         <q-btn
           class="got-btn-ghost square-btn"
           label="Browser options"
+          data-testid="popup-btn-plugin-browser-option"
           icon="settings"
           @click="openOptionsPage"
           elevated

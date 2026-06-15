@@ -1,6 +1,7 @@
 <template>
   <q-btn
     label="Close all except current"
+    data-testid="btn-close-all-tabs"
     icon="close_multiple"
     color="negative"
     :loading="loading"

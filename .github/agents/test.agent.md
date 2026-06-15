@@ -171,6 +171,7 @@ test.beforeAll(() => {
 - Mock `storage.onChanged` if component calls `initStorageSync()`
 - Test **behavior** (state/output), not implementation (method calls)
 - No `any` — use `unknown` + narrow, or `as Type`
+- Buttons and main component should have a proper `data-testid` for easy selection in tests and selecting should be using `p.getByTestId('...')` in Playwright
 
 ## Coverage Targets
 

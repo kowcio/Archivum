@@ -1,7 +1,7 @@
 <template>
   <q-btn-group>
     <q-btn
-      :data-testid="isGrouped ? 'btn-ungroup-tabs' : 'btn-group-by-age'"
+      :data-testid="isGrouped ? 'popup-btn-ungroup-tabs' : 'popup-btn-group-tabs'"
       :label="isGrouped ? ungroupLabel : groupLabel"
       :icon="isGrouped ? ungroupIcon : groupIcon"
       :color="isGrouped ? ungroupColor : groupColor"
