@@ -1,243 +1,205 @@
 <template>
-  <div class="version-info">Version: {{ version }}</div>
+  <AppTitle />
   <div id="options" class="row">
-  <div class="col-10 offset-1">
+    <div class="col-10 offset-1">
+      <!-- Actions -->
+      <div class="row justify-center q-mt-md q-gutter-sm">
+        <GroupUngroup />
 
-    <div class="row q-mt-md">
-    <div class="q-col-gutter">
-      <q-btn-group class="q-mb-sm">
-        <q-btn data-testid="btn-load-tabs" label="Load Tabs" color="primary" :loading="tabStore.loading" @click="handleLoadTabs" />
-        <q-btn data-testid="btn-load-saved-tabs" label="Load Saved Tabs" color="info" :loading="tabStore.loading" @click="handleLoadSavedTabs" />
-        <q-btn data-testid="btn-save-tabs" label="Save Tabs" color="secondary" :loading="tabStore.loading" @click="handleSaveTabs" />
-        <q-btn data-testid="btn-gen-mock-tabs" label="Gen & save mock tabs" color="warning" :loading="tabStore.loading" @click="handleGenMockTabs" />
-      </q-btn-group>
-      <span v-if="tabStore.lastSaveDate" style="font-size: 0.8rem; color: #666;">
-        Last saved: {{ tabStore.lastSaveDate }}
-      </span>
-      <span v-if="tabStore.error" style="font-size: 0.8rem; color: red;">
-        Error: {{ tabStore.error }}
-      </span>
-      </div>
-    </div>
+        <MockButton @mock-created="handleMockCreated" />
 
-    <div class="row q-mt-md">
-      <div class="col-1">
-        <q-input
-          data-testid="tabs-marking-age"
-          label="Tabs marking age (days)"
-          type="number"
-          v-model.number="tabsMarkingAge"
-          :min="AppConfig.DEFAULT_MIN_TABS_MARKING_AGE"
-          :max="AppConfig.DEFAULT_MAX_TABS_MARKING_AGE"
-          :disable="tabStore.loading"
-          @update:model-value="handleTabsMarkingAgeChange"
+        <q-btn
+          label="Load current tabs"
+          icon="refresh"
+          color="grey-7"
+          :loading="loading"
+          @click="refreshTabs"
+        />
+
+        <CloseAllTabsButton
+          @success="refreshTabs"
+          @error="(msg) => error = msg"
         />
       </div>
-    </div>
 
-    <div style="margin:24px; display: flex; ">
-      <q-table
-        data-testid="current-tabs-table"
-        title="Open Tabs"
-        :columns="columns"
-        :rows="rows"
-        class="rounded-borders bg-grey-1 q-table--striped"
-        row-key="rowKey"
-        flat
-        bordered
-        dense
-        wrap-cells
-        virtual-scroll
-        style="max-height: 70vh;"
-        :rows-per-page-options="[0]"
-        :pagination="{ sortBy: 'lastAccess', descending: true }"
-      >
-        <template #body="props">
-          <q-tr :props="props" :data-testid="`row-${props.row.rowKey}`">
-            <q-td
-              v-for="col in props.cols"
-              :key="col.name"
-              :props="props"
-              :data-testid="`cell-${col.name}-${props.row.rowKey}`"
-              :class="col.name === 'lastAccess' ? props.row.lastAccessClass : undefined"
-            >
-              <template v-if="col.name === 'close'">
-                <button @click="handleCloseTab(props.row.id)" :disabled="!props.row.id">Close
-                </button>
-              </template>
-              <template v-else-if="col.name === 'thumbnail'">
-                <img v-if="props.row.thumbnail" :src="props.row.thumbnail" alt="favicon" width="20"
-                     height="20"/>
-                <span v-else>—</span>
-              </template>
-              <template v-else-if="col.name === 'lastAccess'" :class="props.row.lastAccessClass">
-                {{ tabService.getLastAccessMsg(props.row) || '—' }}
-              </template>
-              <template v-else-if="col.name === 'url'">
-                <a v-if="props.row.url" :href="props.row.url" target="_blank"
-                   rel="noreferrer">{{ props.row.url }}</a>
-                <span v-else>—</span>
-              </template>
-              <template v-else>
-                {{ props.row[col.field] ?? '—' }}
-              </template>
-            </q-td>
-          </q-tr>
-        </template>
-      </q-table>
-    </div>
+      <!-- Error display -->
+      <div class="row q-mt-sm" data-testid="options-error" v-if="error">
+        <span>Error : </span>
+        <span class="error-text">{{ error }}</span>
+      </div>
 
-  </div>
+      <!-- Thresholds Configuration -->
+      <div class="row q-mt-lg">
+        <div class="col">
+          <Thresholds />
+        </div>
+      </div>
+
+      <!-- Live tabs table -->
+      <div class="table-container" v-if="tabs.length">
+        <q-table
+          title="Open Tabs"
+          :columns="columns"
+          :rows="tabRows"
+          class="rounded-borders bg-grey-1 q-table--striped table-wrapper"
+          row-key="rowKey"
+          flat
+          bordered
+          dense
+          wrap-cells
+          virtual-scroll
+          :rows-per-page-options="[0]"
+          :pagination="{ sortBy: 'ordinal', descending: false }"
+        >
+          <template #body="props">
+            <q-tr :props="props">
+              <q-td
+                v-for="col in props.cols"
+                :key="col.name"
+                :props="props"
+                :style="col.name === 'lastAccess' ? props.row.rowStyle : undefined"
+              >
+                <template v-if="col.name === 'actions'">
+                  <button class="btn-action btn-close-tab" @click="closeTab(props.row.id)"
+                          :disabled="!props.row.id" title="Close tab">Close</button>
+                </template>
+                <template v-else-if="col.name === 'thumbnail'">
+                  <div class="favicon-wrapper">
+                    <img v-if="props.row.thumbnail" :src="props.row.thumbnail" alt="" width="16" height="16"/>
+                    <span v-else>—</span>
+                  </div>
+                </template>
+                <template v-else-if="col.name === 'lastAccess'">
+                  {{ lastAccessMsg(props.row) }}
+                </template>
+                <template v-else-if="col.name === 'title'">
+                  <span>{{ truncate(props.row.title, 50) }}</span>
+                </template>
+                <template v-else-if="col.name === 'url'">
+                  <a :href="props.row.url" target="_blank" rel="noreferrer">{{ truncate(props.row.url, 50) }}</a>
+                </template>
+                <template v-else>
+                  {{ props.row[col.field] ?? '—' }}
+                </template>
+              </q-td>
+            </q-tr>
+          </template>
+        </q-table>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import {computed, onMounted, ref, watch} from 'vue';
-import {storeToRefs}from 'pinia';
-import TabService from '@/services/TabService';
-import {useGlobalStore}from '@/stores/globalStore.ts';
-import {useTabStore}from '@/stores/TabStore';
-import type {Tabs} from 'webextension-polyfill';
-import type {QTableProps} from 'quasar';
-import {TabRow} from '@/models/tabs/TabRow';
-import globals from '@/globals';
-import { AppConfig } from '@/constants/GlobalFlags';
+import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { browser } from 'wxt/browser'
+import { useConfigStore } from '@/stores/configStore'
+import { TabRow } from '@/models/tabs/TabRow'
+import { AgeClassification } from '@/models/tabs/AgeClassification'
+import Thresholds from '../../components/Thresholds.vue'
+import AppTitle from '@/components/Title.vue'
+import GroupUngroup from '@/components/GroupUngroup.vue'
+import MockButton from '@/components/MockButton.vue'
+import CloseAllTabsButton from '@/components/CloseAllTabsButton.vue'
+import DebugServiceWorkerButton from '@/components/DebugServiceWorkerButton.vue'
 
-const tabService = new TabService();
+const configStore = useConfigStore()
+const loading = ref(false)
+const error = ref<string | null>(null)
+const tabs = ref<any[]>([])
 
-const version = globals.APP_VERSION;
+const columns: { name: string; label: string; field: string; align: 'left' | 'right'; sortable?: boolean }[] = [
+  { name: 'ordinal', label: '#', field: 'ordinal', align: 'left', sortable: true },
+  { name: 'actions', label: '', field: 'actions', align: 'left' },
+  { name: 'thumbnail', label: '', field: 'thumbnail', align: 'left' },
+  { name: 'domain', label: 'Domain', field: 'domain', align: 'left', sortable: true },
+  { name: 'title', label: 'Title', field: 'title', align: 'left', sortable: true },
+  { name: 'url', label: 'URL', field: 'url', align: 'left' },
+  { name: 'lastAccess', label: 'Access', field: 'lastAccess', align: 'left', sortable: true },
+  { name: 'lastAccessAge', label: 'Age', field: 'lastAccessAge', align: 'left', sortable: true },
+]
 
-const global = useGlobalStore();
-const tabStore = useTabStore();
-const { tabs: storeTabs } = storeToRefs(tabStore);
-const username = ref('');
-const enabled = ref(false);
-const saved = ref(false);
-const tabs = ref<Tabs.Tab[]>([]);
-const tabsMarkingAge = ref(global.flags.tabsMarkingAge ?? 0);
-
-watch(
-  storeTabs,
-  (newTabs) => { tabs.value = newTabs; },
-  { immediate: true },
-);
-
-const columns: QTableProps['columns'] = [
-  {name: 'ordinal',       label: '#',           field: 'ordinal',       align: 'left', headerClasses: 'col-auto', sortable: true},
-  {name: 'close',         label: '',            field: 'close',         align: 'left', headerClasses: 'col-auto'},
-  // {name: 'id',            label: 'ID',          field: 'id',            align: 'left', headerClasses: 'col-auto', sortable: true},
-  {name: 'thumbnail',     label: '',            field: 'thumbnail',     align: 'left', headerClasses: 'col-auto'},
-  {name: 'domain',        label: 'Domain',      field: 'domain',        align: 'left', headerClasses: 'col-2',    sortable: true},
-  {name: 'title',         label: 'Title',       field: 'title',         align: 'left', headerClasses: 'col-2',    sortable: true},
-  {name: 'url',           label: 'URL',         field: 'url',           align: 'left', headerClasses: 'col-4',    sortable: true},
-  // {name: 'openerId',      label: 'Opener ID',   field: 'openerTabId',   align: 'left', headerClasses: 'col-1'},
-  {name: 'lastAccess',    label: 'Last Access', field: 'lastAccess',    align: 'left', headerClasses: 'col-1',    sortable: true},
-  {name: 'lastAccessAge', label: 'Age',         field: 'lastAccessAge', align: 'left', headerClasses: 'col-auto', sortable: true},
-];
-
-const rows = computed(() =>
-  TabRow.fromTabs(tabs.value).map((row, index) => {
-    const ageClassification = tabService.getAgeClassification(row);
+const tabRows = computed(() => {
+  const rows = TabRow.fromTabs(tabs.value, configStore.thresholds)
+  return rows.map((row: any, i: number) => {
+    const days = row.lastAccessDays ?? 0
+    const c = AgeClassification.fromDays(days, configStore.thresholds)
     return {
       ...row,
-      ordinal: index + 1,
-      // title: row.title,
-      lastAccessAge: Number.isFinite(ageClassification.days) ? `${ageClassification.days}d` : '—',
-      lastAccessClass: ageClassification.cssClass,
-    };
-  }).filter(row => {
-    // Filter out tabs that are not older than the specified age threshold
-    const thresholdDays = tabsMarkingAge.value ?? 0;
-    if (thresholdDays === 0) return true; // Show all tabs if threshold is 0
-
-    const rowDays = Number(row.lastAccessAge?.replace('d', '') ?? '0');
-    return rowDays >= thresholdDays;
+      ordinal: i + 1,
+      lastAccessAge: `${days}d`,
+      rowStyle: c.inlineStyle,
+    }
   })
-);
+})
 
-onMounted(async () => {
-  await global.init();
-  username.value = global.flags.username ?? '';
-  enabled.value = !!global.flags.enabled;
-  tabsMarkingAge.value = global.flags.tabsMarkingAge ?? 0;
-  await loadTabs();
-  console.log('tabs', tabs.value)
-  await tabService.markOldTabs();
-});
-
-async function loadTabs(): Promise<void> {
-  tabs.value = await tabStore.getAllOpenedTabs();
+function lastAccessMsg(row: TabRow): string {
+  const d = row.lastAccessDays
+  if (d == null || !Number.isFinite(d)) return '—'
+  return d === 0 ? 'Today' : `${d}d ago`
 }
 
-async function handleCloseTab(tabId: number | null): Promise<void> {
-  if (tabId == null) return;
-  tabs.value = await tabStore.closeTab(tabId);
+function truncate(text: string, max: number): string {
+  return !text || text.length <= max ? text : text.substring(0, max) + '…'
 }
 
-function createMockTabs(count = 5): Tabs.Tab[] {
-  const mockData = [
-    { url: 'https://github.com/microsoft/vscode', title: 'VS Code · GitHub', favIconUrl: 'https://github.com/favicon.ico' },
-    { url: 'https://developer.mozilla.org/en-US/docs/Web/API', title: 'Web APIs | MDN', favIconUrl: 'https://developer.mozilla.org/favicon.ico' },
-    { url: 'https://vuejs.org/guide/introduction', title: 'Introduction — Vue.js', favIconUrl: 'https://vuejs.org/favicon.ico' },
-    { url: 'https://pinia.vuejs.org/core-concepts/', title: 'Core Concepts | Pinia', favIconUrl: 'https://pinia.vuejs.org/favicon.ico' },
-    { url: 'https://vitest.dev/guide/', title: 'Getting Started | Vitest', favIconUrl: 'https://vitest.dev/favicon.ico' },
-  ];
-  return Array.from({ length: count }, (_, index) => ({
-    id: index + 1,
-    index,
-    windowId: 1,
-    active: index === 0,
-    highlighted: index === 0,
-    pinned: false,
-    incognito: false,
-    url: mockData[index % mockData.length].url,
-    title: mockData[index % mockData.length].title,
-    favIconUrl: mockData[index % mockData.length].favIconUrl,
-  } satisfies Tabs.Tab));
+function handleMockCreated(mockTabs: any[], err: string | null): void {
+  error.value = err
+  if (!err && mockTabs.length > 0) {
+    tabs.value = mockTabs
+  }
 }
 
-async function handleLoadTabs(): Promise<void> {
-  tabs.value = await tabStore.getAllOpenedTabs();
+async function refreshTabs(): Promise<void> {
+  loading.value = true
+  error.value = null
+  try {
+    const resp: any = await browser.runtime.sendMessage({ action: 'getTabs' })
+    if (resp?.error) {
+      error.value = resp.error
+      return
+    }
+    tabs.value = resp?.tabs ?? []
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : 'Failed to load tabs'
+  } finally {
+    loading.value = false
+  }
 }
 
-async function handleLoadSavedTabs(): Promise<void> {
-  tabs.value = (await tabStore.loadTabsHistory())?.tabs ?? [];
-}
-
-async function handleSaveTabs(): Promise<void> {
-  await tabStore.saveAllTabs();
-}
-
-function handleGenMockTabs(): void {
-  tabs.value = createMockTabs(5);
-}
-
-async function handleTabsMarkingAgeChange(): Promise<void> {
-  // Use the input value directly (simplified - no validation for now)
-  const inputValue = tabsMarkingAge.value ?? 0;
-
-  global.flags = {...global.flags, tabsMarkingAge: inputValue};
-  await global.save();
-  await tabService.markOldTabsWithAgeThreshold(inputValue);
-
-  // Also mark all currently open tabs reactively
-  await tabService.markOldTabs();
+async function closeTab(tabId: number | null): Promise<void> {
+  if (tabId == null) return
+  await browser.tabs.remove(tabId)
+  tabs.value = tabs.value.filter((t: any) => t.id !== tabId)
 }
 
 
-async function save() {
-  global.flags = {...global.flags, username: username.value, enabled: enabled.value};
-  await global.save();
-  saved.value = true;
-  setTimeout(() => (saved.value = false), 1500);
+onMounted(() => {
+  refreshTabs()
+  browser.tabs.onActivated.addListener(onTabActivated)
+})
+
+onUnmounted(() => {
+  browser.tabs.onActivated.removeListener(onTabActivated)
+})
+
+async function onTabActivated(_tabId: { tabId: number }): Promise<void> {
+  await refreshTabs()
 }
 </script>
 
-<style>
-
-
-</style>
-
 <style scoped>
-
+#options {
+  background: linear-gradient(180deg, rgba(255, 109, 0, 0.04) 0%, rgba(21, 101, 192, 0.04) 100%);
+  min-height: 100vh;
+  padding: 1rem 0;
+}
+.table-container { display: flex; justify-content: center; width: 100%; margin: 1rem 0; }
+.table-wrapper { max-height: 70vh; width: 100%; }
+.error-text { font-size: 0.8rem; color: red; }
+.favicon-wrapper { display: inline-flex; align-items: center; width: 22px; height: 22px; }
+.btn-action { padding: 2px 6px; font-size: 0.75rem; border: 1px solid #ccc; border-radius: 3px; background: #f5f5f5; cursor: pointer; }
+.btn-action:hover:not(:disabled) { background: #e0e0e0; }
+.btn-action:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-close-tab { color: #d32f2f; }
 </style>

@@ -1,36 +1,37 @@
 import { defineConfig } from '@playwright/test'
 
+const width = 1600;
+const height = 900;
+
 export default defineConfig({
   testDir: './test/playwright',
   timeout: 60000,
   expect: { timeout: 10000 },
   fullyParallel: false,
-  retries: 0,
-  workers: 1,
   reporter: [
     ['list', { printSteps: true }],
-    ['html', { printSteps: true, outputFolder: 'reports/playwright-report', open: 'never' }]
+    ['html', { printSteps: true, outputFolder: 'reports/playwright-report', open: 'never' }],
   ],
   outputDir: 'reports/test-results',
-
   use: {
-    trace: 'retain-on-failure',
-    video: 'off',
-    screenshot: 'only-on-failure',
     headless: true,
+    viewport: { width: width, height: height },
     launchOptions: {
-      slowMo: 50,
+      args: ['--window-size=' + width + ',' + height],
     },
   },
-
   projects: [
     {
+      // Primary: Chrome/Chromium automated extension tests
+      // Reliable service worker support, full Playwright extension support
       name: 'chrome-mv3',
       use: { browserName: 'chromium' },
     },
     {
-      name: 'firefox-mv3',
-      use: { browserName: 'firefox' },
+      // Secondary: Firefox manual testing guide
+      // Limited Playwright MV3 support - use for manual testing only
+      // name: 'firefox-mv3',
+      // use: { browserName: 'firefox' },
     },
   ],
 })

@@ -1,28 +1,25 @@
-import { defineConfig, configDefaults } from 'vitest/config'
+import { defineConfig } from 'vitest/config'
 import vue from '@vitejs/plugin-vue'
+import { WxtVitest } from 'wxt/testing/vitest-plugin'
 import path from 'path'
 
 export default defineConfig({
-  plugins: [vue()],
+  plugins: [vue(), WxtVitest()],
   resolve: {
     alias: {
       '@': path.resolve(__dirname, 'src'),
-      quasar: path.resolve(__dirname, 'node_modules/quasar/dist/quasar.client.js'),
+      'src': path.resolve(__dirname, 'src'),
     },
   },
   test: {
-    environment: 'jsdom',
-    exclude: [...configDefaults.exclude, '**/node_modules/**', '.output/**', 'reports/**'],
-    include: [
-      'src/test/unit/**/*.spec.{js,ts,vue}',
-    ],
-
+    environment: 'happy-dom',
+    include: ['test/unit/**/*.spec.{js,ts,vue}'],
+    exclude: ['**/node_modules/**', '.output/**', 'reports/**'],
     globals: true,
-
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],
-      reportsDirectory: './reports/coverage'
-    }
-  }
+      reportsDirectory: './reports/coverage',
+    },
+  },
 })

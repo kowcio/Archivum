@@ -3,10 +3,11 @@
   "include": [
     "src/**/*",
     "src/**/*.spec.ts",
-    "src/**/*.spec.vue"
+    "src/**/*.spec.vue",
+    "test/unit/**/*"
   ],
   "exclude": [
-    "src/test/playwright/**/*"
+    "test/playwright/**/*"
   ],
   "compilerOptions": {
     // Inherits from root via tsconfig.app.json: target, module, moduleResolution,
@@ -17,7 +18,14 @@
     "lib": [],
 
     // Test-specific types
-    "types": ["node", "jsdom", "vitest/globals"]
+    "types": ["node", "jsdom", "vitest/globals"],
+
+    // Path aliases (extends tsconfig.app.json paths + src alias for tests)
+    "paths": {
+      "@/*": ["./src/*"],
+      "src/*": ["./src/*"],
+      "wxt/*": ["./.wxt/*"]
+    }
   }
 }
 

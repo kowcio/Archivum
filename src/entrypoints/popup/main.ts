@@ -1,10 +1,10 @@
-import { initializeApp } from '@/utils/app-init';
+import 'quasar/dist/quasar.css';
+import '@quasar/extras/material-icons/material-icons.css';
+import '@/assets/global.css';
+import { AppBootstrapper } from '@/entrypoints/shared/AppBootstrapper';
 import AppPopup from './App.vue';
 
-console.debug('[EXT-DBG] popup initializing - TOKEN:EXT_DBG_POPUP_v1');
-
-// Use unified initialization
-initializeApp({
+AppBootstrapper.initUI({
   rootComponent: AppPopup,
   mountTarget: '#app',
-}).catch((err: unknown) => console.error('Failed to initialize popup:', err));
+});
