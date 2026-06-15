@@ -54,15 +54,18 @@ test.describe("Tab Age Extension E2E Flow", () => {
       const p = await ctx.context.newPage();
       await p.goto("chrome-extension://" + ctx.extensionId + "/options.html", { waitUntil: "domcontentloaded" });
 
-      await Promise.all([
-        expect(p.getByTestId("popup-btn-group-tabs")).toBeVisible({ timeout: 4000 }),
-        expect(p.getByTestId("popup-btn-ungroup-tabs")).not.toBeVisible({ timeout: 2000 }),
-        expect(p.getByTestId("mock-tabs")).toBeVisible(),
-        expect(p.getByTestId("btn-load-tabs")).toBeVisible(),
-        expect(p.getByTestId("btn-close-all-tabs")).toBeVisible(),
-        expect(p.getByTestId("table-open-tabs")).toBeVisible(),
-        expect(p.getByTestId("thresholds-config")).toBeVisible(),
-      ]);
+      const text = await p.locator('#options').textContent();
+      console.log("Text:", text);
+
+      await expect(p.getByTestId("popup-btn-group-tabs")).toBeVisible({ timeout: 4000 });
+      await expect(p.getByTestId("popup-btn-ungroup-tabs")).not.toBeVisible({ timeout: 2000 });
+      await expect(p.getByTestId("mock-tabs")).toBeVisible();
+
+      await expect(p.getByTestId("btn-load-tabs")).toBeDefined();
+      await expect(p.getByTestId("btn-load-tabs")).toBeVisible();
+      await expect(p.getByTestId("btn-close-all-tabs")).toBeVisible();
+      await expect(p.getByTestId("table-open-tabs")).toBeVisible();
+      await expect(p.getByTestId("thresholds-config")).toBeVisible();
 
       // Verify table has rows
       const rowCount = await p.locator('[data-testid="table-open-tabs"] tr').count();
