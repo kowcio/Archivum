@@ -8,19 +8,22 @@
 
         <MockButton @mock-created="handleMockCreated" />
 
-        <q-btn
-          label="Load current tabs"
-          data-testid="btn-load-tabs"
-          icon="refresh"
-          color="grey-7"
-          :loading="loading"
-          @click="refreshTabs"
-        />
+        <div data-testid="btn-load-tabs">
+          <q-btn
+            label="Load current tabs"
+            icon="refresh"
+            color="grey-7"
+            :loading="loading"
+            @click="refreshTabs"
+          />
+        </div>
 
-        <CloseAllTabsButton
-          @success="refreshTabs"
-          @error="(msg) => error = msg"
-        />
+        <div data-testid="btn-close-all-tabs">
+          <CloseAllTabsButton
+            @success="refreshTabs"
+            @error="(msg) => error = msg"
+          />
+        </div>
       </div>
 
       <!-- Error display -->
