@@ -23,7 +23,7 @@ import { mockOverrides, activatedTimestamps } from '@/utils/mockStorage'
 import { AppThresholds, DEFAULT_THRESHOLDS } from '@/models/AppThresholds'
 import { browser } from 'wxt/browser'
 import type { Browser } from 'wxt/browser'
-import { MOCK_TABS, MOCK_DAYS } from '@/utils/mockTabData'
+import { MOCK_TABS } from '@/utils/mockTabData'
 import { APP_DEFAULTS } from '@/constants'
 
 export class BackgroundTabService {
@@ -85,8 +85,8 @@ export class BackgroundTabService {
       const thresholds = await this.getThresholds()
 
       // Apply real activation timestamps + mock overrides
-      await this.applyTimestampOverrides(rawTabs)
-      await this.applyMockOverrides(rawTabs)
+      // await this.applyTimestampOverrides(rawTabs)
+      // await this.applyMockOverrides(rawTabs)
 
       const rows = TabRow.fromTabs(rawTabs, thresholds)
       const activeLevels = thresholds.active()
@@ -228,7 +228,7 @@ export class BackgroundTabService {
     const rawTabs = await browser.tabs.query({ currentWindow: true })
     // Deep clone to avoid mutating the original tab objects
     const tabs: Browser.tabs.Tab[] = JSON.parse(JSON.stringify(rawTabs))
-    await this.applyTimestampOverrides(tabs)
+    // await this.applyTimestampOverrides(tabs)
     await this.applyMockOverrides(tabs)
     return tabs
   }
@@ -262,7 +262,7 @@ export class BackgroundTabService {
     // Store mock overrides — applied on next queries
     const overrides: Record<number, number> = {}
     for (let i = 0; i < tabIds.length; i++) {
-      overrides[tabIds[i]] = now - MOCK_DAYS[i] * DAY_MS
+      overrides[tabIds[i]] = now - MOCK_TABS[i].daysAgo * DAY_MS
     }
     await mockOverrides.setValue(overrides)
 

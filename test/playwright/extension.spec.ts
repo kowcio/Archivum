@@ -23,7 +23,7 @@ async function queryTabs(page: Page): Promise<TabQueryResult[]> {
 }
 
 test.describe("Tab Age Extension \u2014 E2E Flow", () => {
-  test.setTimeout(150_000);
+  test.setTimeout(60_000);
   let ctx: Ctx;
 
   test.beforeAll(async () => {
