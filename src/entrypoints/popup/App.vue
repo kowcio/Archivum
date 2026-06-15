@@ -61,10 +61,10 @@ function openOptionsPage(): void {
 }
 
 async function openOptionsPageFull(): Promise<void> {
-  const url = browser.runtime.getURL('options.html')
-  await browser.tabs.create({ url })
-  window.close()
-}
+   const url = browser.runtime.getURL('/options.html')
+   await browser.tabs.create({ url })
+   window.close()
+ }
 </script>
 
 <style scoped>

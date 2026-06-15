@@ -101,7 +101,6 @@ import AppTitle from '@/components/Title.vue'
 import GroupUngroup from '@/components/GroupUngroup.vue'
 import MockButton from '@/components/MockButton.vue'
 import CloseAllTabsButton from '@/components/CloseAllTabsButton.vue'
-import DebugServiceWorkerButton from '@/components/DebugServiceWorkerButton.vue'
 
 const configStore = useConfigStore()
 const loading = ref(false)

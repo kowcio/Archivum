@@ -32,6 +32,6 @@
     "skipLibCheck": true,
 
     // Global types
-    "types": ["firefox-webext-browser"]
+    "types": ["node"]
   }
 }

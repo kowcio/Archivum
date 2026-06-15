@@ -1,5 +1,4 @@
 import type {Tabs} from 'webextension-polyfill';
-import type { ClassifiedTab } from '@/models/tabs/ClassifiedTab'
 import dayjs from 'dayjs';
 import { AppThresholds, DEFAULT_THRESHOLDS } from '@/models/AppThresholds'
 
@@ -27,10 +26,8 @@ export class TabRow {
     this.id = tab.id ?? null;
     this.openerTabId = tab.openerTabId ?? null;
     this.rowKey = String(tab.id ?? tab.sessionId ?? tab.url ?? `row-${Math.random().toString(36).slice(2)}`);
-    // Prefer the pre-rendered L-bracket favicon over the raw favIconUrl.
-    // markedFaviconDataUrl is set by markTabWithLBracket (OffscreenCanvas, extension context).
-    const classified = tab as ClassifiedTab
-    this.thumbnail = classified.markedFaviconDataUrl ?? tab.favIconUrl ?? ''
+    // Use favicon URL from tab
+    this.thumbnail = tab.favIconUrl ?? ''
 
     // Derived fields - domain extraction
     this.domain = this.extractDomain(tab.url);

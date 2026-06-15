@@ -7,7 +7,6 @@
     "noEmit": true,
     "types": [
       "node",
-      "firefox-webext-browser",
       "chrome"
     ]
   }
