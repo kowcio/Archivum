@@ -45,6 +45,7 @@ background.ts (service worker — NO Pinia)
 | **L-brackets deprecated** | LBracketService exists for future use but is NOT active — use tab groups |
 | **Token economy** | Code + SHORT explanation only — no long descriptions, no helper scripts |
 | **Minimalism** | Answer query directly — no "how to use" essays, no verbose summaries |
+| **Test assertions** | NEVER use `>`, `<`, `toBeGreaterThan()`, `toBeLessThan()` — always assert **exact values** with `toBe()`, `toEqual()`. No guesswork. |
 
 ## Tab Age Management
 

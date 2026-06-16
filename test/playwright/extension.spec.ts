@@ -240,6 +240,24 @@ test.describe("Tab Age Extension E2E Flow", () => {
         expect(grouped.length).toBeGreaterThan(0);
         expect(ungrouped.length).toBeGreaterThan(0);
         expect(uniqueGroups.size).toBe(3);
+
+        // Verify tabs in each group are sorted oldest to youngest
+        const allTabs = await p.evaluate(async () => {
+          const tabs = await chrome.tabs.query({ currentWindow: true });
+          return tabs.map((t: any) => ({ groupId: t.groupId ?? -1, lastAccessed: t.lastAccessed ?? 0, url: (t.url || "").slice(0, 30) }));
+        });
+
+        const groupMap = new Map(groupDetails.map((g: any) => [g.id, g.title]));
+
+        Array.from(uniqueGroups).forEach((gid: any) => {
+          const tabs = allTabs.filter((t: any) => t.groupId === gid);
+          const sorted = tabs.every((t: any, i: number, a: any[]) => i === 0 || t.lastAccessed >= a[i - 1].lastAccessed);
+          const title = groupMap.get(gid) || "(no title)";
+          const dates = tabs.map((t: any) => new Date(t.lastAccessed).toISOString()).join(", ");
+          console.log(`[Test] Group: "${title} (${tabs.length})" ${sorted ? '✅' : '❌'}`);
+          console.log(`       ${dates}`);
+          expect(sorted).toBe(true);
+        });
       });
 
       await p.close();
