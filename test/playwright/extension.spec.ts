@@ -6,7 +6,6 @@
  */
 import { expect, test, type BrowserContext, type Page } from "@playwright/test";
 import { launchChromeContext } from "./helpers/extensions.js";
-import {BackgroundTabService} from "../../src/services/BackgroundTabService.js";
 
 type TabQueryResult = { id?: number; url: string; title?: string; groupId?: number; lastAccessed?: number };
 type CreateResp = { ok: boolean; count: number; error: string | null };
@@ -264,11 +263,29 @@ test.describe("Tab Age Extension E2E Flow", () => {
           expect(sorted).toBe(true);
         });
 
-        // Verify if the clicking on the tab inside the group will move it  as the last tab
-        const tabId = Array.from(uniqueGroups)[1];
-        BackgroundTabService.onTabActivated(tabId)
+        // Test: Verify clicking on a tab inside a group moves it to rightmost
+        const groupId = Array.from(uniqueGroups)[1];
+        const tabToActivate = allTabs.find((t: any) => t.groupId === groupId);
+        if (!tabToActivate) throw new Error(`No tab found in group ${groupId}`);
 
+        await p.evaluate((tabId: number) => {
+          return new Promise<void>((resolve) => {
+            chrome.runtime.sendMessage({ action: "onTabActivated", tabId }, () => resolve());
+          });
+        }, tabToActivate.id);
 
+        await p.waitForFunction(
+          (tabId: number) => {
+            return chrome.tabs.query({ currentWindow: true }).then((tabs: any[]) => {
+              const tab = tabs.find(t => t.id === tabId);
+              return tab && tab.groupId === -1 && tabs[tabs.length - 1].id === tabId;
+            });
+          },
+          tabToActivate.id,
+          { timeout: 5000, polling: 300 }
+        );
+
+        expect(true).toBe(true); // Passed if waitForFunction didn't timeout
 
       });
 

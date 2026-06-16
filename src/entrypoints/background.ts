@@ -61,14 +61,22 @@ export default defineBackground({
         return true
       }
 
-      if (action === 'getBrowserCaps') {
-        sendResponse({
-          hasTabGroups: browser.tabGroups != null,
-          hasAlarms: browser.alarms != null,
-        })
-        return true
-      }
-    })
+       if (action === 'getBrowserCaps') {
+         sendResponse({
+           hasTabGroups: browser.tabGroups != null,
+           hasAlarms: browser.alarms != null,
+         })
+         return true
+       }
+
+       if (action === 'onTabActivated') {
+         const { tabId } = message as { action: string; tabId: number }
+         BackgroundTabService.onTabActivated(tabId)
+           .then(() => sendResponse({ error: null }))
+           .catch((err: any) => sendResponse({ error: String(err) }))
+         return true
+       }
+     })
 
     console.log('[background] ✅ Ready')
   },

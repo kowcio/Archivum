@@ -187,21 +187,20 @@ export class BackgroundTabService {
     }
   }
 
-  static async onTabActivated(tabId: number): Promise<void> {
-    try {
+   static async onTabActivated(tabId: number): Promise<void> {
+     try {
+       // 💾 Save real activation timestamp — always, regardless of group status
+       const now = Date.now()
+       const stamps: Record<number, number> = await activatedTimestamps.getValue()
+       stamps[tabId] = now
+       await activatedTimestamps.setValue(stamps)
 
-      // 🎯 Filter: Only modify tabs NOT in plugin-created groups
-      const inPluginGroup = await this.isInPluginGroup(tabId)
-      if (!inPluginGroup) {
-        console.log(`[BackgroundTabService] ⏭️ Tab#${tabId} is in plugin group → skip modification (timestamp saved only)`)
-        return
-      }
-
-      // 💾 Save real activation timestamp — always, regardless of group status
-      const now = Date.now()
-      const stamps: Record<number, number> = await activatedTimestamps.getValue()
-      stamps[tabId] = now
-      await activatedTimestamps.setValue(stamps)
+       // 🎯 Filter: Only modify tabs IN plugin-created groups
+       const inPluginGroup = await this.isInPluginGroup(tabId)
+       if (!inPluginGroup) {
+         console.log(`[BackgroundTabService] ⏭️ Tab#${tabId} not in plugin group → skip modification (timestamp saved only)`)
+         return
+       }
 
 
 
