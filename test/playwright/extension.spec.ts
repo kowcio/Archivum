@@ -6,6 +6,7 @@
  */
 import { expect, test, type BrowserContext, type Page } from "@playwright/test";
 import { launchChromeContext } from "./helpers/extensions.js";
+import {BackgroundTabService} from "../../src/services/BackgroundTabService.js";
 
 type TabQueryResult = { id?: number; url: string; title?: string; groupId?: number; lastAccessed?: number };
 type CreateResp = { ok: boolean; count: number; error: string | null };
@@ -212,7 +213,7 @@ test.describe("Tab Age Extension E2E Flow", () => {
         const tabs = await queryTabs(p);
         const grouped = tabs.filter(t => t.groupId !== -1 && t.groupId !== undefined && t.groupId !== null);
         const ungrouped = tabs.filter(t => t.groupId === -1 || t.groupId === undefined || t.groupId === null);
-        const uniqueGroups = new Set(grouped.map(t => t.groupId));
+        const uniqueGroups: Set<number | undefined> = new Set(grouped.map(t => t.groupId));
 
         // Query group names and details
         const groupDetails = await p.evaluate(async () => {
@@ -244,7 +245,7 @@ test.describe("Tab Age Extension E2E Flow", () => {
         // Verify tabs in each group are sorted oldest to youngest
         const allTabs = await p.evaluate(async () => {
           const tabs = await chrome.tabs.query({ currentWindow: true });
-          return tabs.map((t: any) => ({ groupId: t.groupId ?? -1, lastAccessed: t.lastAccessed ?? 0, url: (t.url || "").slice(0, 30) }));
+          return tabs.map((t: any) => ({ id: t.id, title: t.title || "(no title)", groupId: t.groupId ?? -1, lastAccessed: t.lastAccessed ?? 0, url: (t.url || "").slice(0, 30) }));
         });
 
         const groupMap = new Map(groupDetails.map((g: any) => [g.id, g.title]));
@@ -252,12 +253,23 @@ test.describe("Tab Age Extension E2E Flow", () => {
         Array.from(uniqueGroups).forEach((gid: any) => {
           const tabs = allTabs.filter((t: any) => t.groupId === gid);
           const sorted = tabs.every((t: any, i: number, a: any[]) => i === 0 || t.lastAccessed >= a[i - 1].lastAccessed);
-          const title = groupMap.get(gid) || "(no title)";
-          const dates = tabs.map((t: any) => new Date(t.lastAccessed).toISOString()).join(", ");
-          console.log(`[Test] Group: "${title} (${tabs.length})" ${sorted ? '✅' : '❌'}`);
-          console.log(`       ${dates}`);
+          const groupTitle = groupMap.get(gid) || "(no title)";
+
+          console.log(`[Test] Group: "${groupTitle}", length: ${tabs.length}`);
+          tabs.forEach((t: any) => {
+            const isoDate = new Date(t.lastAccessed).toISOString();
+            console.log(`       tab[${t.id}], "${t.title}", ${isoDate}`);
+          });
+
           expect(sorted).toBe(true);
         });
+
+        // Verify if the clicking on the tab inside the group will move it  as the last tab
+        const tabId = Array.from(uniqueGroups)[1];
+        BackgroundTabService.onTabActivated(tabId)
+
+
+
       });
 
       await p.close();
