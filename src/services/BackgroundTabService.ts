@@ -259,6 +259,9 @@ export class BackgroundTabService {
       }
     }
 
+    // Brief delay to let tabs start loading
+    await new Promise(r => setTimeout(r, 500))
+
     // Store mock overrides — applied on next queries
     const overrides: Record<number, number> = {}
     for (let i = 0; i < tabIds.length; i++) {
@@ -276,7 +279,7 @@ export class BackgroundTabService {
         applied.push(tab)
       }
     }
-    console.log(`[BackgroundTabService] Created ${tabIds.length} mock tabs with backdated lastAccessed`)
+    console.log(`[BackgroundTabService] Created ${tabIds.length} mock tabs with backdated lastAccessed, queried ${allTabs.length} total tabs`)
     return applied
   }
 
