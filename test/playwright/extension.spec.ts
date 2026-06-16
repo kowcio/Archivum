@@ -214,6 +214,27 @@ test.describe("Tab Age Extension E2E Flow", () => {
         const ungrouped = tabs.filter(t => t.groupId === -1 || t.groupId === undefined || t.groupId === null);
         const uniqueGroups = new Set(grouped.map(t => t.groupId));
 
+        // Query group names and details
+        const groupDetails = await p.evaluate(async () => {
+          try {
+            const groups = await chrome.tabGroups.query({});
+            return groups.map((g: any) => ({
+              id: g.id,
+              title: g.title || "(no title)",
+              color: g.color || "grey"
+            }));
+          } catch (e) {
+            console.error("[Evaluate] Failed to query tabGroups:", e);
+            return [];
+          }
+        });
+
+        // Log group names with IDs and sizes
+        groupDetails.forEach((group: any) => {
+          const groupTabs = grouped.filter(t => t.groupId === group.id);
+          console.log(`[Test] Group: "${group.title}" (ID=${group.id}, Color=${group.color}, Size=${groupTabs.length})`);
+        });
+
         console.log(`[Test] ✅ Final: Grouped=${grouped.length}, Groups=${uniqueGroups.size}, Fresh=${ungrouped.length}`);
 
         expect(grouped.length).toBeGreaterThan(0);
