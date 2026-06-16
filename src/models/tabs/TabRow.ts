@@ -37,19 +37,21 @@ export class TabRow {
     // this.url = this.truncateText(tab.url);
     this.url = tab.url ? tab.url : 'Missing url';
 
-    // Derived fields - last access calculations
-    // Use dayjs to compute days and hours since last access. Keep numeric values with two decimal places.
-    this.lastAccess = tab.lastAccessed;
+     // Derived fields - last access calculations
+     // Use dayjs to compute days and hours since last access. Keep numeric values with two decimal places.
+     this.lastAccess = tab.lastAccessed;
 
-    if (tab.lastAccessed) {
-      const now = dayjs();
-      const last = dayjs(tab.lastAccessed);
-      this.lastAccessDays = now.diff(last, 'day' );
-      this.lastAccessHours = now.diff(last, 'hour');
-    } else {
-      this.lastAccessDays = 0;
-      this.lastAccessHours = 0;
-    }
+     if (tab.lastAccessed && tab.lastAccessed > 0) {
+       const now = dayjs();
+       // Handle both milliseconds (large numbers) and seconds (small numbers)
+       const lastTimestamp = tab.lastAccessed > 1e10 ? tab.lastAccessed : tab.lastAccessed * 1000;
+       const last = dayjs(lastTimestamp);
+       this.lastAccessDays = now.diff(last, 'day');
+       this.lastAccessHours = now.diff(last, 'hour');
+     } else {
+       this.lastAccessDays = 0;
+       this.lastAccessHours = 0;
+     }
     this.lastAccessClass = this.getAgeBgClass(this.lastAccessDays ?? 0, thresholds);
   }
 

@@ -59,55 +59,71 @@ export class BackgroundTabService {
    * When a mock override exists for a tabId, it replaces tab.lastAccessed.
    * Overrides persist so tab ages stay correct across page refreshes.
    */
-  private static async applyMockOverrides(tabs: { id?: number; lastAccessed?: number }[]): Promise<void> {
-    const overrides = await mockOverrides.getValue()
-    const ids = Object.keys(overrides).map(Number)
-    if (!ids.length) return
+   private static async applyMockOverrides(tabs: { id?: number; lastAccessed?: number }[]): Promise<void> {
+     const overrides = await mockOverrides.getValue()
+     const ids = Object.keys(overrides).map(Number)
+     console.log('[BackgroundTabService] Mock overrides storage:', { count: ids.length, tabIds: ids.slice(0, 3), sample: Object.entries(overrides).slice(0, 2) })
+     if (!ids.length) {
+       console.log('[BackgroundTabService] ⚠️ No mock overrides found!')
+       return
+     }
 
-    for (const tab of tabs) {
-      if (tab.id != null && overrides[tab.id] != null) {
-        tab.lastAccessed = overrides[tab.id]
-      }
-    }
-    console.log('[BackgroundTabService] Applied mock overrides to', ids.length, 'tabs')
-  }
+     for (const tab of tabs) {
+       if (tab.id != null && overrides[tab.id] != null) {
+         const oldAccess = tab.lastAccessed
+         tab.lastAccessed = overrides[tab.id]
+         console.log(`[BackgroundTabService] Tab#${tab.id}: ${oldAccess} → ${tab.lastAccessed} (${overrides[tab.id]})`)
+       }
+     }
+     console.log('[BackgroundTabService] Applied mock overrides to', ids.length, 'tabs')
+   }
 
-  static async groupTabsByAge(): Promise<number> {
-    console.log('[BackgroundTabService] groupTabsByAge...')
-    try {
-      const hasTabGroups = browser.tabGroups != null
-      if (!hasTabGroups) {
-        console.log('[BackgroundTabService] ℹ️ Tab grouping not available (Firefox)')
-        return 0
-      }
+   static async groupTabsByAge(): Promise<number> {
+     console.log('[BackgroundTabService] groupTabsByAge...')
+     try {
+       const hasTabGroups = browser.tabGroups != null
+       if (!hasTabGroups) {
+         console.log('[BackgroundTabService] ℹ️ Tab grouping not available (Firefox)')
+         return 0
+       }
 
-      const rawTabs = await browser.tabs.query({ currentWindow: true })
-      const thresholds = await this.getThresholds()
+       const rawTabs = await browser.tabs.query({ currentWindow: true })
+       console.log(`[BackgroundTabService] Raw tabs: ${rawTabs.length}`)
 
-      // Apply real activation timestamps + mock overrides
-      // await this.applyTimestampOverrides(rawTabs)
-      // await this.applyMockOverrides(rawTabs)
+       const thresholds = await this.getThresholds()
+       console.log(`[BackgroundTabService] Thresholds: ${JSON.stringify(thresholds)}`)
 
-      const rows = TabRow.fromTabs(rawTabs, thresholds)
-      const activeLevels = thresholds.active()
-      const levelTabIds: number[][] = Array.from({ length: activeLevels.length }, () => [])
-      const freshTabIds: number[] = []
+       // Apply real activation timestamps + mock overrides
+       await this.applyMockOverrides(rawTabs)
 
-      // Build age map for sorting
-      const ageMap = new Map<number, number>()
-      for (const row of rows) {
-        if (row.id != null) ageMap.set(row.id, row.lastAccessDays ?? 0)
-      }
+       const rows = TabRow.fromTabs(rawTabs, thresholds)
+       console.log(`[BackgroundTabService] TabRows after fromTabs: ${rows.length}`)
+       console.log(`[BackgroundTabService] Sample rows:`, rows.slice(0, 3).map(r => ({ id: r.id, lastAccessDays: r.lastAccessDays, title: r.title?.slice(0, 30) })))
 
-      for (const row of rows) {
-        if (row.id == null) continue
-        const c = AgeClassification.fromDays(row.lastAccessDays ?? 0, thresholds)
-        if (c.index === 0) {
-          freshTabIds.push(row.id)
-        } else if (c.index > 0 && c.index <= activeLevels.length) {
-          levelTabIds[c.index - 1].push(row.id)
-        }
-      }
+       const activeLevels = thresholds.active()
+       console.log(`[BackgroundTabService] Active levels: ${activeLevels.length} → ${activeLevels.map(l => l.label).join(', ')}`)
+
+       const levelTabIds: number[][] = Array.from({ length: activeLevels.length }, () => [])
+       const freshTabIds: number[] = []
+
+       // Build age map for sorting
+       const ageMap = new Map<number, number>()
+       for (const row of rows) {
+         if (row.id != null) ageMap.set(row.id, row.lastAccessDays ?? 0)
+       }
+
+       for (const row of rows) {
+         if (row.id == null) continue
+         const c = AgeClassification.fromDays(row.lastAccessDays ?? 0, thresholds)
+         console.log(`[BackgroundTabService] Tab#${row.id}: ${row.lastAccessDays}d → age index ${c.index}`)
+         if (c.index === 0) {
+           freshTabIds.push(row.id)
+         } else if (c.index > 0 && c.index <= activeLevels.length) {
+           levelTabIds[c.index - 1].push(row.id)
+         }
+       }
+
+       console.log(`[BackgroundTabService] Distribution: fresh=${freshTabIds.length}, levels=[${levelTabIds.map(l => l.length).join(', ')}]`)
 
       // Sort tabs within each level by age (oldest first = highest lastAccessDays first)
       for (const ids of levelTabIds) {
