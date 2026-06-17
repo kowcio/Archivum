@@ -45,7 +45,8 @@ background.ts (service worker — NO Pinia)
 | **L-brackets deprecated** | LBracketService exists for future use but is NOT active — use tab groups |
 | **Token economy** | Code + SHORT explanation only — no long descriptions, no helper scripts |
 | **Minimalism** | Answer query directly — no "how to use" essays, no verbose summaries |
-| **Test assertions** | NEVER use `>`, `<`, `toBeGreaterThan()`, `toBeLessThan()` — always assert **exact values** with `toBe()`, `toEqual()`. No guesswork. |
+| **Test assertions** | NEVER use `>`, `<`, `toBeGreaterThan()`, `toBeLessThan()`, `toBeGreaterThanOrEqual()`, `toBeLessThanOrEqual()` — always assert **exact values** with `toBe()`, `toEqual()`. No approximations. |
+| **Playwright POM** | E2E tests MUST use Page Object Models (test/playwright/page-objects/). Keep locators/waits hidden in POM. Tests read like one-liners: `await options.clickGroupTabs()` not raw Playwright. See test/playwright/README.md |
 
 ## Tab Age Management
 
@@ -69,7 +70,91 @@ background.ts (service worker — NO Pinia)
 ```
 src/**/*.ts   src/**/*.vue  →  instructions/code-writing.md
 **/*.spec.ts               →  instructions/test-writing.md
+test/playwright/**         →  Playwright POM pattern below
 ```
+
+## Playwright Page Object Model (POM) Pattern
+
+**Location**: `test/playwright/page-objects/`
+
+**Rule**: All E2E tests MUST use Page Object Models. No raw `page.getByTestId()` in test files.
+
+**Benefits**: 
+- Tests read like plain English: `await options.clickGroupTabs()` ✅
+- Locators centralized (easy to update)
+- Complex logic (waits, retries) hidden
+- 70% less boilerplate
+
+**Available Models**:
+- `PopupPage` - Popup UI (buttons, navigation)
+- `OptionsPage` - Options page (grouping, tabs, config)
+
+**Example (BEFORE - raw Playwright)**:
+```typescript
+await p.goto(`chrome-extension://${extensionId}/options.html`);
+await p.getByTestId('popup-btn-group-tabs').click();
+await p.waitForTimeout(1200);
+const tabs = await p.evaluate(() => chrome.tabs.query({}));
+expect(tabs.filter(t => t.groupId !== -1).length).toBe(12);
+```
+
+**Example (AFTER - with POM)**:
+```typescript
+const options = new OptionsPage(page);
+await options.goto(extensionId);
+await options.clickGroupTabs();
+await options.expectGroupCountEqual(3);
+```
+
+**Creating POM methods**:
+- **Actions** (click, fill): `async clickGroupTabs()`
+- **Queries** (get state): `async getGroupCount()` → returns number
+- **Expectations** (assert): `async expectGroupCountEqual(n)` → throws if fails
+- **Returns**: data, not void (enables chaining)
+
+See `test/playwright/README.md` for full guide.
+
+## Service Worker Testing in Playwright
+
+**Problem**: When testing background.ts in Playwright, VSCode breakpoints don't work—service workers run in separate isolated context.
+
+**Solution**: Monitor console logs from service worker.
+
+**Setup** (in test `beforeAll`):
+```typescript
+OptionsPage.setupServiceWorkerLogging(ctx.context);
+```
+
+**How it works**:
+1. `page.evaluate()` sends `chrome.runtime.sendMessage({action: "groupTabsByAge"})`
+2. `background.ts` listener catches message
+3. `BackgroundTabService.groupTabsByAge()` executes
+4. Console logs appear in test output with `[SW_LOG]` prefix
+5. Results sent back to page via `sendResponse()`
+
+**Example test with debugging**:
+```typescript
+const options = new OptionsPage(page);
+await options.goto(extensionId);
+
+// You'll see in console:
+// ✓ [SW_LOG]: [BackgroundTabService] groupTabsByAge...
+// ✓ [SW_LOG]: [BackgroundTabService] Raw tabs: 14
+// ✓ [SW_LOG]: ✅ Created 3 age groups...
+
+await options.clickGroupTabs();
+await options.expectGroupCountEqual(3);
+```
+
+**Best Practices**:
+- ✅ Use `page.evaluate()` + `chrome.runtime.sendMessage()` for SW calls
+- ✅ Monitor `[SW_LOG]` output in test runs
+- ✅ Add descriptive console.log() in background.ts and services
+- ❌ Don't try VSCode breakpoints on service worker code
+- ❌ Don't assume synchronous execution—always use Promises/callbacks
+- ❌ Don't try to navigate to `background.html`—it's not accessible from UI
+
+See `test/playwright/README_SERVICE_WORKER_DEBUG.md` for full debugging guide.
 
 ## Context7 Library IDs
 

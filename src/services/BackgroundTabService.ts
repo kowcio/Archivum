@@ -298,25 +298,44 @@ export class BackgroundTabService {
     return applied
   }
 
-  /**
-   * Check if a tab is in a plugin-created group.
-   * Plugin groups have titles like: "Week+ (5)", "Month+ (2)", etc.
-   */
-  private static async isInPluginGroup(tabId: number): Promise<boolean> {
-    try {
-      if (browser.tabGroups == null) return false // Firefox has no groups
+   /**
+    * Check if a tab is in a plugin-created group.
+    * Plugin groups have titles like: "Week+ (5)", "Month+ (2)", etc.
+    */
+   private static async isInPluginGroup(tabId: number): Promise<boolean> {
+     try {
+       if (browser.tabGroups == null) return false // Firefox has no groups
 
-      const tab = await browser.tabs.get(tabId)
-      if (tab.groupId == null || tab.groupId === -1) return false // Not grouped
+       const tab = await browser.tabs.get(tabId)
+       if (tab.groupId == null || tab.groupId === -1) return false // Not grouped
 
-      const group = await (browser.tabGroups as any).get(tab.groupId)
+       const group = await (browser.tabGroups as any).get(tab.groupId)
 
-      // Check if group title starts with any plugin label
-      const pluginTitles = this.getPluginGroupTitles()
-      return pluginTitles.some(title => group.title.startsWith(title))
-    } catch {
-      return false
-    }
-  }
+       // Check if group title starts with any plugin label
+       const pluginTitles = this.getPluginGroupTitles()
+       return pluginTitles.some(title => group.title.startsWith(title))
+     } catch {
+       return false
+     }
+   }
+
+   /**
+    * Check if ANY plugin-created groups exist in current window.
+    * Used by UI to show/hide "Ungroup" button.
+    */
+   static async hasPluginGroups(): Promise<boolean> {
+     try {
+       if (browser.tabGroups == null) return false // Firefox has no groups
+
+       const groups = await (browser.tabGroups as any).query({ windowId: (browser.windows as any).WINDOW_ID_CURRENT })
+       const pluginTitles = this.getPluginGroupTitles()
+
+       return groups.some((group: any) =>
+         pluginTitles.some(title => group.title.startsWith(title))
+       )
+     } catch {
+       return false
+     }
+   }
 }
 

@@ -1,5 +1,5 @@
 // ─── App-wide constants ───────────────────────────────────────────────────────
-import packageJson from "../package.json";
+import packageJson from "../package.json" with { type: "json" };
 import dayjs from "dayjs";
 
 /**
@@ -61,3 +61,16 @@ export const APP_DEFAULTS = {
     ] as const satisfies readonly ThresholdLevel[],
   },
 }
+
+// Background service worker message action constants
+// Imported by: background.ts (action handlers), UI components, and E2E tests
+export const BACKGROUND_MESSAGE_ACTIONS = {
+  GROUP_TABS_BY_AGE: 'groupTabsByAge',
+  UNGROUP_ALL_TABS: 'ungroupAllTabs',
+  CREATE_MOCK_TABS: 'createMockTabs',
+  GET_TABS: 'getTabs',
+  GET_BROWSER_CAPS: 'getBrowserCaps',
+  ON_TAB_ACTIVATED: 'onTabActivated',
+  HAS_PLUGIN_GROUPS: 'hasPluginGroups',
+} as const
+

@@ -98,6 +98,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { browser } from 'wxt/browser'
+import { BACKGROUND_MESSAGE_ACTIONS } from '@/constants'
 import { useConfigStore } from '@/stores/configStore'
 import { TabRow } from '@/models/tabs/TabRow'
 import { AgeClassification } from '@/models/tabs/AgeClassification'
@@ -158,7 +159,9 @@ async function refreshTabs(): Promise<void> {
   loading.value = true
   error.value = null
   try {
-    const resp: any = await browser.runtime.sendMessage({ action: 'getTabs' })
+    const resp: any = await browser.runtime.sendMessage({
+      action: BACKGROUND_MESSAGE_ACTIONS.GET_TABS
+    })
     if (resp?.error) {
       error.value = resp.error
       return

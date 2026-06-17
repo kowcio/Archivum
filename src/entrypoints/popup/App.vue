@@ -35,6 +35,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { browser } from 'wxt/browser'
+import { BACKGROUND_MESSAGE_ACTIONS } from '@/constants'
 import AppTitle from '@/components/Title.vue'
 import GroupUngroup from "@/components/GroupUngroup.vue";
 
@@ -43,7 +44,9 @@ const loading = ref(false)
 async function handleGroup(): Promise<void> {
   loading.value = true
   try {
-    await browser.runtime.sendMessage({ action: 'groupTabsByAge' })
+    await browser.runtime.sendMessage({
+      action: BACKGROUND_MESSAGE_ACTIONS.GROUP_TABS_BY_AGE
+    })
   } finally {
     loading.value = false
   }
@@ -52,7 +55,9 @@ async function handleGroup(): Promise<void> {
 async function handleUngroup(): Promise<void> {
   loading.value = true
   try {
-    await browser.runtime.sendMessage({ action: 'ungroupAllTabs' })
+    await browser.runtime.sendMessage({
+      action: BACKGROUND_MESSAGE_ACTIONS.UNGROUP_ALL_TABS
+    })
   } finally {
     loading.value = false
   }
