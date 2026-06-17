@@ -15,14 +15,15 @@
  */
 
 import { expect, type Locator, type Page } from '@playwright/test';
-import { BACKGROUND_MESSAGE_ACTIONS } from '@/constants';
+
+// Import constants using relative path (not bundled through Vite like app code)
+const MOCK_TABS_ACTION = 'createMockTabs';
+const ON_TAB_ACTIVATED_ACTION = 'onTabActivated';
 
 export class OptionsPage {
   private readonly groupTabsBtn: Locator;
   private readonly ungroupTabsBtn: Locator;
-  private readonly loadTabsBtn: Locator;
   private readonly closeAllTabsBtn: Locator;
-  private readonly mockTabsContainer: Locator;
   private readonly thresholdsConfig: Locator;
   private readonly openTabsTable: Locator;
   private readonly tableRows: Locator;
@@ -31,11 +32,9 @@ export class OptionsPage {
     // Button locators
     this.groupTabsBtn = page.getByTestId('popup-btn-group-tabs');
     this.ungroupTabsBtn = page.getByTestId('popup-btn-ungroup-tabs');
-    this.loadTabsBtn = page.getByTestId('btn-load-tabs');
     this.closeAllTabsBtn = page.getByTestId('btn-close-all-tabs');
 
     // Container locators
-    this.mockTabsContainer = page.getByTestId('mock-tabs');
     this.thresholdsConfig = page.getByTestId('thresholds-config');
     this.openTabsTable = page.getByTestId('table-open-tabs');
 
@@ -89,7 +88,7 @@ export class OptionsPage {
    */
   async clickLoadMockTabs(waitMs: number = 500): Promise<{ ok: boolean; count: number; error: string | null }> {
     const result = await this.page.evaluate((actionName: string) => {
-      return new Promise((resolve) => {
+      return new Promise<{ ok: boolean; count: number; error: string | null }>((resolve) => {
         try {
           chrome.runtime.sendMessage({ action: actionName }, (r: any) => {
             resolve({ ok: true, count: r?.tabs?.length ?? 0, error: r?.error ?? null });
@@ -98,10 +97,10 @@ export class OptionsPage {
           resolve({ ok: false, count: 0, error: String(e) });
         }
       });
-    }, BACKGROUND_MESSAGE_ACTIONS.CREATE_MOCK_TABS);
+    }, MOCK_TABS_ACTION);
     // Wait for tabs to load with URLs
     await this.page.waitForTimeout(waitMs);
-    return result;
+    return result as { ok: boolean; count: number; error: string | null };
   }
 
   /**
@@ -227,7 +226,7 @@ export class OptionsPage {
       return new Promise<void>((resolve) => {
         chrome.runtime.sendMessage({ action: actionName, tabId: id }, () => resolve());
       });
-    }, { id: tabId, actionName: BACKGROUND_MESSAGE_ACTIONS.ON_TAB_ACTIVATED });
+    }, { id: tabId, actionName: ON_TAB_ACTIVATED_ACTION });
   }
 
   /**
