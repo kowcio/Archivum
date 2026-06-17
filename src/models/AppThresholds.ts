@@ -112,7 +112,7 @@ export class AppThresholds {
  * Used as fallback when storage is empty or corrupted.
  */
 export const DEFAULT_THRESHOLDS = new AppThresholds(
-  APP_DEFAULTS.THRESHOLDS.presets as ThresholdLevel[],
-  APP_DEFAULTS.THRESHOLDS.activeLevels
-)
+   [...APP_DEFAULTS.THRESHOLDS.presets],
+   APP_DEFAULTS.THRESHOLDS.activeLevels
+ )
 

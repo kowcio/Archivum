@@ -23,7 +23,7 @@ import { mockOverrides, activatedTimestamps } from '@/utils/mockStorage'
 import { AppThresholds, DEFAULT_THRESHOLDS } from '@/models/AppThresholds'
 import { browser } from 'wxt/browser'
 import type { Browser } from 'wxt/browser'
-import { MOCK_TABS, MOCK_DAYS } from '@/utils/mockTabData'
+import { MOCK_TABS } from '@/utils/mockTabData'
 import { APP_DEFAULTS } from '@/constants'
 
 export class BackgroundTabService {
@@ -59,55 +59,71 @@ export class BackgroundTabService {
    * When a mock override exists for a tabId, it replaces tab.lastAccessed.
    * Overrides persist so tab ages stay correct across page refreshes.
    */
-  private static async applyMockOverrides(tabs: { id?: number; lastAccessed?: number }[]): Promise<void> {
-    const overrides = await mockOverrides.getValue()
-    const ids = Object.keys(overrides).map(Number)
-    if (!ids.length) return
+   private static async applyMockOverrides(tabs: { id?: number; lastAccessed?: number }[]): Promise<void> {
+     const overrides = await mockOverrides.getValue()
+     const ids = Object.keys(overrides).map(Number)
+     console.log('[BackgroundTabService] Mock overrides storage:', { count: ids.length, tabIds: ids.slice(0, 3), sample: Object.entries(overrides).slice(0, 2) })
+     if (!ids.length) {
+       console.log('[BackgroundTabService] ⚠️ No mock overrides found!')
+       return
+     }
 
-    for (const tab of tabs) {
-      if (tab.id != null && overrides[tab.id] != null) {
-        tab.lastAccessed = overrides[tab.id]
-      }
-    }
-    console.log('[BackgroundTabService] Applied mock overrides to', ids.length, 'tabs')
-  }
+     for (const tab of tabs) {
+       if (tab.id != null && overrides[tab.id] != null) {
+         const oldAccess = tab.lastAccessed
+         tab.lastAccessed = overrides[tab.id]
+         console.log(`[BackgroundTabService] Tab#${tab.id}: ${oldAccess} → ${tab.lastAccessed} (${overrides[tab.id]})`)
+       }
+     }
+     console.log('[BackgroundTabService] Applied mock overrides to', ids.length, 'tabs')
+   }
 
-  static async groupTabsByAge(): Promise<number> {
-    console.log('[BackgroundTabService] groupTabsByAge...')
-    try {
-      const hasTabGroups = browser.tabGroups != null
-      if (!hasTabGroups) {
-        console.log('[BackgroundTabService] ℹ️ Tab grouping not available (Firefox)')
-        return 0
-      }
+   static async groupTabsByAge(): Promise<number> {
+     console.log('[BackgroundTabService] groupTabsByAge...')
+     try {
+       const hasTabGroups = browser.tabGroups != null
+       if (!hasTabGroups) {
+         console.log('[BackgroundTabService] ℹ️ Tab grouping not available (Firefox)')
+         return 0
+       }
 
-      const rawTabs = await browser.tabs.query({ currentWindow: true })
-      const thresholds = await this.getThresholds()
+       const rawTabs = await browser.tabs.query({ currentWindow: true })
+       console.log(`[BackgroundTabService] Raw tabs: ${rawTabs.length}`)
 
-      // Apply real activation timestamps + mock overrides
-      await this.applyTimestampOverrides(rawTabs)
-      await this.applyMockOverrides(rawTabs)
+       const thresholds = await this.getThresholds()
+       console.log(`[BackgroundTabService] Thresholds: ${JSON.stringify(thresholds)}`)
 
-      const rows = TabRow.fromTabs(rawTabs, thresholds)
-      const activeLevels = thresholds.active()
-      const levelTabIds: number[][] = Array.from({ length: activeLevels.length }, () => [])
-      const freshTabIds: number[] = []
+       // Apply real activation timestamps + mock overrides
+       await this.applyMockOverrides(rawTabs)
 
-      // Build age map for sorting
-      const ageMap = new Map<number, number>()
-      for (const row of rows) {
-        if (row.id != null) ageMap.set(row.id, row.lastAccessDays ?? 0)
-      }
+       const rows = TabRow.fromTabs(rawTabs, thresholds)
+       console.log(`[BackgroundTabService] TabRows after fromTabs: ${rows.length}`)
+       console.log(`[BackgroundTabService] Sample rows:`, rows.slice(0, 3).map(r => ({ id: r.id, lastAccessDays: r.lastAccessDays, title: r.title?.slice(0, 30) })))
 
-      for (const row of rows) {
-        if (row.id == null) continue
-        const c = AgeClassification.fromDays(row.lastAccessDays ?? 0, thresholds)
-        if (c.index === 0) {
-          freshTabIds.push(row.id)
-        } else if (c.index > 0 && c.index <= activeLevels.length) {
-          levelTabIds[c.index - 1].push(row.id)
-        }
-      }
+       const activeLevels = thresholds.active()
+       console.log(`[BackgroundTabService] Active levels: ${activeLevels.length} → ${activeLevels.map(l => l.label).join(', ')}`)
+
+       const levelTabIds: number[][] = Array.from({ length: activeLevels.length }, () => [])
+       const freshTabIds: number[] = []
+
+       // Build age map for sorting
+       const ageMap = new Map<number, number>()
+       for (const row of rows) {
+         if (row.id != null) ageMap.set(row.id, row.lastAccessDays ?? 0)
+       }
+
+       for (const row of rows) {
+         if (row.id == null) continue
+         const c = AgeClassification.fromDays(row.lastAccessDays ?? 0, thresholds)
+         console.log(`[BackgroundTabService] Tab#${row.id}: ${row.lastAccessDays}d → age index ${c.index}`)
+         if (c.index === 0) {
+           freshTabIds.push(row.id)
+         } else if (c.index > 0 && c.index <= activeLevels.length) {
+           levelTabIds[c.index - 1].push(row.id)
+         }
+       }
+
+       console.log(`[BackgroundTabService] Distribution: fresh=${freshTabIds.length}, levels=[${levelTabIds.map(l => l.length).join(', ')}]`)
 
       // Sort tabs within each level by age (oldest first = highest lastAccessDays first)
       for (const ids of levelTabIds) {
@@ -171,20 +187,22 @@ export class BackgroundTabService {
     }
   }
 
-  static async onTabActivated(tabId: number): Promise<void> {
-    try {
-      // 💾 Save real activation timestamp — always, regardless of group status
-      const now = Date.now()
-      const stamps: Record<number, number> = await activatedTimestamps.getValue()
-      stamps[tabId] = now
-      await activatedTimestamps.setValue(stamps)
+   static async onTabActivated(tabId: number): Promise<void> {
+     try {
+       // 💾 Save real activation timestamp — always, regardless of group status
+       const now = Date.now()
+       const stamps: Record<number, number> = await activatedTimestamps.getValue()
+       stamps[tabId] = now
+       await activatedTimestamps.setValue(stamps)
 
-      // 🎯 Filter: Only modify tabs NOT in plugin-created groups
-      const inPluginGroup = await this.isInPluginGroup(tabId)
-      if (inPluginGroup) {
-        console.log(`[BackgroundTabService] ⏭️ Tab#${tabId} is in plugin group → skip modification (timestamp saved only)`)
-        return
-      }
+       // 🎯 Filter: Only modify tabs IN plugin-created groups
+       const inPluginGroup = await this.isInPluginGroup(tabId)
+       if (!inPluginGroup) {
+         console.log(`[BackgroundTabService] ⏭️ Tab#${tabId} not in plugin group → skip modification (timestamp saved only)`)
+         return
+       }
+
+
 
       // 🧩 ungroup BEFORE move — move alone keeps the tab inside its group (Chrome/Edge).
       // Without ungroup, the tab stays grouped and the whole group moves to the right.
@@ -225,7 +243,7 @@ export class BackgroundTabService {
     const rawTabs = await browser.tabs.query({ currentWindow: true })
     // Deep clone to avoid mutating the original tab objects
     const tabs: Browser.tabs.Tab[] = JSON.parse(JSON.stringify(rawTabs))
-    await this.applyTimestampOverrides(tabs)
+    // await this.applyTimestampOverrides(tabs)
     await this.applyMockOverrides(tabs)
     return tabs
   }
@@ -256,10 +274,13 @@ export class BackgroundTabService {
       }
     }
 
+    // Brief delay to let tabs start loading
+    await new Promise(r => setTimeout(r, 500))
+
     // Store mock overrides — applied on next queries
     const overrides: Record<number, number> = {}
     for (let i = 0; i < tabIds.length; i++) {
-      overrides[tabIds[i]] = now - MOCK_DAYS[i] * DAY_MS
+      overrides[tabIds[i]] = now - MOCK_TABS[i].daysAgo * DAY_MS
     }
     await mockOverrides.setValue(overrides)
 
@@ -273,29 +294,48 @@ export class BackgroundTabService {
         applied.push(tab)
       }
     }
-    console.log(`[BackgroundTabService] Created ${tabIds.length} mock tabs with backdated lastAccessed`)
+    console.log(`[BackgroundTabService] Created ${tabIds.length} mock tabs with backdated lastAccessed, queried ${allTabs.length} total tabs`)
     return applied
   }
 
-  /**
-   * Check if a tab is in a plugin-created group.
-   * Plugin groups have titles like: "Week+ (5)", "Month+ (2)", etc.
-   */
-  private static async isInPluginGroup(tabId: number): Promise<boolean> {
-    try {
-      if (browser.tabGroups == null) return false // Firefox has no groups
+   /**
+    * Check if a tab is in a plugin-created group.
+    * Plugin groups have titles like: "Week+ (5)", "Month+ (2)", etc.
+    */
+   private static async isInPluginGroup(tabId: number): Promise<boolean> {
+     try {
+       if (browser.tabGroups == null) return false // Firefox has no groups
 
-      const tab = await browser.tabs.get(tabId)
-      if (tab.groupId == null || tab.groupId === -1) return false // Not grouped
+       const tab = await browser.tabs.get(tabId)
+       if (tab.groupId == null || tab.groupId === -1) return false // Not grouped
 
-      const group = await (browser.tabGroups as any).get(tab.groupId)
+       const group = await (browser.tabGroups as any).get(tab.groupId)
 
-      // Check if group title starts with any plugin label
-      const pluginTitles = this.getPluginGroupTitles()
-      return pluginTitles.some(title => group.title.startsWith(title))
-    } catch {
-      return false
-    }
-  }
+       // Check if group title starts with any plugin label
+       const pluginTitles = this.getPluginGroupTitles()
+       return pluginTitles.some(title => group.title.startsWith(title))
+     } catch {
+       return false
+     }
+   }
+
+   /**
+    * Check if ANY plugin-created groups exist in current window.
+    * Used by UI to show/hide "Ungroup" button.
+    */
+   static async hasPluginGroups(): Promise<boolean> {
+     try {
+       if (browser.tabGroups == null) return false // Firefox has no groups
+
+       const groups = await (browser.tabGroups as any).query({ windowId: (browser.windows as any).WINDOW_ID_CURRENT })
+       const pluginTitles = this.getPluginGroupTitles()
+
+       return groups.some((group: any) =>
+         pluginTitles.some(title => group.title.startsWith(title))
+       )
+     } catch {
+       return false
+     }
+   }
 }
 

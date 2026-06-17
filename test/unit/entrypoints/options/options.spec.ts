@@ -24,7 +24,7 @@ describe('Options App.vue', () => {
         plugins: [createPinia()],
         stubs: {
           AppTitle: { template: '<div data-testid="app-title">Title</div>' },
-          GroupUngroup: { template: '<div data-testid="btn-group-by-age">Group by age</div>' },
+          GroupUngroup: { template: '<div data-testid="popup-btn-group-tabs">Group by age</div>' },
           Thresholds: { template: '<div data-testid="thresholds-config">Config</div>' },
           QBtn: { template: '<button><slot /></button>' },
           QBtnGroup: { template: '<div><slot /></div>' },

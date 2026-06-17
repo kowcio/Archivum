@@ -9,6 +9,7 @@
         <q-btn
           class="got-btn-secondary square-btn"
           label="Manage plugin"
+          data-testid="popup-btn-open-option-page"
           icon="dashboard_customize"
           @click="openOptionsPageFull"
           elevated
@@ -19,6 +20,7 @@
         <q-btn
           class="got-btn-ghost square-btn"
           label="Browser options"
+          data-testid="popup-btn-plugin-browser-option"
           icon="settings"
           @click="openOptionsPage"
           elevated
@@ -33,6 +35,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { browser } from 'wxt/browser'
+import { BACKGROUND_MESSAGE_ACTIONS } from '@/constants'
 import AppTitle from '@/components/Title.vue'
 import GroupUngroup from "@/components/GroupUngroup.vue";
 
@@ -41,7 +44,9 @@ const loading = ref(false)
 async function handleGroup(): Promise<void> {
   loading.value = true
   try {
-    await browser.runtime.sendMessage({ action: 'groupTabsByAge' })
+    await browser.runtime.sendMessage({
+      action: BACKGROUND_MESSAGE_ACTIONS.GROUP_TABS_BY_AGE
+    })
   } finally {
     loading.value = false
   }
@@ -50,7 +55,9 @@ async function handleGroup(): Promise<void> {
 async function handleUngroup(): Promise<void> {
   loading.value = true
   try {
-    await browser.runtime.sendMessage({ action: 'ungroupAllTabs' })
+    await browser.runtime.sendMessage({
+      action: BACKGROUND_MESSAGE_ACTIONS.UNGROUP_ALL_TABS
+    })
   } finally {
     loading.value = false
   }
@@ -61,10 +68,10 @@ function openOptionsPage(): void {
 }
 
 async function openOptionsPageFull(): Promise<void> {
-  const url = browser.runtime.getURL('options.html')
-  await browser.tabs.create({ url })
-  window.close()
-}
+   const url = browser.runtime.getURL('/options.html')
+   await browser.tabs.create({ url })
+   window.close()
+ }
 </script>
 
 <style scoped>

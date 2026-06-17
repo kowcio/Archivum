@@ -27,11 +27,12 @@ export default defineConfig({
       name: 'chrome-mv3',
       use: { browserName: 'chromium' },
     },
-    {
-      // Secondary: Firefox manual testing guide
-      // Limited Playwright MV3 support - use for manual testing only
-      // name: 'firefox-mv3',
-      // use: { browserName: 'firefox' },
-    },
+    // Secondary: Firefox manual testing guide
+    // Limited Playwright MV3 support - use for manual testing only
+    // Uncomment to enable:
+    // {
+    //   name: 'firefox-mv3',
+    //   use: { browserName: 'firefox' },
+    // },
   ],
 })

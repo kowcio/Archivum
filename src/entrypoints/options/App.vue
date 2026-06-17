@@ -8,18 +8,22 @@
 
         <MockButton @mock-created="handleMockCreated" />
 
-        <q-btn
-          label="Load current tabs"
-          icon="refresh"
-          color="grey-7"
-          :loading="loading"
-          @click="refreshTabs"
-        />
+        <div data-testid="btn-load-tabs">
+          <q-btn
+            label="Load current tabs"
+            icon="refresh"
+            color="grey-7"
+            :loading="loading"
+            @click="refreshTabs"
+          />
+        </div>
 
-        <CloseAllTabsButton
-          @success="refreshTabs"
-          @error="(msg) => error = msg"
-        />
+        <div data-testid="btn-close-all-tabs">
+          <CloseAllTabsButton
+            @success="refreshTabs"
+            @error="(msg) => error = msg"
+          />
+        </div>
       </div>
 
       <!-- Error display -->
@@ -39,6 +43,7 @@
       <div class="table-container" v-if="tabs.length">
         <q-table
           title="Open Tabs"
+          data-testid="table-open-tabs"
           :columns="columns"
           :rows="tabRows"
           class="rounded-borders bg-grey-1 q-table--striped table-wrapper"
@@ -93,6 +98,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { browser } from 'wxt/browser'
+import { BACKGROUND_MESSAGE_ACTIONS } from '@/constants'
 import { useConfigStore } from '@/stores/configStore'
 import { TabRow } from '@/models/tabs/TabRow'
 import { AgeClassification } from '@/models/tabs/AgeClassification'
@@ -101,7 +107,6 @@ import AppTitle from '@/components/Title.vue'
 import GroupUngroup from '@/components/GroupUngroup.vue'
 import MockButton from '@/components/MockButton.vue'
 import CloseAllTabsButton from '@/components/CloseAllTabsButton.vue'
-import DebugServiceWorkerButton from '@/components/DebugServiceWorkerButton.vue'
 
 const configStore = useConfigStore()
 const loading = ref(false)
@@ -154,7 +159,9 @@ async function refreshTabs(): Promise<void> {
   loading.value = true
   error.value = null
   try {
-    const resp: any = await browser.runtime.sendMessage({ action: 'getTabs' })
+    const resp: any = await browser.runtime.sendMessage({
+      action: BACKGROUND_MESSAGE_ACTIONS.GET_TABS
+    })
     if (resp?.error) {
       error.value = resp.error
       return

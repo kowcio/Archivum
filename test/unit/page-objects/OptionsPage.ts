@@ -9,28 +9,28 @@ export class OptionsPage {
 
   /** GroupUngroup button (label changes: Group by age / Ungroup) */
   get groupToggleBtn() {
-    return this.wrapper.find('[data-testid="btn-group-by-age"], [data-testid="btn-ungroup-tabs"]')
+    return this.wrapper.find('[data-testid="popup-btn-group-tabs"], [data-testid="popup-btn-ungroup-tabs"]')
   }
 
   get groupBtn() {
-    return this.wrapper.find('[data-testid="btn-group-by-age"]')
+    return this.wrapper.find('[data-testid="popup-btn-group-tabs"]')
   }
 
   get ungroupBtn() {
-    return this.wrapper.find('[data-testid="btn-ungroup-tabs"]')
+    return this.wrapper.find('[data-testid="popup-btn-ungroup-tabs"]')
   }
 
-  get mockTabsBtn() {
-    return this.wrapper.findComponent({ name: 'QBtn' }).find((w: any) =>
-      w.text().includes('Mock 10 tabs'),
-    )
-  }
+   get mockTabsBtn() {
+     return this.wrapper.findAllComponents({ name: 'QBtn' }).find((w) =>
+       w.text().includes('Mock 10 tabs'),
+     )
+   }
 
-  get loadTabsBtn() {
-    return this.wrapper.findComponent({ name: 'QBtn' }).find((w: any) =>
-      w.text().includes('Load current tabs'),
-    )
-  }
+   get loadTabsBtn() {
+     return this.wrapper.findAllComponents({ name: 'QBtn' }).find((w) =>
+       w.text().includes('Load current tabs'),
+     )
+   }
 
   get thresholdsConfig() {
     return this.wrapper.find('[data-testid="thresholds-config"]')
@@ -56,13 +56,15 @@ export class OptionsPage {
     await this.ungroupBtn.trigger('click')
   }
 
-  async clickMockTabs(): Promise<void> {
-    await this.mockTabsBtn.trigger('click')
-  }
+   async clickMockTabs(): Promise<void> {
+     const btn = this.mockTabsBtn
+     if (btn) await btn.trigger('click')
+   }
 
-  async clickLoadTabs(): Promise<void> {
-    await this.loadTabsBtn.trigger('click')
-  }
+   async clickLoadTabs(): Promise<void> {
+     const btn = this.loadTabsBtn
+     if (btn) await btn.trigger('click')
+   }
 
   rowAgeTexts(): string[] {
     return this.ageCells.map(c => c.text())
