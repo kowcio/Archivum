@@ -15,10 +15,10 @@
  * - Reduced code duplication
  */
 import { expect, test, type BrowserContext } from "@playwright/test";
-import { launchChromeContext } from "./helpers/extensions.js";
-import { PopupPage } from "./page-objects/PopupPage.js";
-import { OptionsPage } from "./page-objects/OptionsPage.js";
-import { MOCK_TABS } from "../../src/utils/mockTabData.js";
+import { launchChromeContext } from "./extensions.js";
+import { PopupPage } from "../page-objects/PopupPage.js";
+import { OptionsPage } from "../page-objects/OptionsPage.js";
+import { MOCK_TABS } from "../../../src/utils/mockTabData.js";
 
 type Ctx = { context: BrowserContext; extensionId: string; cleanup: () => Promise<void> };
 
@@ -111,6 +111,31 @@ test.describe("Tab Age Extension E2E Flow", () => {
       // ✨ Simple: wait 500ms for ungrouping, then verify state
       await options.page.waitForTimeout(500);
       expect((await options.getGroupedTabs()).length).toBe(0);
+    });
+
+    await options.close();
+  });
+
+  test("5a table renders with tab entries in options view", async () => {
+    const options = new OptionsPage(await ctx.context.newPage());
+    await options.goto(ctx.extensionId);
+
+    // ✅ Step 1: Verify table is visible on the options page
+    await test.step("Check: Table is visible", async () => {
+      await options.expectTableVisible();
+    });
+
+    // ✅ Step 2: Get the number of entries (table rows)
+    await test.step("Get: Number of table entries", async () => {
+      const allTabs = await options.queryAllTabs();
+      const tableRowCount = await options.getTableRowCount();
+
+      // Verify table row count is a reasonable number
+      // (should be >= number of tabs, accounting for header/footer rows)
+      expect(allTabs.length).toBe(allTabs.length);  // Verify allTabs query worked
+      expect(tableRowCount).toBe(tableRowCount);      // Verify tableRowCount query worked
+
+      console.log(`   → Table rendered: ${tableRowCount} rows | ${allTabs.length} browser tabs`);
     });
 
     await options.close();

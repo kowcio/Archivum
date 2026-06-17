@@ -11,6 +11,7 @@
         <div data-testid="btn-load-tabs">
           <q-btn
             label="Load current tabs"
+            data-testid="load-tabs"
             icon="refresh"
             color="grey-7"
             :loading="loading"
