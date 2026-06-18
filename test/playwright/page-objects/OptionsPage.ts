@@ -23,7 +23,7 @@ const ON_TAB_ACTIVATED_ACTION = 'onTabActivated';
 export class OptionsPage {
   private readonly groupTabsBtn: Locator;
   private readonly ungroupTabsBtn: Locator;
-  private readonly loadTabsBtn: Locator;
+  // private readonly loadTabsBtn: Locator;
   private readonly closeAllTabsBtn: Locator;
   private readonly thresholdsConfig: Locator;
   private readonly openTabsTable: Locator;
@@ -33,7 +33,7 @@ export class OptionsPage {
     // Button locators
     this.groupTabsBtn = page.getByTestId('popup-btn-group-tabs');
     this.ungroupTabsBtn = page.getByTestId('popup-btn-ungroup-tabs');
-    this.loadTabsBtn = page.getByTestId('btn-load-tabs');
+    // this.loadTabsBtn = page.getByTestId('btn-load-tabs');
     this.closeAllTabsBtn = page.getByTestId('btn-close-all-tabs');
 
     // Container locators
