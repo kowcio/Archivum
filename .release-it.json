@@ -1,0 +1,31 @@
+{
+  "git": {
+    "requireBranch": ["main"],
+    "commitMessage": "chore: release v%s",
+    "tagName": "v%s",
+    "requireCleanWorkingDir": true,
+    "requireUpstream": false,
+    "changelog": "npx auto-changelog --stdout --template keepachangelog"
+  },
+  "github": {
+    "release": true,
+    "releaseName": "Release %s",
+    "draft": false
+  },
+  "npm": {
+    "publish": false,
+    "versionArgs": ["--no-git-tag-version"]
+  },
+  "hooks": {
+    "before:init": [],
+    "after:bump": "npm run build",
+    "after:release": "echo 'Successfully released v%s to GitHub'"
+  },
+  "plugins": {
+    "@release-it/conventional-changelog": {
+      "preset": "angular",
+      "infile": "CHANGELOG.md"
+    }
+  }
+}
+
