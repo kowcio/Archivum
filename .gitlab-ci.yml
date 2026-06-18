@@ -1,308 +1,43 @@
-# GitLab CI/CD Configuration for Browser Extension
-# Project: Vue 3 + TypeScript Browser Extension (Chrome + Firefox MV3)
-# Build Tool: WXT 0.20+
-# Package Manager: npm
-
-stages:
-  - validate
-  - test
+﻿stages:
   - build
-  - artifacts
-
-# Global variables
+  - release
 variables:
-  npm_config_legacy_peer_deps: "true"
-  CI_DEBUG_TRACE: "false"
-
-# Default configuration for all jobs
-default:
-  image: node:22-alpine
-  tags:
-    - docker
-  cache:
-    key:
-      files:
-        - package-lock.json
-    paths:
-      - node_modules/
-      - .npm/
-
-# ============================================
-# STAGE: VALIDATE (Lint, Type Checking)
-# ============================================
-
-type-check:
-  stage: validate
-  script:
-    - npm ci
-    - npm run type-check
-  artifacts:
-    reports:
-      dotenv: type-check.env
-    expire_in: 1 day
-    when: always
-  allow_failure: false
-  retry:
-    max: 1
-    when:
-      - runner_system_failure
-      - stuck_or_timeout_failure
-
-lint:code:
-  stage: validate
-  script:
-    - npm ci
-    - npm run lint -- --no-fix
-  allow_failure: true
-  retry:
-    max: 1
-    when:
-      - runner_system_failure
-      - stuck_or_timeout_failure
-
-# ============================================
-# STAGE: TEST (Unit + E2E Tests)
-# ============================================
-
-test:unit:
-  stage: test
-  script:
-    - npm ci
-    - npm run test:unit
-  artifacts:
-    reports:
-      coverage_report:
-        coverage_format: cobertura
-        path: coverage/cobertura-coverage.xml
-    paths:
-      - coverage/
-    expire_in: 30 days
-    when: always
-  coverage: '/Lines\s*:\s*(\d+.\d+)%/'
-  allow_failure: true
-  retry:
-    max: 1
-    when:
-      - runner_system_failure
-      - stuck_or_timeout_failure
-
-test:playwright:chrome:
-  stage: test
-  script:
-    - npm ci
-    - npx playwright install chromium
-    - npm run build
-    - npx playwright test -c playwright.config.ts --project chrome-mv3
-  artifacts:
-    paths:
-      - playwright-report/
-    reports:
-      junit: test-results/**/*.xml
-    expire_in: 30 days
-    when: always
-  allow_failure: true
-  timeout: 20 minutes
-  retry:
-    max: 1
-    when:
-      - runner_system_failure
-      - stuck_or_timeout_failure
-
-test:playwright:firefox:
-  stage: test
-  script:
-    - npm ci
-    - npx playwright install firefox
-    - npm run build
-    - npx playwright test -c playwright.config.ts --project firefox-mv3
-  artifacts:
-    paths:
-      - playwright-report/
-    reports:
-      junit: test-results/**/*.xml
-    expire_in: 30 days
-    when: always
-  allow_failure: true
-  timeout: 20 minutes
-  retry:
-    max: 1
-    when:
-      - runner_system_failure
-      - stuck_or_timeout_failure
-
-# ============================================
-# STAGE: BUILD (Extension Build)
-# ============================================
-
-build:extension:
+  NODE_VERSION: "22"
+build:
   stage: build
-  script:
-    - npm ci
-    - npm run build
-  artifacts:
-    paths:
-      - .output/chrome-mv3/
-      - .output/firefox-mv3/
-    expire_in: 7 days
-    when: on_success
-  allow_failure: false
-  timeout: 15 minutes
-  retry:
-    max: 1
-    when:
-      - runner_system_failure
-      - stuck_or_timeout_failure
-
-# ============================================
-# STAGE: ARTIFACTS (Generate Release Archives)
-# ============================================
-
-artifacts:zip:
-  stage: artifacts
-  dependencies:
-    - build:extension
-  script:
-    - npm ci
-    - npm run zip:all
-  artifacts:
-    paths:
-      - .output/*.zip
-    name: "extension-builds-$CI_COMMIT_SHORT_SHA"
-    expire_in: 30 days
-    when: on_success
-  allow_failure: true
-  timeout: 10 minutes
-  retry:
-    max: 1
-    when:
-      - runner_system_failure
-      - stuck_or_timeout_failure
-
-# ============================================
-# STAGE: ARTIFACTS (Generate Coverage Report)
-# ============================================
-
-artifacts:coverage:
-  stage: artifacts
-  dependencies:
-    - test:unit
-  script:
-    - |
-      if [ -d "reports/coverage" ]; then
-        echo "Coverage report already exists"
-      else
-        echo "No coverage report found"
-      fi
-  artifacts:
-    paths:
-      - reports/coverage/
-    expire_in: 30 days
-    when: always
-  allow_failure: true
-
-# ============================================
-# PIPELINE SUMMARY & REPORTS
-# ============================================
-
-pages:
-  stage: artifacts
-  dependencies:
-    - test:unit
-    - test:playwright:chrome
-    - test:playwright:firefox
-  script:
-    - mkdir -p public/coverage public/playwright-report
-    - |
-      if [ -d "coverage" ]; then
-        cp -r coverage/* public/coverage/ 2>/dev/null || true
-      fi
-    - |
-      if [ -d "playwright-report" ]; then
-        cp -r playwright-report/* public/playwright-report/ 2>/dev/null || true
-      fi
-    - |
-      cat > public/index.html << 'EOF'
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>Build Reports</title>
-        <style>
-          body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; margin: 40px; }
-          h1 { color: #333; }
-          .report-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin: 20px 0; }
-          .report-card { border: 1px solid #ddd; border-radius: 8px; padding: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-          .report-card h2 { margin-top: 0; color: #0066cc; }
-          .report-card a { display: inline-block; margin-top: 10px; padding: 10px 20px; background: #0066cc; color: white; text-decoration: none; border-radius: 4px; }
-          .report-card a:hover { background: #0052a3; }
-          .status-badge { display: inline-block; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; }
-          .success { background: #dffcf0; color: #216e4e; }
-          .info { background: #e7f3ff; color: #003d99; }
-        </style>
-      </head>
-      <body>
-        <h1>📊 Build Reports</h1>
-        <div class="report-grid">
-          <div class="report-card">
-            <h2>🧪 Test Coverage</h2>
-            <p class="status-badge info">Unit Tests</p>
-            <p>View detailed code coverage report from Vitest</p>
-            <a href="./coverage/index.html">View Coverage Report →</a>
-          </div>
-          <div class="report-card">
-            <h2>🎨 E2E Tests (Chrome)</h2>
-            <p class="status-badge info">Playwright</p>
-            <p>Chrome MV3 browser extension tests</p>
-            <a href="./playwright-report/index.html">View Test Report →</a>
-          </div>
-          <div class="report-card">
-            <h2>🐧 Build Success</h2>
-            <p class="status-badge success">Production Ready</p>
-            <p>Extension builds for Chrome and Firefox are available in artifacts</p>
-          </div>
-        </div>
-        <hr style="margin-top: 40px; border: none; border-top: 1px solid #ddd; ">
-        <footer style="text-align: center; color: #666; font-size: 12px;">
-          {PROJECT_NAME} • CI/CD Pipeline Reports • Last updated: $(date)
-        </footer>
-      </body>
-      </html>
-      EOF
-  artifacts:
-    paths:
-      - public/
-    expire_in: 30 days
+  image: node:${NODE_VERSION}
   only:
     - main
     - develop
-
-# ============================================
-# MANUAL/OPTIONAL JOBS
-# ============================================
-
-build:release:
-  stage: artifacts
   script:
     - npm ci
     - npm run build
     - npm run zip:all
   artifacts:
     paths:
-      - .output/*.zip
-      - .output/chrome-mv3/
-      - .output/firefox-mv3/
-    name: "release-$CI_COMMIT_TAG"
-    expire_in: 90 days
+      - .output/
+    expire_in: 7 days
+  cache:
+    paths:
+      - node_modules/
+release:
+  stage: release
+  image: node:${NODE_VERSION}
   only:
     - tags
-  when: manual
-  timeout: 15 minutes
-
-# ============================================
-# INCLUDE: External CI/CD configurations (optional)
-# ============================================
-
-# Uncomment to include security scanning
-# include:
-#   - template: Security/SAST.gitlab-ci.yml
-#   - template: Security/Dependency-Scanning.gitlab-ci.yml
-
+  script:
+    - npm ci
+    - npm run build
+    - npm run zip:all
+  release:
+    tag_name: $CI_COMMIT_TAG
+    description: "Release $CI_COMMIT_TAG"
+    assets:
+      links:
+        - name: extension-chrome-mv3.zip
+          url: https://gitlab.com/kowcio/Archivum/-/jobs/artifacts/$CI_COMMIT_TAG/raw/.output/extension-chrome-mv3.zip?job=release
+        - name: extension-firefox-mv3.zip
+          url: https://gitlab.com/kowcio/Archivum/-/jobs/artifacts/$CI_COMMIT_TAG/raw/.output/extension-firefox-mv3.zip?job=release
+  cache:
+    paths:
+      - node_modules/
