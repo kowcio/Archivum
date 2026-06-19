@@ -65,7 +65,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, onMounted, watch, defineEmits } from 'vue'
+import { computed, ref, onMounted, watch } from 'vue'
 import { browser } from 'wxt/browser'
 import { useAppStore } from '@/store/appStore.ts'
 import { AppThresholds } from '@/models/AppThresholds'
@@ -73,7 +73,7 @@ import { BACKGROUND_MESSAGE_ACTIONS } from '@/constants'
 
 const appStore = useAppStore()
 const emit = defineEmits<{ apply: [] }>()
-const maxLevels = appStore.thresholds.value.levels.length
+const maxLevels = computed(() => appStore.thresholds.value.levels.length)
 
 // Local state to track unsaved changes
 // Initialize after store is loaded to avoid false change detection
@@ -84,7 +84,20 @@ const activeThresholds = computed(() => localThresholds.value.active())
 // Check if there are unsaved changes (only when store is loaded)
 const hasChanges = computed(() => {
   if (appStore.loading.value) return false
-  return JSON.stringify(localThresholds.value.toJSON()) !== JSON.stringify(appStore.thresholds.value.toJSON())
+
+  // Check if activeLevels changed
+  if (localThresholds.value.activeLevels !== appStore.thresholds.value.activeLevels) {
+    return true
+  }
+
+  // Check if any threshold days changed
+  for (let i = 0; i < localThresholds.value.levels.length; i++) {
+    if (localThresholds.value.levels[i].days !== appStore.thresholds.value.levels[i].days) {
+      return true
+    }
+  }
+
+  return false
 })
 
 async function handleChangeCount(count: number): Promise<void> {
@@ -99,7 +112,14 @@ async function onChange(levelIdx: number, value: number): Promise<void> {
 
 // Apply changes and regroup tabs
 async function handleApply(): Promise<void> {
-  if (!hasChanges.value) return
+  if (!hasChanges.value) {
+    console.log('[Thresholds] No changes to apply')
+    return
+  }
+
+  console.log('[Thresholds] handleApply: hasChanges=true, starting...')
+  console.log('[Thresholds] Local:', { activeLevels: localThresholds.value.activeLevels, daysArray: localThresholds.value.levels.map(l => l.days) })
+  console.log('[Thresholds] Store:', { activeLevels: appStore.thresholds.value.activeLevels, daysArray: appStore.thresholds.value.levels.map(l => l.days) })
 
   // Collect changes
   const changes: Record<number, Partial<{ days: number }>> = {}
@@ -109,27 +129,35 @@ async function handleApply(): Promise<void> {
     }
   }
 
+  console.log('[Thresholds] Days changes:', changes)
+
   if (Object.keys(changes).length > 0) {
+    console.log('[Thresholds] Saving threshold days changes...')
     await appStore.setThresholds(changes)
   }
 
   // Also update activeLevels if changed
   if (localThresholds.value.activeLevels !== appStore.thresholds.value.activeLevels) {
+    console.log(`[Thresholds] Saving activeLevels change: ${appStore.thresholds.value.activeLevels} → ${localThresholds.value.activeLevels}`)
     await appStore.setActiveLevels(localThresholds.value.activeLevels)
   }
 
-   // Regroup tabs with new thresholds
-   console.log('[Thresholds] Applied → regrouping tabs by age...')
-   try {
-     await browser.runtime.sendMessage({
-       action: BACKGROUND_MESSAGE_ACTIONS.GROUP_TABS_BY_AGE,
-     })
-     console.log('[Thresholds] ✅ Tabs regrouped successfully')
-     emit('apply')
-   } catch (err) {
-     console.error('[Thresholds] ❌ Failed to regroup tabs:', err)
-   }
- }
+  // Reset local state to match store after save
+  console.log('[Thresholds] Resetting local state after save...')
+  localThresholds.value = AppThresholds.fromObject(appStore.thresholds.value.toJSON())
+
+  // Regroup tabs with new thresholds
+  console.log('[Thresholds] Applied → regrouping tabs by age...')
+  try {
+    await browser.runtime.sendMessage({
+      action: BACKGROUND_MESSAGE_ACTIONS.GROUP_TABS_BY_AGE,
+    })
+    console.log('[Thresholds] ✅ Tabs regrouped successfully')
+    emit('apply')
+  } catch (err) {
+    console.error('[Thresholds] ❌ Failed to regroup tabs:', err)
+  }
+}
 
 async function handleReset(): Promise<void> {
   await appStore.resetToDefaults()

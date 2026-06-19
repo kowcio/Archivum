@@ -270,6 +270,7 @@ export class OptionsPage {
     );
   }
 
+
   /**
    * Close the page.
    */
