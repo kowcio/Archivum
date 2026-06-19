@@ -16,11 +16,10 @@
  *   UI message → groupTabsByAge() / ungroupAllTabs()
  */
 
-import { TabRow } from '@/models/tabs/TabRow'
-import { AgeClassification } from '@/models/tabs/AgeClassification'
-import { configStorage } from '@/utils/configStorage'
-import { mockOverrides, activatedTimestamps } from '@/utils/mockStorage'
-import { AppThresholds, DEFAULT_THRESHOLDS } from '@/models/AppThresholds'
+import { TabRow } from '@/entrypoints/options/models/TabRow.ts'
+import { AgeClassification } from '@/models/AgeClassification.ts'
+import { getStorageThresholds, mockOverrides } from '@/store/appStore.ts'
+import { AppThresholds } from '@/models/AppThresholds'
 import { browser } from 'wxt/browser'
 import type { Browser } from 'wxt/browser'
 import { MOCK_TABS } from '@/utils/mockTabData'
@@ -36,23 +35,9 @@ export class BackgroundTabService {
   }
 
   static async getThresholds(): Promise<AppThresholds> {
-    const stored = await configStorage.getValue()
-    if (stored?.thresholds?.levels) {
-      return AppThresholds.fromObject(stored.thresholds)
-    }
-    return DEFAULT_THRESHOLDS
+    return await getStorageThresholds()
   }
 
-  private static async applyTimestampOverrides(tabs: { id?: number; lastAccessed?: number }[]): Promise<void> {
-    const stamps = await activatedTimestamps.getValue()
-    const ids = Object.keys(stamps).map(Number)
-    if (!ids.length) return
-    for (const tab of tabs) {
-      if (tab.id != null && stamps[tab.id] != null) {
-        tab.lastAccessed = stamps[tab.id]
-      }
-    }
-  }
 
   /**
    * Applies mock lastAccessed overrides to raw tabs (debug).
@@ -189,25 +174,17 @@ export class BackgroundTabService {
 
    static async onTabActivated(tabId: number): Promise<void> {
      try {
-       // 💾 Save real activation timestamp — always, regardless of group status
-       const now = Date.now()
-       const stamps: Record<number, number> = await activatedTimestamps.getValue()
-       stamps[tabId] = now
-       await activatedTimestamps.setValue(stamps)
-
        // 🎯 Filter: Only modify tabs IN plugin-created groups
        const inPluginGroup = await this.isInPluginGroup(tabId)
        if (!inPluginGroup) {
-         console.log(`[BackgroundTabService] ⏭️ Tab#${tabId} not in plugin group → skip modification (timestamp saved only)`)
+         console.log(`[BackgroundTabService] ⏭️ Tab#${tabId} not in plugin group → skip modification`)
          return
        }
 
-
-
-      // 🧩 ungroup BEFORE move — move alone keeps the tab inside its group (Chrome/Edge).
-      // Without ungroup, the tab stays grouped and the whole group moves to the right.
-      // Firefox lacks tabGroups API so ungroup throws — caught silently.
-      try { await (browser.tabs as any).ungroup(tabId) } catch { /* Firefox / not grouped */ }
+       // 🧩 ungroup BEFORE move — move alone keeps the tab inside its group (Chrome/Edge).
+       // Without ungroup, the tab stays grouped and the whole group moves to the right.
+       // Firefox lacks tabGroups API so ungroup throws — caught silently.
+       try { await (browser.tabs as any).ungroup(tabId) } catch { /* Firefox / not grouped */ }
 
       // ➡️ Move to rightmost with retry — tabs may be locked during user drag
       const maxRetries = 3
@@ -235,68 +212,53 @@ export class BackgroundTabService {
     }
   }
 
-  /**
-   * Queries tabs from current window with mock overrides applied.
-   * Used by UI contexts to get correct lastAccessed values for display.
-   */
-  static async getTabs(): Promise<Browser.tabs.Tab[]> {
-    const rawTabs = await browser.tabs.query({ currentWindow: true })
-    // Deep clone to avoid mutating the original tab objects
-    const tabs: Browser.tabs.Tab[] = JSON.parse(JSON.stringify(rawTabs))
-    // await this.applyTimestampOverrides(tabs)
-    await this.applyMockOverrides(tabs)
-    return tabs
-  }
+   /**
+    * Queries tabs from current window.
+    * Applies mock overrides if they exist (for debug/testing).
+    * UI displays tabs with mocked lastAccessed when in debug mode.
+    */
+   static async getTabs(): Promise<Browser.tabs.Tab[]> {
+     const tabs = await browser.tabs.query({ currentWindow: true })
+     await this.applyMockOverrides(tabs)
+     return tabs
+   }
 
-  /**
-   * Creates mock tabs using realistic data from mockTabData.ts.
-   * Each tab gets a backdated lastAccessed for testing grouping flow.
-   * Returns created tabs with overrides already applied so UI sees correct data.
-   */
-  static async createMockTabs(): Promise<Browser.tabs.Tab[]> {
-    const now = Date.now()
-    const DAY_MS = 86400000
-    const tabIds: number[] = []
+   /**
+    * Creates mock tabs using realistic data from mockTabData.ts.
+    * Returns tab objects — MockButton applies mockOverrides based on preset.
+    *
+    * NOTE: mockOverrides are set by MockButton (UI layer), not here.
+    * This method only creates the tabs.
+    */
+   static async createMockTabs(): Promise<Browser.tabs.Tab[]> {
+     const tabIds: number[] = []
 
-    // Create tabs using realistic mock data
-    for (let i = 0; i < MOCK_TABS.length; i++) {
-      const mock = MOCK_TABS[i]
-      try {
-        const tab = await browser.tabs.create({
-          url: mock.url,
-          active: false,
-        })
-        if (tab.id != null) tabIds.push(tab.id)
-      } catch {
-        // Some URLs may fail — create simpler tabs as fallback
-        const tab = await browser.tabs.create({ url: `https://example.com/mock-${i}`, active: false })
-        if (tab.id != null) tabIds.push(tab.id)
-      }
-    }
+     // Create tabs using realistic mock data
+     for (let i = 0; i < MOCK_TABS.length; i++) {
+       const mock = MOCK_TABS[i]
+       try {
+         const tab = await browser.tabs.create({
+           url: mock.url,
+           active: false,
+         })
+         if (tab.id != null) tabIds.push(tab.id)
+       } catch {
+         // Some URLs may fail — create simpler tabs as fallback
+         const tab = await browser.tabs.create({ url: `https://example.com/mock-${i}`, active: false })
+         if (tab.id != null) tabIds.push(tab.id)
+       }
+     }
 
-    // Brief delay to let tabs start loading
-    await new Promise(r => setTimeout(r, 500))
+     // Brief delay to let tabs start loading
+     await new Promise(r => setTimeout(r, 500))
 
-    // Store mock overrides — applied on next queries
-    const overrides: Record<number, number> = {}
-    for (let i = 0; i < tabIds.length; i++) {
-      overrides[tabIds[i]] = now - MOCK_TABS[i].daysAgo * DAY_MS
-    }
-    await mockOverrides.setValue(overrides)
+     // Re-query tabs to get full tab objects
+     const allTabs = await browser.tabs.query({ currentWindow: true })
+     console.log(`[BackgroundTabService] Created ${tabIds.length} mock tabs, queried ${allTabs.length} total tabs`)
 
-    // Re-query and apply overrides so returned tabs have correct lastAccessed
-    const allTabs = await browser.tabs.query({ currentWindow: true })
-    const applied: Browser.tabs.Tab[] = []
-    for (const tab of allTabs) {
-      if (tab.id != null && overrides[tab.id] != null) {
-        applied.push({ ...(tab as any), lastAccessed: overrides[tab.id] })
-      } else {
-        applied.push(tab)
-      }
-    }
-    console.log(`[BackgroundTabService] Created ${tabIds.length} mock tabs with backdated lastAccessed, queried ${allTabs.length} total tabs`)
-    return applied
-  }
+
+     return allTabs
+   }
 
    /**
     * Check if a tab is in a plugin-created group.

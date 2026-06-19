@@ -6,7 +6,7 @@
       <div class="row justify-center q-mt-md q-gutter-sm">
         <GroupUngroup />
 
-        <MockButton @mock-created="handleMockCreated" />
+        <MockButton @mock-created="refreshTabs" />
 
         <div data-testid="btn-load-tabs">
           <q-btn
@@ -100,16 +100,16 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { browser } from 'wxt/browser'
 import { BACKGROUND_MESSAGE_ACTIONS } from '@/constants'
-import { useConfigStore } from '@/stores/configStore'
-import { TabRow } from '@/models/tabs/TabRow'
-import { AgeClassification } from '@/models/tabs/AgeClassification'
+import { useAppStore } from '@/store/appStore.ts'
+import { TabRow } from '@/entrypoints/options/models/TabRow.ts'
+import { AgeClassification } from '@/models/AgeClassification.ts'
 import Thresholds from '../../components/Thresholds.vue'
 import AppTitle from '@/components/Title.vue'
 import GroupUngroup from '@/components/GroupUngroup.vue'
 import MockButton from '@/components/MockButton.vue'
 import CloseAllTabsButton from '@/components/CloseAllTabsButton.vue'
 
-const configStore = useConfigStore()
+const appStore = useAppStore()
 const loading = ref(false)
 const error = ref<string | null>(null)
 const tabs = ref<any[]>([])
@@ -126,10 +126,10 @@ const columns: { name: string; label: string; field: string; align: 'left' | 'ri
 ]
 
 const tabRows = computed(() => {
-  const rows = TabRow.fromTabs(tabs.value, configStore.thresholds)
+  const rows = TabRow.fromTabs(tabs.value, appStore.thresholds.value)
   return rows.map((row: any, i: number) => {
     const days = row.lastAccessDays ?? 0
-    const c = AgeClassification.fromDays(days, configStore.thresholds)
+    const c = AgeClassification.fromDays(days, appStore.thresholds.value)
     return {
       ...row,
       ordinal: i + 1,
@@ -149,12 +149,6 @@ function truncate(text: string, max: number): string {
   return !text || text.length <= max ? text : text.substring(0, max) + '…'
 }
 
-function handleMockCreated(mockTabs: any[], err: string | null): void {
-  error.value = err
-  if (!err && mockTabs.length > 0) {
-    tabs.value = mockTabs
-  }
-}
 
 async function refreshTabs(): Promise<void> {
   loading.value = true

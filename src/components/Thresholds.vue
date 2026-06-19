@@ -2,17 +2,17 @@
   <div class="row config-row" data-testid="thresholds-config">
     <div class="info-box col-2">
       <span class="label">Active Levels:</span>
-      <span class="value">{{ configStore.thresholds.activeLevels }} / {{ maxLevels }}</span>
+      <span class="value">{{ appStore.thresholds.value.activeLevels }} / {{ maxLevels }}</span>
     </div>
     <div class="col-2">
       <q-input
         data-testid="thresholds-levels-input"
-        :model-value="configStore.thresholds.activeLevels"
+        :model-value="appStore.thresholds.value.activeLevels"
         label="Levels"
         type="number"
         :min="1"
         :max="maxLevels"
-        :disable="configStore.loading"
+        :disable="appStore.loading.value"
         dense
         class="levels-input"
         @update:model-value="(v) => handleChangeCount(Number(v))"
@@ -27,13 +27,13 @@
         color="secondary"
         dense
         flat
-        :disable="configStore.loading"
+        :disable="appStore.loading.value"
         @click="handleReset"
       />
     </div>
   </div>
 
-  <div v-if="configStore.error" class="error-text row">{{ configStore.error }}</div>
+  <div v-if="appStore.error.value" class="error-text row">{{ appStore.error.value }}</div>
 
   <div class="thresholds-grid config-row q-mt-md row">
     <template v-for="(level, idx) in activeThresholds" :key="`threshold-${idx}`">
@@ -45,7 +45,7 @@
         type="number"
         :min="idx === 0 ? 0 : activeThresholds[idx - 1].days + 1"
         :max="idx === activeThresholds.length - 1 ? undefined : activeThresholds[idx + 1].days - 1"
-        :disable="configStore.loading"
+        :disable="appStore.loading.value"
         dense
         @update:model-value="(v) => onChange(idx, Number(v))"
       />
@@ -55,24 +55,24 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { useConfigStore } from '@/stores/configStore'
+import { useAppStore } from '@/store/appStore.ts'
 
-const configStore = useConfigStore()
-const maxLevels = configStore.thresholds.levels.length
-const activeThresholds = computed(() => configStore.thresholds.active())
+const appStore = useAppStore()
+const maxLevels = appStore.thresholds.value.levels.length
+const activeThresholds = computed(() => appStore.thresholds.value.active())
 
 async function handleChangeCount(count: number): Promise<void> {
   if (!Number.isFinite(count) || count < 1) return
-  await configStore.setActiveLevels(count)
+  await appStore.setActiveLevels(count)
 }
 
 async function onChange(levelIdx: number, value: number): Promise<void> {
   if (!Number.isFinite(value) || value < 0) return
-  await configStore.setThresholds({ [levelIdx]: { days: value } })
+  await appStore.setThresholds({ [levelIdx]: { days: value } })
 }
 
 async function handleReset(): Promise<void> {
-  await configStore.resetToDefaults()
+  await appStore.resetToDefaults()
 }
 </script>
 
