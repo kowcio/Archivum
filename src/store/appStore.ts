@@ -68,12 +68,18 @@ export const mockOverrides = storage.defineItem<Record<number, number>>('local:m
 /**
  * Helper: Get thresholds from storage (for background.ts + services)
  * Direct async access — no reactivity needed in background context
+ * Always returns AppThresholds instance (never plain object).
  * Used by: BackgroundTabService, tests
  */
 export async function getStorageThresholds(): Promise<AppThresholds> {
-  const state = await appStateStorage.getValue()
-  if (state?.thresholds?.levels) {
-    return AppThresholds.fromObject(state.thresholds)
+  try {
+    const state = await appStateStorage.getValue()
+    if (state?.thresholds) {
+      // Always reconstruct as AppThresholds instance (defensive against serialization issues)
+      return AppThresholds.fromObject(state.thresholds)
+    }
+  } catch (err) {
+    console.error('[appStore] getStorageThresholds error:', err)
   }
   return DEFAULT_THRESHOLDS
 }

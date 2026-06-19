@@ -2,12 +2,12 @@
   <div class="row config-row" data-testid="thresholds-config">
     <div class="info-box col-2">
       <span class="label">Active Levels:</span>
-      <span class="value">{{ appStore.thresholds.value.activeLevels }} / {{ maxLevels }}</span>
+      <span class="value">{{ localThresholds.activeLevels }} / {{ maxLevels }}</span>
     </div>
     <div class="col-2">
       <q-input
         data-testid="thresholds-levels-input"
-        :model-value="appStore.thresholds.value.activeLevels"
+        :model-value="localThresholds.activeLevels"
         label="Levels"
         type="number"
         :min="1"
@@ -18,8 +18,19 @@
         @update:model-value="(v) => handleChangeCount(Number(v))"
       />
     </div>
-    <div class="col-5" />
-    <div class="col-1">
+
+
+    <!-- Action buttons -->
+    <div class="col-auto action-buttons">
+      <q-btn
+        v-if="hasChanges && !appStore.loading.value"
+        data-testid="threshold-apply"
+        icon="check"
+        label="Apply"
+        color="positive"
+        dense
+        @click="handleApply"
+      />
       <q-btn
         data-testid="threshold-reset"
         icon="refresh"
@@ -54,26 +65,88 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref, onMounted, watch, defineEmits } from 'vue'
+import { browser } from 'wxt/browser'
 import { useAppStore } from '@/store/appStore.ts'
+import { AppThresholds } from '@/models/AppThresholds'
+import { BACKGROUND_MESSAGE_ACTIONS } from '@/constants'
 
 const appStore = useAppStore()
+const emit = defineEmits<{ apply: [] }>()
 const maxLevels = appStore.thresholds.value.levels.length
-const activeThresholds = computed(() => appStore.thresholds.value.active())
+
+// Local state to track unsaved changes
+// Initialize after store is loaded to avoid false change detection
+const localThresholds = ref<AppThresholds>(AppThresholds.fromObject(appStore.thresholds.value.toJSON()))
+
+const activeThresholds = computed(() => localThresholds.value.active())
+
+// Check if there are unsaved changes (only when store is loaded)
+const hasChanges = computed(() => {
+  if (appStore.loading.value) return false
+  return JSON.stringify(localThresholds.value.toJSON()) !== JSON.stringify(appStore.thresholds.value.toJSON())
+})
 
 async function handleChangeCount(count: number): Promise<void> {
   if (!Number.isFinite(count) || count < 1) return
-  await appStore.setActiveLevels(count)
+  localThresholds.value = localThresholds.value.withActiveLevels(count)
 }
 
 async function onChange(levelIdx: number, value: number): Promise<void> {
   if (!Number.isFinite(value) || value < 0) return
-  await appStore.setThresholds({ [levelIdx]: { days: value } })
+  localThresholds.value = localThresholds.value.merge({ [levelIdx]: { days: value } })
 }
+
+// Apply changes and regroup tabs
+async function handleApply(): Promise<void> {
+  if (!hasChanges.value) return
+
+  // Collect changes
+  const changes: Record<number, Partial<{ days: number }>> = {}
+  for (let i = 0; i < localThresholds.value.levels.length; i++) {
+    if (localThresholds.value.levels[i].days !== appStore.thresholds.value.levels[i].days) {
+      changes[i] = { days: localThresholds.value.levels[i].days }
+    }
+  }
+
+  if (Object.keys(changes).length > 0) {
+    await appStore.setThresholds(changes)
+  }
+
+  // Also update activeLevels if changed
+  if (localThresholds.value.activeLevels !== appStore.thresholds.value.activeLevels) {
+    await appStore.setActiveLevels(localThresholds.value.activeLevels)
+  }
+
+   // Regroup tabs with new thresholds
+   console.log('[Thresholds] Applied → regrouping tabs by age...')
+   try {
+     await browser.runtime.sendMessage({
+       action: BACKGROUND_MESSAGE_ACTIONS.GROUP_TABS_BY_AGE,
+     })
+     console.log('[Thresholds] ✅ Tabs regrouped successfully')
+     emit('apply')
+   } catch (err) {
+     console.error('[Thresholds] ❌ Failed to regroup tabs:', err)
+   }
+ }
 
 async function handleReset(): Promise<void> {
   await appStore.resetToDefaults()
+  localThresholds.value = AppThresholds.fromObject(appStore.thresholds.value.toJSON())
 }
+
+// Sync localThresholds when store changes (from another context)
+onMounted(() => {
+  watch(
+    () => appStore.thresholds.value.toJSON(),
+    () => {
+      if (!appStore.loading.value && !hasChanges.value) {
+        localThresholds.value = AppThresholds.fromObject(appStore.thresholds.value.toJSON())
+      }
+    }
+  )
+})
 </script>
 
 <style scoped>
@@ -101,6 +174,14 @@ async function handleReset(): Promise<void> {
 .label { font-weight: 600; color: #666; }
 .value { font-weight: 700; color: #1976d2; }
 .levels-input { min-width: 120px; }
+
+
+.action-buttons {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
 .thresholds-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));

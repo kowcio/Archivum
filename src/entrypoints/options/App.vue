@@ -36,7 +36,7 @@
       <!-- Thresholds Configuration -->
       <div class="row q-mt-lg">
         <div class="col">
-          <Thresholds />
+          <Thresholds @apply="refreshTabs" />
         </div>
       </div>
 
@@ -177,8 +177,7 @@ async function closeTab(tabId: number | null): Promise<void> {
 
 
 onMounted(() => {
-  refreshTabs()
-  browser.tabs.onActivated.addListener(onTabActivated)
+  // browser.tabs.onActivated.addListener(onTabActivated)
 })
 
 onUnmounted(() => {
@@ -186,7 +185,7 @@ onUnmounted(() => {
 })
 
 async function onTabActivated(_tabId: { tabId: number }): Promise<void> {
-  await refreshTabs()
+  // await refreshTabs()
 }
 </script>
 

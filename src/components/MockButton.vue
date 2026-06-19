@@ -80,6 +80,6 @@ async function createMockWithPreset(preset: 'default' | 'old' | 'fresh'): Promis
 
 // Auto-create mock tabs with default preset on mount
 onMounted(async () => {
-  await createMockWithPreset('default')
+  // await createMockWithPreset('default')
 })
 </script>

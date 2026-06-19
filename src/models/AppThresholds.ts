@@ -32,6 +32,7 @@ export class AppThresholds {
 
   /**
    * Returns only the active threshold levels (first N based on activeLevels count).
+   * Always safe: levels is always an array and activeLevels ≥ 1.
    */
   active(): ThresholdLevel[] {
     return this.levels.slice(0, this.activeLevels)
@@ -95,13 +96,20 @@ export class AppThresholds {
 
   /**
    * Creates AppThresholds from plain object (e.g., loaded from storage).
+   * Validates that levels is an array; falls back to DEFAULT_THRESHOLDS if corrupted.
    */
   static fromObject(obj: {
     levels?: ThresholdLevel[]
     activeLevels?: number
   }): AppThresholds {
+    // Validate levels is actually an array
+    const levels = Array.isArray(obj.levels) ? obj.levels : undefined
+    if (!levels || levels.length === 0) {
+      console.warn('[AppThresholds.fromObject] Invalid or missing levels, using defaults', { obj })
+      return DEFAULT_THRESHOLDS
+    }
     return new AppThresholds(
-      obj.levels ?? DEFAULT_THRESHOLDS.levels,
+      levels,
       obj.activeLevels ?? APP_DEFAULTS.THRESHOLDS.activeLevels
     )
   }
