@@ -337,5 +337,101 @@ export class BackgroundTabService {
        return false
      }
    }
-}
 
+  /**
+   * Groups tabs by domain name, with secondary sorting by age (if >2 tabs per domain).
+   * Creates groups like "example.com (5)", "github.com (3)" etc.
+   * Within each domain: if >2 tabs, sort by age (oldest first).
+   *
+   * CROSS-BROWSER SUPPORT:
+   *   ✅ Chrome/Edge: Full grouping via browser.tabGroups API
+   *   ✅ Firefox: No tabGroups API, gracefully skips grouping
+   *   ✅ All browsers: Tabs sorted by domain, ungrouped tabs preserved
+   */
+  static async groupTabsByDomain(): Promise<number> {
+    console.log('[BackgroundTabService] groupTabsByDomain...')
+    try {
+      const hasTabGroups = browser.tabGroups != null
+      if (!hasTabGroups) {
+        console.log('[BackgroundTabService] ℹ️ Tab grouping not available (Firefox)')
+        return 0
+      }
+
+      const rawTabs = await browser.tabs.query({ currentWindow: true })
+      console.log(`[BackgroundTabService] Raw tabs: ${rawTabs.length}`)
+
+      // Apply mock overrides
+      await this.applyMockOverrides(rawTabs)
+
+      // Get thresholds for sorting tabs by age
+      const thresholds = await this.getThresholds()
+
+      // Create TabRow objects to access domain info
+      const rows = TabRow.fromTabs(rawTabs, thresholds)
+      console.log(`[BackgroundTabService] TabRows after fromTabs: ${rows.length}`)
+
+      // Build age map for sorting
+      const ageMap = new Map<number, number>()
+      for (const row of rows) {
+        if (row.id != null) ageMap.set(row.id, row.lastAccessDays ?? 0)
+      }
+
+      // Group tabs by domain
+      const domainGroups = new Map<string, number[]>()
+      for (const row of rows) {
+        if (row.id == null) continue
+        const domain = row.domain || 'unknown'
+        if (!domainGroups.has(domain)) {
+          domainGroups.set(domain, [])
+        }
+        domainGroups.get(domain)!.push(row.id)
+      }
+
+      console.log(`[BackgroundTabService] Found ${domainGroups.size} unique domains`)
+
+      // Sort domains alphabetically and prepare for grouping
+      const sortedDomains = Array.from(domainGroups.keys()).sort()
+      const domainTabIds: Array<{ domain: string; tabIds: number[] }> = []
+
+      for (const domain of sortedDomains) {
+        const tabIds = domainGroups.get(domain)!
+        // If more than 2 tabs in this domain, sort by age (oldest first = highest days first)
+        if (tabIds.length > 2) {
+          tabIds.sort((a, b) => (ageMap.get(b) ?? 0) - (ageMap.get(a) ?? 0))
+          console.log(`[BackgroundTabService] Domain "${domain}" has ${tabIds.length} tabs (sorted by age)`)
+        } else {
+          console.log(`[BackgroundTabService] Domain "${domain}" has ${tabIds.length} tab(s) (no age sort needed)`)
+        }
+        domainTabIds.push({ domain, tabIds })
+      }
+
+      const createGroup = async (ids: number[], title: string, color: string): Promise<number | null> => {
+        if (!ids.length) return null
+        try {
+          const id = await (browser.tabs as any).group({ tabIds: ids })
+          await (browser.tabGroups as any).update(id, { title, color, collapsed: true })
+          return id
+        } catch {
+          return null
+        }
+      }
+
+      // Create groups from sorted domains (left to right = A to Z)
+      let groupsCreated = 0
+      const colorPalette = ['green', 'blue', 'orange', 'red', 'pink', 'purple', 'cyan', 'grey']
+      for (let i = 0; i < domainTabIds.length; i++) {
+        const { domain, tabIds } = domainTabIds[i]
+        const color = colorPalette[i % colorPalette.length]
+        const title = `${domain} (${tabIds.length})`
+        const gid = await createGroup(tabIds, title, color)
+        if (gid !== null) groupsCreated++
+      }
+
+      console.log(`[BackgroundTabService] ✅ Created ${groupsCreated} domain groups`)
+      return groupsCreated
+    } catch (err) {
+      console.error('[BackgroundTabService] ❌', err)
+      return 0
+    }
+  }
+}

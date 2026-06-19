@@ -65,23 +65,44 @@ export class OptionsPage {
     ]);
   }
 
-  /**
-   * Click "Group Tabs by Age" button and wait for grouping to complete.
-   * Optional: pass timeout override (default 1200ms).
-   */
-  async clickGroupTabs(waitMs: number = 1200): Promise<void> {
-    await this.groupTabsBtn.click();
-    await this.page.waitForTimeout(waitMs);
-  }
+   /**
+    * Click "Group Tabs by Age" button and wait for grouping to complete.
+    * Optional: pass timeout override (default 1200ms).
+    */
+   async clickGroupTabs(waitMs: number = 1200): Promise<void> {
+     await this.groupTabsBtn.click();
+     await this.page.waitForTimeout(waitMs);
+   }
 
-  /**
-   * Click "Ungroup All Tabs" button and wait for ungrouping to complete.
-   * Optional: pass timeout override (default 1000ms).
-   */
-  async clickUngroupTabs(waitMs: number = 1000): Promise<void> {
-    await this.ungroupTabsBtn.click();
-    await this.page.waitForTimeout(waitMs);
-  }
+   /**
+    * Group Tabs by Domain via background message (no UI button).
+    * Uses chrome.runtime.sendMessage to trigger groupTabsByDomain.
+    * Optional: pass timeout override (default 1500ms).
+    */
+   async clickGroupTabsByDomain(waitMs: number = 1500): Promise<{ groupsCreated: number; error: string | null }> {
+     const result = await this.page.evaluate(() => {
+       return new Promise<{ groupsCreated: number; error: string | null }>((resolve) => {
+         try {
+           chrome.runtime.sendMessage({ action: 'groupTabsByDomain' }, (r: any) => {
+             resolve({ groupsCreated: r?.groupsCreated ?? 0, error: r?.error ?? null });
+           });
+         } catch (e: unknown) {
+           resolve({ groupsCreated: 0, error: String(e) });
+         }
+       });
+     });
+     await this.page.waitForTimeout(waitMs);
+     return result;
+   }
+
+   /**
+    * Click "Ungroup All Tabs" button and wait for ungrouping to complete.
+    * Optional: pass timeout override (default 1000ms).
+    */
+   async clickUngroupTabs(waitMs: number = 1000): Promise<void> {
+     await this.ungroupTabsBtn.click();
+     await this.page.waitForTimeout(waitMs);
+   }
 
   /**
    * Click "Load/Create Mock Tabs" button.

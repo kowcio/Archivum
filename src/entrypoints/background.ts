@@ -42,6 +42,13 @@ export default defineBackground({
         return true
       }
 
+      if (action === BACKGROUND_MESSAGE_ACTIONS.GROUP_TABS_BY_DOMAIN) {
+        BackgroundTabService.groupTabsByDomain()
+          .then((count) => sendResponse({ groupsCreated: count, error: null }))
+          .catch((err: any) => sendResponse({ groupsCreated: 0, error: String(err) }))
+        return true
+      }
+
       if (action === BACKGROUND_MESSAGE_ACTIONS.UNGROUP_ALL_TABS) {
         BackgroundTabService.ungroupAllTabs()
           .then(() => sendResponse({ error: null }))

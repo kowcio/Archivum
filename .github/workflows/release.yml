@@ -1,14 +1,12 @@
-name: Release
+name: Release WXT Extension
 
 on:
   push:
     tags:
       - 'v[0-9]+.[0-9]+.[0-9]+'
-      - 'v[0-9]+.[0-9]+.[0-9]+-*'
 
 permissions:
   contents: write
-  packages: write
 
 jobs:
   build-and-release:
@@ -32,7 +30,7 @@ jobs:
           npm_config_legacy_peer_deps: true
 
       - name: Prepare Playwright browsers
-        run: npx playwright install chromium firefox
+        run: npx playwright install chromium
 
       - name: Type check
         run: npm run type-check
@@ -47,71 +45,54 @@ jobs:
       - name: Build extension
         run: npm run build
 
-      - name: Create ZIP archives
+      - name: Create ZIP archives for distribution
         run: npm run zip:all
 
       - name: Get version
         id: version
-        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
 
-      - name: Generate release notes
+      - name: Generate changelog
         id: changelog
         run: |
-          CHANGELOG=$(git log --pretty=format:"%h - %s (%an)" $(git describe --tags --abbrev=0 HEAD^)..HEAD || echo "Initial release")
+          CHANGELOG=$(git log --pretty=format:"%h - %s (%an)" $(git describe --tags --abbrev=0 HEAD^)..HEAD 2>/dev/null || echo "✨ Initial release")
           echo "CHANGELOG<<EOF" >> $GITHUB_OUTPUT
           echo "$CHANGELOG" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
 
       - name: Create GitHub Release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        id: create_release
+        uses: softprops/action-gh-release@v1
         with:
-          tag_name: ${{ steps.version.outputs.VERSION }}
-          release_name: Release ${{ steps.version.outputs.VERSION }}
+          tag_name: ${{ github.ref }}
+          name: Release ${{ steps.version.outputs.VERSION }}
           body: |
-            ## 📦 Release ${{ steps.version.outputs.VERSION }}
+            ## 📦 Release v${{ steps.version.outputs.VERSION }}
             
-            ### 📝 Changes
+            ### ✨ Changes
             ```
             ${{ steps.changelog.outputs.CHANGELOG }}
             ```
             
             ### 📋 Build Info
-            - **Node.js**: 22
+            - **Framework**: WXT 0.20+
             - **Build Date**: ${{ github.event.head_commit.timestamp }}
-            - **Commit**: ${{ github.sha }}
+            - **Commit**: [${{ github.sha }}](https://github.com/${{ github.repository }}/commit/${{ github.sha }})
             
             ### 📥 Downloads
-            - `extension-chrome-mv3.zip` - Chrome MV3 extension
-            - `extension-firefox-mv3.zip` - Firefox MV3 extension
+            - **Chrome MV3**: `extension-chrome-mv3.zip`
+            - **Firefox MV3**: `extension-firefox-mv3.zip`
+            
+            ### 🚀 Installation
+            See [README.md](https://github.com/${{ github.repository }}#installation) for installation instructions.
+          files: |
+            .output/extension-chrome-mv3.zip
+            .output/extension-firefox-mv3.zip
           draft: false
-          prerelease: ${{ contains(steps.version.outputs.VERSION, '-') }}
+          prerelease: false
 
-      - name: Upload Chrome extension as release asset
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: .output/extension-chrome-mv3.zip
-          asset_name: extension-chrome-mv3.zip
-          asset_content_type: application/zip
-        continue-on-error: true
-
-      - name: Upload Firefox extension as release asset
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: .output/extension-firefox-mv3.zip
-          asset_name: extension-firefox-mv3.zip
-          asset_content_type: application/zip
-        continue-on-error: true
-
-      - name: Publish release
+      - name: ✅ Release published
         run: |
-          echo "✅ Release ${{ steps.version.outputs.VERSION }} published successfully"
-          echo "📦 Assets uploaded to GitHub Releases"
+          echo "🎉 Release v${{ steps.version.outputs.VERSION }} published!"
+          echo "📦 Assets available at: https://github.com/${{ github.repository }}/releases/tag/${{ github.ref_name }}"
 

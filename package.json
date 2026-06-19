@@ -30,12 +30,7 @@
     "test:playwright:firefox": "npx playwright test -c playwright.config.ts --project firefox-mv3",
     "test:playwright:debug": "npm run build && npx playwright test -c playwright.config.ts --project chrome-mv3 --debug",
     "test:playwright:ui": "npx playwright test -c playwright.config.ts --ui --project chrome-mv3",
-    "ci": "npm run type-check && npm run test:unit && npm run test:playwright:chromium && npm run build-only",
-    "release": "release-it",
-    "release:preview": "release-it --dry-run",
-    "release:minor": "release-it minor",
-    "release:major": "release-it major",
-    "release:patch": "release-it patch"
+    "ci": "npm run type-check && npm run test:unit && npm run test:playwright:chromium && npm run build-only"
   },
   "dependencies": {
     "@quasar/extras": "1.17.0",

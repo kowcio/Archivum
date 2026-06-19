@@ -66,6 +66,7 @@ export const APP_DEFAULTS = {
 // Imported by: background.ts (action handlers), UI components, and E2E tests
 export const BACKGROUND_MESSAGE_ACTIONS = {
   GROUP_TABS_BY_AGE: 'groupTabsByAge',
+  GROUP_TABS_BY_DOMAIN: 'groupTabsByDomain',
   UNGROUP_ALL_TABS: 'ungroupAllTabs',
   CREATE_MOCK_TABS: 'createMockTabs',
   GET_TABS: 'getTabs',
