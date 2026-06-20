@@ -167,6 +167,46 @@ export class OptionsPage {
   }
 
   /**
+   * Get all tab groups with their titles and tab counts.
+   * Returns array sorted by group position (left to right).
+   */
+  async getAllGroups(): Promise<Array<{ id: number; title: string; tabCount: number }>> {
+    return this.page.evaluate(async () => {
+      try {
+        const currentWindow = await chrome.windows.getCurrent();
+        console.log('[getAllGroups] Current window:', currentWindow.id);
+
+        const groups = await chrome.tabGroups.query({ windowId: currentWindow.id });
+        console.log('[getAllGroups] Found', groups.length, 'groups');
+
+        const groupDetails = [];
+        for (const group of groups) {
+          const tabs = await chrome.tabs.query({ groupId: group.id });
+          console.log(`[getAllGroups] Group ${group.id}: "${group.title}" → ${tabs.length} tabs`);
+          groupDetails.push({
+            id: group.id,
+            title: group.title,
+            tabCount: tabs.length,
+          });
+        }
+        return groupDetails;
+      } catch (err) {
+        console.error('[getAllGroups] Error:', err);
+        return [];
+      }
+    });
+  }
+
+  /**
+   * Get ungrouped tabs count.
+   */
+  async getUngroupedTabCount(): Promise<number> {
+    const all = await this.queryAllTabs();
+    return all.filter(t => t.groupId === -1).length;
+  }
+
+
+  /**
    * Get count of table rows (excluding header).
    */
   async getTableRowCount(): Promise<number> {

@@ -67,18 +67,23 @@ test.describe("Tab Age Extension E2E Flow", () => {
       const DAY_MS = 86400000;
       const overrides: Record<number, number> = {};
 
-      // Create tabs across 4 age groups to ensure we get 4 groups with activeLevels=4
-      // With threshold boundaries at 7, 14, 28, 90 days:
-      // Age group 0 (Fresh, <7d): tabs 0,1 → 5 days old
-      // Age group 1 (7-13d): tabs 2,3 → 10 days old
-      // Age group 2 (14-27d): tabs 4,5 → 20 days old
-      // Age group 3 (28-89d): tabs 6,7 → 50 days old
-      // Age group 4 (90+d): tabs 8-13 → 100 days old (ensures 4th active level gets a group)
+      // Age distribution for 4 threshold levels:
+      // Fresh (< 7d): tabs 0-1 → 5 days old
+      // Week+ (7-13d): tabs 2-3 → 10 days old (FIRST GROUP)
+      // 2 Weeks+ (14-27d): tabs 4-5 → 20 days old
+      // Month+ (28-89d): tabs 6-7 → 50 days old
+      // Quarter+ (90+d): tabs 8-13 → 100 days old
 
-      const ageDistribution = [5, 5, 10, 10, 20, 20, 50, 50, 100, 100, 100, 100, 100, 100];
+      const ageDistribution = [
+        5, 5,             // Fresh (< 7 days)
+        10, 10,           // Week+ (7-13 days) - FIRST GROUP
+        20, 20,           // 2 Weeks+ (14-27 days)
+        50, 50,           // Month+ (28-89 days)
+        100, 100, 100, 100, 100, 100  // Quarter+ (90+ days)
+      ];
 
       newTabIds.forEach((tabId, idx) => {
-        const age = ageDistribution[idx] ?? 100; // Default to 100 if beyond distribution
+        const age = ageDistribution[idx] ?? 100;
         overrides[tabId] = now - age * DAY_MS;
       });
 
@@ -96,6 +101,43 @@ test.describe("Tab Age Extension E2E Flow", () => {
       await options.expectLevelsCountEqual(4);
 
       await options.clickGroupTabs();
+
+      // ✅ Verify group structure directly in test
+      await options.page.waitForTimeout(1000);
+      const groups = await options.page.evaluate(async () => {
+        try {
+          const currentWindow = await chrome.windows.getCurrent();
+          const groups = await chrome.tabGroups.query({ windowId: currentWindow.id });
+
+          const groupDetails = [];
+          for (const group of groups) {
+            const tabs = await chrome.tabs.query({ groupId: group.id });
+            groupDetails.push({
+              title: group.title,
+              tabCount: tabs.length,
+            });
+          }
+          return groupDetails;
+        } catch (err) {
+          console.error('[test] Error getting groups:', err);
+          return [];
+        }
+      });
+
+      // Log group structure
+      console.log('[TEST] === GROUP STRUCTURE (left to right) ===');
+      groups.forEach((g, idx) => {
+        console.log(`[TEST] Group ${idx + 1}: "${g.title}" (${g.tabCount} tabs)`);
+      });
+      const ungroupedCount = await options.getUngroupedTabCount();
+      console.log(`[TEST] Fresh ungrouped tabs: ${ungroupedCount}`);
+      console.log('[TEST] === END GROUP STRUCTURE ===');
+
+      // Verify first group should be Week+
+      expect(groups.length).toBeGreaterThan(0);
+      expect(groups[0].title).toContain('Week+');
+
+      // Verify we have the expected number of groups
       await options.expectGroupCountEqual(4);
     });
 

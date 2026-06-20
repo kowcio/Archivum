@@ -110,45 +110,44 @@ export class BackgroundTabService {
 
        console.log(`[BackgroundTabService] Distribution: fresh=${freshTabIds.length}, levels=[${levelTabIds.map(l => l.length).join(', ')}]`)
 
-      // Sort tabs within each level by age (oldest first = highest lastAccessDays first)
-      for (const ids of levelTabIds) {
-        ids.sort((a, b) => (ageMap.get(b) ?? 0) - (ageMap.get(a) ?? 0))
-      }
+       // Sort tabs within each level by age (oldest first = highest lastAccessDays first)
+       for (const ids of levelTabIds) {
+         ids.sort((a, b) => (ageMap.get(b) ?? 0) - (ageMap.get(a) ?? 0))
+       }
 
-      const createGroup = async (ids: number[], title: string, color: string): Promise<number | null> => {
-        if (!ids.length) return null
-        try {
-          const id = await (browser.tabs as any).group({ tabIds: ids })
-          await (browser.tabGroups as any).update(id, { title, color, collapsed: true })
-          return id
-        } catch {
-          return null
-        }
-      }
+       const createGroup = async (ids: number[], title: string, color: string): Promise<number | null> => {
+         if (!ids.length) {
+           console.log(`[BackgroundTabService] Skipping empty group: ${title}`)
+           return null
+         }
+         try {
+           const id = await (browser.tabs as any).group({ tabIds: ids })
+           console.log(`[BackgroundTabService] Grouped ${ids.length} tabs into group ${id}`)
+           await (browser.tabGroups as any).update(id, { title, color, collapsed: true })
+           console.log(`[BackgroundTabService] Updated group ${id}: title="${title}", color="${color}"`)
+           return id
+         } catch (err) {
+           console.error(`[BackgroundTabService] Failed to create group "${title}":`, err)
+           return null
+         }
+       }
 
-      // Create groups from oldest → youngest so they appear left-to-right
-      let groupsCreated = 0
-      for (let i = activeLevels.length - 1; i >= 0; i--) {
-        const level = activeLevels[i]
-        const gid = await createGroup(levelTabIds[i], `${level.label} (${levelTabIds[i].length})`, level.color)
-        if (gid !== null) groupsCreated++
-      }
+       // Create groups from youngest → oldest so they appear left-to-right
+       // Forward loop: create youngest groups first (they appear on the left)
+       let groupsCreated = 0
+       for (let i = 0; i < activeLevels.length; i++) {
+         const level = activeLevels[i]
+         console.log(`[BackgroundTabService] Creating group: index=${i}, level="${level.label}", tabCount=${levelTabIds[i].length}`)
+         const gid = await createGroup(levelTabIds[i], `${level.label} (${levelTabIds[i].length})`, level.color)
+         if (gid !== null) {
+           groupsCreated++
+           console.log(`[BackgroundTabService] ✅ Created group ${gid}: ${level.label}`)
+         }
+       }
 
-      // Move fresh (ungrouped) tabs to the rightmost, sorted by age (oldest first)
-      if (freshTabIds.length > 0) {
-        freshTabIds.sort((a, b) => (ageMap.get(b) ?? 0) - (ageMap.get(a) ?? 0))
-        try {
-          await browser.tabs.move(freshTabIds, { index: -1 })
-        } catch {
-          // Some browsers may not support moving all at once — fallback to sequential
-          for (const id of freshTabIds) {
-            try { await browser.tabs.move(id, { index: -1 }) } catch { }
-          }
-        }
-      }
-
-      console.log(`[BackgroundTabService] ✅ Created ${groupsCreated} age groups, ${freshTabIds.length} fresh tabs moved to rightmost`)
-      return groupsCreated
+       // Fresh (ungrouped) tabs stay in their original positions — don't move them
+       console.log(`[BackgroundTabService] ✅ Created ${groupsCreated} age groups, ${freshTabIds.length} fresh tabs left in place`)
+       return groupsCreated
     } catch (err) {
       console.error('[BackgroundTabService] ❌', err)
       return 0

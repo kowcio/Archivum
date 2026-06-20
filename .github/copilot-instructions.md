@@ -22,16 +22,16 @@ background.ts (service worker — NO Pinia)
 
 | Event | Action | Browser Support |
 |---|---|---|
-| **Daily alarm (24h)** | BackgroundTabService.groupTabsByAge() → creates Old/Middle/Young groups | Chrome + Edge only; Firefox skips gracefully |
+| **Daily alarm (24h)** | BackgroundTabService.groupTabsByAge() → creates groups from youngest to oldest (left-to-right) | Chrome + Edge only; Firefox skips gracefully |
 | **Tab activated in group** | BackgroundTabService.onTabActivated() → ungroup + move to rightmost + update lastAccessed | ✅ All browsers (Firefox has no ungroup API, skips step 1) |
-| **Tab order** | Oldest (left) → Youngest (right) — natural left-to-right flow | ✅ All browsers |
-| **Group titles** | `Old 20d+`, `Middle 10d+`, `Young 3d+` — NO emoji dots | Chrome + Edge only |
+| **Tab order** | **Groups:** Youngest (7 days, left) → Oldest (365+ days, right). **Fresh tabs:** Stay in original positions (rightmost, ungrouped) | ✅ All browsers |
+| **Group titles** | `Week+`, `2 Weeks+`, `Month+`, `Quarter+`, `Are you kidding me?` — youngest to oldest | Chrome + Edge only |
 
 ## Universal Rules
 
 | Rule | Detail |
 |---|---|
-| **TypeScript** | `type` (not `interface`), no `any`, no `unknown` leaks |
+| **GroupBy Age Order** | Iterate FORWARD `for (i=0; i<activeLevels.length; i++)` to create groups youngest→oldest (left-to-right). Fresh tabs stay in place, NOT moved to rightmost. |
 | **Vue** | `<script setup lang="ts">` only — no Options API |
 | **Pinia** | `type State`, `loading` + `error: string \| null` in every store |
 | **Browser** | Use unified `browser` API from `wxt/browser` everywhere — works Chrome + Firefox + Edge. Feature detect for Chrome-only APIs (`tabGroups`). Never mix `chrome` and `browser`. **Import rule:** `import { browser } from 'wxt/browser'` (runtime) + `import type { Browser } from 'wxt/browser'` (type namespace, np. `Browser.tabs.Tab[]`). WXT v0.20+ uses `@types/chrome` — namespace to `Browser`, nie `Tabs` |
@@ -52,11 +52,66 @@ background.ts (service worker — NO Pinia)
 
 | Concept | Implementation |
 |---|---|
-| **Age classification** | Fresh / Young / Middle / Old (based on lastAccessed timestamp) |
-| **Storage** | ClassifiedTab.ageIndex (0-3) — computed from thresholds |
+| **Age classification** | Fresh / Level 1 / Level 2 / ... (based on lastAccessed timestamp vs. thresholds) |
+| **Storage** | AppThresholds.activeLevels (1-5) — number of active threshold levels |
 | **Visual grouping** | Chrome tab groups API — ONLY grouping, NO favicon overlays |
-| **Tab activation** | Activated tab → ungrouped + moved to rightmost position (fresh) |
-| **Tab sort order** | Oldest first → Youngest last (left-to-right flow) |
+| **Group creation order** | Youngest level first → Oldest level last (forward loop `i=0` to `i<activeLevels.length`) |
+| **Visual position** | LEFT (youngest 7 days) → RIGHT (oldest 365+ days) → FAR RIGHT (fresh ungrouped tabs) |
+| **Fresh tabs behavior** | Stay in original positions (rightmost) — NOT moved. Only moved when explicitly activated by user |
+| **Tab sort within group** | Oldest first within each group (highest lastAccessDays first) |
+
+## Grouping Algorithm (BackgroundTabService.groupTabsByAge)
+
+**Input**: Browser tabs + AppThresholds (with activeLevels=N)  
+**Output**: N age-based groups + fresh tabs in original positions
+
+```
+1. Query all tabs & apply mock overrides (testing)
+2. Classify each tab into age categories:
+   - Age index 0 (Fresh): lastAccessDays ≤ threshold[0].days
+   - Age index 1: threshold[0].days < lastAccessDays ≤ threshold[1].days
+   - Age index N: lastAccessDays > threshold[N-1].days
+3. Build distribution: levelTabIds[i] = tabs with age index (i+1)
+4. Sort within each level by lastAccessDays (oldest first)
+5. Create groups from youngest→oldest (forward loop):
+   ```typescript
+   for (let i = 0; i < activeLevels.length; i++) {
+     await createGroup(levelTabIds[i], title, color)
+   }
+   ```
+6. Fresh tabs (index 0) → **stay in original positions, NOT moved**
+```
+
+**Result**: Visual order LEFT to RIGHT = Youngest (7 days) → Oldest (365+ days) → Fresh ungrouped tabs (rightmost)
+
+## Storage Architecture
+
+### ⚡ Background Service + Storage Access
+- **Background services CANNOT use Vue composables** (`useAppStore()`, `onMounted`, etc.)
+- Background must use **direct WXT storage access**: `appStateStorage.getValue()`
+- UI components use `useAppStore()` for reactivity
+- Both read from same `appStateStorage` source of truth
+
+### 🐛 Known WXT Serialization Edge Case
+- WXT storage may serialize arrays as objects during persistence
+- `AppThresholds.fromObject()` must handle both formats:
+  ```typescript
+  const levels = Array.isArray(obj.levels) 
+    ? obj.levels 
+    : Object.values(obj.levels) // WXT edge case: convert object→array
+  ```
+
+### 🧪 E2E Test Pattern for Threshold Changes
+1. Create mock tabs via UI
+2. **Set mock overrides** (backdated ages) before grouping
+3. **Change thresholds** → ApplyButton visible → click Apply → wait 1500ms
+4. **Extra wait** (+1000ms) between threshold save and grouping to ensure storage sync
+5. Verify threshold.activeLevels persisted to storage
+
+### Mock Overrides Setup
+- Requires background handler: `if (action === 'setMockOverrides') { await mockOverrides.setValue(...) }`
+- POM method: `await options.setMockOverrides(tabIdAgeMap)` 
+- Age distribution must ensure tabs span all active threshold levels
 
 ## Agents
 
