@@ -145,6 +145,7 @@ async function handleApply(): Promise<void> {
   // Reset local state to match store after save
   console.log('[Thresholds] Resetting local state after save...')
   localThresholds.value = AppThresholds.fromObject(appStore.thresholds.value.toJSON())
+  console.log("Local thresholds updated from the store ", localThresholds.value.toJSON())
 
   // Regroup tabs with new thresholds
   console.log('[Thresholds] Applied → regrouping tabs by age...')

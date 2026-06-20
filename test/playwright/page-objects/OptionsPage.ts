@@ -28,6 +28,9 @@ export class OptionsPage {
   private readonly thresholdsConfig: Locator;
   private readonly openTabsTable: Locator;
   private readonly tableRows: Locator;
+  private readonly levelsInput: Locator;
+  private readonly applyThresholdBtn: Locator;
+  private readonly resetThresholdBtn: Locator;
 
   constructor(public readonly page: Page) {
     // Button locators
@@ -39,6 +42,11 @@ export class OptionsPage {
     // Container locators
     this.thresholdsConfig = page.getByTestId('thresholds-config');
     this.openTabsTable = page.getByTestId('table-open-tabs');
+
+    // Thresholds control locators
+    this.levelsInput = page.getByTestId('thresholds-levels-input');
+    this.applyThresholdBtn = page.getByTestId('threshold-apply');
+    this.resetThresholdBtn = page.getByTestId('threshold-reset');
 
     // Table row locators
     this.tableRows = page.locator('[data-testid="table-open-tabs"] tr');
@@ -189,6 +197,73 @@ export class OptionsPage {
    */
   async expectThresholdsVisible(): Promise<void> {
     await expect(this.thresholdsConfig).toBeVisible({ timeout: 3000 });
+  }
+
+  /**
+   * Get current threshold levels count from input.
+   */
+  async getLevelsCount(): Promise<number> {
+    const value = await this.levelsInput.inputValue();
+    return parseInt(value, 10);
+  }
+
+  /**
+   * Set threshold levels count via input field.
+   * Changes are tracked locally but not persisted until Apply is clicked.
+   */
+  async setLevelsCount(count: number): Promise<void> {
+    await this.levelsInput.clear();
+    await this.levelsInput.fill(String(count));
+  }
+
+  /**
+   * Click Apply button to save threshold level changes.
+   * Triggers tab regrouping by age with new thresholds.
+   * Optional: pass timeout override (default 1500ms for regroup completion).
+   */
+  async clickApplyThresholds(waitMs: number = 1500): Promise<void> {
+    await this.applyThresholdBtn.click();
+    await this.page.waitForTimeout(waitMs);
+  }
+
+  /**
+   * Click Reset button to revert thresholds to defaults.
+   */
+  async clickResetThresholds(): Promise<void> {
+    await this.resetThresholdBtn.click();
+  }
+
+  /**
+   * Verify threshold levels input has specific value.
+   */
+  async expectLevelsCountEqual(expectedCount: number): Promise<void> {
+    const count = await this.getLevelsCount();
+    expect(count).toBe(expectedCount);
+  }
+
+  /**
+   * Verify Apply button is visible (changes detected).
+   */
+  async expectApplyThresholdButtonVisible(): Promise<void> {
+    await expect(this.applyThresholdBtn).toBeVisible({ timeout: 2000 });
+  }
+
+  /**
+   * Verify Apply button is NOT visible (no changes).
+   */
+  async expectApplyThresholdButtonHidden(): Promise<void> {
+    await expect(this.applyThresholdBtn).not.toBeVisible({ timeout: 2000 });
+  }
+
+  /**
+   * Change threshold levels and apply changes in one action.
+   * Waits for regrouping to complete.
+   */
+  async changeThresholdLevels(newCount: number, waitMs: number = 1500): Promise<void> {
+    await this.setLevelsCount(newCount);
+    await this.expectApplyThresholdButtonVisible();
+    await this.clickApplyThresholds(waitMs);
+    await this.expectApplyThresholdButtonHidden();
   }
 
   /**

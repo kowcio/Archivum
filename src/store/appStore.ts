@@ -72,16 +72,7 @@ export const mockOverrides = storage.defineItem<Record<number, number>>('local:m
  * Used by: BackgroundTabService, tests
  */
 export async function getStorageThresholds(): Promise<AppThresholds> {
-  try {
-    const state = await appStateStorage.getValue()
-    if (state?.thresholds) {
-      // Always reconstruct as AppThresholds instance (defensive against serialization issues)
-      return AppThresholds.fromObject(state.thresholds)
-    }
-  } catch (err) {
-    console.error('[appStore] getStorageThresholds error:', err)
-  }
-  return DEFAULT_THRESHOLDS
+    return useAppStore().thresholds.value
 }
 
 /**
