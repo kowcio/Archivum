@@ -73,34 +73,24 @@ export class BackgroundTabService {
        }
 
        const rawTabs = await browser.tabs.query({ currentWindow: true })
-       console.log(`[BackgroundTabService] Raw tabs: ${rawTabs.length}`)
-
        const thresholds = await this.getThresholds()
-       console.log(`[BackgroundTabService] Thresholds: ${JSON.stringify(thresholds)}`)
-
-       // Apply real activation timestamps + mock overrides
        await this.applyMockOverrides(rawTabs)
 
        const rows = TabRow.fromTabs(rawTabs, thresholds)
-       console.log(`[BackgroundTabService] TabRows after fromTabs: ${rows.length}`)
-       console.log(`[BackgroundTabService] Sample rows:`, rows.slice(0, 3).map(r => ({ id: r.id, lastAccessDays: r.lastAccessDays, title: r.title?.slice(0, 30) })))
-
        const activeLevels = thresholds.active()
-       console.log(`[BackgroundTabService] Active levels: ${activeLevels.length} → ${activeLevels.map(l => l.label).join(', ')}`)
-
        const levelTabIds: number[][] = Array.from({ length: activeLevels.length }, () => [])
        const freshTabIds: number[] = []
 
-       // Build age map for sorting
+       // Build age map for sorting tabs within each level
        const ageMap = new Map<number, number>()
        for (const row of rows) {
          if (row.id != null) ageMap.set(row.id, row.lastAccessDays ?? 0)
        }
 
+       // Classify tabs into levels by age
        for (const row of rows) {
          if (row.id == null) continue
          const c = AgeClassification.fromDays(row.lastAccessDays ?? 0, thresholds)
-         console.log(`[BackgroundTabService] Tab#${row.id}: ${row.lastAccessDays}d → age index ${c.index}`)
          if (c.index === 0) {
            freshTabIds.push(row.id)
          } else if (c.index > 0 && c.index <= activeLevels.length) {
@@ -108,51 +98,43 @@ export class BackgroundTabService {
          }
        }
 
-       console.log(`[BackgroundTabService] Distribution: fresh=${freshTabIds.length}, levels=[${levelTabIds.map(l => l.length).join(', ')}]`)
-
        // Sort tabs within each level by age (oldest first = highest lastAccessDays first)
        for (const ids of levelTabIds) {
          ids.sort((a, b) => (ageMap.get(b) ?? 0) - (ageMap.get(a) ?? 0))
        }
 
-       const createGroup = async (ids: number[], title: string, color: string): Promise<number | null> => {
-         if (!ids.length) {
-           console.log(`[BackgroundTabService] Skipping empty group: ${title}`)
-           return null
-         }
-         try {
-           const id = await (browser.tabs as any).group({ tabIds: ids })
-           console.log(`[BackgroundTabService] Grouped ${ids.length} tabs into group ${id}`)
-           await (browser.tabGroups as any).update(id, { title, color, collapsed: true })
-           console.log(`[BackgroundTabService] Updated group ${id}: title="${title}", color="${color}"`)
-           return id
-         } catch (err) {
-           console.error(`[BackgroundTabService] Failed to create group "${title}":`, err)
-           return null
-         }
-       }
-
-       // Create groups from youngest → oldest so they appear left-to-right
-       // Forward loop: create youngest groups first (they appear on the left)
+       // Create groups: OLDEST FIRST (appear on LEFT) → YOUNGEST LAST (appear on RIGHT)
+       // Reverse loop ensures older groups are created before younger ones
        let groupsCreated = 0
-       for (let i = 0; i < activeLevels.length; i++) {
+       for (let i = activeLevels.length - 1; i >= 0; i--) {
          const level = activeLevels[i]
-         console.log(`[BackgroundTabService] Creating group: index=${i}, level="${level.label}", tabCount=${levelTabIds[i].length}`)
-         const gid = await createGroup(levelTabIds[i], `${level.label} (${levelTabIds[i].length})`, level.color)
-         if (gid !== null) {
+         const tabIds = levelTabIds[i]
+
+         if (tabIds.length === 0) continue
+
+         try {
+           const groupId = await (browser.tabs as any).group({ tabIds })
+           await (browser.tabGroups as any).update(groupId, {
+             title: `${level.label} (${tabIds.length})`,
+             color: level.color,
+             collapsed: true
+           })
+           // Move group to beginning (index 0)
+           const ungrouped = Array.from(freshTabIds.entries());
+           await (browser.tabGroups as any).move(groupId, { index: 0 })
            groupsCreated++
-           console.log(`[BackgroundTabService] ✅ Created group ${gid}: ${level.label}`)
+         } catch (err) {
+           console.error(`[BackgroundTabService] Failed to create group "${level.label}":`, err)
          }
        }
 
-       // Fresh (ungrouped) tabs stay in their original positions — don't move them
-       console.log(`[BackgroundTabService] ✅ Created ${groupsCreated} age groups, ${freshTabIds.length} fresh tabs left in place`)
+       console.log(`[BackgroundTabService] ✅ Created ${groupsCreated} groups (oldest on left, youngest on right)`)
        return groupsCreated
-    } catch (err) {
-      console.error('[BackgroundTabService] ❌', err)
-      return 0
-    }
-  }
+     } catch (err) {
+       console.error('[BackgroundTabService] ❌', err)
+       return 0
+     }
+   }
 
   static async ungroupAllTabs(): Promise<void> {
     try {

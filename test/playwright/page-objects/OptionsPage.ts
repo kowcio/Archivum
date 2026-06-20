@@ -408,15 +408,55 @@ export class OptionsPage {
       tabId,
       { timeout: timeoutMs, polling: 300 }
     );
-  }
+   }
 
+    /**
+     * Get all groups and tabs data.
+     * Returns group count, group details, and tab counts (grouped vs ungrouped).
+     */
+    async getGroupAndTabData(): Promise<{
+      groupCount: number;
+      groups: Array<{ id: number; title: string }>;
+      groupedTabCount: number;
+      ungroupedTabCount: number;
+      tabs: Array<{
+        id?: number;
+        url?: string;
+        title?: string;
+        active?: boolean;
+        groupId?: number;
+        index?: number;
+      }>;
+    }> {
+      return await this.page.evaluate(async () => {
+        const groups = await (chrome.tabGroups as any).query({ windowId: (chrome.windows as any).WINDOW_ID_CURRENT })
+        const tabs = await (chrome.tabs as any).query({ currentWindow: true })
+        return {
+          groupCount: groups.length,
+          groups: groups.map((g: any) => ({
+            id: g.id,
+            title: g.title
+          })),
+          groupedTabCount: tabs.filter((t: any) => t.groupId != null && t.groupId !== -1).length,
+          ungroupedTabCount: tabs.filter((t: any) => t.groupId == null || t.groupId === -1).length,
+          tabs: tabs.map((t: any) => ({
+            id: t.id,
+            url: t.url,
+            title: t.title,
+            active: t.active,
+            groupId: t.groupId,
+            index: t.index
+          }))
+        }
+      })
+    }
 
-  /**
-   * Close the page.
-   */
-  async close(): Promise<void> {
-    await this.page.close();
-  }
+   /**
+    * Close the page.
+    */
+   async close(): Promise<void> {
+     await this.page.close();
+   }
 
   /**
    * Setup service worker console logging for debugging.

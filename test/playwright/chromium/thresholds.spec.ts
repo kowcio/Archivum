@@ -133,9 +133,12 @@ test.describe("Tab Age Extension E2E Flow", () => {
       console.log(`[TEST] Fresh ungrouped tabs: ${ungroupedCount}`);
       console.log('[TEST] === END GROUP STRUCTURE ===');
 
-      // Verify first group should be Week+
+      // Verify first group should be Quarter+ (oldest on left)
       expect(groups.length).toBeGreaterThan(0);
-      expect(groups[0].title).toContain('Week+');
+      expect(groups[0].title).toContain('Quarter+');
+
+      // Verify last group should be Week+ (youngest on right)
+      expect(groups[groups.length - 1].title).toContain('Week+');
 
       // Verify we have the expected number of groups
       await options.expectGroupCountEqual(4);
