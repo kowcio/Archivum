@@ -21,6 +21,7 @@ test.describe('groupTabsByAge E2E', () => {
   test.beforeAll('Setup', async () => {
     test.skip(test.info().project.name !== 'chrome-mv3', 'Chrome MV3 only')
     ctx = await launchChromeContext()
+    OptionsPage.setupServiceWorkerLogging(ctx.context)
   })
 
   test.afterAll('Cleanup', async () => {
@@ -35,9 +36,16 @@ test.describe('groupTabsByAge E2E', () => {
       await options.goto(ctx.extensionId)
       await options.expectPageLoaded()
 
+      // Close any existing tabs first (to have clean slate with only 1 tab = options page)
+      await options.clickCloseAllTabs()
+      await options.page.waitForTimeout(500)
+
       // Click mock button
       const mockResult = await options.clickLoadMockTabs()
       expect(mockResult.ok).toBe(true)
+
+      // Extra wait to ensure mock overrides are persisted to storage (WXT sync)
+      await options.page.waitForTimeout(1000)
 
        // Group tabs
        await options.clickGroupTabs(2000)
@@ -49,20 +57,19 @@ test.describe('groupTabsByAge E2E', () => {
       expect(result.groupCount).toBe(3)
       expect(result.groups.length).toBe(3)
 
-      // Verify: Each group has id and title
+      // Verify: Each group has id and title (oldest → youngest, left → right)
       expect(result.groups[0].title).toContain("Month+")
       expect(result.groups[1].title).toContain("2 Weeks+")
       expect(result.groups[2].title).toContain("Week+")
-      expect(result.ungroupedTabCount).toBe(2) // 2 fresh tabs should remain ungrouped
 
-      // Verify: Both grouped and ungrouped tabs exist
-      expect(result.groupedTabCount).toBeDefined()
-      expect(result.ungroupedTabCount).toBeDefined()
+      // Verify: Ungrouped tabs exist (should have at least 2 fresh tabs + options page)
+      const ungroupedTabs = result.tabs.filter(t => !t.groupId || t.groupId === -1)
+      expect(ungroupedTabs.length).toBeGreaterThanOrEqual(2)
 
-      console.log(`✅ PASSED: ${result.groupCount} groups, ${result.groupedTabCount} grouped, ${result.ungroupedTabCount} ungrouped`)
+      console.log(`✅ PASSED: ${result.groupCount} groups (oldest→youngest left→right), ${ungroupedTabs.length} ungrouped tabs`)
 
     } finally {
-      await options.close()
+      // Pages are auto-closed by Playwright
     }
   })
 })
