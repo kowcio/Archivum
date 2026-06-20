@@ -69,11 +69,11 @@ import { computed, ref, onMounted, watch } from 'vue'
 import { browser } from 'wxt/browser'
 import { useAppStore } from '@/store/appStore.ts'
 import { AppThresholds } from '@/models/AppThresholds'
-import { BACKGROUND_MESSAGE_ACTIONS } from '@/constants'
+import { BACKGROUND_MESSAGE_ACTIONS, APP_DEFAULTS } from '@/constants'
 
 const appStore = useAppStore()
 const emit = defineEmits<{ apply: [] }>()
-const maxLevels = computed(() => appStore.thresholds.value.levels.length)
+const maxLevels = computed(() => APP_DEFAULTS.THRESHOLDS.presets.length)
 
 // Local state to track unsaved changes
 // Initialize after store is loaded to avoid false change detection
@@ -101,7 +101,7 @@ const hasChanges = computed(() => {
 })
 
 async function handleChangeCount(count: number): Promise<void> {
-  if (!Number.isFinite(count) || count < 1) return
+  if (count > maxLevels.value || count < 1) return
   localThresholds.value = localThresholds.value.withActiveLevels(count)
 }
 

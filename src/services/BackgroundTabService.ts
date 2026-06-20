@@ -187,7 +187,7 @@ export class BackgroundTabService {
        try { await (browser.tabs as any).ungroup(tabId) } catch { /* Firefox / not grouped */ }
 
       // ➡️ Move to rightmost with retry — tabs may be locked during user drag
-      const maxRetries = 3
+      const maxRetries = 2
       for (let attempt = 0; attempt < maxRetries; attempt++) {
         try {
           await browser.tabs.move(tabId, { index: -1 })
