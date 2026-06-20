@@ -2,6 +2,7 @@ import { ExtensionCleanupService } from '@/services/ExtensionCleanupService'
 import { BackgroundTabService } from '@/services/BackgroundTabService'
 import { APP_DEFAULTS, BACKGROUND_MESSAGE_ACTIONS } from '@/constants'
 import { browser } from 'wxt/browser'
+import { mockOverrides } from '@/store/appStore'
 
 console.debug('[EXT-DBG] background initialized - TOKEN:EXT_DBG_BACKGROUND_v1')
 
@@ -86,12 +87,27 @@ export default defineBackground({
           return true
         }
 
-        if (action === BACKGROUND_MESSAGE_ACTIONS.HAS_PLUGIN_GROUPS) {
-          BackgroundTabService.hasPluginGroups()
-            .then((has) => sendResponse({ hasPluginGroups: has, error: null }))
-            .catch((err: any) => sendResponse({ hasPluginGroups: false, error: String(err) }))
-          return true
-        }
+       if (action === BACKGROUND_MESSAGE_ACTIONS.HAS_PLUGIN_GROUPS) {
+         BackgroundTabService.hasPluginGroups()
+           .then((has) => sendResponse({ hasPluginGroups: has, error: null }))
+           .catch((err: any) => sendResponse({ hasPluginGroups: false, error: String(err) }))
+         return true
+       }
+
+       // 🧪 Test helper: Set mock overrides for created tabs
+       if (action === 'setMockOverrides') {
+         const { overrides } = message as { action: string; overrides: Record<number, number> }
+         mockOverrides.setValue(overrides)
+           .then(() => {
+             console.log('[background] Mock overrides set:', Object.keys(overrides).length, 'tabs')
+             sendResponse({ error: null })
+           })
+           .catch((err: any) => {
+             console.error('[background] Failed to set mock overrides:', err)
+             sendResponse({ error: String(err) })
+           })
+         return true
+       }
       })
 
     console.log('[background] ✅ Ready')

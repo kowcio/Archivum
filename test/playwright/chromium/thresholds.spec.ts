@@ -42,9 +42,11 @@ test.describe("Tab Age Extension E2E Flow", () => {
      expect(ctx.context.serviceWorkers().length).toBe(1);
    });
 
-  test("Test threshold levels change and grouping", async () => {
+   test("Test threshold levels change and grouping", async () => {
     const options = new OptionsPage(await ctx.context.newPage());
     await options.goto(ctx.extensionId);
+
+    let newTabIds: number[] = [];
 
     // ✅ Create mock tabs
     await test.step("Create mock tabs with backdated ages", async () => {
@@ -54,15 +56,48 @@ test.describe("Tab Age Extension E2E Flow", () => {
       const tabsAfter = await options.queryAllTabs();
       const newTabsCount = tabsAfter.length - tabsBefore.length;
       expect(newTabsCount).toBe(MOCK_TABS.length);
+
+      // Extract new tab IDs
+      newTabIds = tabsAfter.slice(tabsBefore.length).map(t => t.id).filter((id): id is number => id != null);
     });
 
-    // ✅ Verify tabs are created ungrouped
-    await test.step("Verify mock tabs are created (groupId = -1)", async () => {
+    // ✅ Set mock overrides (backdated ages for each tab)
+    await test.step("Set mock tab ages (backdated)", async () => {
+      const now = Date.now();
+      const DAY_MS = 86400000;
+      const overrides: Record<number, number> = {};
+
+      // Create tabs across 4 age groups to ensure we get 4 groups with activeLevels=4
+      // With threshold boundaries at 7, 14, 28, 90 days:
+      // Age group 0 (Fresh, <7d): tabs 0,1 → 5 days old
+      // Age group 1 (7-13d): tabs 2,3 → 10 days old
+      // Age group 2 (14-27d): tabs 4,5 → 20 days old
+      // Age group 3 (28-89d): tabs 6,7 → 50 days old
+      // Age group 4 (90+d): tabs 8-13 → 100 days old (ensures 4th active level gets a group)
+
+      const ageDistribution = [5, 5, 10, 10, 20, 20, 50, 50, 100, 100, 100, 100, 100, 100];
+
+      newTabIds.forEach((tabId, idx) => {
+        const age = ageDistribution[idx] ?? 100; // Default to 100 if beyond distribution
+        overrides[tabId] = now - age * DAY_MS;
+      });
+
+      await options.setMockOverrides(overrides);
+    });
+
+    // ✅ Change threshold levels to 4 and verify grouping
+    await test.step("Change thresholds to 4 levels and verify grouping", async () => {
       await options.changeThresholdLevels(4);
+
+      // Extra wait to ensure storage is persisted across contexts
+      await options.page.waitForTimeout(1000);
+
+      // Verify the level input still shows 4
+      await options.expectLevelsCountEqual(4);
+
       await options.clickGroupTabs();
       await options.expectGroupCountEqual(4);
     });
-
 
     await options.close();
   });

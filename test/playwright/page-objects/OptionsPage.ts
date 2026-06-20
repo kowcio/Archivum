@@ -113,6 +113,31 @@ export class OptionsPage {
    }
 
   /**
+   * Set mock overrides for created tabs (backdated ages).
+   * Call this AFTER creating mock tabs to set their lastAccessed timestamps.
+   * @param overrides - Map of tabId → lastAccessed timestamp (ms since epoch)
+   */
+  async setMockOverrides(overrides: Record<number, number>): Promise<void> {
+    const result = await this.page.evaluate((data: Record<string, number>) => {
+      return new Promise<{ error: string | null }>((resolve) => {
+        chrome.runtime.sendMessage(
+          { action: 'setMockOverrides', overrides: data },
+          (response: any) => {
+            resolve(response || { error: 'No response' });
+          }
+        );
+      });
+    }, overrides);
+
+    if (result.error) {
+      throw new Error(`Failed to set mock overrides: ${result.error}`);
+    }
+
+    // Extra wait to ensure storage is persisted
+    await this.page.waitForTimeout(500);
+  }
+
+  /**
    * Click "Load/Create Mock Tabs" button.
    * Returns response from background service worker.
    * Includes wait time for tabs to load with URLs.

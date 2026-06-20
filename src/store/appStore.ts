@@ -67,12 +67,33 @@ export const mockOverrides = storage.defineItem<Record<number, number>>('local:m
 
 /**
  * Helper: Get thresholds from storage (for background.ts + services)
- * Direct async access — no reactivity needed in background context
+ * Direct async access to WXT storage — no Vue reactivity needed.
  * Always returns AppThresholds instance (never plain object).
  * Used by: BackgroundTabService, tests
+ *
+ * IMPORTANT: Called from background service worker (not a Vue component),
+ * so we read directly from appStateStorage, NOT useAppStore() which requires Vue lifecycle.
  */
 export async function getStorageThresholds(): Promise<AppThresholds> {
-    return useAppStore().thresholds.value
+  try {
+    const state = await appStateStorage.getValue()
+    console.log('[getStorageThresholds] State from storage:', {
+      thresholds: state?.thresholds ? { activeLevels: state.thresholds.activeLevels, levelCount: state.thresholds.levels?.length } : 'missing',
+      state: state ? 'exists' : 'null'
+    })
+
+    if (!state?.thresholds) {
+      console.warn('[getStorageThresholds] No thresholds in storage, returning defaults')
+      return DEFAULT_THRESHOLDS
+    }
+
+    const thresholds = AppThresholds.fromObject(state.thresholds)
+    console.log('[getStorageThresholds] Loaded thresholds: activeLevels=', thresholds.activeLevels)
+    return thresholds
+  } catch (err) {
+    console.error('[getStorageThresholds] Error reading storage:', err)
+    return DEFAULT_THRESHOLDS
+  }
 }
 
 /**
