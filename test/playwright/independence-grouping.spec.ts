@@ -40,7 +40,7 @@ test.describe('groupTabsByAge E2E', () => {
       expect(mockResult.ok).toBe(true)
 
        // Group tabs
-       await options.clickGroupTabs(1500)
+       await options.clickGroupTabs(2000)
 
        // Get all tabs and groups
        const result = await options.getGroupAndTabData()
