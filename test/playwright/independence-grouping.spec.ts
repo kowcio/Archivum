@@ -62,6 +62,15 @@ test.describe('groupTabsByAge E2E', () => {
       expect(result.groups[1].title).toContain("2 Weeks+")
       expect(result.groups[2].title).toContain("Week+")
 
+      //check ungrouped tabs
+      expect(result.tabs[12].title).toContain("chrome-extension")
+      expect(result.tabs[13].title).toContain("domeczek")
+      expect(result.tabs[14].title).toContain("leroymerlin") // youngest tab (fresh)
+
+      //check the oldest tab from all should be first in tab[0]
+      expect(result.tabs[0].url).toContain("www.npmjs.com")
+      expect(result.tabs[0].groupId).toBeDefined()
+
       // Verify: Ungrouped tabs exist (should have at least 2 fresh tabs + options page)
       const ungroupedTabs = result.tabs.filter(t => !t.groupId || t.groupId === -1)
       expect(ungroupedTabs.length).toBeGreaterThanOrEqual(2)
