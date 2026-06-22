@@ -14,20 +14,6 @@ import { OptionsPage } from './page-objects/OptionsPage.js'
 
 type Ctx = { context: BrowserContext; extensionId: string; cleanup: () => Promise<void> }
 
-/**
- * Helper: Set mock tab overrides in storage to simulate tabs of different ages.
- * Mock overrides map tabId → lastAccessed timestamp (milliseconds).
- */
-async function setMockOverrides(page: any, overrides: Record<number, number>): Promise<void> {
-  // @ts-ignore - runs inside page.evaluate context where chrome is available
-  await page.evaluate((mockOverrides) => {
-    return new Promise<void>((resolve) => {
-      chrome.storage.local.set({ mock_overrides: mockOverrides }, () => resolve());
-    });
-  }, overrides);
-  console.log('[Test] Set mock overrides:', Object.entries(overrides).slice(0, 3));
-}
-
 test.describe('Threshold Change: Store → Options Auto-Update', () => {
   test.setTimeout(90_000)
   let ctx: Ctx
@@ -94,6 +80,9 @@ test.describe('Threshold Change: Store → Options Auto-Update', () => {
   })
 
 })
+
+
+
 
 
 
