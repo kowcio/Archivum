@@ -172,8 +172,19 @@ async function refreshTabs(): Promise<void> {
 
 async function closeTab(tabId: number | null): Promise<void> {
   if (tabId == null) return
-  await browser.tabs.remove(tabId)
-  tabs.value = tabs.value.filter((t: any) => t.id !== tabId)
+  try {
+    const resp: any = await browser.runtime.sendMessage({
+      action: BACKGROUND_MESSAGE_ACTIONS.CLOSE_TAB,
+      tabId
+    })
+    if (resp?.error) {
+      error.value = resp.error
+      return
+    }
+    tabs.value = tabs.value.filter((t: any) => t.id !== tabId)
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : 'Failed to close tab'
+  }
 }
 
 

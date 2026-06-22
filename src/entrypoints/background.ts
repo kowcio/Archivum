@@ -57,19 +57,19 @@ export default defineBackground({
         return true
       }
 
-      if (action === BACKGROUND_MESSAGE_ACTIONS.CREATE_MOCK_TABS) {
-        BackgroundTabService.createMockTabs()
-          .then((tabs) => sendResponse({ error: null, tabs: JSON.parse(JSON.stringify(tabs)) }))
-          .catch((err: any) => sendResponse({ error: String(err), tabs: [] }))
-        return true
-      }
+       if (action === BACKGROUND_MESSAGE_ACTIONS.CREATE_MOCK_TABS) {
+         BackgroundTabService.createMockTabs()
+           .then((tabs) => sendResponse({ error: null, tabs }))
+           .catch((err: any) => sendResponse({ error: String(err), tabs: [] }))
+         return true
+       }
 
-      if (action === BACKGROUND_MESSAGE_ACTIONS.GET_TABS) {
-        BackgroundTabService.getTabs()
-          .then((tabs) => sendResponse({ error: null, tabs: JSON.parse(JSON.stringify(tabs)) }))
-          .catch((err: any) => sendResponse({ error: String(err), tabs: [] }))
-        return true
-      }
+       if (action === BACKGROUND_MESSAGE_ACTIONS.GET_TABS) {
+         BackgroundTabService.getTabs()
+           .then((tabs) => sendResponse({ error: null, tabs }))
+           .catch((err: any) => sendResponse({ error: String(err), tabs: [] }))
+         return true
+       }
 
        if (action === BACKGROUND_MESSAGE_ACTIONS.GET_BROWSER_CAPS) {
          sendResponse({
@@ -87,15 +87,23 @@ export default defineBackground({
           return true
         }
 
-       if (action === BACKGROUND_MESSAGE_ACTIONS.HAS_PLUGIN_GROUPS) {
-         BackgroundTabService.hasPluginGroups()
-           .then((has) => sendResponse({ hasPluginGroups: has, error: null }))
-           .catch((err: any) => sendResponse({ hasPluginGroups: false, error: String(err) }))
-         return true
-       }
+        if (action === BACKGROUND_MESSAGE_ACTIONS.HAS_PLUGIN_GROUPS) {
+          BackgroundTabService.hasPluginGroups()
+            .then((has) => sendResponse({ hasPluginGroups: has, error: null }))
+            .catch((err: any) => sendResponse({ hasPluginGroups: false, error: String(err) }))
+          return true
+        }
 
-       // 🧪 Test helper: Set mock overrides for created tabs
-       if (action === 'setMockOverrides') {
+        if (action === BACKGROUND_MESSAGE_ACTIONS.CLOSE_TAB) {
+          const { tabId } = message as { action: string; tabId: number }
+          BackgroundTabService.closeTab(tabId)
+            .then((error) => sendResponse({ error }))
+            .catch((err: any) => sendResponse({ error: String(err) }))
+          return true
+        }
+
+        // 🧪 Test helper: Set mock overrides for created tabs
+        if (action === 'setMockOverrides') {
          const { overrides } = message as { action: string; overrides: Record<number, number> }
          mockOverrides.setValue(overrides)
            .then(() => {

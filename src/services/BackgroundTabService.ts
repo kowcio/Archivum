@@ -38,32 +38,43 @@ export class BackgroundTabService {
     return await getStorageThresholds()
   }
 
+    /**
+     * Applies mock lastAccessed overrides to raw tabs (debug).
+     * When a mock override exists for a tabId, it replaces tab.lastAccessed.
+     * Overrides persist so tab ages stay correct across page refreshes.
+     *
+     * OPTIMIZATION: Early return if no overrides, lazy load only if needed.
+     * Avoids storage reads in production environments (no mock data).
+     */
+    private static async applyMockOverrides(tabs: { id?: number; lastAccessed?: number }[]): Promise<void> {
+      try {
+        // Try to read mock_overrides — if empty or missing, early return (fast path)
+        const storageData = await browser.storage.local.get(['mock_overrides'])
+        const overrides: Record<number, number> = (storageData?.mock_overrides ?? {}) as Record<number, number>
+        const ids = Object.keys(overrides)
 
-   /**
-    * Applies mock lastAccessed overrides to raw tabs (debug).
-    * When a mock override exists for a tabId, it replaces tab.lastAccessed.
-    * Overrides persist so tab ages stay correct across page refreshes.
-    */
-   private static async applyMockOverrides(tabs: { id?: number; lastAccessed?: number }[]): Promise<void> {
-     // Read mock_overrides from browser.storage.local (for cross-context sync reliability)
-     const storageData = await browser.storage.local.get(['mock_overrides'])
-     const overrides: Record<number, number> = (storageData?.mock_overrides ?? {}) as Record<number, number>
-     const ids = Object.keys(overrides).map(Number)
-     console.log('[BackgroundTabService] Mock overrides storage:', { count: ids.length, tabIds: ids.slice(0, 3), sample: Object.entries(overrides).slice(0, 2) })
-     if (!ids.length) {
-       console.log('[BackgroundTabService] ⚠️ No mock overrides found!')
-       return
-     }
+        // Early return: no overrides means zero extra work
+        if (ids.length === 0) {
+          console.log('[BackgroundTabService] ✓ No mock overrides (production path)')
+          return
+        }
 
-     for (const tab of tabs) {
-       if (tab.id != null && overrides[tab.id] != null) {
-         const oldAccess = tab.lastAccessed
-         tab.lastAccessed = overrides[tab.id]
-         console.log(`[BackgroundTabService] Tab#${tab.id}: ${oldAccess} → ${tab.lastAccessed} (${overrides[tab.id]})`)
-       }
-     }
-     console.log('[BackgroundTabService] Applied mock overrides to', ids.length, 'tabs')
-   }
+        console.log('[BackgroundTabService] 📥 Applying mock overrides to', ids.length, 'tabs')
+
+        // Apply overrides only to tabs that have them
+        const numMap = ids.map(Number)
+        for (const tab of tabs) {
+          if (tab.id != null && overrides[tab.id] != null) {
+            const oldAccess = tab.lastAccessed
+            tab.lastAccessed = overrides[tab.id]
+            console.log(`[BackgroundTabService] Tab#${tab.id}: ${oldAccess} → ${tab.lastAccessed}`)
+          }
+        }
+        console.log('[BackgroundTabService] ✅ Applied mock overrides to', ids.length, 'tabs')
+      } catch (err) {
+        console.warn('[BackgroundTabService] ⚠️ Failed to read mock overrides:', err)
+      }
+    }
 
    static async groupTabsByAge(): Promise<number> {
      console.log('[BackgroundTabService] groupTabsByAge...')
@@ -335,17 +346,81 @@ export class BackgroundTabService {
      }
    }
 
-  /**
-   * Groups tabs by domain name, with secondary sorting by age (if >2 tabs per domain).
-   * Creates groups like "example.com (5)", "github.com (3)" etc.
-   * Within each domain: if >2 tabs, sort by age (oldest first).
-   *
-   * CROSS-BROWSER SUPPORT:
-   *   ✅ Chrome/Edge: Full grouping via browser.tabGroups API
-   *   ✅ Firefox: No tabGroups API, gracefully skips grouping
-   *   ✅ All browsers: Tabs sorted by domain, ungrouped tabs preserved
-   */
-  static async groupTabsByDomain(): Promise<number> {
+    /**
+     * Close a tab and update its group name to reflect the new tab count.
+     * If tab is in a plugin-created group, updates group title with (count-1).
+     * Gracefully handles non-grouped tabs and Firefox (no tabGroups API).
+     *
+     * @param tabId - ID of the tab to close
+     * @returns Error message or null if successful
+     */
+    static async closeTab(tabId: number): Promise<string | null> {
+      try {
+        const tab = await browser.tabs.get(tabId)
+
+        // Get group info if tab is grouped
+        let groupId: number | null = null
+        let groupTitle: string | null = null
+
+        if (browser.tabGroups != null && tab.groupId != null && tab.groupId !== -1) {
+          groupId = tab.groupId
+          try {
+            const group = await (browser.tabGroups as any).get(groupId)
+            groupTitle = group.title
+          } catch {
+            // Group query failed, skip update
+          }
+        }
+
+        // Close the tab
+        await browser.tabs.remove(tabId)
+        console.log(`[BackgroundTabService] ✅ Closed tab#${tabId}`)
+
+        // If tab was in a plugin group, update group title with new count
+        if (groupId != null && groupTitle != null && browser.tabGroups != null) {
+          try {
+            // Count remaining tabs in group
+            const groupTabs = await browser.tabs.query({ groupId })
+            const newCount = groupTabs.length
+
+            // Update title with new count (extract label prefix)
+            const match = groupTitle.match(/^(.+?)\s*\(\d+\)$/)
+            const labelPrefix = match ? match[1] : groupTitle
+
+            if (newCount > 0) {
+              await (browser.tabGroups as any).update(groupId, {
+                title: `${labelPrefix} (${newCount})`
+              })
+              console.log(`[BackgroundTabService] ✅ Updated group title to "${labelPrefix} (${newCount})"`)
+            } else {
+              // Remove group if no tabs left
+              await (browser.tabs as any).ungroup(tabId)
+              console.log(`[BackgroundTabService] ✅ Removed empty group`)
+            }
+          } catch (err) {
+            console.warn(`[BackgroundTabService] ⚠️ Failed to update group title:`, err)
+          }
+        }
+
+        return null
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err)
+        console.error(`[BackgroundTabService] ❌ closeTab error:`, msg)
+        return msg
+      }
+    }
+
+   /**
+    * Groups tabs by domain name, with secondary sorting by age (if >2 tabs per domain).
+    * Creates groups like "example.com (5)", "github.com (3)" etc.
+    * Within each domain: if >2 tabs, sort by age (oldest first).
+    *
+    * CROSS-BROWSER SUPPORT:
+    *   ✅ Chrome/Edge: Full grouping via browser.tabGroups API
+    *   ✅ Firefox: No tabGroups API, gracefully skips grouping
+    *   ✅ All browsers: Tabs sorted by domain, ungrouped tabs preserved
+    */
+   static async groupTabsByDomain(): Promise<number> {
     console.log('[BackgroundTabService] groupTabsByDomain...')
     try {
       const hasTabGroups = browser.tabGroups != null
