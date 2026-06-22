@@ -98,7 +98,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { browser } from 'wxt/browser'
 import { BACKGROUND_MESSAGE_ACTIONS } from '@/constants'
 import { useAppStore } from '@/store/appStore.ts'
@@ -186,6 +186,10 @@ async function closeTab(tabId: number | null): Promise<void> {
     error.value = err instanceof Error ? err.message : 'Failed to close tab'
   }
 }
+
+onMounted(() => {
+  refreshTabs()
+})
 
 
 </script>
