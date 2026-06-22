@@ -54,7 +54,7 @@ async function createMockWithPreset(): Promise<void> {
       }
     })
     console.log(`[MockButton] Applied MOCK_TABS data: ${Object.keys(newOverrides).length} tabs`)
-s
+
     await mockOverrides.setValue(newOverrides)
     emit('mock-created')
   } catch (err) {
