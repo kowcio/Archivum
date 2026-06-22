@@ -78,73 +78,79 @@ export class BackgroundTabService {
        const thresholds = await this.getThresholds()
        await this.applyMockOverrides(rawTabs)
 
-        const rows = TabRow.fromTabs(rawTabs, thresholds)
-        const activeLevels = thresholds.active()
-        const levelTabIds: number[][] = Array.from({ length: activeLevels.length }, () => [])
-        const freshTabIds: number[] = []
+       const rows = TabRow.fromTabs(rawTabs, thresholds)
+       const activeLevels = thresholds.active()
+       const levelTabIds: number[][] = Array.from({ length: activeLevels.length }, () => [])
+       const freshTabIds: number[] = []
 
-        // Build age map for sorting tabs within each level
-        const ageMap = new Map<number, number>()
-        for (const row of rows) {
-          if (row.id != null) ageMap.set(row.id, row.lastAccessDays ?? 0)
-        }
+       // Build age map for sorting tabs within each level
+       const ageMap = new Map<number, number>()
+       for (const row of rows) {
+         if (row.id != null) ageMap.set(row.id, row.lastAccessDays ?? 0)
+       }
 
-        // Classify tabs into levels by age
-        for (const row of rows) {
-          if (row.id == null) continue
-          const c = AgeClassification.fromDays(row.lastAccessDays ?? 0, thresholds)
-          if (c.index === 0) {
-            // Fresh tabs (should stay on RIGHT at end)
-            freshTabIds.push(row.id)
-          } else if (c.index > 0 && c.index <= activeLevels.length) {
-            levelTabIds[c.index - 1].push(row.id)
-          }
-        }
+       // Classify tabs into age levels, collecting fresh tabs separately
+       for (const row of rows) {
+         if (row.id == null) continue
+         const c = AgeClassification.fromDays(row.lastAccessDays ?? 0, thresholds)
+         if (c.index === 0) {
+           // Fresh tabs — stay ungrouped, will move to rightmost later
+           freshTabIds.push(row.id)
+         } else if (c.index > 0 && c.index <= activeLevels.length) {
+           levelTabIds[c.index - 1].push(row.id)
+         }
+       }
 
-        // Step 1: Move fresh tabs to rightmost FIRST (before grouping)
-        // This ensures fresh tabs are at index -1, -2, etc (rightmost positions)
-        if (freshTabIds.length > 0) {
-          try {
-            for (const tabId of freshTabIds) {
-              await browser.tabs.move(tabId, { index: -1 })
-            }
-            console.log(`[BackgroundTabService] Moved ${freshTabIds.length} fresh tabs to rightmost`)
-          } catch (err) {
-            console.warn('[BackgroundTabService] Failed to move fresh tabs:', err)
-          }
-        }
+       // Sort tabs within each level by age (oldest first = highest lastAccessDays first)
+       for (const ids of levelTabIds) {
+         ids.sort((a, b) => (ageMap.get(b) ?? 0) - (ageMap.get(a) ?? 0))
+       }
 
-        // Sort tabs within each level by age (oldest first = highest lastAccessDays first)
-        for (const ids of levelTabIds) {
-          ids.sort((a, b) => (ageMap.get(b) ?? 0) - (ageMap.get(a) ?? 0))
-        }
+       // ── Reorder tabs so visual order matches: oldest→youngest groups left-to-right, fresh far right ──
+       // Build ordered array: oldest level first (Month+ → left), youngest level last (Week+ → right), fresh at end
+       const orderedTabIds: number[] = []
+       for (let i = activeLevels.length - 1; i >= 0; i--) {
+         orderedTabIds.push(...levelTabIds[i])
+       }
+       orderedTabIds.push(...freshTabIds)
 
-        // Create groups: OLDEST FIRST (appear on LEFT) → YOUNGEST LAST (appear on RIGHT)
-        // Reverse loop ensures older groups are created before younger ones
-        // Move to index -1 (end/right) to preserve order: older on left, younger on right
-        let groupsCreated = 0
-        for (let i = activeLevels.length - 1; i >= 0; i--) {
-          const level = activeLevels[i]
-          const tabIds = levelTabIds[i]
+       // Move all tabs into position in bulk — oldest at index 0 (leftmost), fresh at highest index (rightmost)
+       if (orderedTabIds.length > 0) {
+         try {
+           await browser.tabs.move(orderedTabIds, { index: 0 })
+           console.log(`[BackgroundTabService] ✅ Reordered ${orderedTabIds.length} tabs (oldest→youngest→fresh)`)
+         } catch (err) {
+           console.warn('[BackgroundTabService] ⚠️ Tab reorder failed, skipping:', err)
+         }
+       }
 
-          if (tabIds.length === 0) continue
+       // Create groups from oldest→youngest (left→right).
+       // After reorder, Month+ tabs are at lowest indexes, so Month+ group appears leftmost.
+       let groupsCreated = 0
+       for (let i = activeLevels.length - 1; i >= 0; i--) {
+         const level = activeLevels[i]
+         const tabIds = levelTabIds[i]
 
-          try {
-            const groupId = await (browser.tabs as any).group({ tabIds })
-            await (browser.tabGroups as any).update(groupId, {
-              title: `${level.label} (${tabIds.length})`,
-              color: level.color,
-              collapsed: true
-            })
-            // Move group to end (index -1) to maintain order: oldest→youngest from left→right
-            await (browser.tabGroups as any).move(groupId, { index: -1 })
-            groupsCreated++
-          } catch (err) {
-            console.error(`[BackgroundTabService] Failed to create group "${level.label}":`, err)
-          }
-        }
+         if (tabIds.length === 0) continue
 
-       console.log(`[BackgroundTabService] ✅ Created ${groupsCreated} groups (oldest on left, youngest on right)`)
+         try {
+           const groupId = await (browser.tabs as any).group({ tabIds })
+           await (browser.tabGroups as any).update(groupId, {
+             title: `${level.label} (${tabIds.length})`,
+             color: level.color,
+             collapsed: true
+           })
+           groupsCreated++
+           console.log(`[BackgroundTabService] ✅ Created group "${level.label}" with ${tabIds.length} tabs`)
+         } catch (err) {
+           console.error(`[BackgroundTabService] Failed to create group "${level.label}":`, err)
+         }
+       }
+
+       // Note: fresh tabs were already moved to rightmost in the reorder step above.
+       // No separate move needed.
+
+       console.log(`[BackgroundTabService] ✅ Created ${groupsCreated} groups (oldest on left, youngest on right) + ${freshTabIds.length} fresh tabs at far right`)
        return groupsCreated
      } catch (err) {
        console.error('[BackgroundTabService] ❌', err)
