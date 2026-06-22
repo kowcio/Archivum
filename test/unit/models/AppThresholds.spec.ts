@@ -1,3 +1,17 @@
+    it('has levels with increasing days', () => {
+      for (let i = 1; i < DEFAULT_THRESHOLDS.levels.length; i++) {
+        expect(DEFAULT_THRESHOLDS.levels[i].days).toBeGreaterThan(
+          DEFAULT_THRESHOLDS.levels[i - 1].days
+        )
+      }
+    it('has the correct number of levels based on THRESHOLDS.activeLevels', () => {
+      // From APP_DEFAULTS.THRESHOLDS.activeLevels
+      expect(DEFAULT_THRESHOLDS.levels.length).toBeGreaterThanOrEqual(3)
+  // ─── DEFAULT_THRESHOLDS ──────────────────────────────────────────────────
+  // ─── fromObject() ────────────────────────────────────────────────────────
+  // ─── toJSON() ────────────────────────────────────────────────────────────
+  // ─── merge() ─────────────────────────────────────────────────────────────
+  // ─── toBoundaries() ──────────────────────────────────────────────────────
 import { describe, it, expect } from 'vitest'
 import { AppThresholds, DEFAULT_THRESHOLDS } from 'src/models/AppThresholds'
 import type { ThresholdLevel } from 'src/constants'
@@ -269,5 +283,6 @@ describe('AppThresholds model', () => {
     })
   })
 })
+
 
 

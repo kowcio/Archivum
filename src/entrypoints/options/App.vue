@@ -42,6 +42,7 @@
 
       <!-- Live tabs table -->
       <div class="table-container" v-if="tabs.length">
+        <div data-testid="table-error" v-if="tabRows.length <= 0 ">{{tabRows.length}}</div>
         <q-table
           title="Open Tabs"
           data-testid="table-open-tabs"
@@ -176,17 +177,6 @@ async function closeTab(tabId: number | null): Promise<void> {
 }
 
 
-onMounted(() => {
-  // browser.tabs.onActivated.addListener(onTabActivated)
-})
-
-onUnmounted(() => {
-  browser.tabs.onActivated.removeListener(onTabActivated)
-})
-
-async function onTabActivated(_tabId: { tabId: number }): Promise<void> {
-  // await refreshTabs()
-}
 </script>
 
 <style scoped>
