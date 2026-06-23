@@ -33,7 +33,7 @@ test.describe('onTabActivated — last tab removes group', () => {
       await options.clickCloseAllTabs()
       await options.page.waitForTimeout(500)
 
-      // Create 1 tab and group it (single-tab group)
+      // Create 1 tab and group it with plugin-style title
       const tab = await options.page.evaluate(async () => {
         return await new Promise<{ id: number }>((resolve) => {
           chrome.tabs.create({ url: 'https://example.com', active: false }, (t: any) => {
@@ -43,15 +43,16 @@ test.describe('onTabActivated — last tab removes group', () => {
       })
       await options.page.waitForTimeout(500)
 
-      // Create group with this single tab
+      // Create group with plugin-style title so isInPluginGroup() recognizes it
       const groupId = await options.page.evaluate(async (tabId: number) => {
         return await new Promise<number>((resolve) => {
           (chrome.tabs as any).group({ tabIds: [tabId] }, (id: number) => resolve(id))
         })
       }, tab.id)
 
+      // Use plugin-style title so onTabActivated recognizes it
       await (options.page as any).evaluate(async (id: number) => {
-        await (chrome.tabGroups as any).update(id, { title: 'Test Group', collapsed: true })
+        await (chrome.tabGroups as any).update(id, { title: 'Week+ (1)', collapsed: true })
       }, groupId)
 
       await options.page.waitForTimeout(500)
