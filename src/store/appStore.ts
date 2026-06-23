@@ -2,54 +2,50 @@
  * appStore.ts — Unified Store for Extension
  *
  * This is the ONLY store file needed. Contains:
- * 1. WXT Storage Definitions (persistent data)
- * 2. Vue Composable Wrapper (reactive binding)
+ * 1. WXT Storage Definitions (persistent data) — using plain interfaces
+ * 2. Vue Composable Wrapper (reactive binding) — uses AppThresholds for business logic
  *
  * EVERYTHING app-related lives here:
- * ├─ Storage items (appStateStorage, mockOverrides)
+ * ├─ Storage items (appStateStorage) — uses ThresholdState interface
  * ├─ Helper functions (getStorageThresholds)
  * └─ Vue composable (useAppStore for components)
+ *
+ * Key Design:
+ * - Storage layer uses PLAIN INTERFACES (ThresholdState, AppState) ✅
+ * - Business logic layer uses CLASSES (AppThresholds) for methods ✅
+ * - NO toRaw()/unref() needed — structuredClone works with plain objects ✅
  *
  * Used by:
  * ✅ Vue components: import { useAppStore } from '@/store/appStore'
  * ✅ Background service: import { appStateStorage, getStorageThresholds } from '@/store/appStore'
- * ✅ Tests: import { appStateStorage, mockOverrides } from '@/store/appStore'
+ * ✅ Tests: import { appStateStorage } from '@/store/appStore'
  */
 
 import { ref, onMounted, type Ref } from 'vue'
 import { storage } from '#imports'
 import { AppThresholds, DEFAULT_THRESHOLDS } from '@/models/AppThresholds.ts'
+import { type ThresholdState, type AppState, isValidThresholdState, mergeThresholdState, updateActiveThresholds } from '@/models/ThresholdState.ts'
 import type { ThresholdLevel } from '@/constants.ts'
+import { APP_DEFAULTS } from '@/constants.ts'
 
 /**
  * ════════════════════════════════════════════════════════════════════
  * PART 1: WXT STORAGE DEFINITIONS (Single Source of Truth)
+ * Using PLAIN INTERFACES for 100% WXT compatibility
  * ════════════════════════════════════════════════════════════════════
- * These are used by:
- * - useAppStore() composable (for Vue)
- * - Background service (direct access)
- * - Tests (direct access)
  */
-
-/**
- * Complete app state structure — persisted in browser.storage.local
- */
-export interface AppState {
-  thresholds: {
-    levels: ThresholdLevel[]
-    activeLevels: number
-  }
-  configLastUpdated: number
-  version: string
-}
 
 /**
  * Main configuration storage — THE PRIMARY STORE
- * Used by: Vue composable, background service, tests
+ * Uses AppState interface (plain object, WXT-friendly)
+ * No class instances, no .toJSON() workarounds needed!
  */
 export const appStateStorage = storage.defineItem<AppState>('local:appState', {
   init: () => ({
-    thresholds: DEFAULT_THRESHOLDS.toJSON(),
+    thresholds: {
+      levels: [...APP_DEFAULTS.THRESHOLDS.presets],
+      activeLevels: APP_DEFAULTS.THRESHOLDS.activeLevels,
+    },
     configLastUpdated: Date.now(),
     version: '1.0.0',
   }),
@@ -65,47 +61,54 @@ export const mockOverrides = storage.defineItem<Record<number, number>>('local:m
 })
 
 
+
 /**
- * Helper: Get thresholds from storage (for background.ts + services)
- * Direct async access to WXT storage — no Vue reactivity needed.
- * Always returns AppThresholds instance (never plain object).
- * Used by: BackgroundTabService, tests
+ * Helper: Normalize levels from storage (handle WXT edge case where arrays come as objects)
+ */
+function normalizeLevels(levels: ThresholdLevel[] | Record<number, ThresholdLevel> | undefined): ThresholdLevel[] {
+  if (Array.isArray(levels)) return levels
+  if (typeof levels === 'object' && levels !== null) {
+    return Object.values(levels).filter(
+      (item): item is ThresholdLevel =>
+        item && typeof item === 'object' && 'days' in item && 'key' in item
+    )
+  }
+  return []
+}
+
+/**
+ * Helper: Get thresholds from storage as AppThresholds instance (for background.ts + services)
+ * Converts plain ThresholdState → AppThresholds class for business logic
  *
- * IMPORTANT: Called from background service worker (not a Vue component),
- * so we read directly from appStateStorage, NOT useAppStore() which requires Vue lifecycle.
+ * Used by: BackgroundTabService, tests
  */
 export async function getStorageThresholds(): Promise<AppThresholds> {
   try {
     const state = await appStateStorage.getValue()
-    console.log('[getStorageThresholds] State from storage:', {
-      thresholds: state?.thresholds ? { activeLevels: state.thresholds.activeLevels, levelCount: state.thresholds.levels?.length } : 'missing',
-      state: state ? 'exists' : 'null'
-    })
-
     if (!state?.thresholds) {
-      console.warn('[getStorageThresholds] No thresholds in storage, returning defaults')
       return DEFAULT_THRESHOLDS
     }
 
-    const thresholds = AppThresholds.fromObject(state.thresholds)
-    console.log('[getStorageThresholds] Loaded thresholds: activeLevels=', thresholds.activeLevels)
-    return thresholds
+    const levels = normalizeLevels(state.thresholds.levels)
+    return new AppThresholds(levels, state.thresholds.activeLevels)
   } catch (err) {
-    console.error('[getStorageThresholds] Error reading storage:', err)
+    console.error('[getStorageThresholds] Error:', err)
     return DEFAULT_THRESHOLDS
   }
 }
+
 
 /**
  * ════════════════════════════════════════════════════════════════════
  * PART 2: VUE COMPOSABLE WRAPPER (Reactive Binding)
  * ════════════════════════════════════════════════════════════════════
  * Provides Vue reactivity around WXT storage
- * Used by: Vue components in popup/options
+ * Storage layer: plain ThresholdState (interface)
+ * Vue layer: AppThresholds class (for business logic methods)
  */
 
 type UseAppStoreReturn = {
-  // Reactive state
+  // Reactive state — exposed as AppThresholds for business logic
   thresholds: Ref<AppThresholds>
   configLastUpdated: Ref<number>
   loading: Ref<boolean>
@@ -123,6 +126,9 @@ let storageWatcherSetup = false
 
 /**
  * Main composable — call this in any Vue component to get reactive app state
+ *
+ * Returns AppThresholds for business logic, but internally syncs with plain ThresholdState in storage
+ *
  * Example: const { thresholds, save } = useAppStore()
  */
 export function useAppStore(): UseAppStoreReturn {
@@ -140,12 +146,13 @@ export function useAppStore(): UseAppStoreReturn {
     error.value = null
     try {
       const state = await appStateStorage.getValue()
-      if (state?.thresholds) {
-        thresholds.value = AppThresholds.fromObject(state.thresholds)
+      if (state?.thresholds && isValidThresholdState(state.thresholds)) {
+        const levels = normalizeLevels(state.thresholds.levels)
+        thresholds.value = new AppThresholds(levels, state.thresholds.activeLevels)
         configLastUpdated.value = state.configLastUpdated
       }
     } catch (err) {
-      error.value = err instanceof Error ? err.message : 'Failed to load app state'
+      error.value = `[LOAD_ERROR] ${err instanceof Error ? err.message : 'Failed to load'}`
       thresholds.value = DEFAULT_THRESHOLDS
     } finally {
       loading.value = false
@@ -159,15 +166,20 @@ export function useAppStore(): UseAppStoreReturn {
     loading.value = true
     error.value = null
     try {
-      const newTimestamp = Date.now()
+      const thresholdState: ThresholdState = {
+        levels: thresholds.value.levels,
+        activeLevels: thresholds.value.activeLevels,
+      }
+
       await appStateStorage.setValue({
-        thresholds: thresholds.value.toJSON(),
-        configLastUpdated: newTimestamp,
+        thresholds: thresholdState,
+        configLastUpdated: Date.now(),
         version: '1.0.0',
       })
-      configLastUpdated.value = newTimestamp
-    } catch (err) {
-      error.value = err instanceof Error ? err.message : 'Failed to save app state'
+      configLastUpdated.value = Date.now()
+    } catch (err: any) {
+      error.value = `[SAVE_ERROR] ${err instanceof Error ? err.message : String(err)}`
+      console.error('[appStore.save]', error.value)
     } finally {
       loading.value = false
     }
@@ -177,52 +189,69 @@ export function useAppStore(): UseAppStoreReturn {
    * Update threshold levels (partial)
    */
   async function setThresholds(patch: Record<number, Partial<{ days: number }>>): Promise<void> {
-    const updated = thresholds.value.merge(patch)
-    if (!updated.isValid()) return
-    thresholds.value = updated
-    await save()
+    try {
+      const updated = thresholds.value.merge(patch)
+      if (!updated.isValid()) {
+        throw new Error('Thresholds not strictly increasing')
+      }
+      thresholds.value = updated
+      await save()
+    } catch (err: any) {
+      const msg = err instanceof Error ? err.message : String(err)
+      error.value = `[SET_THRESHOLDS_ERROR] ${msg}`
+      console.error('[appStore.setThresholds]', error.value)
+      throw err
+    }
   }
 
   /**
    * Update active levels count
    */
   async function setActiveLevels(count: number): Promise<void> {
-    thresholds.value = thresholds.value.withActiveLevels(count)
-    await save()
+    try {
+      thresholds.value = thresholds.value.withActiveLevels(count)
+      await save()
+    } catch (err: any) {
+      const msg = err instanceof Error ? err.message : String(err)
+      error.value = `[SET_ACTIVE_LEVELS_ERROR] ${msg}`
+      console.error('[appStore.setActiveLevels]', error.value)
+      throw err
+    }
   }
 
   /**
    * Reset to defaults
    */
   async function resetToDefaults(): Promise<void> {
-    thresholds.value = DEFAULT_THRESHOLDS
-    await save()
+    try {
+      thresholds.value = DEFAULT_THRESHOLDS
+      await save()
+    } catch (err: any) {
+      const msg = err instanceof Error ? err.message : String(err)
+      error.value = `[RESET_ERROR] ${msg}`
+      console.error('[appStore.resetToDefaults]', error.value)
+      throw err
+    }
   }
 
   /**
    * Setup storage watcher — fires when storage changes in ANY context
-   * Enables automatic sync across popup, options, background contexts
    */
   function setupStorageWatcher(): void {
-    // Setup watcher only once globally (avoid duplicate listeners)
     if (storageWatcherSetup) return
     storageWatcherSetup = true
 
     appStateStorage.watch((newState) => {
-      if (!newState?.thresholds) return
+      if (!newState?.thresholds || !isValidThresholdState(newState.thresholds)) return
       if (newState.configLastUpdated === configLastUpdated.value) return
 
       try {
-        const updated = AppThresholds.fromObject(newState.thresholds)
-        if (!updated.isValid()) {
-          console.warn('[appStore] Invalid thresholds from storage, skipping sync')
-          return
-        }
+        const levels = normalizeLevels(newState.thresholds.levels)
+        const updated = new AppThresholds(levels, newState.thresholds.activeLevels)
         thresholds.value = updated
         configLastUpdated.value = newState.configLastUpdated
-        console.log('[appStore] ✅ Synced from storage (another context changed config)')
       } catch (err) {
-        console.error('[appStore] Storage sync failed:', err)
+        console.error('[appStore.watch]', err)
       }
     })
   }

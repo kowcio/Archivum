@@ -112,51 +112,39 @@ async function onChange(levelIdx: number, value: number): Promise<void> {
 
 // Apply changes and regroup tabs
 async function handleApply(): Promise<void> {
-  if (!hasChanges.value) {
-    console.log('[Thresholds] No changes to apply')
-    return
-  }
+  if (!hasChanges.value) return
 
-  console.log('[Thresholds] handleApply: hasChanges=true, starting...')
-  console.log('[Thresholds] Local:', { activeLevels: localThresholds.value.activeLevels, daysArray: localThresholds.value.levels.map(l => l.days) })
-  console.log('[Thresholds] Store:', { activeLevels: appStore.thresholds.value.activeLevels, daysArray: appStore.thresholds.value.levels.map(l => l.days) })
-
-  // Collect changes
-  const changes: Record<number, Partial<{ days: number }>> = {}
-  for (let i = 0; i < localThresholds.value.levels.length; i++) {
-    if (localThresholds.value.levels[i].days !== appStore.thresholds.value.levels[i].days) {
-      changes[i] = { days: localThresholds.value.levels[i].days }
-    }
-  }
-
-  console.log('[Thresholds] Days changes:', changes)
-
-  if (Object.keys(changes).length > 0) {
-    console.log('[Thresholds] Saving threshold days changes...')
-    await appStore.setThresholds(changes)
-  }
-
-  // Also update activeLevels if changed
-  if (localThresholds.value.activeLevels !== appStore.thresholds.value.activeLevels) {
-    console.log(`[Thresholds] Saving activeLevels change: ${appStore.thresholds.value.activeLevels} → ${localThresholds.value.activeLevels}`)
-    await appStore.setActiveLevels(localThresholds.value.activeLevels)
-  }
-
-  // Reset local state to match store after save
-  console.log('[Thresholds] Resetting local state after save...')
-  localThresholds.value = AppThresholds.fromObject(appStore.thresholds.value.toJSON())
-  console.log("Local thresholds updated from the store ", localThresholds.value.toJSON())
-
-  // Regroup tabs with new thresholds
-  console.log('[Thresholds] Applied → regrouping tabs by age...')
   try {
+    // Collect threshold changes
+    const changes: Record<number, Partial<{ days: number }>> = {}
+    for (let i = 0; i < localThresholds.value.levels.length; i++) {
+      if (localThresholds.value.levels[i].days !== appStore.thresholds.value.levels[i].days) {
+        changes[i] = { days: localThresholds.value.levels[i].days }
+      }
+    }
+
+    if (Object.keys(changes).length > 0) {
+      await appStore.setThresholds(changes)
+    }
+
+    if (localThresholds.value.activeLevels !== appStore.thresholds.value.activeLevels) {
+      await appStore.setActiveLevels(localThresholds.value.activeLevels)
+    }
+
+    localThresholds.value = AppThresholds.fromObject(appStore.thresholds.value.toJSON())
+
     await browser.runtime.sendMessage({
       action: BACKGROUND_MESSAGE_ACTIONS.GROUP_TABS_BY_AGE,
     })
-    console.log('[Thresholds] ✅ Tabs regrouped successfully')
     emit('apply')
-  } catch (err) {
-    console.error('[Thresholds] ❌ Failed to regroup tabs:', err)
+  } catch (err: any) {
+    const errorMsg = err instanceof Error ? err.message : String(err)
+    if (errorMsg.includes('DataCloneError') || errorMsg.includes('Proxy')) {
+      appStore.error.value = `[THRESHOLD_APPLY_PROXY_ERROR] Cannot serialize threshold data. Try refreshing the page.`
+    } else {
+      appStore.error.value = `[THRESHOLD_APPLY_ERROR] ${errorMsg}`
+    }
+    console.error('[Thresholds.handleApply]', appStore.error.value)
   }
 }
 

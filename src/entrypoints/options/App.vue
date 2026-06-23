@@ -159,12 +159,12 @@ async function refreshTabs(): Promise<void> {
       action: BACKGROUND_MESSAGE_ACTIONS.GET_TABS
     })
     if (resp?.error) {
-      error.value = resp.error
+      error.value = `[GET_TABS] ${resp.error}`
       return
     }
     tabs.value = resp?.tabs ?? []
   } catch (err) {
-    error.value = err instanceof Error ? err.message : 'Failed to load tabs'
+    error.value = `[GET_TABS_ERROR] ${err instanceof Error ? err.message : 'Failed to load tabs'}`
   } finally {
     loading.value = false
   }
@@ -178,12 +178,12 @@ async function closeTab(tabId: number | null): Promise<void> {
       tabId
     })
     if (resp?.error) {
-      error.value = resp.error
+      error.value = `[CLOSE_TAB] Tab#${tabId}: ${resp.error}`
       return
     }
     tabs.value = tabs.value.filter((t: any) => t.id !== tabId)
   } catch (err) {
-    error.value = err instanceof Error ? err.message : 'Failed to close tab'
+    error.value = `[CLOSE_TAB_ERROR] Tab#${tabId}: ${err instanceof Error ? err.message : 'Failed to close tab'}`
   }
 }
 

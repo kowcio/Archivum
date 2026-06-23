@@ -71,14 +71,6 @@ export default defineBackground({
          return true
        }
 
-       if (action === BACKGROUND_MESSAGE_ACTIONS.GET_BROWSER_CAPS) {
-         sendResponse({
-           hasTabGroups: browser.tabGroups != null,
-           hasAlarms: browser.alarms != null,
-         })
-         return true
-       }
-
         if (action === BACKGROUND_MESSAGE_ACTIONS.ON_TAB_ACTIVATED) {
           const { tabId } = message as { action: string; tabId: number }
           BackgroundTabService.onTabActivated(tabId)

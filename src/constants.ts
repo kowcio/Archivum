@@ -70,7 +70,6 @@ export const BACKGROUND_MESSAGE_ACTIONS = {
   UNGROUP_ALL_TABS: 'ungroupAllTabs',
   CREATE_MOCK_TABS: 'createMockTabs',
   GET_TABS: 'getTabs',
-  GET_BROWSER_CAPS: 'getBrowserCaps',
   ON_TAB_ACTIVATED: 'onTabActivated',
   HAS_PLUGIN_GROUPS: 'hasPluginGroups',
   CLOSE_TAB: 'closeTab',
