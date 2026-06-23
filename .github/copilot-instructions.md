@@ -46,6 +46,7 @@ background.ts (service worker — NO Pinia)
 | **Token economy** | Code + SHORT explanation only — no long descriptions, no helper scripts |
 | **Minimalism** | Answer query directly — no "how to use" essays, no verbose summaries |
 | **Test assertions** | NEVER use `>`, `<`, `toBeGreaterThan()`, `toBeLessThan()`, `toBeGreaterThanOrEqual()`, `toBeLessThanOrEqual()` — always assert **exact values** with `toBe()`, `toEqual()`. No approximations. |
+| **Test simplicity** | Minimize test steps: only test one core behavior per test. Use minimal clicks/setup. Focus on what you're testing, not side effects. |
 | **Playwright POM** | E2E tests MUST use Page Object Models (test/playwright/page-objects/). Keep locators/waits hidden in POM. Tests read like one-liners: `await options.clickGroupTabs()` not raw Playwright. See test/playwright/README.md |
 
 ## Tab Age Management
