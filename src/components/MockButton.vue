@@ -1,7 +1,7 @@
 <template>
   <div data-testid="mock-button">
     <q-btn
-      label="Mock 10 tabs"
+      :label="`Mock tabs -> ${mocksCount}`"
       data-testid="mock-tabs"
       icon="science"
       color="grey-7"
@@ -23,6 +23,7 @@ const emit = defineEmits<{
 }>()
 
 const loading = ref(false)
+const mocksCount = ref(MOCK_TABS.length)
 
 async function createMockWithPreset(): Promise<void> {
   loading.value = true

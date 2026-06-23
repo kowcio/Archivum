@@ -33,9 +33,10 @@ export class OptionsPage {
   private readonly resetThresholdBtn: Locator;
 
   constructor(public readonly page: Page) {
-    // Button locators
-    this.groupTabsBtn = page.getByTestId('popup-btn-group-tabs');
-    this.ungroupTabsBtn = page.getByTestId('popup-btn-ungroup-tabs');
+    // Button locators - note: IDs are dynamic based on isGrouped state
+    // When not grouped: 'group-tabs-btn', when grouped: 'ungroup-tabs-btn'
+    this.groupTabsBtn = page.getByTestId('group-tabs-btn');
+    this.ungroupTabsBtn = page.getByTestId('ungroup-tabs-btn');
     // this.loadTabsBtn = page.getByTestId('btn-load-tabs');
     this.closeAllTabsBtn = page.getByTestId('btn-close-all-tabs');
 

@@ -17,8 +17,8 @@ const QBtnStub = {
 const GroupUngroupStub = {
   template: `
     <div>
-      <button data-testid="popup-btn-group-tabs">Group</button>
-      <button data-testid="popup-btn-ungroup-tabs">Ungroup</button>
+      <button data-testid="group-tabs-btn">Group</button>
+      <button data-testid="ungroup-tabs-btn">Ungroup</button>
     </div>
   `,
 }
@@ -34,8 +34,8 @@ describe('Popup App.vue', () => {
         },
       },
     })
-    expect(w.find('[data-testid="popup-btn-group-tabs"]').exists()).toBe(true)
-    expect(w.find('[data-testid="popup-btn-ungroup-tabs"]').exists()).toBe(true)
+    expect(w.find('[data-testid="group-tabs-btn"]').exists()).toBe(true)
+    expect(w.find('[data-testid="ungroup-tabs-btn"]').exists()).toBe(true)
     expect(w.find('[data-testid="popup-btn-open-option-page"]').exists()).toBe(true)
   })
 
@@ -52,7 +52,7 @@ describe('Popup App.vue', () => {
     })
     // Note: GroupUngroup is an independent component with its own logic
     // This test verifies App renders correctly, not GroupUngroup interaction
-    expect(w.find('[data-testid="popup-btn-group-tabs"]').exists()).toBe(true)
+    expect(w.find('[data-testid="group-tabs-btn"]').exists()).toBe(true)
   })
 
   it('sends ungroupAllTabs message on Ungroup click', async () => {
@@ -68,6 +68,6 @@ describe('Popup App.vue', () => {
     })
     // Note: GroupUngroup is an independent component with its own logic
     // This test verifies App renders correctly, not GroupUngroup interaction
-    expect(w.find('[data-testid="popup-btn-ungroup-tabs"]').exists()).toBe(true)
+    expect(w.find('[data-testid="ungroup-tabs-btn"]').exists()).toBe(true)
   })
 })
