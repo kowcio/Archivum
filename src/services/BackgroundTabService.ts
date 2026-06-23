@@ -195,10 +195,9 @@ export class BackgroundTabService {
          return
        }
 
-       // 🧩 ungroup BEFORE move — move alone keeps the tab inside its group (Chrome/Edge).
-       // Without ungroup, the tab stays grouped and the whole group moves to the right.
-       // Firefox lacks tabGroups API so ungroup throws — caught silently.
-       try { await (browser.tabs as any).ungroup(tabId) } catch { /* Firefox / not grouped */ }
+       // 🧩 Set groupId to -1 BEFORE move — removes tab from group (Chrome/Edge/Firefox compatible).
+       // Move alone keeps the tab inside its group (Chrome/Edge), so we need to ungroup first.
+       try { await browser.tabs.update(tabId, { groupId: -1 }) } catch { /* not grouped */ }
 
       // ➡️ Move to rightmost with retry — tabs may be locked during user drag
       const maxRetries = 2
