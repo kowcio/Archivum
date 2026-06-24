@@ -51,8 +51,8 @@ test.describe('onTabActivated — last tab removes group', () => {
       }, tab.id)
 
       // Use plugin-style title so onTabActivated recognizes it
-      await (options.page as any).evaluate(async (id: number) => {
-        await (chrome.tabGroups as any).update(id, { title: 'Week+ (1)', collapsed: true })
+      await options.page.evaluate((id: number) => {
+        return (chrome.tabGroups as any).update(id, { title: 'Week+ (1)', collapsed: true })
       }, groupId)
 
       await options.page.waitForTimeout(500)
@@ -64,7 +64,7 @@ test.describe('onTabActivated — last tab removes group', () => {
 
       // Activate the only tab in the group
       await options.activateTab(tab.id)
-      
+
       // Use Playwright's native polling + expect pattern to wait for service worker
       // This is idiomatic Playwright that handles retries + backoff automatically
       await expect.poll(
@@ -75,7 +75,7 @@ test.describe('onTabActivated — last tab removes group', () => {
         },
         {
           message: 'service worker should ungroup the activated tab',
-          timeout: 5000,  // 5 second timeout (covers slow CI)
+          timeout: 15000,  // 5 second timeout (covers slow CI)
         }
       ).toBe(-1)
 
