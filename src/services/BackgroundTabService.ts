@@ -266,6 +266,7 @@ export class BackgroundTabService {
          })
          if (tab.id != null) {
            const data = dayjs(tab.lastAccessed).toISOString();
+           //Pusty title to tylko efekt uboczny asynchronicznego renderowania strony.
            console.log(`Tab created[${i}]: ${String(tab.id).padEnd(8)} groupId=${tab.groupId} data=${data} "${tab.title}"`)
            tabIds.push(tab.id)
          }
