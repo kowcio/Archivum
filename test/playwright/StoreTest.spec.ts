@@ -65,25 +65,25 @@ test.describe('onTabActivated — last tab removes group', () => {
       // Activate the only tab in the group
       await options.activateTab(tab.id)
       
-      // Wait for service worker to process onTabActivated + ungroup + move
-      // Poll with retries to handle CI slowness
-      let after
-      let attempts = 0
-      const maxAttempts = 15  // ~3 seconds total (200ms per attempt)
-      while (attempts < maxAttempts) {
-        await options.page.waitForTimeout(200)
-        after = await options.getGroupAndTabData()
-        const activatedTab = after.tabs.find(t => t.id === tab.id)
-        if (activatedTab?.groupId === -1) break
-        attempts++
-      }
+      // Use Playwright's native polling + expect pattern to wait for service worker
+      // This is idiomatic Playwright that handles retries + backoff automatically
+      await expect.poll(
+        async () => {
+          const data = await options.getGroupAndTabData()
+          const activatedTab = data.tabs.find(t => t.id === tab.id)
+          return activatedTab?.groupId ?? null
+        },
+        {
+          message: 'service worker should ungroup the activated tab',
+          timeout: 5000,  // 5 second timeout (covers slow CI)
+        }
+      ).toBe(-1)
 
-      // Verify: Tab's groupId is now -1 (ungrouped)
-      const activatedTab = after!.tabs.find(t => t.id === tab.id)
+      // Verify final state: Tab ungrouped and group is gone
+      const after = await options.getGroupAndTabData()
+      const activatedTab = after.tabs.find(t => t.id === tab.id)
       expect(activatedTab?.groupId).toBe(-1)
-
-      // Verify: Group is gone
-      expect(after!.groupCount).toBe(0)
+      expect(after.groupCount).toBe(0)
 
     } finally {
       // Pages are auto-closed by Playwright
