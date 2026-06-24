@@ -64,15 +64,26 @@ test.describe('onTabActivated — last tab removes group', () => {
 
       // Activate the only tab in the group
       await options.activateTab(tab.id)
-      await options.page.waitForTimeout(1000)
+      
+      // Wait for service worker to process onTabActivated + ungroup + move
+      // Poll with retries to handle CI slowness
+      let after
+      let attempts = 0
+      const maxAttempts = 15  // ~3 seconds total (200ms per attempt)
+      while (attempts < maxAttempts) {
+        await options.page.waitForTimeout(200)
+        after = await options.getGroupAndTabData()
+        const activatedTab = after.tabs.find(t => t.id === tab.id)
+        if (activatedTab?.groupId === -1) break
+        attempts++
+      }
 
       // Verify: Tab's groupId is now -1 (ungrouped)
-      const after = await options.getGroupAndTabData()
-      const activatedTab = after.tabs.find(t => t.id === tab.id)
+      const activatedTab = after!.tabs.find(t => t.id === tab.id)
       expect(activatedTab?.groupId).toBe(-1)
 
       // Verify: Group is gone
-      expect(after.groupCount).toBe(0)
+      expect(after!.groupCount).toBe(0)
 
     } finally {
       // Pages are auto-closed by Playwright
