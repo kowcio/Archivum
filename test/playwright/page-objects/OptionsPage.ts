@@ -336,6 +336,10 @@ export class OptionsPage {
    * Change threshold day value and apply in one action.
    * Waits for regrouping to complete.
    */
+
+
+
+
   async changeThresholdDayValue(levelIndex: number, days: number, waitMs: number = 1500): Promise<void> {
     await this.setThresholdDayValue(levelIndex, days);
     await this.expectApplyThresholdButtonVisible();
