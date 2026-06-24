@@ -2,6 +2,11 @@
  * onTabActivated E2E Test
  *
  * Verifies: When last tab is activated from a group, groupId is set to -1 and group disappears.
+ * 
+ * IMPORTANT FIX (see ../FIX_TAB_UNGROUPING.md):
+ * The service worker uses browser.tabs.ungroup([tabId]) to remove tabs from groups.
+ * DO NOT use browser.tabs.update(id, { groupId: -1 }) — it silently does nothing.
+ * The ungroup() API is the only way to actually remove a tab from its group (Chrome/Edge).
  */
 
 import { test, expect, type BrowserContext } from '@playwright/test'
