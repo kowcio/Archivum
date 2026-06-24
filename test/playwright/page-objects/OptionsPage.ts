@@ -322,6 +322,28 @@ export class OptionsPage {
   }
 
   /**
+   * Set the day value for a specific threshold level input.
+   * @param levelIndex - Index in the active thresholds list (0=Week+, 1=2 Weeks+, etc.)
+   * @param days - New day threshold value
+   */
+  async setThresholdDayValue(levelIndex: number, days: number): Promise<void> {
+    const input = this.page.getByTestId(`threshold-${levelIndex}`);
+    await input.clear();
+    await input.fill(String(days));
+  }
+
+  /**
+   * Change threshold day value and apply in one action.
+   * Waits for regrouping to complete.
+   */
+  async changeThresholdDayValue(levelIndex: number, days: number, waitMs: number = 1500): Promise<void> {
+    await this.setThresholdDayValue(levelIndex, days);
+    await this.expectApplyThresholdButtonVisible();
+    await this.clickApplyThresholds(waitMs);
+    await this.expectApplyThresholdButtonHidden();
+  }
+
+  /**
    * Change threshold levels and apply changes in one action.
    * Waits for regrouping to complete.
    */
