@@ -24,6 +24,7 @@ import { browser } from 'wxt/browser'
 import type { Browser } from 'wxt/browser'
 import { MOCK_TABS } from '@/utils/mockTabData'
 import { APP_DEFAULTS } from '@/constants'
+import dayjs from "dayjs";
 
 export class BackgroundTabService {
   /**
@@ -67,7 +68,6 @@ export class BackgroundTabService {
           if (tab.id != null && overrides[tab.id] != null) {
             const oldAccess = tab.lastAccessed
             tab.lastAccessed = overrides[tab.id]
-            console.log(`[BackgroundTabService] Tab#${tab.id}: ${oldAccess} → ${tab.lastAccessed}`)
           }
         }
         console.log('[BackgroundTabService] ✅ Applied mock overrides to', ids.length, 'tabs')
@@ -264,7 +264,11 @@ export class BackgroundTabService {
            url: mock.url,
            active: false,
          })
-         if (tab.id != null) tabIds.push(tab.id)
+         if (tab.id != null) {
+           const data = dayjs(tab.lastAccessed).toISOString();
+           console.log(`Tab created[${i}]: ${String(tab.id).padEnd(8)} groupId=${tab.groupId} data=${data} "${tab.title}"`)
+           tabIds.push(tab.id)
+         }
        } catch {
          // Some URLs may fail — create simpler tabs as fallback
          const tab = await browser.tabs.create({ url: `https://example.com/mock-${i}`, active: false })
@@ -283,7 +287,7 @@ export class BackgroundTabService {
        const tabId = tabIds[i]
        const daysAgo = MOCK_TABS[i].daysAgo ?? 1
        overridesMap[tabId] = now - daysAgo * DAY_MS
-       console.log(`[BackgroundTabService] Mock override: tab#${tabId} → ${daysAgo} days ago`)
+       // console.log(`[BackgroundTabService] Mock override: tab#${tabId} → ${daysAgo} days ago`)
      }
 
      // Set overrides in browser.storage.local directly (ensures cross-context sync)
