@@ -7,24 +7,25 @@ import dayjs from "dayjs";
  * PRIMARY SOURCE OF TRUTH for all colors in the application.
  * Used for: Chrome/Firefox tab groups API + CSS styling + inline styles.
  */
-export const THEME_COLORS = {
-  green: '#188038',
-  blue: '#1f73e7',
-  orange: '#ffa500',
-  red: '#d33b27',
-  pink: '#e91e63',
-  purple: '#7c3aed',
-  grey: '#9aa0a6',
-  cyan: '#00bcd4',
-} as const
+export enum ThemeColor {
+  Green = 'green',
+  Blue = 'blue',
+  Yellow = 'yellow',
+  Orange = 'orange',
+  Red = 'red',
+  Pink = 'pink',
+  Purple = 'purple',
+  Grey = 'grey',
+  Cyan = 'cyan',
+}
 
 /** Single threshold level configuration: key + label + days + color name. */
 export type ThresholdLevel = {
   key: string
   label: string
   days: number
-  /** Color name (key from THEME_COLORS) */
-  color: string
+  /** Color name from ThemeColor enum */
+  color: ThemeColor
 }
 
 /** Single place to change any app-wide constant. Replaces AppConfig + globals.ts. */
@@ -49,15 +50,14 @@ export const APP_DEFAULTS = {
     activeLevels: 3,
 
     // First activeLevels items (from start) are used as active thresholds.
-    // Colors reference THEME_COLORS mapping (color names):
+    // Colors reference ThemeColor enum:
     // - Chrome/Firefox tab groups API uses color names directly
-    // - CSS styling uses THEME_COLORS[colorName] to get hex values
     presets: [
-      { key: 'WEEK',               label: 'Week+',         days: 7,    color: 'green' },
-      { key: 'WEEKS_2',               label: '2 Weeks+',       days: 14,   color: 'blue' },
-      { key: 'MONTH',            label: 'Month+',        days: 28,   color: 'orange' },
-      { key: 'QUARTERS',              label: 'Quarter+',      days: 90,   color: 'red' },
-      { key: 'YEARS',           label: 'Are You kidding me ?',         days: 365,   color: 'pink' },
+      { key: 'WEEK',                 label: 'Week+',                  days: 7,    color: ThemeColor.Green },
+      { key: 'WEEKS_2',              label: '2 Weeks+',               days: 14,   color: ThemeColor.Blue },
+      { key: 'MONTH',                label: 'Month+',                 days: 28,   color: ThemeColor.Orange },
+      { key: 'QUARTERS',             label: 'Quarter+',               days: 90,   color: ThemeColor.Red },
+      { key: 'YEARS',                label: 'Are You kidding me ?',   days: 365,  color: ThemeColor.Pink },
     ] as const satisfies readonly ThresholdLevel[],
   },
 }

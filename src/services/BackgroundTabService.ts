@@ -23,7 +23,7 @@ import { AppThresholds } from '@/models/AppThresholds'
 import { browser } from 'wxt/browser'
 import type { Browser } from 'wxt/browser'
 import { MOCK_TABS } from '@/utils/mockTabData'
-import { APP_DEFAULTS } from '@/constants'
+import { APP_DEFAULTS, ThemeColor } from '@/constants'
 import dayjs from "dayjs";
 
 export class BackgroundTabService {
@@ -497,7 +497,7 @@ export class BackgroundTabService {
 
       // Create groups from sorted domains (left to right = A to Z)
       let groupsCreated = 0
-      const colorPalette = ['green', 'blue', 'orange', 'red', 'pink', 'purple', 'cyan', 'grey']
+      const colorPalette: ThemeColor[] = [ThemeColor.Green, ThemeColor.Blue, ThemeColor.Orange, ThemeColor.Red, ThemeColor.Pink, ThemeColor.Purple, ThemeColor.Cyan, ThemeColor.Grey]
       for (let i = 0; i < domainTabIds.length; i++) {
         const { domain, tabIds } = domainTabIds[i]
         const color = colorPalette[i % colorPalette.length]

@@ -20,6 +20,7 @@ import { fakeBrowser } from 'wxt/testing/fake-browser'
 import { BackgroundTabService } from '@/services/BackgroundTabService'
 import { mockOverrides } from '@/store/appStore.ts'
 import { AgeClassification } from '@/models/AgeClassification'
+import { ThemeColor } from '@/constants'
 
 describe('BackgroundTabService', () => {
   beforeEach(async () => {
@@ -229,9 +230,9 @@ describe('BackgroundTabService', () => {
        expect(activeLevels.length).toBe(3)
 
        // ─ Test color assignment for each level
-       expect(activeLevels[0].color).toBe('green')
-       expect(activeLevels[1].color).toBe('blue')
-       expect(activeLevels[2].color).toBe('orange')
+       expect(activeLevels[0].color).toBe(ThemeColor.Green)
+       expect(activeLevels[1].color).toBe(ThemeColor.Blue)
+       expect(activeLevels[2].color).toBe(ThemeColor.Orange)
 
        // ─ Verify labels match expected threshold names
        expect(activeLevels[0].label).toBe('Week+')
