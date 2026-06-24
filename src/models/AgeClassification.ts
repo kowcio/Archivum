@@ -1,5 +1,5 @@
-import { THEME_COLORS } from '@/constants'
-import type { AppThresholds } from '@/models/AppThresholds'
+import { THEME_COLORS } from '@/constants.ts'
+import type { AppThresholds } from '@/models/AppThresholds.ts'
 
 /**
  * Tab age state marker with unified color handling.

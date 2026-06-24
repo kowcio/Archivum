@@ -15,13 +15,13 @@ export const MOCK_TABS = [
     url: 'https://www.leroymerlin.pl/produkty/naklejka-kuchenna-odporna-na-olej-samoprzylepna-folia-ochronna-na-blaty-domowe-wodoodporna-i-odporna-na-plamy-60-cm-x-10-m-75162203.html',
     title: 'Naklejka kuchenna odporna na olej - folia ochronna - 60 cm x 10 m - Leroy Merlin',
     favIconUrl: '',
-    daysAgo: 2,
+    daysAgo: 6,
   },
   {
     url: 'https://www.castorama.pl/departments/folia-ochronna-wallfluent-80x40-cm-mi-kkie-szk-o-przezroczysta-na-blat-st-pod-og-1-szt-/4070095992289_CAPL.prd',
     title: 'Folia ochronna Wallfluent 80x40 cm - przezroczysta',
     favIconUrl: '',
-    daysAgo: 5,
+    daysAgo: 8,
   },
   {
     url: 'https://www.ceneo.pl/78293725',

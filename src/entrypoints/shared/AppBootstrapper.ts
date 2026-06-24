@@ -1,24 +1,22 @@
-import { createApp, type App as VueApp } from 'vue';
-import { createPinia, type Pinia } from 'pinia';
-import { useConfigStore } from '@/stores/configStore.ts';
-import { Quasar, QTable, QTd, QTr, QBtn, QBtnGroup, QInput, QTooltip } from 'quasar';
-import { APP_CONSTANTS } from '@/constants.ts';
+import { createApp, type App as VueApp } from 'vue'
+import { Quasar, QTable, QTd, QTr, QBtn, QBtnGroup, QInput, QTooltip } from 'quasar'
+import { APP_CONSTANTS } from '@/constants.ts'
 
 /**
  * Centralized app bootstrapper for UI extension contexts (popup, options, content).
  *
- * Minimal: Vue + Pinia + configStore only. No tab persistence.
+ * NO Pinia. Using WXT storage as single source of truth.
+ * Each component uses useAppStore() composable to get reactive state from storage.
  * Tabs are queried live from browser.tabs API in each context.
  */
 
 export interface AppBootstrapperOptions {
-  rootComponent: any;
-  mountTarget: string | HTMLElement;
+  rootComponent: any
+  mountTarget: string | HTMLElement
 }
 
 export interface BootstrapperResult {
-  app: VueApp;
-  pinia: Pinia;
+  app: VueApp
 }
 
 export class AppBootstrapper {
@@ -30,16 +28,10 @@ export class AppBootstrapper {
       components: { QTable, QTr, QTd, QBtn, QBtnGroup, QInput, QTooltip },
     })
 
-    const pinia = createPinia()
-    app.use(pinia)
-
-    // Load config in background (thresholds)
-    const configStore = useConfigStore()
-    configStore.load()
-    configStore.watch()
-
     app.mount(options.mountTarget)
-    console.log('[AppBootstrapper] ✅ App mounted')
-    return { app, pinia }
+    console.log('[AppBootstrapper] ✅ App mounted (using WXT storage as single source of truth)')
+    return { app }
   }
 }
+
+

@@ -23,20 +23,31 @@ const ON_TAB_ACTIVATED_ACTION = 'onTabActivated';
 export class OptionsPage {
   private readonly groupTabsBtn: Locator;
   private readonly ungroupTabsBtn: Locator;
+  // private readonly loadTabsBtn: Locator;
   private readonly closeAllTabsBtn: Locator;
   private readonly thresholdsConfig: Locator;
   private readonly openTabsTable: Locator;
   private readonly tableRows: Locator;
+  private readonly levelsInput: Locator;
+  private readonly applyThresholdBtn: Locator;
+  private readonly resetThresholdBtn: Locator;
 
   constructor(public readonly page: Page) {
-    // Button locators
-    this.groupTabsBtn = page.getByTestId('popup-btn-group-tabs');
-    this.ungroupTabsBtn = page.getByTestId('popup-btn-ungroup-tabs');
+    // Button locators - note: IDs are dynamic based on isGrouped state
+    // When not grouped: 'group-tabs-btn', when grouped: 'ungroup-tabs-btn'
+    this.groupTabsBtn = page.getByTestId('group-tabs-btn');
+    this.ungroupTabsBtn = page.getByTestId('ungroup-tabs-btn');
+    // this.loadTabsBtn = page.getByTestId('btn-load-tabs');
     this.closeAllTabsBtn = page.getByTestId('btn-close-all-tabs');
 
     // Container locators
     this.thresholdsConfig = page.getByTestId('thresholds-config');
     this.openTabsTable = page.getByTestId('table-open-tabs');
+
+    // Thresholds control locators
+    this.levelsInput = page.getByTestId('thresholds-levels-input');
+    this.applyThresholdBtn = page.getByTestId('threshold-apply');
+    this.resetThresholdBtn = page.getByTestId('threshold-reset');
 
     // Table row locators
     this.tableRows = page.locator('[data-testid="table-open-tabs"] tr');
@@ -63,22 +74,68 @@ export class OptionsPage {
     ]);
   }
 
-  /**
-   * Click "Group Tabs by Age" button and wait for grouping to complete.
-   * Optional: pass timeout override (default 1200ms).
-   */
-  async clickGroupTabs(waitMs: number = 1200): Promise<void> {
-    await this.groupTabsBtn.click();
-    await this.page.waitForTimeout(waitMs);
-  }
+   /**
+    * Click "Group Tabs by Age" button and wait for grouping to complete.
+    * Optional: pass timeout override (default 1200ms).
+    */
+   async clickGroupTabs(waitMs: number = 1200): Promise<void> {
+     await this.groupTabsBtn.click();
+     await this.page.waitForTimeout(waitMs);
+   }
+
+   /**
+    * Group Tabs by Domain via background message (no UI button).
+    * Uses chrome.runtime.sendMessage to trigger groupTabsByDomain.
+    * Optional: pass timeout override (default 1500ms).
+    */
+   async clickGroupTabsByDomain(waitMs: number = 1500): Promise<{ groupsCreated: number; error: string | null }> {
+     const result = await this.page.evaluate(() => {
+       return new Promise<{ groupsCreated: number; error: string | null }>((resolve) => {
+         try {
+           chrome.runtime.sendMessage({ action: 'groupTabsByDomain' }, (r: any) => {
+             resolve({ groupsCreated: r?.groupsCreated ?? 0, error: r?.error ?? null });
+           });
+         } catch (e: unknown) {
+           resolve({ groupsCreated: 0, error: String(e) });
+         }
+       });
+     });
+     await this.page.waitForTimeout(waitMs);
+     return result;
+   }
+
+   /**
+    * Click "Ungroup All Tabs" button and wait for ungrouping to complete.
+    * Optional: pass timeout override (default 1000ms).
+    */
+   async clickUngroupTabs(waitMs: number = 1000): Promise<void> {
+     await this.ungroupTabsBtn.click();
+     await this.page.waitForTimeout(waitMs);
+   }
 
   /**
-   * Click "Ungroup All Tabs" button and wait for ungrouping to complete.
-   * Optional: pass timeout override (default 1000ms).
+   * Set mock overrides for created tabs (backdated ages).
+   * Call this AFTER creating mock tabs to set their lastAccessed timestamps.
+   * @param overrides - Map of tabId → lastAccessed timestamp (ms since epoch)
    */
-  async clickUngroupTabs(waitMs: number = 1000): Promise<void> {
-    await this.ungroupTabsBtn.click();
-    await this.page.waitForTimeout(waitMs);
+  async setMockOverrides(overrides: Record<number, number>): Promise<void> {
+    const result = await this.page.evaluate((data: Record<string, number>) => {
+      return new Promise<{ error: string | null }>((resolve) => {
+        chrome.runtime.sendMessage(
+          { action: 'setMockOverrides', overrides: data },
+          (response: any) => {
+            resolve(response || { error: 'No response' });
+          }
+        );
+      });
+    }, overrides);
+
+    if (result.error) {
+      throw new Error(`Failed to set mock overrides: ${result.error}`);
+    }
+
+    // Extra wait to ensure storage is persisted
+    await this.page.waitForTimeout(500);
   }
 
   /**
@@ -111,12 +168,51 @@ export class OptionsPage {
   }
 
   /**
+   * Get all tab groups with their titles and tab counts.
+   * Returns array sorted by group position (left to right).
+   */
+  async getAllGroups(): Promise<Array<{ id: number; title: string; tabCount: number }>> {
+    return this.page.evaluate(async () => {
+      try {
+        const currentWindow = await chrome.windows.getCurrent();
+        console.log('[getAllGroups] Current window:', currentWindow.id);
+
+        const groups = await chrome.tabGroups.query({ windowId: currentWindow.id });
+        console.log('[getAllGroups] Found', groups.length, 'groups');
+
+        const groupDetails = [];
+        for (const group of groups) {
+          const tabs = await chrome.tabs.query({ groupId: group.id });
+          console.log(`[getAllGroups] Group ${group.id}: "${group.title}" → ${tabs.length} tabs`);
+          groupDetails.push({
+            id: group.id,
+            title: group.title,
+            tabCount: tabs.length,
+          });
+        }
+        return groupDetails;
+      } catch (err) {
+        console.error('[getAllGroups] Error:', err);
+        return [];
+      }
+    });
+  }
+
+  /**
+   * Get ungrouped tabs count.
+   */
+  async getUngroupedTabCount(): Promise<number> {
+    const all = await this.queryAllTabs();
+    return all.filter(t => t.groupId === -1).length;
+  }
+
+
+  /**
    * Get count of table rows (excluding header).
    */
   async getTableRowCount(): Promise<number> {
     return this.tableRows.count();
   }
-
 
   /**
    * Verify table has exactly N rows.
@@ -167,6 +263,73 @@ export class OptionsPage {
    */
   async expectThresholdsVisible(): Promise<void> {
     await expect(this.thresholdsConfig).toBeVisible({ timeout: 3000 });
+  }
+
+  /**
+   * Get current threshold levels count from input.
+   */
+  async getLevelsCount(): Promise<number> {
+    const value = await this.levelsInput.inputValue();
+    return parseInt(value, 10);
+  }
+
+  /**
+   * Set threshold levels count via input field.
+   * Changes are tracked locally but not persisted until Apply is clicked.
+   */
+  async setLevelsCount(count: number): Promise<void> {
+    await this.levelsInput.clear();
+    await this.levelsInput.fill(String(count));
+  }
+
+  /**
+   * Click Apply button to save threshold level changes.
+   * Triggers tab regrouping by age with new thresholds.
+   * Optional: pass timeout override (default 1500ms for regroup completion).
+   */
+  async clickApplyThresholds(waitMs: number = 1500): Promise<void> {
+    await this.applyThresholdBtn.click();
+    await this.page.waitForTimeout(waitMs);
+  }
+
+  /**
+   * Click Reset button to revert thresholds to defaults.
+   */
+  async clickResetThresholds(): Promise<void> {
+    await this.resetThresholdBtn.click();
+  }
+
+  /**
+   * Verify threshold levels input has specific value.
+   */
+  async expectLevelsCountEqual(expectedCount: number): Promise<void> {
+    const count = await this.getLevelsCount();
+    expect(count).toBe(expectedCount);
+  }
+
+  /**
+   * Verify Apply button is visible (changes detected).
+   */
+  async expectApplyThresholdButtonVisible(): Promise<void> {
+    await expect(this.applyThresholdBtn).toBeVisible({ timeout: 2000 });
+  }
+
+  /**
+   * Verify Apply button is NOT visible (no changes).
+   */
+  async expectApplyThresholdButtonHidden(): Promise<void> {
+    await expect(this.applyThresholdBtn).not.toBeVisible({ timeout: 2000 });
+  }
+
+  /**
+   * Change threshold levels and apply changes in one action.
+   * Waits for regrouping to complete.
+   */
+  async changeThresholdLevels(newCount: number, waitMs: number = 1500): Promise<void> {
+    await this.setLevelsCount(newCount);
+    await this.expectApplyThresholdButtonVisible();
+    await this.clickApplyThresholds(waitMs);
+    await this.expectApplyThresholdButtonHidden();
   }
 
   /**
@@ -246,14 +409,55 @@ export class OptionsPage {
       tabId,
       { timeout: timeoutMs, polling: 300 }
     );
-  }
+   }
 
-  /**
-   * Close the page.
-   */
-  async close(): Promise<void> {
-    await this.page.close();
-  }
+    /**
+     * Get all groups and tabs data.
+     * Returns group count, group details, and tab counts (grouped vs ungrouped).
+     */
+    async getGroupAndTabData(): Promise<{
+      groupCount: number;
+      groups: Array<{ id: number; title: string }>;
+      groupedTabCount: number;
+      ungroupedTabCount: number;
+      tabs: Array<{
+        id?: number;
+        url?: string;
+        title?: string;
+        active?: boolean;
+        groupId?: number;
+        index?: number;
+      }>;
+    }> {
+      return await this.page.evaluate(async () => {
+        const groups = await (chrome.tabGroups as any).query({ windowId: (chrome.windows as any).WINDOW_ID_CURRENT })
+        const tabs = await (chrome.tabs as any).query({ currentWindow: true })
+        return {
+          groupCount: groups.length,
+          groups: groups.map((g: any) => ({
+            id: g.id,
+            title: g.title
+          })),
+          groupedTabCount: tabs.filter((t: any) => t.groupId != null && t.groupId !== -1).length,
+          ungroupedTabCount: tabs.filter((t: any) => t.groupId == null || t.groupId === -1).length,
+          tabs: tabs.map((t: any) => ({
+            id: t.id,
+            url: t.url,
+            title: t.title,
+            active: t.active,
+            groupId: t.groupId,
+            index: t.index
+          }))
+        }
+      })
+    }
+
+   /**
+    * Close the page.
+    */
+   async close(): Promise<void> {
+     await this.page.close();
+   }
 
   /**
    * Setup service worker console logging for debugging.
@@ -278,5 +482,3 @@ export class OptionsPage {
     console.log('[Test] Service worker logging enabled');
   }
 }
-
-

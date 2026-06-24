@@ -1,0 +1,98 @@
+name: Release WXT Extension
+
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+        env:
+          npm_config_legacy_peer_deps: true
+
+      - name: Prepare Playwright browsers
+        run: npx playwright install chromium
+
+      - name: Type check
+        run: npm run type-check
+
+      - name: Lint
+        run: npm run lint -- --no-fix
+        continue-on-error: true
+
+      - name: Unit tests
+        run: npm run test:unit
+
+      - name: Build extension
+        run: npm run build
+
+      - name: Create ZIP archives for distribution
+        run: npm run zip:all
+
+      - name: Get version
+        id: version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+      - name: Generate changelog
+        id: changelog
+        run: |
+          CHANGELOG=$(git log --pretty=format:"%h - %s (%an)" $(git describe --tags --abbrev=0 HEAD^)..HEAD 2>/dev/null || echo "✨ Initial release")
+          echo "CHANGELOG<<EOF" >> $GITHUB_OUTPUT
+          echo "$CHANGELOG" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Create GitHub Release
+        id: create_release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ github.ref }}
+          name: Release ${{ steps.version.outputs.VERSION }}
+          body: |
+            ## 📦 Release v${{ steps.version.outputs.VERSION }}
+            
+            ### ✨ Changes
+            ```
+            ${{ steps.changelog.outputs.CHANGELOG }}
+            ```
+            
+            ### 📋 Build Info
+            - **Framework**: WXT 0.20+
+            - **Build Date**: ${{ github.event.head_commit.timestamp }}
+            - **Commit**: [${{ github.sha }}](https://github.com/${{ github.repository }}/commit/${{ github.sha }})
+            
+            ### 📥 Downloads
+            - **Chrome MV3**: `extension-chrome-mv3.zip`
+            - **Firefox MV3**: `extension-firefox-mv3.zip`
+            
+            ### 🚀 Installation
+            See [README.md](https://github.com/${{ github.repository }}#installation) for installation instructions.
+          files: |
+            .output/extension-chrome-mv3.zip
+            .output/extension-firefox-mv3.zip
+          draft: false
+          prerelease: false
+
+      - name: ✅ Release published
+        run: |
+          echo "🎉 Release v${{ steps.version.outputs.VERSION }} published!"
+          echo "📦 Assets available at: https://github.com/${{ github.repository }}/releases/tag/${{ github.ref_name }}"
+

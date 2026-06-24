@@ -20,7 +20,7 @@ export class PopupPage {
   private readonly openPluginOptionsBtn: Locator;
 
   constructor(public readonly page: Page) {
-    this.groupTabsBtn = page.getByTestId('popup-btn-group-tabs');
+    this.groupTabsBtn = page.getByTestId('group-tabs-btn');
     this.openOptionsBtn = page.getByTestId('popup-btn-open-option-page');
     this.openPluginOptionsBtn = page.getByTestId('popup-btn-plugin-browser-option');
   }

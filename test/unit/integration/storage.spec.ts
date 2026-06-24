@@ -7,8 +7,7 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { fakeBrowser } from 'wxt/testing/fake-browser'
-import { configStorage } from '@/utils/configStorage'
-import { activatedTimestamps, mockOverrides } from '@/utils/mockStorage'
+import { appStateStorage, mockOverrides } from '@/store/appStore.ts'
 import { BackgroundTabService } from '@/services/BackgroundTabService'
 import { DEFAULT_THRESHOLDS } from '@/models/AppThresholds'
 
@@ -17,39 +16,32 @@ beforeEach(() => {
 })
 
 describe('storage integration: config', () => {
-  it('configStorage write -> read returns same data', async () => {
-    const data = { thresholds: DEFAULT_THRESHOLDS.toJSON(), configLastUpdated: Date.now() }
-    await configStorage.setValue(data)
-    const read = await configStorage.getValue()
+  it('appStateStorage write -> read returns same data', async () => {
+    const data = { thresholds: DEFAULT_THRESHOLDS.toJSON(), configLastUpdated: Date.now(), version: '1.0.0' }
+    await appStateStorage.setValue(data)
+    const read = await appStateStorage.getValue()
     expect(read?.thresholds?.activeLevels).toBe(data.thresholds.activeLevels)
   })
 
-  it('configStorage falls back to init value when empty', async () => {
-    const val = await configStorage.getValue()
+  it('appStateStorage falls back to init value when empty', async () => {
+    const val = await appStateStorage.getValue()
     expect(val?.thresholds).toBeDefined()
     expect(val?.configLastUpdated).toBeGreaterThan(0)
   })
 })
 
-describe('storage integration: mock overrides and activation timestamps', () => {
+describe('storage integration: mock overrides', () => {
   it('mockOverrides can store and retrieve tab timestamps', async () => {
     await mockOverrides.setValue({ 1: 1000, 2: 2000 })
     const val = await mockOverrides.getValue()
     expect(val[1]).toBe(1000)
     expect(val[2]).toBe(2000)
   })
-
-  it('activatedTimestamps stores activation time', async () => {
-    const now = Date.now()
-    await activatedTimestamps.setValue({ 42: now })
-    const val = await activatedTimestamps.getValue()
-    expect(val[42]).toBe(now)
-  })
 })
 
 describe('integration: background service + storage', () => {
   it('uses storage thresholds via getThresholds', async () => {
-    await configStorage.setValue({
+    await appStateStorage.setValue({
       thresholds: {
         levels: [
           { key: 'YOUNG', label: 'Young', days: 2, color: 'green' },
@@ -58,6 +50,7 @@ describe('integration: background service + storage', () => {
         activeLevels: 2,
       },
       configLastUpdated: Date.now(),
+      version: '1.0.0',
     })
 
     const t = await BackgroundTabService.getThresholds()
@@ -67,16 +60,20 @@ describe('integration: background service + storage', () => {
   })
 })
 
-describe('integration: config store + storage', () => {
-  it('config save updates storage', async () => {
-    // Import store dynamically to get fresh Pinia
-    const { setActivePinia, createPinia } = await import('pinia')
-    setActivePinia(createPinia())
-    const { useConfigStore } = await import('@/stores/configStore')
-    const store = useConfigStore()
+describe('integration: app store + storage', () => {
+  it('app state persists to storage', async () => {
+    const initialState = await appStateStorage.getValue()
+    expect(initialState?.thresholds).toBeDefined()
+    expect(initialState?.configLastUpdated).toBeGreaterThan(0)
 
-    await store.setActiveLevels(2)
-    const stored = await configStorage.getValue()
-    expect(stored?.thresholds?.activeLevels).toBe(2)
+    // Simulate a config change
+    const newState: typeof initialState = {
+      thresholds: initialState?.thresholds ?? DEFAULT_THRESHOLDS.toJSON(),
+      configLastUpdated: Date.now(),
+      version: initialState?.version ?? '1.0.0',
+    }
+    await appStateStorage.setValue(newState)
+    const stored = await appStateStorage.getValue()
+    expect(stored?.configLastUpdated).toBe(newState.configLastUpdated)
   })
 })

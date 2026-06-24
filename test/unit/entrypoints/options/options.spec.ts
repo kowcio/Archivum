@@ -1,13 +1,16 @@
+// @vitest-environment happy-dom
+
 /**
- * Options App.vue tests.
+ * Options App.vue tests — mounts REAL components via Quasar plugin.
  *
- * Verifies initial rendering, button states, and interactions.
- * Uses fakeBrowser for storage and messaging — no manual mocks needed.
+ * Uses fakeBrowser for storage/messaging — no manual mocks.
+ * Quasar components registered globally same as AppBootstrapper does.
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
 import { setActivePinia, createPinia } from 'pinia'
+import { Quasar, QTable, QTd, QTr, QBtn, QBtnGroup, QInput, QTooltip } from 'quasar'
 import { fakeBrowser } from 'wxt/testing/fake-browser'
 import App from '@/entrypoints/options/App.vue'
 import { OptionsPage } from '../../page-objects/OptionsPage'
@@ -21,19 +24,12 @@ describe('Options App.vue', () => {
   function createPage() {
     const wrapper = mount(App, {
       global: {
-        plugins: [createPinia()],
-        stubs: {
-          AppTitle: { template: '<div data-testid="app-title">Title</div>' },
-          GroupUngroup: { template: '<div data-testid="popup-btn-group-tabs">Group by age</div>' },
-          Thresholds: { template: '<div data-testid="thresholds-config">Config</div>' },
-          QBtn: { template: '<button><slot /></button>' },
-          QBtnGroup: { template: '<div><slot /></div>' },
-          QTable: { template: '<div><slot name="body" /></div>' },
-          QTr: { template: '<tr><slot /></tr>' },
-          QTd: { template: '<td><slot /></td>' },
-          QTooltip: { template: '<span><slot /></span>' },
-          QInput: { template: '<input :data-testid="$attrs[\'data-testid\'] || \'input\'" />' },
-        },
+        plugins: [
+          createPinia(),
+          [Quasar, {
+            components: { QTable, QTd, QTr, QBtn, QBtnGroup, QInput, QTooltip },
+          }],
+        ],
       },
     })
     return { wrapper, page: new OptionsPage(wrapper) }
@@ -55,7 +51,9 @@ describe('Options App.vue', () => {
   it('renders app title', async () => {
     const { wrapper } = createPage()
     await flushPromises()
-    expect(wrapper.find('[data-testid="app-title"]').exists()).toBe(true)
+    // Title.vue renders inside a .got-title-bar div with "Archivum" text
+    expect(wrapper.text()).toContain('Archivum')
+    expect(wrapper.find('.got-title-bar').exists()).toBe(true)
   })
 
   it('clicking group toggle sends groupTabsByAge message', async () => {

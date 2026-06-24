@@ -6,11 +6,12 @@
       <div class="row justify-center q-mt-md q-gutter-sm">
         <GroupUngroup />
 
-        <MockButton @mock-created="handleMockCreated" />
+        <MockButton @mock-created="refreshTabs" />
 
         <div data-testid="btn-load-tabs">
           <q-btn
             label="Load current tabs"
+            data-testid="load-tabs"
             icon="refresh"
             color="grey-7"
             :loading="loading"
@@ -35,12 +36,13 @@
       <!-- Thresholds Configuration -->
       <div class="row q-mt-lg">
         <div class="col">
-          <Thresholds />
+          <Thresholds @apply="refreshTabs" />
         </div>
       </div>
 
       <!-- Live tabs table -->
       <div class="table-container" v-if="tabs.length">
+        <div data-testid="table-error" v-if="tabRows.length <= 0 ">{{tabRows.length}}</div>
         <q-table
           title="Open Tabs"
           data-testid="table-open-tabs"
@@ -96,19 +98,19 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { browser } from 'wxt/browser'
 import { BACKGROUND_MESSAGE_ACTIONS } from '@/constants'
-import { useConfigStore } from '@/stores/configStore'
-import { TabRow } from '@/models/tabs/TabRow'
-import { AgeClassification } from '@/models/tabs/AgeClassification'
+import { useAppStore } from '@/store/appStore.ts'
+import { TabRow } from '@/entrypoints/options/models/TabRow.ts'
+import { AgeClassification } from '@/models/AgeClassification.ts'
 import Thresholds from '../../components/Thresholds.vue'
 import AppTitle from '@/components/Title.vue'
 import GroupUngroup from '@/components/GroupUngroup.vue'
 import MockButton from '@/components/MockButton.vue'
 import CloseAllTabsButton from '@/components/CloseAllTabsButton.vue'
 
-const configStore = useConfigStore()
+const appStore = useAppStore()
 const loading = ref(false)
 const error = ref<string | null>(null)
 const tabs = ref<any[]>([])
@@ -125,10 +127,10 @@ const columns: { name: string; label: string; field: string; align: 'left' | 'ri
 ]
 
 const tabRows = computed(() => {
-  const rows = TabRow.fromTabs(tabs.value, configStore.thresholds)
+  const rows = TabRow.fromTabs(tabs.value, appStore.thresholds.value)
   return rows.map((row: any, i: number) => {
     const days = row.lastAccessDays ?? 0
-    const c = AgeClassification.fromDays(days, configStore.thresholds)
+    const c = AgeClassification.fromDays(days, appStore.thresholds.value)
     return {
       ...row,
       ordinal: i + 1,
@@ -148,12 +150,6 @@ function truncate(text: string, max: number): string {
   return !text || text.length <= max ? text : text.substring(0, max) + '…'
 }
 
-function handleMockCreated(mockTabs: any[], err: string | null): void {
-  error.value = err
-  if (!err && mockTabs.length > 0) {
-    tabs.value = mockTabs
-  }
-}
 
 async function refreshTabs(): Promise<void> {
   loading.value = true
@@ -163,12 +159,12 @@ async function refreshTabs(): Promise<void> {
       action: BACKGROUND_MESSAGE_ACTIONS.GET_TABS
     })
     if (resp?.error) {
-      error.value = resp.error
+      error.value = `[GET_TABS] ${resp.error}`
       return
     }
     tabs.value = resp?.tabs ?? []
   } catch (err) {
-    error.value = err instanceof Error ? err.message : 'Failed to load tabs'
+    error.value = `[GET_TABS_ERROR] ${err instanceof Error ? err.message : 'Failed to load tabs'}`
   } finally {
     loading.value = false
   }
@@ -176,23 +172,26 @@ async function refreshTabs(): Promise<void> {
 
 async function closeTab(tabId: number | null): Promise<void> {
   if (tabId == null) return
-  await browser.tabs.remove(tabId)
-  tabs.value = tabs.value.filter((t: any) => t.id !== tabId)
+  try {
+    const resp: any = await browser.runtime.sendMessage({
+      action: BACKGROUND_MESSAGE_ACTIONS.CLOSE_TAB,
+      tabId
+    })
+    if (resp?.error) {
+      error.value = `[CLOSE_TAB] Tab#${tabId}: ${resp.error}`
+      return
+    }
+    tabs.value = tabs.value.filter((t: any) => t.id !== tabId)
+  } catch (err) {
+    error.value = `[CLOSE_TAB_ERROR] Tab#${tabId}: ${err instanceof Error ? err.message : 'Failed to close tab'}`
+  }
 }
-
 
 onMounted(() => {
   refreshTabs()
-  browser.tabs.onActivated.addListener(onTabActivated)
 })
 
-onUnmounted(() => {
-  browser.tabs.onActivated.removeListener(onTabActivated)
-})
 
-async function onTabActivated(_tabId: { tabId: number }): Promise<void> {
-  await refreshTabs()
-}
 </script>
 
 <style scoped>

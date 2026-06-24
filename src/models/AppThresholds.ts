@@ -26,12 +26,12 @@ export class AppThresholds {
 
   constructor(levels: ThresholdLevel[], activeLevels: number = levels.length) {
     this.levels = levels
-    // Clamp activeLevels to valid range
     this.activeLevels = Math.max(1, Math.min(activeLevels, levels.length))
   }
 
   /**
    * Returns only the active threshold levels (first N based on activeLevels count).
+   * Always safe: levels is always an array and activeLevels ≥ 1.
    */
   active(): ThresholdLevel[] {
     return this.levels.slice(0, this.activeLevels)
@@ -94,17 +94,48 @@ export class AppThresholds {
   }
 
   /**
-   * Creates AppThresholds from plain object (e.g., loaded from storage).
-   */
-  static fromObject(obj: {
-    levels?: ThresholdLevel[]
-    activeLevels?: number
-  }): AppThresholds {
-    return new AppThresholds(
-      obj.levels ?? DEFAULT_THRESHOLDS.levels,
-      obj.activeLevels ?? APP_DEFAULTS.THRESHOLDS.activeLevels
-    )
-  }
+    * Creates AppThresholds from plain object (e.g., loaded from storage).
+    * Validates that levels is an array; falls back to DEFAULT_THRESHOLDS if corrupted.
+    * Handles WXT storage serialization edge cases (arrays as objects).
+    */
+   static fromObject(obj: {
+     levels?: ThresholdLevel[] | Record<number, ThresholdLevel>
+     activeLevels?: number
+   }): AppThresholds {
+     // Validate and convert levels to array
+     let levels: ThresholdLevel[] | undefined = undefined
+
+     if (Array.isArray(obj.levels)) {
+       // Already an array
+       levels = obj.levels
+     } else if (obj.levels && typeof obj.levels === 'object') {
+       // Object (from WXT storage serialization) — convert to array
+       try {
+         levels = Object.values(obj.levels).filter((item): item is ThresholdLevel =>
+           item && typeof item === 'object' && 'days' in item
+         )
+       } catch {
+         // Conversion failed
+       }
+     }
+
+     if (!levels || levels.length === 0) {
+       console.warn('[AppThresholds.fromObject] Invalid or missing levels, using defaults', {
+         objKeys: Object.keys(obj),
+         objType: typeof obj,
+         levelsType: typeof obj.levels,
+         isArray: Array.isArray(obj.levels),
+         activeLevels: obj.activeLevels
+       })
+       return DEFAULT_THRESHOLDS
+     }
+     const result = new AppThresholds(
+       levels,
+       obj.activeLevels ?? APP_DEFAULTS.THRESHOLDS.activeLevels
+     )
+     console.log('[AppThresholds.fromObject] Created instance with activeLevels=', result.activeLevels)
+     return result
+   }
 }
 
 /**

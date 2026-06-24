@@ -2,6 +2,7 @@ import { ExtensionCleanupService } from '@/services/ExtensionCleanupService'
 import { BackgroundTabService } from '@/services/BackgroundTabService'
 import { APP_DEFAULTS, BACKGROUND_MESSAGE_ACTIONS } from '@/constants'
 import { browser } from 'wxt/browser'
+import { mockOverrides } from '@/store/appStore'
 
 console.debug('[EXT-DBG] background initialized - TOKEN:EXT_DBG_BACKGROUND_v1')
 
@@ -42,6 +43,13 @@ export default defineBackground({
         return true
       }
 
+      if (action === BACKGROUND_MESSAGE_ACTIONS.GROUP_TABS_BY_DOMAIN) {
+        BackgroundTabService.groupTabsByDomain()
+          .then((count) => sendResponse({ groupsCreated: count, error: null }))
+          .catch((err: any) => sendResponse({ groupsCreated: 0, error: String(err) }))
+        return true
+      }
+
       if (action === BACKGROUND_MESSAGE_ACTIONS.UNGROUP_ALL_TABS) {
         BackgroundTabService.ungroupAllTabs()
           .then(() => sendResponse({ error: null }))
@@ -49,25 +57,17 @@ export default defineBackground({
         return true
       }
 
-      if (action === BACKGROUND_MESSAGE_ACTIONS.CREATE_MOCK_TABS) {
-        BackgroundTabService.createMockTabs()
-          .then((tabs) => sendResponse({ error: null, tabs: JSON.parse(JSON.stringify(tabs)) }))
-          .catch((err: any) => sendResponse({ error: String(err), tabs: [] }))
-        return true
-      }
+       if (action === BACKGROUND_MESSAGE_ACTIONS.CREATE_MOCK_TABS) {
+         BackgroundTabService.createMockTabs()
+           .then((tabs) => sendResponse({ error: null, tabs }))
+           .catch((err: any) => sendResponse({ error: String(err), tabs: [] }))
+         return true
+       }
 
-      if (action === BACKGROUND_MESSAGE_ACTIONS.GET_TABS) {
-        BackgroundTabService.getTabs()
-          .then((tabs) => sendResponse({ error: null, tabs: JSON.parse(JSON.stringify(tabs)) }))
-          .catch((err: any) => sendResponse({ error: String(err), tabs: [] }))
-        return true
-      }
-
-       if (action === BACKGROUND_MESSAGE_ACTIONS.GET_BROWSER_CAPS) {
-         sendResponse({
-           hasTabGroups: browser.tabGroups != null,
-           hasAlarms: browser.alarms != null,
-         })
+       if (action === BACKGROUND_MESSAGE_ACTIONS.GET_TABS) {
+         BackgroundTabService.getTabs()
+           .then((tabs) => sendResponse({ error: null, tabs }))
+           .catch((err: any) => sendResponse({ error: String(err), tabs: [] }))
          return true
        }
 
@@ -85,6 +85,29 @@ export default defineBackground({
             .catch((err: any) => sendResponse({ hasPluginGroups: false, error: String(err) }))
           return true
         }
+
+        if (action === BACKGROUND_MESSAGE_ACTIONS.CLOSE_TAB) {
+          const { tabId } = message as { action: string; tabId: number }
+          BackgroundTabService.closeTab(tabId)
+            .then((error) => sendResponse({ error }))
+            .catch((err: any) => sendResponse({ error: String(err) }))
+          return true
+        }
+
+        // 🧪 Test helper: Set mock overrides for created tabs
+        if (action === 'setMockOverrides') {
+         const { overrides } = message as { action: string; overrides: Record<number, number> }
+         mockOverrides.setValue(overrides)
+           .then(() => {
+             console.log('[background] Mock overrides set:', Object.keys(overrides).length, 'tabs')
+             sendResponse({ error: null })
+           })
+           .catch((err: any) => {
+             console.error('[background] Failed to set mock overrides:', err)
+             sendResponse({ error: String(err) })
+           })
+         return true
+       }
       })
 
     console.log('[background] ✅ Ready')

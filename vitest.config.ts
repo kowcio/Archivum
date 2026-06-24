@@ -2,9 +2,14 @@ import { defineConfig } from 'vitest/config'
 import vue from '@vitejs/plugin-vue'
 import { WxtVitest } from 'wxt/testing/vitest-plugin'
 import path from 'path'
+import { quasar } from '@quasar/vite-plugin'
 
 export default defineConfig({
-  plugins: [vue(), WxtVitest()],
+  plugins: [
+    vue(),
+    WxtVitest(),
+    quasar(),
+  ],
   resolve: {
     alias: {
       '@': path.resolve(__dirname, 'src'),

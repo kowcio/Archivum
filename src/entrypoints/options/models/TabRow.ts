@@ -1,6 +1,6 @@
 import type {Tabs} from 'webextension-polyfill';
 import dayjs from 'dayjs';
-import { AppThresholds, DEFAULT_THRESHOLDS } from '@/models/AppThresholds'
+import { AppThresholds, DEFAULT_THRESHOLDS } from '@/models/AppThresholds.ts'
 
 /**
  * Model representing a tab row in the table

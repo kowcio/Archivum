@@ -16,11 +16,10 @@
  *   UI message → groupTabsByAge() / ungroupAllTabs()
  */
 
-import { TabRow } from '@/models/tabs/TabRow'
-import { AgeClassification } from '@/models/tabs/AgeClassification'
-import { configStorage } from '@/utils/configStorage'
-import { mockOverrides, activatedTimestamps } from '@/utils/mockStorage'
-import { AppThresholds, DEFAULT_THRESHOLDS } from '@/models/AppThresholds'
+import { TabRow } from '@/entrypoints/options/models/TabRow.ts'
+import { AgeClassification } from '@/models/AgeClassification.ts'
+import { getStorageThresholds } from '@/store/appStore.ts'
+import { AppThresholds } from '@/models/AppThresholds'
 import { browser } from 'wxt/browser'
 import type { Browser } from 'wxt/browser'
 import { MOCK_TABS } from '@/utils/mockTabData'
@@ -36,47 +35,46 @@ export class BackgroundTabService {
   }
 
   static async getThresholds(): Promise<AppThresholds> {
-    const stored = await configStorage.getValue()
-    if (stored?.thresholds?.levels) {
-      return AppThresholds.fromObject(stored.thresholds)
-    }
-    return DEFAULT_THRESHOLDS
+    return await getStorageThresholds()
   }
 
-  private static async applyTimestampOverrides(tabs: { id?: number; lastAccessed?: number }[]): Promise<void> {
-    const stamps = await activatedTimestamps.getValue()
-    const ids = Object.keys(stamps).map(Number)
-    if (!ids.length) return
-    for (const tab of tabs) {
-      if (tab.id != null && stamps[tab.id] != null) {
-        tab.lastAccessed = stamps[tab.id]
+    /**
+     * Applies mock lastAccessed overrides to raw tabs (debug).
+     * When a mock override exists for a tabId, it replaces tab.lastAccessed.
+     * Overrides persist so tab ages stay correct across page refreshes.
+     *
+     * OPTIMIZATION: Early return if no overrides, lazy load only if needed.
+     * Avoids storage reads in production environments (no mock data).
+     */
+    private static async applyMockOverrides(tabs: { id?: number; lastAccessed?: number }[]): Promise<void> {
+      try {
+        // Try to read mock_overrides — if empty or missing, early return (fast path)
+        const storageData = await browser.storage.local.get(['mock_overrides'])
+        const overrides: Record<number, number> = (storageData?.mock_overrides ?? {}) as Record<number, number>
+        const ids = Object.keys(overrides)
+
+        // Early return: no overrides means zero extra work
+        if (ids.length === 0) {
+          console.log('[BackgroundTabService] ✓ No mock overrides (production path)')
+          return
+        }
+
+        console.log('[BackgroundTabService] 📥 Applying mock overrides to', ids.length, 'tabs')
+
+        // Apply overrides only to tabs that have them
+        const numMap = ids.map(Number)
+        for (const tab of tabs) {
+          if (tab.id != null && overrides[tab.id] != null) {
+            const oldAccess = tab.lastAccessed
+            tab.lastAccessed = overrides[tab.id]
+            console.log(`[BackgroundTabService] Tab#${tab.id}: ${oldAccess} → ${tab.lastAccessed}`)
+          }
+        }
+        console.log('[BackgroundTabService] ✅ Applied mock overrides to', ids.length, 'tabs')
+      } catch (err) {
+        console.warn('[BackgroundTabService] ⚠️ Failed to read mock overrides:', err)
       }
     }
-  }
-
-  /**
-   * Applies mock lastAccessed overrides to raw tabs (debug).
-   * When a mock override exists for a tabId, it replaces tab.lastAccessed.
-   * Overrides persist so tab ages stay correct across page refreshes.
-   */
-   private static async applyMockOverrides(tabs: { id?: number; lastAccessed?: number }[]): Promise<void> {
-     const overrides = await mockOverrides.getValue()
-     const ids = Object.keys(overrides).map(Number)
-     console.log('[BackgroundTabService] Mock overrides storage:', { count: ids.length, tabIds: ids.slice(0, 3), sample: Object.entries(overrides).slice(0, 2) })
-     if (!ids.length) {
-       console.log('[BackgroundTabService] ⚠️ No mock overrides found!')
-       return
-     }
-
-     for (const tab of tabs) {
-       if (tab.id != null && overrides[tab.id] != null) {
-         const oldAccess = tab.lastAccessed
-         tab.lastAccessed = overrides[tab.id]
-         console.log(`[BackgroundTabService] Tab#${tab.id}: ${oldAccess} → ${tab.lastAccessed} (${overrides[tab.id]})`)
-       }
-     }
-     console.log('[BackgroundTabService] Applied mock overrides to', ids.length, 'tabs')
-   }
 
    static async groupTabsByAge(): Promise<number> {
      console.log('[BackgroundTabService] groupTabsByAge...')
@@ -88,87 +86,88 @@ export class BackgroundTabService {
        }
 
        const rawTabs = await browser.tabs.query({ currentWindow: true })
-       console.log(`[BackgroundTabService] Raw tabs: ${rawTabs.length}`)
-
        const thresholds = await this.getThresholds()
-       console.log(`[BackgroundTabService] Thresholds: ${JSON.stringify(thresholds)}`)
-
-       // Apply real activation timestamps + mock overrides
        await this.applyMockOverrides(rawTabs)
 
        const rows = TabRow.fromTabs(rawTabs, thresholds)
-       console.log(`[BackgroundTabService] TabRows after fromTabs: ${rows.length}`)
-       console.log(`[BackgroundTabService] Sample rows:`, rows.slice(0, 3).map(r => ({ id: r.id, lastAccessDays: r.lastAccessDays, title: r.title?.slice(0, 30) })))
-
        const activeLevels = thresholds.active()
-       console.log(`[BackgroundTabService] Active levels: ${activeLevels.length} → ${activeLevels.map(l => l.label).join(', ')}`)
-
        const levelTabIds: number[][] = Array.from({ length: activeLevels.length }, () => [])
        const freshTabIds: number[] = []
 
-       // Build age map for sorting
+       // Build age map for sorting tabs within each level
        const ageMap = new Map<number, number>()
        for (const row of rows) {
          if (row.id != null) ageMap.set(row.id, row.lastAccessDays ?? 0)
        }
 
+       // Classify tabs into age levels, collecting fresh tabs separately
        for (const row of rows) {
          if (row.id == null) continue
          const c = AgeClassification.fromDays(row.lastAccessDays ?? 0, thresholds)
-         console.log(`[BackgroundTabService] Tab#${row.id}: ${row.lastAccessDays}d → age index ${c.index}`)
          if (c.index === 0) {
+           // Fresh tabs — stay ungrouped, will move to rightmost later
            freshTabIds.push(row.id)
          } else if (c.index > 0 && c.index <= activeLevels.length) {
            levelTabIds[c.index - 1].push(row.id)
          }
        }
 
-       console.log(`[BackgroundTabService] Distribution: fresh=${freshTabIds.length}, levels=[${levelTabIds.map(l => l.length).join(', ')}]`)
+       // Sort tabs within each level by age (oldest first = highest lastAccessDays first)
+       for (const ids of levelTabIds) {
+         ids.sort((a, b) => (ageMap.get(b) ?? 0) - (ageMap.get(a) ?? 0))
+       }
 
-      // Sort tabs within each level by age (oldest first = highest lastAccessDays first)
-      for (const ids of levelTabIds) {
-        ids.sort((a, b) => (ageMap.get(b) ?? 0) - (ageMap.get(a) ?? 0))
-      }
+       // ── Reorder tabs so visual order matches: oldest→youngest groups left-to-right, fresh far right ──
+       // Build ordered array: oldest level first (Month+ → left), youngest level last (Week+ → right), fresh at end
+       const orderedTabIds: number[] = []
+       for (let i = activeLevels.length - 1; i >= 0; i--) {
+         orderedTabIds.push(...levelTabIds[i])
+       }
+       orderedTabIds.push(...freshTabIds)
 
-      const createGroup = async (ids: number[], title: string, color: string): Promise<number | null> => {
-        if (!ids.length) return null
-        try {
-          const id = await (browser.tabs as any).group({ tabIds: ids })
-          await (browser.tabGroups as any).update(id, { title, color, collapsed: true })
-          return id
-        } catch {
-          return null
-        }
-      }
+       // Move all tabs into position in bulk — oldest at index 0 (leftmost), fresh at highest index (rightmost)
+       if (orderedTabIds.length > 0) {
+         try {
+           await browser.tabs.move(orderedTabIds, { index: 0 })
+           console.log(`[BackgroundTabService] ✅ Reordered ${orderedTabIds.length} tabs (oldest→youngest→fresh)`)
+         } catch (err) {
+           console.warn('[BackgroundTabService] ⚠️ Tab reorder failed, skipping:', err)
+         }
+       }
 
-      // Create groups from oldest → youngest so they appear left-to-right
-      let groupsCreated = 0
-      for (let i = activeLevels.length - 1; i >= 0; i--) {
-        const level = activeLevels[i]
-        const gid = await createGroup(levelTabIds[i], `${level.label} (${levelTabIds[i].length})`, level.color)
-        if (gid !== null) groupsCreated++
-      }
+       // Create groups from oldest→youngest (left→right).
+       // After reorder, Month+ tabs are at lowest indexes, so Month+ group appears leftmost.
+       let groupsCreated = 0
+       for (let i = activeLevels.length - 1; i >= 0; i--) {
+         const level = activeLevels[i]
+         const tabIds = levelTabIds[i]
 
-      // Move fresh (ungrouped) tabs to the rightmost, sorted by age (oldest first)
-      if (freshTabIds.length > 0) {
-        freshTabIds.sort((a, b) => (ageMap.get(b) ?? 0) - (ageMap.get(a) ?? 0))
-        try {
-          await browser.tabs.move(freshTabIds, { index: -1 })
-        } catch {
-          // Some browsers may not support moving all at once — fallback to sequential
-          for (const id of freshTabIds) {
-            try { await browser.tabs.move(id, { index: -1 }) } catch { }
-          }
-        }
-      }
+         if (tabIds.length === 0) continue
 
-      console.log(`[BackgroundTabService] ✅ Created ${groupsCreated} age groups, ${freshTabIds.length} fresh tabs moved to rightmost`)
-      return groupsCreated
-    } catch (err) {
-      console.error('[BackgroundTabService] ❌', err)
-      return 0
-    }
-  }
+         try {
+           const groupId = await (browser.tabs as any).group({ tabIds })
+           await (browser.tabGroups as any).update(groupId, {
+             title: `${level.label} (${tabIds.length})`,
+             color: level.color,
+             collapsed: true
+           })
+           groupsCreated++
+           console.log(`[BackgroundTabService] ✅ Created group "${level.label}" with ${tabIds.length} tabs`)
+         } catch (err) {
+           console.error(`[BackgroundTabService] Failed to create group "${level.label}":`, err)
+         }
+       }
+
+       // Note: fresh tabs were already moved to rightmost in the reorder step above.
+       // No separate move needed.
+
+       console.log(`[BackgroundTabService] ✅ Created ${groupsCreated} groups (oldest on left, youngest on right) + ${freshTabIds.length} fresh tabs at far right`)
+       return groupsCreated
+     } catch (err) {
+       console.error('[BackgroundTabService] ❌', err)
+       return 0
+     }
+   }
 
   static async ungroupAllTabs(): Promise<void> {
     try {
@@ -189,28 +188,22 @@ export class BackgroundTabService {
 
    static async onTabActivated(tabId: number): Promise<void> {
      try {
-       // 💾 Save real activation timestamp — always, regardless of group status
-       const now = Date.now()
-       const stamps: Record<number, number> = await activatedTimestamps.getValue()
-       stamps[tabId] = now
-       await activatedTimestamps.setValue(stamps)
-
        // 🎯 Filter: Only modify tabs IN plugin-created groups
        const inPluginGroup = await this.isInPluginGroup(tabId)
        if (!inPluginGroup) {
-         console.log(`[BackgroundTabService] ⏭️ Tab#${tabId} not in plugin group → skip modification (timestamp saved only)`)
+         console.log(`[BackgroundTabService] ⏭️ Tab#${tabId} not in plugin group → skip modification`)
          return
        }
 
-
-
-      // 🧩 ungroup BEFORE move — move alone keeps the tab inside its group (Chrome/Edge).
-      // Without ungroup, the tab stays grouped and the whole group moves to the right.
-      // Firefox lacks tabGroups API so ungroup throws — caught silently.
-      try { await (browser.tabs as any).ungroup(tabId) } catch { /* Firefox / not grouped */ }
+       // 🧩 Ungroup BEFORE move — removes tab from group (Chrome/Edge).
+       // IMPORTANT: Use browser.tabs.ungroup([tabId]) NOT browser.tabs.update({ groupId: -1 })
+       // The update() API does NOT accept groupId — it silently ignores it.
+       // Only ungroup() actually removes a tab from its group.
+       // Firefox has no ungroup API, so the catch block handles that gracefully.
+       try { await (browser.tabs as any).ungroup([tabId]) } catch { /* Firefox or already ungrouped */ }
 
       // ➡️ Move to rightmost with retry — tabs may be locked during user drag
-      const maxRetries = 3
+      const maxRetries = 2
       for (let attempt = 0; attempt < maxRetries; attempt++) {
         try {
           await browser.tabs.move(tabId, { index: -1 })
@@ -235,68 +228,85 @@ export class BackgroundTabService {
     }
   }
 
-  /**
-   * Queries tabs from current window with mock overrides applied.
-   * Used by UI contexts to get correct lastAccessed values for display.
-   */
-  static async getTabs(): Promise<Browser.tabs.Tab[]> {
-    const rawTabs = await browser.tabs.query({ currentWindow: true })
-    // Deep clone to avoid mutating the original tab objects
-    const tabs: Browser.tabs.Tab[] = JSON.parse(JSON.stringify(rawTabs))
-    // await this.applyTimestampOverrides(tabs)
-    await this.applyMockOverrides(tabs)
-    return tabs
-  }
+   /**
+    * Queries tabs from current window.
+    * Applies mock overrides if they exist (for debug/testing).
+    * UI displays tabs with mocked lastAccessed when in debug mode.
+    */
+   static async getTabs(): Promise<Browser.tabs.Tab[]> {
+     const tabs = await browser.tabs.query({ currentWindow: true })
+     await this.applyMockOverrides(tabs)
+     return tabs
+   }
 
-  /**
-   * Creates mock tabs using realistic data from mockTabData.ts.
-   * Each tab gets a backdated lastAccessed for testing grouping flow.
-   * Returns created tabs with overrides already applied so UI sees correct data.
-   */
-  static async createMockTabs(): Promise<Browser.tabs.Tab[]> {
-    const now = Date.now()
-    const DAY_MS = 86400000
-    const tabIds: number[] = []
+   /**
+    * Creates mock tabs using realistic data from mockTabData.ts.
+    * Automatically sets mock overrides for each tab based on daysAgo to enable grouping.
+    *
+    * Flow:
+    * 1. Create N tabs from MOCK_TABS array
+    * 2. Build overrides map: tabId → (now - daysAgo * 24h)
+    * 3. Set overrides in storage for applyMockOverrides() to use
+    * 4. Return all tabs (mock + existing)
+    */
+   static async createMockTabs(): Promise<Browser.tabs.Tab[]> {
+     const tabIds: number[] = []
+     const DAY_MS = 86400000 // 24 hours in milliseconds
+     const now = Date.now()
 
-    // Create tabs using realistic mock data
-    for (let i = 0; i < MOCK_TABS.length; i++) {
-      const mock = MOCK_TABS[i]
-      try {
-        const tab = await browser.tabs.create({
-          url: mock.url,
-          active: false,
-        })
-        if (tab.id != null) tabIds.push(tab.id)
-      } catch {
-        // Some URLs may fail — create simpler tabs as fallback
-        const tab = await browser.tabs.create({ url: `https://example.com/mock-${i}`, active: false })
-        if (tab.id != null) tabIds.push(tab.id)
-      }
-    }
+     console.log(`[BackgroundTabService] createMockTabs: starting...`)
 
-    // Brief delay to let tabs start loading
-    await new Promise(r => setTimeout(r, 500))
+     // Create tabs using realistic mock data
+     for (let i = 0; i < MOCK_TABS.length; i++) {
+       const mock = MOCK_TABS[i]
+       try {
+         const tab = await browser.tabs.create({
+           url: mock.url,
+           active: false,
+         })
+         if (tab.id != null) tabIds.push(tab.id)
+       } catch {
+         // Some URLs may fail — create simpler tabs as fallback
+         const tab = await browser.tabs.create({ url: `https://example.com/mock-${i}`, active: false })
+         if (tab.id != null) tabIds.push(tab.id)
+       }
+     }
 
-    // Store mock overrides — applied on next queries
-    const overrides: Record<number, number> = {}
-    for (let i = 0; i < tabIds.length; i++) {
-      overrides[tabIds[i]] = now - MOCK_TABS[i].daysAgo * DAY_MS
-    }
-    await mockOverrides.setValue(overrides)
+     console.log(`[BackgroundTabService] Created ${tabIds.length} tabs, now setting overrides...`)
 
-    // Re-query and apply overrides so returned tabs have correct lastAccessed
-    const allTabs = await browser.tabs.query({ currentWindow: true })
-    const applied: Browser.tabs.Tab[] = []
-    for (const tab of allTabs) {
-      if (tab.id != null && overrides[tab.id] != null) {
-        applied.push({ ...(tab as any), lastAccessed: overrides[tab.id] })
-      } else {
-        applied.push(tab)
-      }
-    }
-    console.log(`[BackgroundTabService] Created ${tabIds.length} mock tabs with backdated lastAccessed, queried ${allTabs.length} total tabs`)
-    return applied
-  }
+     // Brief delay to let tabs start loading
+     await new Promise(r => setTimeout(r, 500))
+
+     // Build overrides map: tabId → lastAccessed timestamp based on daysAgo
+     const overridesMap: Record<number, number> = {}
+     for (let i = 0; i < tabIds.length && i < MOCK_TABS.length; i++) {
+       const tabId = tabIds[i]
+       const daysAgo = MOCK_TABS[i].daysAgo ?? 1
+       overridesMap[tabId] = now - daysAgo * DAY_MS
+       console.log(`[BackgroundTabService] Mock override: tab#${tabId} → ${daysAgo} days ago`)
+     }
+
+     // Set overrides in browser.storage.local directly (ensures cross-context sync)
+     try {
+       console.log(`[BackgroundTabService] About to set ${Object.keys(overridesMap).length} overrides...`)
+       await browser.storage.local.set({ mock_overrides: overridesMap })
+       console.log(`[BackgroundTabService] ✅ Set ${Object.keys(overridesMap).length} mock overrides via browser.storage.local`)
+     } catch (err) {
+       console.error(`[BackgroundTabService] ❌ Failed to set overrides:`, err)
+     }
+
+     // Extra delay to ensure storage is persisted/synchronized (WXT MV3 constraint)
+     console.log(`[BackgroundTabService] Waiting 1s for storage sync...`)
+     await new Promise(r => setTimeout(r, 1000))
+     console.log(`[BackgroundTabService] Storage sync complete`)
+
+     // Re-query tabs to get full tab objects
+     const allTabs = await browser.tabs.query({ currentWindow: true })
+     console.log(`[BackgroundTabService] Created ${tabIds.length} mock tabs, queried ${allTabs.length} total tabs`)
+
+
+     return allTabs
+   }
 
    /**
     * Check if a tab is in a plugin-created group.
@@ -337,5 +347,165 @@ export class BackgroundTabService {
        return false
      }
    }
-}
 
+    /**
+     * Close a tab and update its group name to reflect the new tab count.
+     * If tab is in a plugin-created group, updates group title with (count-1).
+     * Gracefully handles non-grouped tabs and Firefox (no tabGroups API).
+     *
+     * @param tabId - ID of the tab to close
+     * @returns Error message or null if successful
+     */
+    static async closeTab(tabId: number): Promise<string | null> {
+      try {
+        const tab = await browser.tabs.get(tabId)
+
+        // Get group info if tab is grouped
+        let groupId: number | null = null
+        let groupTitle: string | null = null
+
+        if (browser.tabGroups != null && tab.groupId != null && tab.groupId !== -1) {
+          groupId = tab.groupId
+          try {
+            const group = await (browser.tabGroups as any).get(groupId)
+            groupTitle = group.title
+          } catch {
+            // Group query failed, skip update
+          }
+        }
+
+        // Close the tab
+        await browser.tabs.remove(tabId)
+        console.log(`[BackgroundTabService] ✅ Closed tab#${tabId}`)
+
+        // If tab was in a plugin group, update group title with new count
+        if (groupId != null && groupTitle != null && browser.tabGroups != null) {
+          try {
+            // Count remaining tabs in group
+            const groupTabs = await browser.tabs.query({ groupId })
+            const newCount = groupTabs.length
+
+            // Update title with new count (extract label prefix)
+            const match = groupTitle.match(/^(.+?)\s*\(\d+\)$/)
+            const labelPrefix = match ? match[1] : groupTitle
+
+            if (newCount > 0) {
+              await (browser.tabGroups as any).update(groupId, {
+                title: `${labelPrefix} (${newCount})`
+              })
+              console.log(`[BackgroundTabService] ✅ Updated group title to "${labelPrefix} (${newCount})"`)
+            } else {
+              // Remove group if no tabs left
+              await (browser.tabs as any).ungroup(tabId)
+              console.log(`[BackgroundTabService] ✅ Removed empty group`)
+            }
+          } catch (err) {
+            console.warn(`[BackgroundTabService] ⚠️ Failed to update group title:`, err)
+          }
+        }
+
+        return null
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err)
+        console.error(`[BackgroundTabService] ❌ closeTab error:`, msg)
+        return msg
+      }
+    }
+
+   /**
+    * Groups tabs by domain name, with secondary sorting by age (if >2 tabs per domain).
+    * Creates groups like "example.com (5)", "github.com (3)" etc.
+    * Within each domain: if >2 tabs, sort by age (oldest first).
+    *
+    * CROSS-BROWSER SUPPORT:
+    *   ✅ Chrome/Edge: Full grouping via browser.tabGroups API
+    *   ✅ Firefox: No tabGroups API, gracefully skips grouping
+    *   ✅ All browsers: Tabs sorted by domain, ungrouped tabs preserved
+    */
+   static async groupTabsByDomain(): Promise<number> {
+    console.log('[BackgroundTabService] groupTabsByDomain...')
+    try {
+      const hasTabGroups = browser.tabGroups != null
+      if (!hasTabGroups) {
+        console.log('[BackgroundTabService] ℹ️ Tab grouping not available (Firefox)')
+        return 0
+      }
+
+      const rawTabs = await browser.tabs.query({ currentWindow: true })
+      console.log(`[BackgroundTabService] Raw tabs: ${rawTabs.length}`)
+
+      // Apply mock overrides
+      await this.applyMockOverrides(rawTabs)
+
+      // Get thresholds for sorting tabs by age
+      const thresholds = await this.getThresholds()
+
+      // Create TabRow objects to access domain info
+      const rows = TabRow.fromTabs(rawTabs, thresholds)
+      console.log(`[BackgroundTabService] TabRows after fromTabs: ${rows.length}`)
+
+      // Build age map for sorting
+      const ageMap = new Map<number, number>()
+      for (const row of rows) {
+        if (row.id != null) ageMap.set(row.id, row.lastAccessDays ?? 0)
+      }
+
+      // Group tabs by domain
+      const domainGroups = new Map<string, number[]>()
+      for (const row of rows) {
+        if (row.id == null) continue
+        const domain = row.domain || 'unknown'
+        if (!domainGroups.has(domain)) {
+          domainGroups.set(domain, [])
+        }
+        domainGroups.get(domain)!.push(row.id)
+      }
+
+      console.log(`[BackgroundTabService] Found ${domainGroups.size} unique domains`)
+
+      // Sort domains alphabetically and prepare for grouping
+      const sortedDomains = Array.from(domainGroups.keys()).sort()
+      const domainTabIds: Array<{ domain: string; tabIds: number[] }> = []
+
+      for (const domain of sortedDomains) {
+        const tabIds = domainGroups.get(domain)!
+        // If more than 2 tabs in this domain, sort by age (oldest first = highest days first)
+        if (tabIds.length > 2) {
+          tabIds.sort((a, b) => (ageMap.get(b) ?? 0) - (ageMap.get(a) ?? 0))
+          console.log(`[BackgroundTabService] Domain "${domain}" has ${tabIds.length} tabs (sorted by age)`)
+        } else {
+          console.log(`[BackgroundTabService] Domain "${domain}" has ${tabIds.length} tab(s) (no age sort needed)`)
+        }
+        domainTabIds.push({ domain, tabIds })
+      }
+
+      const createGroup = async (ids: number[], title: string, color: string): Promise<number | null> => {
+        if (!ids.length) return null
+        try {
+          const id = await (browser.tabs as any).group({ tabIds: ids })
+          await (browser.tabGroups as any).update(id, { title, color, collapsed: true })
+          return id
+        } catch {
+          return null
+        }
+      }
+
+      // Create groups from sorted domains (left to right = A to Z)
+      let groupsCreated = 0
+      const colorPalette = ['green', 'blue', 'orange', 'red', 'pink', 'purple', 'cyan', 'grey']
+      for (let i = 0; i < domainTabIds.length; i++) {
+        const { domain, tabIds } = domainTabIds[i]
+        const color = colorPalette[i % colorPalette.length]
+        const title = `${domain} (${tabIds.length})`
+        const gid = await createGroup(tabIds, title, color)
+        if (gid !== null) groupsCreated++
+      }
+
+      console.log(`[BackgroundTabService] ✅ Created ${groupsCreated} domain groups`)
+      return groupsCreated
+    } catch (err) {
+      console.error('[BackgroundTabService] ❌', err)
+      return 0
+    }
+  }
+}
