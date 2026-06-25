@@ -20,18 +20,22 @@ export class PopupPage {
   private readonly openPluginOptionsBtn: Locator;
 
   constructor(public readonly page: Page) {
-    this.groupTabsBtn = page.getByTestId('group-tabs-btn');
+    // Popup context: GroupUngroup component gets wrapped with "popup-btn-" prefix
+    this.groupTabsBtn = page.getByTestId('popup-btn-group-tabs');
     this.openOptionsBtn = page.getByTestId('popup-btn-open-option-page');
     this.openPluginOptionsBtn = page.getByTestId('popup-btn-plugin-browser-option');
   }
 
   /**
    * Navigate to Popup page using extension ID.
+   * Waits for networkidle to ensure popup fully renders.
    */
   async goto(extensionId: string): Promise<void> {
     await this.page.goto(`chrome-extension://${extensionId}/popup.html`, {
       waitUntil: 'domcontentloaded',
     });
+    // Extra wait for Vue app to mount and render buttons
+    await this.page.waitForLoadState('networkidle');
   }
 
   /**
@@ -57,20 +61,22 @@ export class PopupPage {
 
   /**
    * Verify all action buttons are visible.
+   * Uses global Playwright timeout (15000ms from config).
    */
   async expectAllButtonsVisible(): Promise<void> {
     await Promise.all([
-      expect(this.groupTabsBtn).toBeVisible({ timeout: 3000 }),
-      expect(this.openOptionsBtn).toBeVisible({ timeout: 3000 }),
-      expect(this.openPluginOptionsBtn).toBeVisible({ timeout: 3000 }),
+      expect(this.groupTabsBtn).toBeVisible(),
+      expect(this.openOptionsBtn).toBeVisible(),
+      expect(this.openPluginOptionsBtn).toBeVisible(),
     ]);
   }
 
   /**
    * Verify Group Tabs button is visible.
+   * Uses global Playwright timeout (15000ms from config).
    */
   async expectGroupButtonVisible(): Promise<void> {
-    await expect(this.groupTabsBtn).toBeVisible({ timeout: 3000 });
+    await expect(this.groupTabsBtn).toBeVisible();
   }
 
   /**

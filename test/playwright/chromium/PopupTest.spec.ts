@@ -7,6 +7,7 @@
 import { expect, test, type BrowserContext } from "@playwright/test";
 import { launchChromeContext } from "./extensions.js";
 import { PopupPage } from "../page-objects/PopupPage.js";
+import { OptionsPage } from "../page-objects/OptionsPage.js";
 
 type ExtensionCtx = { context: BrowserContext; extensionId: string; cleanup: () => Promise<void> };
 
@@ -17,6 +18,8 @@ test.describe("Popup UI Tests", () => {
     test.skip(test.info().project.name !== "chrome-mv3", "Chrome MV3 only");
     test.setTimeout(30_000);
     ctx = await launchChromeContext();
+    // Setup service worker logging for debugging
+    OptionsPage.setupServiceWorkerLogging(ctx.context);
   });
 
   test.afterAll("Cleanup: close extension context", async () => {
