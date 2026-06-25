@@ -19,6 +19,30 @@ export enum ThemeColor {
   Cyan = 'cyan',
 }
 
+/**
+ * Threshold level keys — PRIMARY SOURCE OF TRUTH for unique identifiers.
+ * Used throughout app for threshold configuration and grouping logic.
+ */
+export enum ThresholdKey {
+  WEEK = 'WEEK',
+  WEEKS_2 = 'WEEKS_2',
+  MONTH = 'MONTH',
+  QUARTERS = 'QUARTERS',
+  YEARS = 'YEARS',
+}
+
+/**
+ * Threshold level display labels — PRIMARY SOURCE OF TRUTH for UI text.
+ * Used in tab group titles, threshold inputs, and UI labels.
+ */
+export enum ThresholdLabel {
+  WEEK = 'Week+',
+  WEEKS_2 = '2 Weeks+',
+  MONTH = 'Month+',
+  QUARTERS = 'Quarter+',
+  YEARS = 'Are you kidding me ?',
+}
+
 /** Single threshold level configuration: key + label + days + color name. */
 export type ThresholdLevel = {
   key: string
@@ -53,11 +77,11 @@ export const APP_DEFAULTS = {
     // Colors reference ThemeColor enum:
     // - Chrome/Firefox tab groups API uses color names directly
     presets: [
-      { key: 'WEEK',                 label: 'Week+',                  days: 7,    color: ThemeColor.Green },
-      { key: 'WEEKS_2',              label: '2 Weeks+',               days: 14,   color: ThemeColor.Blue },
-      { key: 'MONTH',                label: 'Month+',                 days: 28,   color: ThemeColor.Orange },
-      { key: 'QUARTERS',             label: 'Quarter+',               days: 90,   color: ThemeColor.Red },
-      { key: 'YEARS',                label: 'Are You kidding me ?',   days: 365,  color: ThemeColor.Pink },
+      { key: ThresholdKey.WEEK,     label: ThresholdLabel.WEEK,     days: 7,    color: ThemeColor.Green },
+      { key: ThresholdKey.WEEKS_2,  label: ThresholdLabel.WEEKS_2,  days: 14,   color: ThemeColor.Blue },
+      { key: ThresholdKey.MONTH,    label: ThresholdLabel.MONTH,    days: 28,   color: ThemeColor.Orange },
+      { key: ThresholdKey.QUARTERS, label: ThresholdLabel.QUARTERS, days: 90,   color: ThemeColor.Red },
+      { key: ThresholdKey.YEARS,    label: ThresholdLabel.YEARS,    days: 365,  color: ThemeColor.Pink },
     ] as const satisfies readonly ThresholdLevel[],
   },
 }
