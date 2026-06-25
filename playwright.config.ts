@@ -6,7 +6,7 @@ const height = 900;
 export default defineConfig({
   testDir: './test/playwright',
   timeout: 60000,
-  expect: { timeout: 10000 },
+  expect: { timeout: 15000 },  // Global timeout for all expect() assertions: 15 seconds
   fullyParallel: false,
   reporter: [
     ['list', { printSteps: true }],

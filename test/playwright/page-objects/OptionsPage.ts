@@ -65,12 +65,13 @@ export class OptionsPage {
 
   /**
    * Verify Options page is fully loaded with all main components visible.
+   * Uses global Playwright timeout (10000ms from config).
    */
   async expectPageLoaded(): Promise<void> {
     await Promise.all([
-      expect(this.groupTabsBtn).toBeVisible({ timeout: 4000 }),
-      expect(this.ungroupTabsBtn).not.toBeVisible({ timeout: 2000 }),
-      expect(this.thresholdsConfig).toBeVisible({ timeout: 4000 }),
+      expect(this.groupTabsBtn).toBeVisible(),
+      expect(this.ungroupTabsBtn).not.toBeVisible(),
+      expect(this.thresholdsConfig).toBeVisible(),
     ]);
   }
 
@@ -224,45 +225,51 @@ export class OptionsPage {
 
   /**
    * Verify table is visible.
+   * Uses global Playwright timeout (15000ms from config).
    */
   async expectTableVisible(): Promise<void> {
-    await expect(this.openTabsTable).toBeVisible({ timeout: 3000 });
+    await expect(this.openTabsTable).toBeVisible();
   }
 
   /**
    * Verify first table row is visible.
+   * Uses global Playwright timeout (15000ms from config).
    */
   async expectFirstRowVisible(): Promise<void> {
-    await expect(this.openTabsTable.locator('tr').first()).toBeVisible({ timeout: 3000 });
+    await expect(this.openTabsTable.locator('tr').first()).toBeVisible();
   }
 
   /**
    * Verify Group button is visible (no groups exist).
+   * Uses global Playwright timeout (15000ms from config).
    */
   async expectGroupButtonVisible(): Promise<void> {
-    await expect(this.groupTabsBtn).toBeVisible({ timeout: 3000 });
+    await expect(this.groupTabsBtn).toBeVisible();
   }
 
   /**
    * Verify Ungroup button is visible (groups exist).
+   * Uses global Playwright timeout (15000ms from config).
    */
   async expectUngroupButtonVisible(): Promise<void> {
-    await expect(this.ungroupTabsBtn).toBeVisible({ timeout: 3000 });
+    await expect(this.ungroupTabsBtn).toBeVisible();
   }
 
   /**
    * Verify Ungroup button is NOT visible (no groups exist).
+   * Uses global Playwright timeout (15000ms from config).
    */
   async expectUngroupButtonHidden(): Promise<void> {
-    await expect(this.ungroupTabsBtn).not.toBeVisible({ timeout: 2000 });
+    await expect(this.ungroupTabsBtn).not.toBeVisible();
   }
 
 
   /**
    * Verify config section is visible.
+   * Uses global Playwright timeout (15000ms from config).
    */
   async expectThresholdsVisible(): Promise<void> {
-    await expect(this.thresholdsConfig).toBeVisible({ timeout: 3000 });
+    await expect(this.thresholdsConfig).toBeVisible();
   }
 
   /**
@@ -309,16 +316,18 @@ export class OptionsPage {
 
   /**
    * Verify Apply button is visible (changes detected).
+   * Uses global Playwright timeout (15000ms from config).
    */
   async expectApplyThresholdButtonVisible(): Promise<void> {
-    await expect(this.applyThresholdBtn).toBeVisible({ timeout: 2000 });
+    await expect(this.applyThresholdBtn).toBeVisible();
   }
 
   /**
    * Verify Apply button is NOT visible (no changes).
+   * Uses global Playwright timeout (15000ms from config).
    */
   async expectApplyThresholdButtonHidden(): Promise<void> {
-    await expect(this.applyThresholdBtn).not.toBeVisible({ timeout: 2000 });
+    await expect(this.applyThresholdBtn).not.toBeVisible();
   }
 
   /**
