@@ -25,7 +25,7 @@ background.ts (service worker — NO Pinia)
 | **Daily alarm (24h)** | BackgroundTabService.groupTabsByAge() → creates groups from youngest to oldest (left-to-right) | Chrome + Edge only; Firefox skips gracefully |
 | **Tab activated in group** | BackgroundTabService.onTabActivated() → ungroup + move to rightmost + update lastAccessed | ✅ All browsers (Firefox has no ungroup API, skips step 1) |
 | **Tab order** | **Groups:** Youngest (7 days, left) → Oldest (365+ days, right). **Fresh tabs:** Stay in original positions (rightmost, ungrouped) | ✅ All browsers |
-| **Group titles** | `Week+`, `2 Weeks+`, `Month+`, `Quarter+`, `Are you kidding me?` — youngest to oldest | Chrome + Edge only |
+| **Group titles** | `Week+`, `2 Weeks+`, `Month+`, `Quarter+`, `Are You kidding me?` — youngest to oldest | Chrome + Edge only |
 
 ## Universal Rules
 
