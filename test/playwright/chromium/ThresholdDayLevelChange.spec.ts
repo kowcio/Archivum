@@ -29,7 +29,6 @@ test.describe('Threshold Day Levels', () => {
   test('Check threshold day levels to save properly and change tabs after apply', async () => {
     const options = new OptionsPage(await ctx.context.newPage())
     await options.goto(ctx.extensionId)
-    await options.expectPageLoaded()
 
     // 1. Create mock tabs (14 tabs with various daysAgo values)
     const resp = await options.clickLoadMockTabs(800)

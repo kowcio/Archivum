@@ -20,22 +20,26 @@ export class PopupPage {
   private readonly openPluginOptionsBtn: Locator;
 
   constructor(public readonly page: Page) {
-    // Popup context: GroupUngroup component gets wrapped with "popup-btn-" prefix
-    this.groupTabsBtn = page.getByTestId('popup-btn-group-tabs');
+    // ⚠️ GroupUngroup component renders with base testid (no "popup-btn-" prefix)
+    // Component uses dynamic: isGrouped ? 'ungroup-tabs-btn' : 'group-tabs-btn'
+    this.groupTabsBtn = page.getByTestId('group-tabs-btn');
     this.openOptionsBtn = page.getByTestId('popup-btn-open-option-page');
     this.openPluginOptionsBtn = page.getByTestId('popup-btn-plugin-browser-option');
   }
 
   /**
    * Navigate to Popup page using extension ID.
-   * Waits for networkidle to ensure popup fully renders.
+   * Uses waitForSelector to ensure Vue has hydrated before returning.
    */
   async goto(extensionId: string): Promise<void> {
     await this.page.goto(`chrome-extension://${extensionId}/popup.html`, {
       waitUntil: 'domcontentloaded',
     });
-    // Extra wait for Vue app to mount and render buttons
-    await this.page.waitForLoadState('networkidle');
+    // Wait for Vue to mount the GroupUngroup component in DOM
+    await this.page.waitForSelector('[data-testid="group-tabs-btn"]', {
+      state: 'attached',
+      timeout: 5000
+    });
   }
 
   /**
@@ -86,4 +90,3 @@ export class PopupPage {
     await this.page.close();
   }
 }
-

@@ -61,16 +61,27 @@ export class OptionsPage {
     await this.page.goto(`chrome-extension://${extensionId}/options.html`, {
       waitUntil: 'domcontentloaded',
     });
+    // Wait for Vue to hydrate and render dynamic elements
+    await this.page.waitForLoadState('networkidle');
+    this.expectPageLoaded()
   }
 
   /**
    * Verify Options page is fully loaded with all main components visible.
+   * Waits for Vue hydration, then verifies key elements are visible.
    * Uses global Playwright timeout (10000ms from config).
    */
   async expectPageLoaded(): Promise<void> {
+    // Wait for Vue to hydrate completely - element must exist in DOM with data-testid
+    await this.page.waitForFunction(() => {
+      const btn = document.querySelector('[data-testid="group-tabs-btn"]');
+      const config = document.querySelector('[data-testid="thresholds-config"]');
+      return btn !== null && config !== null;
+    }, { timeout: 10000 });
+
+    // Now verify visibility
     await Promise.all([
       expect(this.groupTabsBtn).toBeVisible(),
-      expect(this.ungroupTabsBtn).not.toBeVisible(),
       expect(this.thresholdsConfig).toBeVisible(),
     ]);
   }

@@ -206,6 +206,7 @@ await options.expectGroupCountEqual(3);
 - ✅ Use `page.evaluate()` + `chrome.runtime.sendMessage()` for SW calls
 - ✅ Monitor `[SW_LOG]` output in test runs
 - ✅ Add descriptive console.log() in background.ts and services
+- NEVER create DEAD CODE !! always check if the created code is actualyl used somewhere
 - ❌ Don't try VSCode breakpoints on service worker code
 - ❌ Don't assume synchronous execution—always use Promises/callbacks
 - ❌ Don't try to navigate to `background.html`—it's not accessible from UI
