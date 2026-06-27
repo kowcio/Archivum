@@ -8,14 +8,7 @@
           <GroupUngroup />
           <MockButton @mock-created="refreshTabs" v-if="isDevEnv" />
 
-          <q-btn
-            label="Refresh tabs"
-            data-testid="load-tabs"
-            icon="refresh"
-            color="grey-7"
-            :loading="loading"
-            @click="refreshTabs"
-          />
+          <RefreshButton @refresh="onRefreshTabs" @error="(msg) => error = msg" />
 
           <CloseAllTabsButton
             @success="refreshTabs"
@@ -105,9 +98,9 @@ import AppTitle from '@/components/Title.vue'
 import GroupUngroup from '@/components/GroupUngroup.vue'
 import MockButton from '@/components/MockButton.vue'
 import CloseAllTabsButton from '@/components/CloseAllTabsButton.vue'
+import RefreshButton from '@/components/RefreshButton.vue'
 
 const appStore = useAppStore()
-const loading = ref(false)
 const error = ref<string | null>(null)
 const tabs = ref<any[]>([])
 
@@ -148,7 +141,6 @@ function truncate(text: string, max: number): string {
 
 
 async function refreshTabs(): Promise<void> {
-  loading.value = true
   error.value = null
   try {
     const resp: any = await browser.runtime.sendMessage({
@@ -161,9 +153,12 @@ async function refreshTabs(): Promise<void> {
     tabs.value = resp?.tabs ?? []
   } catch (err) {
     error.value = `[GET_TABS_ERROR] ${err instanceof Error ? err.message : 'Failed to load tabs'}`
-  } finally {
-    loading.value = false
   }
+}
+
+/** Called by RefreshButton component — receives tabs from its internal sendMessage */
+function onRefreshTabs(newTabs: any[]): void {
+  tabs.value = newTabs
 }
 
 async function closeTab(tabId: number | null): Promise<void> {

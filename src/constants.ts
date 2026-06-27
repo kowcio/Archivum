@@ -1,5 +1,5 @@
 // ─── App-wide constants ───────────────────────────────────────────────────────
-import packageJson from "../package.json" with { type: "json" };
+import packageJson from "../package.json" with {type: "json"};
 import dayjs from "dayjs";
 
 /**
@@ -77,17 +77,40 @@ export const APP_DEFAULTS = {
     // Colors reference ThemeColor enum:
     // - Chrome/Firefox tab groups API uses color names directly
     presets: [
-      { key: ThresholdKey.WEEK,     label: ThresholdLabel.WEEK,     days: 7,    color: ThemeColor.Green },
-      { key: ThresholdKey.WEEKS_2,  label: ThresholdLabel.WEEKS_2,  days: 14,   color: ThemeColor.Blue },
-      { key: ThresholdKey.MONTH,    label: ThresholdLabel.MONTH,    days: 28,   color: ThemeColor.Orange },
-      { key: ThresholdKey.QUARTERS, label: ThresholdLabel.QUARTERS, days: 90,   color: ThemeColor.Red },
-      { key: ThresholdKey.YEARS,    label: ThresholdLabel.YEARS,    days: 365,  color: ThemeColor.Pink },
+      {key: ThresholdKey.WEEK, label: ThresholdLabel.WEEK, days: 7, color: ThemeColor.Green},
+      {key: ThresholdKey.WEEKS_2, label: ThresholdLabel.WEEKS_2, days: 14, color: ThemeColor.Blue},
+      {key: ThresholdKey.MONTH, label: ThresholdLabel.MONTH, days: 28, color: ThemeColor.Orange},
+      {key: ThresholdKey.QUARTERS, label: ThresholdLabel.QUARTERS, days: 90, color: ThemeColor.Red},
+      {key: ThresholdKey.YEARS, label: ThresholdLabel.YEARS, days: 365, color: ThemeColor.Pink},
     ] as const satisfies readonly ThresholdLevel[],
   },
 }
 
 /** true in `wxt dev`, false in `wxt build`. Use to hide dev-only UI in production. */
 export const isDevEnv = import.meta.env.DEV
+
+// ─── Environment banner ──────────────────────────────────────────────
+if (isDevEnv) {
+  console.log(
+    `%c
+╔══════════════════════════════════╗
+║        🔧  ARCHIVUM  🔧         ║
+║     DEVELOPMENT MODE             ║
+║  Dev features: VISIBLE           ║
+╚══════════════════════════════════╝`,
+    'color:#ff6d00;font-weight:bold'
+  )
+} else {
+  console.log(
+    `%c
+╔══════════════════════════════════╗
+║        📦  ARCHIVUM  📦         ║
+║     PRODUCTION BUILD             ║
+║  Dev features: HIDDEN            ║
+╚══════════════════════════════════╝`,
+    'color:#1565c0;font-weight:bold'
+  )
+}
 
 // Background service worker message action constants
 // Imported by: background.ts (action handlers), UI components, and E2E tests

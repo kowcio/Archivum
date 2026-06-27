@@ -18,6 +18,8 @@
           @click="groupByDomain"
         />
 
+        <RefreshButton class="got-btn-ghost" @refresh="() => {}" @error="(msg) => console.warn(msg)" />
+
         <q-btn
           class="got-btn-ghost"
           label="Open settings"
@@ -51,6 +53,7 @@ import { browser } from 'wxt/browser'
 import { BACKGROUND_MESSAGE_ACTIONS, isDevEnv } from '@/constants'
 import AppTitle from '@/components/Title.vue'
 import GroupUngroup from "@/components/GroupUngroup.vue";
+import RefreshButton from "@/components/RefreshButton.vue";
 
 const loading = ref(false)
 
