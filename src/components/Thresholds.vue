@@ -151,6 +151,12 @@ async function handleApply(): Promise<void> {
 async function handleReset(): Promise<void> {
   await appStore.resetToDefaults()
   localThresholds.value = AppThresholds.fromObject(appStore.thresholds.value.toJSON())
+
+  // Regroup with defaults and refresh table
+  await browser.runtime.sendMessage({
+    action: BACKGROUND_MESSAGE_ACTIONS.GROUP_TABS_BY_AGE,
+  })
+  emit('apply')
 }
 
 // Sync localThresholds when store changes (from another context)
