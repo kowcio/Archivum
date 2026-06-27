@@ -25,7 +25,7 @@ export class AgeClassification {
 
     /** Color name from THRESHOLD preset — used directly as CSS value */
     get colorName(): string {
-        if (this.index === 0) return ThemeColor.Green
+        if (this.index === 0) return ""
         const activeList = this.thresholds.active()
         const level = activeList[this.index - 1]
         return (level?.color as string) ?? ThemeColor.Grey
