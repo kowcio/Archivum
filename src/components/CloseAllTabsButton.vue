@@ -1,6 +1,6 @@
 <template>
   <q-btn
-    label="Close all except current"
+    label="Close all other"
     icon="close_multiple"
     color="negative"
     :loading="loading"

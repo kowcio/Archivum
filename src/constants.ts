@@ -86,6 +86,9 @@ export const APP_DEFAULTS = {
   },
 }
 
+/** true in `wxt dev`, false in `wxt build`. Use to hide dev-only UI in production. */
+export const isDevEnv = import.meta.env.DEV
+
 // Background service worker message action constants
 // Imported by: background.ts (action handlers), UI components, and E2E tests
 export const BACKGROUND_MESSAGE_ACTIONS = {
@@ -98,4 +101,3 @@ export const BACKGROUND_MESSAGE_ACTIONS = {
   HAS_PLUGIN_GROUPS: 'hasPluginGroups',
   CLOSE_TAB: 'closeTab',
 } as const
-

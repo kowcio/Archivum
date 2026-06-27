@@ -2,6 +2,7 @@ import {defineConfig} from 'wxt'
 
 // See https://wxt.dev/api/config.html
 const date = `${new Date().toISOString().replace(/[-:T]/g, '').slice(0, 12)}`;
+
 export default defineConfig({
     modules: ['@wxt-dev/module-vue', '@wxt-dev/auto-icons'],
     srcDir: 'src',
@@ -25,22 +26,12 @@ export default defineConfig({
         page: 'options.html',
         open_in_tab: true,
       },
-      // Simplified web_accessible_resources - only content.css
-      // web_accessible_resources: [
-      //   {
-      //     resources: ['content-scripts/content.css'],
-      //     matches: ['*://*/*'],
-      //     ...(isFirefox ? {} : { use_dynamic_url: true }), // Chrome only
-      //   },
-      // ],
       // CSP for extension pages
       content_security_policy: {
         extension_pages: "script-src 'self'; object-src 'self'",
       },
     },
 
-    // 🖥️ Browser window size during `npm run dev`
-    // Uses WXT runner chromiumArgs — applied when dev server launches Chrome
     runner: {
       chromiumArgs: [
         '--window-size=1280,800',

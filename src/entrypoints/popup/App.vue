@@ -3,29 +3,42 @@
     <AppTitle />
 
     <div class="content-wrapper">
-      <div class="square-grid">
-        <GroupUngroup />
+      <!-- Single column grid with natural-width buttons -->
+      <div class="btn-grid">
+        <GroupUngroup rounded size="lg" />
 
         <q-btn
-          class="got-btn-secondary square-btn"
-          label="Manage plugin"
-          data-testid="popup-btn-open-option-page"
-          icon="dashboard_customize"
-          @click="openOptionsPageFull"
-          elevated
+          class="got-btn-primary"
+          label="Sort by domain"
+          data-testid="popup-btn-group-domain"
+          icon="dns"
+          rounded
           no-caps
-          fab
+          size="md"
+          @click="groupByDomain"
         />
 
         <q-btn
-          class="got-btn-ghost square-btn"
+          class="got-btn-ghost"
+          label="Open settings"
+          data-testid="popup-btn-open-option-page"
+          icon="dashboard_customize"
+          rounded
+          no-caps
+          size="md"
+          @click="openOptionsPageFull"
+        />
+
+        <q-btn
+          v-if="isDevEnv"
+          class="got-btn-ghost"
           label="Browser options"
           data-testid="popup-btn-plugin-browser-option"
           icon="settings"
-          @click="openOptionsPage"
-          elevated
+          rounded
           no-caps
-          fab
+          size="md"
+          @click="openOptionsPage"
         />
       </div>
     </div>
@@ -35,33 +48,11 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { browser } from 'wxt/browser'
-import { BACKGROUND_MESSAGE_ACTIONS } from '@/constants'
+import { BACKGROUND_MESSAGE_ACTIONS, isDevEnv } from '@/constants'
 import AppTitle from '@/components/Title.vue'
 import GroupUngroup from "@/components/GroupUngroup.vue";
 
 const loading = ref(false)
-
-async function handleGroup(): Promise<void> {
-  loading.value = true
-  try {
-    await browser.runtime.sendMessage({
-      action: BACKGROUND_MESSAGE_ACTIONS.GROUP_TABS_BY_AGE
-    })
-  } finally {
-    loading.value = false
-  }
-}
-
-async function handleUngroup(): Promise<void> {
-  loading.value = true
-  try {
-    await browser.runtime.sendMessage({
-      action: BACKGROUND_MESSAGE_ACTIONS.UNGROUP_ALL_TABS
-    })
-  } finally {
-    loading.value = false
-  }
-}
 
 function openOptionsPage(): void {
   browser.runtime.openOptionsPage()
@@ -72,6 +63,15 @@ async function openOptionsPageFull(): Promise<void> {
    await browser.tabs.create({ url })
    window.close()
  }
+
+async function groupByDomain(): Promise<void> {
+  loading.value = true
+  try {
+    await browser.runtime.sendMessage({ action: BACKGROUND_MESSAGE_ACTIONS.GROUP_TABS_BY_DOMAIN })
+  } finally {
+    loading.value = false
+  }
+}
 </script>
 
 <style scoped>
@@ -84,32 +84,18 @@ async function openOptionsPageFull(): Promise<void> {
 }
 .content-wrapper {
   flex: 1;
-  padding: 0.5rem;
+  padding: 0.75rem;
 }
-.square-grid {
+.btn-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 0.5rem;
+  grid-template-columns: 1fr;
+  gap: 0.75rem;
   justify-items: center;
-  margin: 0.5rem auto;
+  margin: 0 auto;
   width: 100%;
-  max-width: 250px;
+  max-width: 320px;
 }
-.square-btn {
+.btn-grid .q-btn {
   width: 100%;
-  aspect-ratio: 1;
-  min-width: 80px;
-  max-width: 100px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-direction: column;
-  text-align: center;
-}
-.square-btn :deep(.q-btn__content) {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.25rem;
 }
 </style>

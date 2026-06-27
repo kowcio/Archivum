@@ -1,7 +1,7 @@
 <template>
   <div data-testid="mock-button">
     <q-btn
-      :label="`Mock tabs -> ${mocksCount}`"
+      :label="`Create mocks (${mocksCount})`"
       data-testid="mock-tabs"
       icon="science"
       color="grey-7"

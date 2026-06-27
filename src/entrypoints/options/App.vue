@@ -2,29 +2,25 @@
   <AppTitle />
   <div id="options" class="row">
     <div class="col-10 offset-1">
-      <!-- Actions -->
-      <div class="row justify-center q-mt-md q-gutter-sm">
-        <GroupUngroup />
+      <!-- Actions — wrapping row, max col-3 per button -->
+      <div class="row items-start q-mt-md q-gutter-sm">
 
-        <MockButton @mock-created="refreshTabs" />
+          <GroupUngroup />
+          <MockButton @mock-created="refreshTabs" v-if="isDevEnv" />
 
-        <div data-testid="btn-load-tabs">
           <q-btn
-            label="Load current tabs"
+            label="Refresh tabs"
             data-testid="load-tabs"
             icon="refresh"
             color="grey-7"
             :loading="loading"
             @click="refreshTabs"
           />
-        </div>
 
-        <div data-testid="btn-close-all-tabs">
           <CloseAllTabsButton
             @success="refreshTabs"
             @error="(msg) => error = msg"
           />
-        </div>
       </div>
 
       <!-- Error display -->
@@ -34,7 +30,7 @@
       </div>
 
       <!-- Thresholds Configuration -->
-      <div class="row q-mt-lg">
+      <div v-if="isDevEnv" class="row q-mt-lg">
         <div class="col">
           <Thresholds @apply="refreshTabs" />
         </div>
@@ -100,7 +96,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { browser } from 'wxt/browser'
-import { BACKGROUND_MESSAGE_ACTIONS } from '@/constants'
+import { BACKGROUND_MESSAGE_ACTIONS, isDevEnv } from '@/constants'
 import { useAppStore } from '@/store/appStore.ts'
 import { TabRow } from '@/entrypoints/options/models/TabRow.ts'
 import { AgeClassification } from '@/models/AgeClassification.ts'
