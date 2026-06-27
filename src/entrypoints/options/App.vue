@@ -37,16 +37,29 @@
           data-testid="table-open-tabs"
           :columns="columns"
           :rows="tabRows"
-          class="rounded-borders bg-grey-1 q-table--striped table-wrapper"
+          :filter="filter"
+          class="rounded-borders bg-grey-1 table-wrapper"
           row-key="rowKey"
           flat
           bordered
           dense
+          striped
           wrap-cells
           virtual-scroll
           :rows-per-page-options="[0]"
           :pagination="{ sortBy: 'ordinal', descending: false }"
         >
+          <template #top-right>
+            <q-input
+              v-model="filter"
+              placeholder="Search..."
+              dense
+              outlined
+              clearable
+              class="q-ml-sm"
+              style="min-width: 200px"
+            />
+          </template>
           <template #body="props">
             <q-tr :props="props">
               <q-td
@@ -101,6 +114,7 @@ import CloseAllTabsButton from '@/components/CloseAllTabsButton.vue'
 import RefreshButton from '@/components/RefreshButton.vue'
 
 const appStore = useAppStore()
+const filter = ref('')
 const error = ref<string | null>(null)
 const tabs = ref<any[]>([])
 
@@ -110,7 +124,7 @@ const columns: { name: string; label: string; field: string; align: 'left' | 'ri
   { name: 'thumbnail', label: '', field: 'thumbnail', align: 'left' },
   { name: 'domain', label: 'Domain', field: 'domain', align: 'left', sortable: true },
   { name: 'title', label: 'Title', field: 'title', align: 'left', sortable: true },
-  { name: 'url', label: 'URL', field: 'url', align: 'left' },
+  { name: 'url', label: 'URL', field: 'url', align: 'left', sortable:true },
   { name: 'lastAccess', label: 'Access', field: 'lastAccess', align: 'left', sortable: true },
   { name: 'lastAccessAge', label: 'Age', field: 'lastAccessAge', align: 'left', sortable: true },
 ]
