@@ -203,7 +203,6 @@ onMounted(() => {
 #options {
   background: linear-gradient(180deg, rgba(255, 109, 0, 0.04) 0%, rgba(21, 101, 192, 0.04) 100%);
   min-height: 100vh;
-  padding: 1rem 0;
 }
 .table-container { display: flex; justify-content: center; width: 100%; margin: 1rem 0; }
 .table-wrapper { max-height: 70vh; width: 100%; }
