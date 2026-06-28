@@ -5,11 +5,11 @@
       data-testid="thresholds-config"
       style="gap: 12px"
     >
-      <div class="info-box col-3">
+      <div class="info-box col-2">
         <div class="label">Active Levels:</div>
         <div class="value">{{ localThresholds.activeLevels }} / {{ maxLevels }}</div>
       </div>
-      <div class="col-3">
+      <div class="col-2">
         <q-input
           data-testid="thresholds-levels-input"
           :model-value="localThresholds.activeLevels"

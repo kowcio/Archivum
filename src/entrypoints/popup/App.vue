@@ -7,8 +7,6 @@
       <div class="btn-grid">
         <GroupUngroup rounded size="lg" />
 
-        <RefreshButton class="got-btn-ghost" @refresh="() => {}" @error="(msg) => console.warn(msg)" />
-
         <q-btn
           class="got-btn-ghost"
           label="Open settings"
