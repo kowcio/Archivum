@@ -80,7 +80,7 @@
                   </div>
                 </template>
                 <template v-else-if="col.name === 'lastAccess'">
-                  {{ lastAccessMsg(props.row) ?? "-" }}
+                  {{ props.row.lastAccessDays ?? '—' }}
                 </template>
                 <template v-else-if="col.name === 'title'">
                   <span>{{ truncate(props.row.title, 50) }}</span>
@@ -125,15 +125,16 @@ const columns: {
   label: string;
   field: string;
   align: 'left' | 'right';
-  sortable?: boolean
+  sortable?: boolean;
+  sort?: (a: any, b: any) => number
 }[] = [
-  {name: 'ordinal', label: '#', field: 'ordinal', align: 'left', sortable: true},
+  {name: 'ordinal', label: '#', field: 'ordinal', align: 'left', sortable: true, sort: (a, b) => a - b},
   {name: 'actions', label: '', field: 'actions', align: 'left'},
   {name: 'thumbnail', label: '', field: 'thumbnail', align: 'left'},
   {name: 'domain', label: 'Domain', field: 'domain', align: 'left', sortable: true},
   {name: 'title', label: 'Title', field: 'title', align: 'left', sortable: true},
   {name: 'url', label: 'URL', field: 'url', align: 'left', sortable: true},
-  {name: 'lastAccess', label: 'Access', field: 'lastAccess', align: 'left', sortable: true},
+  {name: 'lastAccess', label: 'Days old', field: 'lastAccessDays', align: 'left', sortable: true, sort: (a, b) => a - b},
 ]
 
 const tabRows = computed(() => {
@@ -144,15 +145,11 @@ const tabRows = computed(() => {
     return {
       ...row,
       ordinal: i + 1,
-      lastAccessAge: Number(days),
       rowStyle: c.inlineStyle,
     }
   })
 })
 
-function lastAccessMsg(row: TabRow): number | undefined {
-  return row.lastAccessDays
-}
 
 function truncate(text: string, max: number): string {
   return !text || text.length <= max ? text : text.substring(0, max) + '…'
