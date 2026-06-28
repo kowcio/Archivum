@@ -1,14 +1,14 @@
 <template>
-  <div>
+  <div class="row accent-border ">
     <div
-      class="accent-border row items-center q-pa-md bg-grey-1 rounded-borders"
+      class="col-12 row items-center  bg-grey-1 rounded-borders"
       data-testid="thresholds-config"
     >
-      <div class="info-box q-mr-md col-auto">
+      <div class="info-box col-auto">
         <div class="label">Active Levels:</div>
         <div class="value">{{ localThresholds.activeLevels }} / {{ maxLevels }}</div>
       </div>
-      <div class="q-mr-md col-auto">
+      <div class="col-auto">
         <q-input
           data-testid="thresholds-levels-input"
           :model-value="localThresholds.activeLevels"
@@ -18,17 +18,13 @@
           :max="maxLevels"
           :disable="appStore.loading.value"
           dense
-          hide-bottom-space
           class="levels-input"
           @update:model-value="(v) => handleChangeCount(Number(v))"
         />
       </div>
-
-
       <!-- Action buttons -->
       <div class="col-auto action-buttons">
         <q-btn
-          class="q-mr-xs"
           v-if="hasChanges && !appStore.loading.value"
           data-testid="threshold-apply"
           icon="check"
@@ -48,15 +44,15 @@
           @click="handleReset"
         />
       </div>
+      <div v-if="appStore.error.value" class="error-text row">{{ appStore.error.value }}</div>
     </div>
 
-    <div v-if="appStore.error.value" class="error-text row q-pt-sm">{{ appStore.error.value }}</div>
-
     <div
-      class="accent-border row items-center q-pa-md bg-grey-1 rounded-borders"
+      class="col-12 row items-center  bg-grey-1 rounded-borders  "
+      data-testid="threshold-levels"
     >
       <template v-for="(level, idx) in activeThresholds" :key="`threshold-${idx}`">
-        <div class="col-12 col-sm-6 col-md-4 col-lg-3">
+        <div class="col-3 col-sm-6">
           <q-input
             :label-color="level.color"
             :data-testid="`threshold-${idx}`"
@@ -67,7 +63,6 @@
             :max="idx === activeThresholds.length - 1 ? undefined : activeThresholds[idx + 1].days - 1"
             :disable="appStore.loading.value"
             dense
-            hide-bottom-space
             @update:model-value="(v) => onChange(idx, Number(v))"
           />
         </div>
@@ -77,11 +72,11 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, onMounted, watch } from 'vue'
-import { browser } from 'wxt/browser'
-import { useAppStore } from '@/store/appStore.ts'
-import { AppThresholds } from '@/models/AppThresholds'
-import { BACKGROUND_MESSAGE_ACTIONS, APP_DEFAULTS } from '@/constants'
+import {computed, ref, onMounted, watch} from 'vue'
+import {browser} from 'wxt/browser'
+import {useAppStore} from '@/store/appStore.ts'
+import {AppThresholds} from '@/models/AppThresholds'
+import {BACKGROUND_MESSAGE_ACTIONS, APP_DEFAULTS} from '@/constants'
 
 const appStore = useAppStore()
 const emit = defineEmits<{ apply: [] }>()
@@ -97,12 +92,12 @@ const activeThresholds = computed(() => localThresholds.value.active())
 const hasChanges = computed(() => {
   if (appStore.loading.value) return false
 
-  // Check if activeLevels changed
+// Check if activeLevels changed
   if (localThresholds.value.activeLevels !== appStore.thresholds.value.activeLevels) {
     return true
   }
 
-  // Check if any threshold days changed
+// Check if any threshold days changed
   for (let i = 0; i < localThresholds.value.levels.length; i++) {
     if (localThresholds.value.levels[i].days !== appStore.thresholds.value.levels[i].days) {
       return true
@@ -119,7 +114,7 @@ async function handleChangeCount(count: number): Promise<void> {
 
 async function onChange(levelIdx: number, value: number): Promise<void> {
   if (!Number.isFinite(value) || value < 0) return
-  localThresholds.value = localThresholds.value.merge({ [levelIdx]: { days: value } })
+  localThresholds.value = localThresholds.value.merge({[levelIdx]: {days: value}})
 }
 
 // Apply changes and regroup tabs
@@ -127,11 +122,11 @@ async function handleApply(): Promise<void> {
   if (!hasChanges.value) return
 
   try {
-    // Collect threshold changes
+// Collect threshold changes
     const changes: Record<number, Partial<{ days: number }>> = {}
     for (let i = 0; i < localThresholds.value.levels.length; i++) {
       if (localThresholds.value.levels[i].days !== appStore.thresholds.value.levels[i].days) {
-        changes[i] = { days: localThresholds.value.levels[i].days }
+        changes[i] = {days: localThresholds.value.levels[i].days}
       }
     }
 
@@ -164,7 +159,7 @@ async function handleReset(): Promise<void> {
   await appStore.resetToDefaults()
   localThresholds.value = AppThresholds.fromObject(appStore.thresholds.value.toJSON())
 
-  // Regroup with defaults and refresh table
+// Regroup with defaults and refresh table
   await browser.runtime.sendMessage({
     action: BACKGROUND_MESSAGE_ACTIONS.GROUP_TABS_BY_AGE,
   })
@@ -185,7 +180,10 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.accent-border { border-left: 4px solid #1976d2; }
+.accent-border {
+  border-left: 4px solid #1976d2;
+}
+
 .info-box {
   display: flex;
   gap: 8px;
@@ -197,7 +195,20 @@ onMounted(() => {
   font-size: 0.9rem;
   white-space: nowrap;
 }
-.label { font-weight: 600; color: #666; }
-.value { font-weight: 700; color: #1976d2; }
-.error-text { font-size: 0.8rem; color: #d32f2f; width: 100%; }
+
+.label {
+  font-weight: 600;
+  color: #666;
+}
+
+.value {
+  font-weight: 700;
+  color: #1976d2;
+}
+
+.error-text {
+  font-size: 0.8rem;
+  color: #d32f2f;
+  width: 100%;
+}
 </style>
