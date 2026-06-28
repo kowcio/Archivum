@@ -7,17 +7,6 @@
       <div class="btn-grid">
         <GroupUngroup rounded size="lg" />
 
-        <q-btn
-          class="got-btn-primary"
-          label="Sort by domain"
-          data-testid="popup-btn-group-domain"
-          icon="dns"
-          rounded
-          no-caps
-          size="md"
-          @click="sortByDomain"
-        />
-
         <RefreshButton class="got-btn-ghost" @refresh="() => {}" @error="(msg) => console.warn(msg)" />
 
         <q-btn
@@ -48,14 +37,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
-import { browser } from 'wxt/browser'
-import { BACKGROUND_MESSAGE_ACTIONS, isDevEnv } from '@/constants'
+import {browser} from 'wxt/browser'
+import {isDevEnv} from '@/constants'
 import AppTitle from '@/components/Title.vue'
 import GroupUngroup from "@/components/GroupUngroup.vue";
 import RefreshButton from "@/components/RefreshButton.vue";
-
-const loading = ref(false)
 
 function openOptionsPage(): void {
   browser.runtime.openOptionsPage()
@@ -66,15 +52,6 @@ async function openOptionsPageFull(): Promise<void> {
    await browser.tabs.create({ url })
    window.close()
  }
-
-async function sortByDomain(): Promise<void> {
-  loading.value = true
-  try {
-    await browser.runtime.sendMessage({ action: BACKGROUND_MESSAGE_ACTIONS.GROUP_TABS_BY_DOMAIN })
-  } finally {
-    loading.value = false
-  }
-}
 </script>
 
 <style scoped>

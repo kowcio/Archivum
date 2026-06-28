@@ -7,7 +7,6 @@
 
           <GroupUngroup />
           <MockButton @mock-created="refreshTabs" v-if="isDevEnv" />
-
           <RefreshButton @refresh="onRefreshTabs" @error="(msg) => error = msg" />
 
           <CloseAllTabsButton
@@ -100,12 +99,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
-import { browser } from 'wxt/browser'
-import { BACKGROUND_MESSAGE_ACTIONS, isDevEnv } from '@/constants'
-import { useAppStore } from '@/store/appStore.ts'
-import { TabRow } from '@/entrypoints/options/models/TabRow.ts'
-import { AgeClassification } from '@/models/AgeClassification.ts'
+import {computed, onMounted, ref} from 'vue'
+import {browser} from 'wxt/browser'
+import {BACKGROUND_MESSAGE_ACTIONS, isDevEnv} from '@/constants'
+import {useAppStore} from '@/store/appStore.ts'
+import {TabRow} from '@/entrypoints/options/models/TabRow.ts'
+import {AgeClassification} from '@/models/AgeClassification.ts'
 import Thresholds from '../../components/Thresholds.vue'
 import AppTitle from '@/components/Title.vue'
 import GroupUngroup from '@/components/GroupUngroup.vue'
