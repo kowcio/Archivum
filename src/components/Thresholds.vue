@@ -1,5 +1,5 @@
 <template>
-  <div class="row accent-border" data-testd="thresholds-view">
+  <div class="row col-12 accent-border" data-testd="thresholds-view">
     <div
       class="col-12 row items-center q-pa-md bg-grey-1 rounded-borders"
       data-testid="thresholds-config"
@@ -64,7 +64,7 @@
         />
       </div>
       <template v-for="(level, idx) in activeThresholds" :key="`threshold-${idx}`">
-        <div class="col-2 col-auto q-pa-xs">
+        <div class="col-2  q-pa-xs">
           <q-input
             :label-color="level.color"
             :data-testid="`threshold-${idx}`"
@@ -73,7 +73,7 @@
             type="number"
             :min="idx === 0 ? 0 : activeThresholds[idx - 1].days + 1"
             :max="idx === activeThresholds.length - 1 ? undefined : activeThresholds[idx + 1].days - 1"
-            :disable="appStore.loading.value"
+            :disable="isThresholdEditingDisabled"
             dense
             @update:model-value="(v) => onChange(idx, Number(v))"
           />
@@ -88,11 +88,12 @@ import {computed, ref, onMounted, watch} from 'vue'
 import {browser} from 'wxt/browser'
 import {useAppStore} from '@/store/appStore.ts'
 import {AppThresholds} from '@/models/AppThresholds'
-import {BACKGROUND_MESSAGE_ACTIONS, APP_DEFAULTS} from '@/constants'
+import {BACKGROUND_MESSAGE_ACTIONS, APP_DEFAULTS, isDevEnv} from '@/constants'
 
 const appStore = useAppStore()
 const emit = defineEmits<{ apply: [] }>()
 const maxLevels = computed(() => APP_DEFAULTS.THRESHOLDS.presets.length)
+const isThresholdEditingDisabled = computed<boolean>(() => appStore.loading.value || isDevEnv)
 
 // Local state to track unsaved changes
 // Initialize after store is loaded to avoid false change detection

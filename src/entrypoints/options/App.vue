@@ -154,7 +154,7 @@ const tabRows = computed(() => {
 function lastAccessMsg(row: TabRow): string {
   const d = row.lastAccessDays
   if (d == null || !Number.isFinite(d)) return '—'
-  return d === 0 ? 'Today' : `${d}d ago`
+  return `${d}d ago`
 }
 
 function truncate(text: string, max: number): string {
