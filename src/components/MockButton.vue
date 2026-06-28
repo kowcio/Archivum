@@ -4,7 +4,8 @@
       :label="`Create mocks (${mocksCount})`"
       data-testid="mock-tabs"
       icon="science"
-      color="grey-7"
+      class="got-btn-yellow"
+      unelevated
       :loading="loading"
       @click="createMockWithPreset()"
     />

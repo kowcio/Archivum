@@ -41,7 +41,7 @@ const isGrouped = ref(false)
 const isLoading = ref(false)
 
 const btnClasses = computed(() => ({
-  'got-btn-primary': !isGrouped.value,
+  'got-btn-green': !isGrouped.value,
   'got-btn-secondary': isGrouped.value,
 }))
 

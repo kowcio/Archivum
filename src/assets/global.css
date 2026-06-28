@@ -1,62 +1,62 @@
 /* ─── Good Old Tabs – Global Design System ───────────────────────────────── */
-/* Orange-to-blue gradient theme shared across popup, options and content     */
 
-/* ── CSS Variables ─────────────────────────────────────────────────────── */
 :root {
   --got-orange: #ff6d00;
-  --got-orange-light: #ff9e40;
   --got-blue: #1565c0;
-  --got-blue-light: #42a5f5;
-  --got-bg-gradient: linear-gradient(135deg, #fff3e0 0%, #e3f2fd 100%);
-  --got-header-gradient: linear-gradient(90deg, var(--got-orange) 0%, var(--got-blue) 100%);
-  --got-btn-primary-gradient: linear-gradient(135deg, var(--got-orange-light) 0%, var(--got-orange) 100%);
-  --got-btn-secondary-gradient: linear-gradient(135deg, var(--got-blue-light) 0%, var(--got-blue) 100%);
   --got-radius: 10px;
-  --got-shadow: 0 2px 12px 0 rgba(21, 101, 192, 0.10);
 }
 
-/* ── App background ─────────────────────────────────────────────────────── */
 body, #app {
-  background: var(--got-bg-gradient) !important;
+  background: linear-gradient(135deg, #fff3e0 0%, #e3f2fd 100%);
   min-height: 100vh;
 }
 
-/* ── Primary action button (orange gradient) ────────────────────────────── */
-.got-btn-primary.q-btn {
-  background: var(--got-btn-primary-gradient) !important;
+/* ── Group (green gradient) ─────────────────────────────────────────────── */
+.got-btn-green.q-btn {
+  background: linear-gradient(135deg, #66bb6a 0%, #388e3c 100%) !important;
   color: #fff !important;
   border-radius: var(--got-radius) !important;
-  box-shadow: 0 2px 8px rgba(255, 109, 0, 0.25) !important;
+  box-shadow: 0 2px 8px rgba(56, 142, 60, 0.25) !important;
   font-weight: 600;
 }
+.got-btn-green.q-btn:hover { filter: brightness(1.08); }
 
-.got-btn-primary.q-btn:hover {
-  filter: brightness(1.08);
-}
-
-/* ── Secondary action button (blue gradient) ────────────────────────────── */
+/* ── Ungroup (blue gradient) ────────────────────────────────────────────── */
 .got-btn-secondary.q-btn {
-  background: var(--got-btn-secondary-gradient) !important;
+  background: linear-gradient(135deg, #42a5f5 0%, #1565c0 100%) !important;
   color: #fff !important;
   border-radius: var(--got-radius) !important;
-  box-shadow: 0 2px 8px rgba(21, 101, 192, 0.2) !important;
+  box-shadow: 0 2px 8px rgba(21, 101, 192, 0.25) !important;
   font-weight: 600;
 }
+.got-btn-secondary.q-btn:hover { filter: brightness(1.08); }
 
-.got-btn-secondary.q-btn:hover {
-  filter: brightness(1.08);
-}
-
-/* ── Subtle tertiary button ─────────────────────────────────────────────── */
-.got-btn-ghost.q-btn {
-  border: 1.5px solid var(--got-blue-light) !important;
-  color: var(--got-blue) !important;
+/* ── Refresh (cyan gradient) ────────────────────────────────────────────── */
+.got-btn-cyan.q-btn {
+  background: linear-gradient(135deg, #26c6da 0%, #00838f 100%) !important;
+  color: #fff !important;
   border-radius: var(--got-radius) !important;
-  background: transparent !important;
-  font-weight: 500;
+  box-shadow: 0 2px 8px rgba(0, 131, 143, 0.25) !important;
+  font-weight: 600;
 }
+.got-btn-cyan.q-btn:hover { filter: brightness(1.08); }
 
-.got-btn-ghost.q-btn:hover {
-  background: rgba(66, 165, 245, 0.10) !important;
+/* ── Create mocks (yellow gradient) ─────────────────────────────────────── */
+.got-btn-yellow.q-btn {
+  background: linear-gradient(135deg, #ffca28 0%, #f9a825 100%) !important;
+  color: #333 !important;
+  border-radius: var(--got-radius) !important;
+  box-shadow: 0 2px 8px rgba(249, 168, 37, 0.25) !important;
+  font-weight: 600;
 }
+.got-btn-yellow.q-btn:hover { filter: brightness(1.08); }
 
+/* ── Close all (red gradient) ────────────────────────────────────────────── */
+.got-btn-red.q-btn {
+  background: linear-gradient(135deg, #ef5350 0%, #c62828 100%) !important;
+  color: #fff !important;
+  border-radius: var(--got-radius) !important;
+  box-shadow: 0 2px 8px rgba(198, 40, 40, 0.25) !important;
+  font-weight: 600;
+}
+.got-btn-red.q-btn:hover { filter: brightness(1.08); }

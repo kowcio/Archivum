@@ -2,7 +2,8 @@
   <q-btn
     label="Close all other"
     icon="close_multiple"
-    color="negative"
+    class="got-btn-red"
+    unelevated
     :loading="loading"
     @click="handleCloseAll"
   />
@@ -55,4 +56,3 @@ async function handleCloseAll(): Promise<void> {
   }
 }
 </script>
-

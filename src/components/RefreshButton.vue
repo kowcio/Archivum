@@ -3,7 +3,8 @@
     label="Refresh tabs"
     data-testid="load-tabs"
     icon="refresh"
-    color="grey-7"
+    class="got-btn-cyan"
+    unelevated
     :loading="loading"
     @click="handleRefresh"
   />
@@ -39,4 +40,3 @@ async function handleRefresh(): Promise<void> {
   }
 }
 </script>
-
