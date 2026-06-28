@@ -36,12 +36,10 @@ const version = APP_CONSTANTS.APP_VERSION
 
 
 .got-title-bar {
-  align-items: center;
-  padding: 10px;
+  padding: 20px 20px 0px 20px;
   background: linear-gradient(90deg, rgba(255, 109, 0, 0.08) 0%, rgba(21, 101, 192, 0.08) 100%);
-  border-bottom: 4px solid;
+  border-bottom: 2px solid;
   border-image: var(--got-header-gradient) 1;
-  margin-bottom: 12px;
 }
 
 
