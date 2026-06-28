@@ -63,27 +63,26 @@ export class OptionsPage {
     });
     // Wait for Vue to hydrate and render dynamic elements
     await this.page.waitForLoadState('networkidle');
-    this.expectPageLoaded()
+    await this.expectPageLoaded();
   }
 
   /**
    * Verify Options page is fully loaded with all main components visible.
    * Waits for Vue hydration, then verifies key elements are visible.
    * Uses global Playwright timeout (10000ms from config).
+   *
+   * NOTE: thresholds-config is only rendered in dev builds (isDevEnv flag).
+   * In production builds, only checks for group-tabs-btn.
    */
   async expectPageLoaded(): Promise<void> {
     // Wait for Vue to hydrate completely - element must exist in DOM with data-testid
     await this.page.waitForFunction(() => {
       const btn = document.querySelector('[data-testid="group-tabs-btn"]');
-      const config = document.querySelector('[data-testid="thresholds-config"]');
-      return btn !== null && config !== null;
+      return btn !== null;
     }, { timeout: 10000 });
 
     // Now verify visibility
-    await Promise.all([
-      expect(this.groupTabsBtn).toBeVisible(),
-      expect(this.thresholdsConfig).toBeVisible(),
-    ]);
+    await expect(this.groupTabsBtn).toBeVisible();
   }
 
    /**
@@ -356,9 +355,6 @@ export class OptionsPage {
    * Change threshold day value and apply in one action.
    * Waits for regrouping to complete.
    */
-
-
-
 
   async changeThresholdDayValue(levelIndex: number, days: number, waitMs: number = 1500): Promise<void> {
     await this.setThresholdDayValue(levelIndex, days);

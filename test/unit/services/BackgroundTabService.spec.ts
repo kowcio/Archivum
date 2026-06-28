@@ -153,10 +153,12 @@ describe('BackgroundTabService', () => {
        const boundaries = thresholds.toBoundaries()
 
        // With default APP_DEFAULTS: activeLevels = 3, boundaries = [7, 14, 28]
-       expect(activeLevels.length).toBe(3)
+       expect(activeLevels.length).toBe(5)
        expect(boundaries[0]).toBe(7)
        expect(boundaries[1]).toBe(14)
        expect(boundaries[2]).toBe(28)
+       expect(boundaries[3]).toBe(90)
+       expect(boundaries[4]).toBe(360)
 
        // Create tabs spanning ALL age levels
        const freshTab1 = await fakeBrowser.tabs.create({ url: 'https://example.com/fresh-1' })

@@ -104,7 +104,7 @@ if (isDevEnv) {
   console.log(
     `%c
 ╔══════════════════════════════════╗
-║        📦  ARCHIVUM  📦         ║
+║        📦  ARCHIVUM  📦          ║
 ║     PRODUCTION BUILD             ║
 ║  Dev features: HIDDEN            ║
 ╚══════════════════════════════════╝`,

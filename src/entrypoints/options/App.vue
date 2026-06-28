@@ -22,7 +22,7 @@
       </div>
 
       <!-- Thresholds Configuration -->
-      <div v-if="isDevEnv" class="row q-mt-md">
+      <div class="row q-mt-md">
         <Thresholds @apply="refreshTabs"/>
       </div>
 
