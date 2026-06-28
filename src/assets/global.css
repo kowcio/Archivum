@@ -1,8 +1,23 @@
 /* ─── Good Old Tabs – Global Design System ───────────────────────────────── */
 
 :root {
-  --got-orange: #ff6d00;
-  --got-blue: #1565c0;
+  /* ── Brand (icon.svg) colors ─────────────────────────────────────────── */
+  --got-brand-dark:   #633722;
+  --got-brand-gold:   #FFD083;
+  --got-orange:       #ff6d00;
+  --got-blue:         #1565c0;
+
+  /* ── ThemeColor base values ──────────────────────────────────────────── */
+  --got-green-base:   #66bb6a;
+  --got-blue-base:    #42a5f5;
+  --got-yellow-base:  #ffca28;
+  --got-orange-base:  #ff8a00;
+  --got-red-base:     #ef5350;
+  --got-pink-base:    #ec407a;
+  --got-purple-base:  #ab47bc;
+  --got-grey-base:    #9e9e9e;
+  --got-cyan-base:    #26c6da;
+
   --got-radius: 10px;
   --got-header-gradient: linear-gradient(135deg, #ff6d00 0%, #1565c0 100%);
   --got-warm-light: #F1B866;
@@ -16,52 +31,56 @@ body, #app {
   min-height: 100vh;
 }
 
-/* ── Group (orange→blue, forward) ─────────────────────────────────────── */
+/* ── Group (orange→brand-dark, forward) ───────────────────────────────── */
 .got-btn-amber.q-btn {
-  background: linear-gradient(135deg, #d47a2a 0%, #2a5a91 100%) !important;
+  background: linear-gradient(135deg, #d47a2a 0%, #d47a2a 50%, var(--got-brand-dark) 100%) !important;
   color: #fff !important;
   border-radius: var(--got-radius) !important;
-  box-shadow: 0 3px 10px rgba(42, 90, 145, 0.35) !important;
+  box-shadow: 0 3px 10px rgba(99, 55, 34, 0.35) !important;
   font-weight: 600;
 }
 .got-btn-amber.q-btn:hover { filter: brightness(1.06); }
 
-/* ── Ungroup (blue→orange, flipped) ──────────────────────────────────── */
+/* ── Ungroup (brand-dark→orange, flipped) ────────────────────────────── */
 .got-btn-blue.q-btn {
-  background: linear-gradient(135deg, #2a5a91 0%, #d47a2a 100%) !important;
+  background: linear-gradient(135deg, var(--got-brand-dark) 0%, var(--got-brand-dark) 50%, #d47a2a 100%) !important;
   color: #fff !important;
   border-radius: var(--got-radius) !important;
-  box-shadow: 0 3px 10px rgba(42, 90, 145, 0.35) !important;
+  box-shadow: 0 3px 10px rgba(99, 55, 34, 0.35) !important;
   font-weight: 600;
 }
 .got-btn-blue.q-btn:hover { filter: brightness(1.06); }
 
-/* ── Refresh (faded teal) ─────────────────────────────────────────────── */
+/* ── Refresh (cyan → brand-dark, 50% split) ──────────────────────────── */
 .got-btn-cyan.q-btn {
-  background: linear-gradient(135deg, #7ab5c4 0%, #4d8b9c 100%) !important;
+  background: linear-gradient(135deg, #7ab5c4 0%, #7ab5c4 50%, var(--got-brand-dark) 100%) !important;
   color: #fff !important;
   border-radius: var(--got-radius) !important;
-  box-shadow: 0 2px 8px rgba(77, 139, 156, 0.3) !important;
+  box-shadow: 0 2px 8px rgba(99, 55, 34, 0.3) !important;
   font-weight: 600;
 }
 .got-btn-cyan.q-btn:hover { filter: brightness(1.06); }
 
-/* ── Create mocks (faded gold) ────────────────────────────────────────── */
+/* ── Create mocks (yellow → brand-dark, 50% split) ───────────────────── */
 .got-btn-yellow.q-btn {
-  background: linear-gradient(135deg, #ddb882 0%, #c4944f 100%) !important;
-  color: #fff !important;
+  background: linear-gradient(135deg, var(--got-yellow-base) 0%, var(--got-yellow-base) 50%, var(--got-brand-dark) 100%) !important;
+  color: #333 !important;
   border-radius: var(--got-radius) !important;
-  box-shadow: 0 2px 8px rgba(196, 148, 79, 0.3) !important;
+  box-shadow: 0 2px 8px rgba(99, 55, 34, 0.3) !important;
   font-weight: 600;
 }
 .got-btn-yellow.q-btn:hover { filter: brightness(1.06); }
 
-/* ── Close all (faded brick) ──────────────────────────────────────────── */
+/* ── Close all (red → brand-dark, 50% split) ──────────────────────────── */
 .got-btn-red.q-btn {
-  background: linear-gradient(135deg, #c97a6f 0%, #a85147 100%) !important;
+  background: linear-gradient(135deg, var(--got-red-base) 0%, var(--got-red-base) 50%, var(--got-brand-dark) 100%) !important;
   color: #fff !important;
   border-radius: var(--got-radius) !important;
-  box-shadow: 0 2px 8px rgba(168, 81, 71, 0.3) !important;
+  box-shadow: 0 2px 8px rgba(99, 55, 34, 0.3) !important;
   font-weight: 600;
 }
 .got-btn-red.q-btn:hover { filter: brightness(1.06); }
+
+/* ── Table with brand palette ─────────────────────────────────────────── */
+
+/* option page table uses got-brand for borders & accent */

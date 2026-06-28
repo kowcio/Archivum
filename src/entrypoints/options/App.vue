@@ -225,12 +225,12 @@ onMounted(() => {
 }
 
 .accent-border {
-  border-left: 4px solid #1976d2;
+  border-left: 4px solid #d47a2a;
 }
 
 .error-text {
   font-size: 0.8rem;
-  color: red;
+  color: var(--got-brand-dark);
 }
 
 .favicon-wrapper {
@@ -243,7 +243,7 @@ onMounted(() => {
 .btn-action {
   padding: 2px 6px;
   font-size: 0.75rem;
-  border: 1px solid #ccc;
+  border: 1px solid #633722;
   border-radius: 3px;
   background: #f5f5f5;
   cursor: pointer;
@@ -259,6 +259,21 @@ onMounted(() => {
 }
 
 .btn-close-tab {
-  color: #d32f2f;
+  color: #d47a2a;
 }
+
+/* ── q-table brand styling ──────────────────────────────────────────── */
+:deep(.q-table th .q-table__sort-icon) {
+  color: rgba(255, 255, 255, 0.7);
+}
+:deep(.q-table tbody tr:nth-child(even) td) {
+  background: rgba(255, 208, 131, 0.08);
+}
+:deep(.q-table--striped tbody tr:nth-child(odd) td) {
+  background: rgba(255, 208, 131, 0.03);
+}
+:deep(.q-table tbody tr:hover td) {
+  background: rgba(255, 208, 131, 0.15) !important;
+}
+
 </style>

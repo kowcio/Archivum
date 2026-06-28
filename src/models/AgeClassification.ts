@@ -1,4 +1,4 @@
-import { ThemeColor } from '@/constants.ts'
+import { ThemeColor, THEME_COLOR_HEX } from '@/constants.ts'
 import type { AppThresholds } from '@/models/AppThresholds.ts'
 
 /**
@@ -39,9 +39,11 @@ export class AgeClassification {
         return level?.label ?? 'Unknown'
     }
 
-    /** Inline style: a readable background color */
+    /** Inline style: readable background color from brand palette */
     get inlineStyle(): Record<string, string> {
-        return { backgroundColor: this.colorName }
+        const hex = THEME_COLOR_HEX[this.colorName]
+        if (!hex) return {}
+        return { backgroundColor: hex }
     }
 
     get isFresh(): boolean  { return this.index === 0 }
@@ -53,4 +55,3 @@ export class AgeClassification {
         return new AgeClassification(indexInThresholds, thresholds)
     }
 }
-
