@@ -71,7 +71,7 @@ export const APP_DEFAULTS = {
   THRESHOLDS: {
     /** How many threshold levels are active and editable (from youngest).
      *  Can be set from 1 to the total number of presets. Default is 3. */
-    activeLevels: 3,
+    activeLevels: 5,
 
     // First activeLevels items (from start) are used as active thresholds.
     // Colors reference ThemeColor enum:

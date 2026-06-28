@@ -1,14 +1,15 @@
 <template>
-  <div class="row accent-border ">
+  <div class="row accent-border" data-testd="thresholds-view">
     <div
-      class="col-12 row items-center  bg-grey-1 rounded-borders"
+      class="col-12 row items-center q-pa-md bg-grey-1 rounded-borders"
       data-testid="thresholds-config"
+      style="gap: 12px"
     >
-      <div class="info-box col-auto">
+      <div class="info-box col-3">
         <div class="label">Active Levels:</div>
         <div class="value">{{ localThresholds.activeLevels }} / {{ maxLevels }}</div>
       </div>
-      <div class="col-auto">
+      <div class="col-3">
         <q-input
           data-testid="thresholds-levels-input"
           :model-value="localThresholds.activeLevels"
@@ -23,10 +24,11 @@
         />
       </div>
       <!-- Action buttons -->
-      <div class="col-auto action-buttons">
+      <div class="col-auto" data-testid="threshold-button">
         <q-btn
           v-if="hasChanges && !appStore.loading.value"
           data-testid="threshold-apply"
+          class="q-px-sm"
           icon="check"
           label="Apply"
           color="positive"
@@ -48,11 +50,21 @@
     </div>
 
     <div
-      class="col-12 row items-center  bg-grey-1 rounded-borders  "
+      class="col-12 row items-center q-px-md q-pb-md bg-grey-1 rounded-borders thresholds-levels-grid"
       data-testid="threshold-levels"
     >
+      <div class="col-1 col-auto q-pa-xs">
+        <q-input
+          label="Start"
+          data-testid="threshold-start"
+          :model-value="0"
+          type="number"
+          disable
+          dense
+        />
+      </div>
       <template v-for="(level, idx) in activeThresholds" :key="`threshold-${idx}`">
-        <div class="col-3 col-sm-6">
+        <div class="col-2 col-auto q-pa-xs">
           <q-input
             :label-color="level.color"
             :data-testid="`threshold-${idx}`"

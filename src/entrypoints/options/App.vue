@@ -1,18 +1,18 @@
 <template>
-  <AppTitle />
-  <div id="options" class="row">
-    <div class="col-12 col-sm-10 offset-sm-1 col-md-8 offset-md-2 q-px-sm q-px-sm-none">
+  <AppTitle/>
+  <div id="options" class="row justify-center">
+    <div class="col-10">
       <!-- Actions — wrapping row -->
-      <div class="row items-start q-mt-md q-gutter-sm">
+      <div class="row items-start q-mt-sm q-gutter-sm justify-center">
 
-          <GroupUngroup />
-          <MockButton @mock-created="refreshTabs" v-if="isDevEnv" />
-          <RefreshButton @refresh="onRefreshTabs" @error="(msg) => error = msg" />
+        <GroupUngroup />
+        <MockButton @mock-created="refreshTabs" v-if="isDevEnv"/>
+        <RefreshButton @refresh="onRefreshTabs" @error="(msg) => error = msg"/>
 
-          <CloseAllTabsButton
-            @success="refreshTabs"
-            @error="(msg) => error = msg"
-          />
+        <CloseAllTabsButton
+          @success="refreshTabs"
+          @error="(msg) => error = msg"
+        />
       </div>
 
       <!-- Error display -->
@@ -23,14 +23,14 @@
 
       <!-- Thresholds Configuration -->
       <div v-if="isDevEnv" class="row q-mt-md">
-        <div class="col">
-          <Thresholds @apply="refreshTabs" />
-        </div>
+        <Thresholds @apply="refreshTabs"/>
       </div>
 
       <!-- Live tabs table -->
-      <div v-if="tabs.length" class="q-mt-md accent-border bg-grey-1 rounded-borders">
-        <div data-testid="table-error" v-if="tabRows.length <= 0 " class="q-pa-md">{{tabRows.length}}</div>
+      <div v-if="tabs.length" class="q-my-md accent-border bg-grey-1 rounded-borders">
+        <div data-testid="table-error" v-if="tabRows.length <= 0 " >
+          {{ tabRows.length }}
+        </div>
         <q-table
           title="Open Tabs"
           data-testid="table-open-tabs"
@@ -69,11 +69,13 @@
               >
                 <template v-if="col.name === 'actions'">
                   <button class="btn-action btn-close-tab" @click="closeTab(props.row.id)"
-                          :disabled="!props.row.id" title="Close tab">Close</button>
+                          :disabled="!props.row.id" title="Close tab">Close
+                  </button>
                 </template>
                 <template v-else-if="col.name === 'thumbnail'">
                   <div class="favicon-wrapper">
-                    <img v-if="props.row.thumbnail" :src="props.row.thumbnail" alt="" width="16" height="16"/>
+                    <img v-if="props.row.thumbnail" :src="props.row.thumbnail" alt="" width="16"
+                         height="16"/>
                     <span v-else>—</span>
                   </div>
                 </template>
@@ -84,7 +86,8 @@
                   <span>{{ truncate(props.row.title, 50) }}</span>
                 </template>
                 <template v-else-if="col.name === 'url'">
-                  <a :href="props.row.url" target="_blank" rel="noreferrer">{{ truncate(props.row.url, 50) }}</a>
+                  <a :href="props.row.url" target="_blank"
+                     rel="noreferrer">{{ truncate(props.row.url, 50) }}</a>
                 </template>
                 <template v-else>
                   {{ props.row[col.field] ?? '—' }}
@@ -117,15 +120,21 @@ const filter = ref('')
 const error = ref<string | null>(null)
 const tabs = ref<any[]>([])
 
-const columns: { name: string; label: string; field: string; align: 'left' | 'right'; sortable?: boolean }[] = [
-  { name: 'ordinal', label: '#', field: 'ordinal', align: 'left', sortable: true },
-  { name: 'actions', label: '', field: 'actions', align: 'left' },
-  { name: 'thumbnail', label: '', field: 'thumbnail', align: 'left' },
-  { name: 'domain', label: 'Domain', field: 'domain', align: 'left', sortable: true },
-  { name: 'title', label: 'Title', field: 'title', align: 'left', sortable: true },
-  { name: 'url', label: 'URL', field: 'url', align: 'left', sortable:true },
-  { name: 'lastAccess', label: 'Access', field: 'lastAccess', align: 'left', sortable: true },
-  { name: 'lastAccessAge', label: 'Age', field: 'lastAccessAge', align: 'left', sortable: true },
+const columns: {
+  name: string;
+  label: string;
+  field: string;
+  align: 'left' | 'right';
+  sortable?: boolean
+}[] = [
+  {name: 'ordinal', label: '#', field: 'ordinal', align: 'left', sortable: true},
+  {name: 'actions', label: '', field: 'actions', align: 'left'},
+  {name: 'thumbnail', label: '', field: 'thumbnail', align: 'left'},
+  {name: 'domain', label: 'Domain', field: 'domain', align: 'left', sortable: true},
+  {name: 'title', label: 'Title', field: 'title', align: 'left', sortable: true},
+  {name: 'url', label: 'URL', field: 'url', align: 'left', sortable: true},
+  {name: 'lastAccess', label: 'Access', field: 'lastAccess', align: 'left', sortable: true},
+  {name: 'lastAccessAge', label: 'Age', field: 'lastAccessAge', align: 'left', sortable: true},
 ]
 
 const tabRows = computed(() => {
@@ -203,11 +212,42 @@ onMounted(() => {
   background: linear-gradient(180deg, rgba(255, 109, 0, 0.04) 0%, rgba(21, 101, 192, 0.04) 100%);
   min-height: 100vh;
 }
-.accent-border { border-left: 4px solid #1976d2; }
-.error-text { font-size: 0.8rem; color: red; }
-.favicon-wrapper { display: inline-flex; align-items: center; width: 22px; height: 22px; }
-.btn-action { padding: 2px 6px; font-size: 0.75rem; border: 1px solid #ccc; border-radius: 3px; background: #f5f5f5; cursor: pointer; }
-.btn-action:hover:not(:disabled) { background: #e0e0e0; }
-.btn-action:disabled { opacity: 0.5; cursor: not-allowed; }
-.btn-close-tab { color: #d32f2f; }
+
+.accent-border {
+  border-left: 4px solid #1976d2;
+}
+
+.error-text {
+  font-size: 0.8rem;
+  color: red;
+}
+
+.favicon-wrapper {
+  display: inline-flex;
+  align-items: center;
+  width: 22px;
+  height: 22px;
+}
+
+.btn-action {
+  padding: 2px 6px;
+  font-size: 0.75rem;
+  border: 1px solid #ccc;
+  border-radius: 3px;
+  background: #f5f5f5;
+  cursor: pointer;
+}
+
+.btn-action:hover:not(:disabled) {
+  background: #e0e0e0;
+}
+
+.btn-action:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-close-tab {
+  color: #d32f2f;
+}
 </style>
