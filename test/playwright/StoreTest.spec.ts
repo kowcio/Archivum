@@ -2,27 +2,22 @@
  * onTabActivated E2E Test
  *
  * Verifies: When last tab is activated from a group, groupId is set to -1 and group disappears.
- * 
+ *
  * IMPORTANT FIX (see ../FIX_TAB_UNGROUPING.md):
  * The service worker uses browser.tabs.ungroup([tabId]) to remove tabs from groups.
  * DO NOT use browser.tabs.update(id, { groupId: -1 }) — it silently does nothing.
  * The ungroup() API is the only way to actually remove a tab from its group (Chrome/Edge).
  */
 
-import { test, expect, type BrowserContext } from '@playwright/test'
-import { launchChromeContext } from './chromium/extensions.js'
+import { test, expect } from '@playwright/test'
+import { setupExtensionTest, type ExtensionTestContext } from './chromium/extensions.js'
 import { OptionsPage } from './page-objects/OptionsPage.js'
 
-type Ctx = { context: BrowserContext; extensionId: string; cleanup: () => Promise<void> }
-
 test.describe('onTabActivated — last tab removes group', () => {
-  test.setTimeout(60_000)
-  let ctx: Ctx
+  let ctx: ExtensionTestContext
 
   test.beforeAll('Setup', async () => {
-    test.skip(test.info().project.name !== 'chrome-mv3', 'Chrome MV3 only')
-    ctx = await launchChromeContext()
-    OptionsPage.setupServiceWorkerLogging(ctx.context)
+    ctx = await setupExtensionTest(false, 60_000)
   })
 
   test.afterAll('Cleanup', async () => {
@@ -95,7 +90,3 @@ test.describe('onTabActivated — last tab removes group', () => {
     }
   })
 })
-
-
-
-

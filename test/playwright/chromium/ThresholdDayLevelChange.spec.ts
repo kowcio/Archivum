@@ -6,20 +6,15 @@
  * - Tab counts per group reflect the new classification
  * - All groups are created correctly after Apply
  */
-import {test, expect, type BrowserContext} from '@playwright/test'
-import {launchChromeContext} from './extensions.js'
+import {test, expect} from '@playwright/test'
+import {setupExtensionTest, type ExtensionTestContext} from './extensions.js'
 import {OptionsPage} from '../page-objects/OptionsPage.js'
 
-type Ctx = { context: BrowserContext; extensionId: string; cleanup: () => Promise<void> }
-
 test.describe('Threshold Day Levels', () => {
-  test.setTimeout(90_000)
-  let ctx: Ctx
+  let ctx: ExtensionTestContext
 
   test.beforeAll('Setup: launch Chrome context with extension', async () => {
-    test.skip(test.info().project.name !== 'chrome-mv3', 'Chrome MV3 only')
-    ctx = await launchChromeContext()
-    OptionsPage.setupServiceWorkerLogging(ctx.context)
+    ctx = await setupExtensionTest(false, 90_000)
   })
 
   test.afterAll('Cleanup: close extension context', async () => {

@@ -4,22 +4,15 @@
  * E2E test: Popup UI
  * Chrome MV3 only. Run:  npm run build-only && npx playwright test --project chrome-mv3
  */
-import { expect, test, type BrowserContext } from "@playwright/test";
-import { launchChromeContext } from "./extensions.js";
-import { PopupPage } from "../page-objects/PopupPage.js";
-import { OptionsPage } from "../page-objects/OptionsPage.js";
-
-type ExtensionCtx = { context: BrowserContext; extensionId: string; cleanup: () => Promise<void> };
+import {expect, test} from "@playwright/test";
+import {type ExtensionTestContext, setupExtensionTest} from "./extensions.js";
+import {PopupPage} from "../page-objects/PopupPage.js";
 
 test.describe("Popup UI Tests", () => {
-  let ctx: ExtensionCtx;
+  let ctx: ExtensionTestContext;
 
   test.beforeAll("Setup: launch Chrome context with extension", async () => {
-    test.skip(test.info().project.name !== "chrome-mv3", "Chrome MV3 only");
-    test.setTimeout(30_000);
-    ctx = await launchChromeContext();
-    // Setup service worker logging for debugging
-    OptionsPage.setupServiceWorkerLogging(ctx.context);
+    ctx = await setupExtensionTest();
   });
 
   test.afterAll("Cleanup: close extension context", async () => {
@@ -38,5 +31,3 @@ test.describe("Popup UI Tests", () => {
     await popup.close();
   });
 });
-
-

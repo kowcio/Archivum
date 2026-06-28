@@ -4,20 +4,15 @@
  * E2E test: Thresholds and grouping flow
  * Chrome MV3 only. Run: npm run build-only && npx playwright test OptionsTresholdsTest
  */
-import { expect, test, type BrowserContext } from "@playwright/test";
-import { launchChromeContext } from "./extensions.js";
+import { expect, test } from "@playwright/test";
+import { setupExtensionTest, type ExtensionTestContext } from "./extensions.js";
 import { OptionsPage } from "../page-objects/OptionsPage.js";
 
-type ExtensionCtx = { context: BrowserContext; extensionId: string; cleanup: () => Promise<void> };
-
 test.describe("Thresholds", () => {
-  let ctx: ExtensionCtx;
+  let ctx: ExtensionTestContext;
 
   test.beforeAll(async () => {
-    test.skip(test.info().project.name !== "chrome-mv3", "Chrome MV3 only");
-    test.setTimeout(60_000);
-    ctx = await launchChromeContext();
-    OptionsPage.setupServiceWorkerLogging(ctx.context);
+    ctx = await setupExtensionTest(false, 60_000);
   });
 
   test.afterAll(async () => {

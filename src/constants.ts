@@ -86,8 +86,12 @@ export const APP_DEFAULTS = {
   },
 }
 
-/** true in `wxt dev`, false in `wxt build`. Use to hide dev-only UI in production. */
-export const isDevEnv = import.meta.env.DEV
+/**
+ * Set to `true` for Playwright testing (dev features visible in production build).
+ * Set to `false` for actual production release.
+ * SINGLE PLACE TO CHANGE — tests vs production.
+ */
+export const isDevEnv = import.meta.env.DEV || import.meta.env.VITE_DEV_FEATURES === 'true'
 
 // ─── Environment banner ──────────────────────────────────────────────
 if (isDevEnv) {
@@ -104,7 +108,7 @@ if (isDevEnv) {
   console.log(
     `%c
 ╔══════════════════════════════════╗
-║        📦  ARCHIVUM  📦          ║
+║        📦  ARCHIVUM  📦         ║
 ║     PRODUCTION BUILD             ║
 ║  Dev features: HIDDEN            ║
 ╚══════════════════════════════════╝`,

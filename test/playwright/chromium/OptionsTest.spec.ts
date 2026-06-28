@@ -9,20 +9,15 @@
  *
  * Flow: No mocks, uses natural tabs from browser
  */
-import { expect, test, type BrowserContext } from "@playwright/test";
-import { launchChromeContext } from "./extensions.js";
+import { expect, test } from "@playwright/test";
+import { setupExtensionTest, type ExtensionTestContext } from "./extensions.js";
 import { OptionsPage } from "../page-objects/OptionsPage.js";
 
-type ExtensionCtx = { context: BrowserContext; extensionId: string; cleanup: () => Promise<void> };
-
 test.describe("Options Page Tests", () => {
-  let ctx: ExtensionCtx;
+  let ctx: ExtensionTestContext;
 
   test.beforeAll("Setup: launch Chrome context with extension", async () => {
-    test.skip(test.info().project.name !== "chrome-mv3", "Chrome MV3 only");
-    test.setTimeout(30_000);
-    ctx = await launchChromeContext();
-    OptionsPage.setupServiceWorkerLogging(ctx.context);
+    ctx = await setupExtensionTest(false);
   });
 
   test.afterAll("Cleanup: close extension context", async () => {
@@ -99,5 +94,3 @@ test.describe("Options Page Tests", () => {
     await options.close();
   });
 });
-
-

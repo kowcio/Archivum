@@ -52,6 +52,9 @@ export default defineConfig({
     },
 
     vite: () => ({
+      define: {
+        'import.meta.env.VITE_DEV_FEATURES': JSON.stringify(process.env.DEV_FEATURES || 'false'),
+      },
       plugins: [
         {
           name: 'exclude-docs-from-bundle',

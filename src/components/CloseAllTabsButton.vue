@@ -2,6 +2,7 @@
   <q-btn
     label="Close all other tabs"
     icon="close_multiple"
+    data-testid="btn-close-all-tabs"
     class="got-btn-red"
     unelevated
     :loading="loading"

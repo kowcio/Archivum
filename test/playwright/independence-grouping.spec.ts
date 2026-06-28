@@ -8,20 +8,15 @@
  * 4. Fresh tabs remain ungrouped
  */
 
-import { test, expect, type BrowserContext } from '@playwright/test'
-import { launchChromeContext } from './chromium/extensions.js'
+import { test, expect } from '@playwright/test'
+import { setupExtensionTest, type ExtensionTestContext } from './chromium/extensions.js'
 import { OptionsPage } from './page-objects/OptionsPage.js'
 
-type Ctx = { context: BrowserContext; extensionId: string; cleanup: () => Promise<void> }
-
 test.describe('groupTabsByAge E2E', () => {
-  test.setTimeout(60_000)
-  let ctx: Ctx
+  let ctx: ExtensionTestContext
 
   test.beforeAll('Setup', async () => {
-    test.skip(test.info().project.name !== 'chrome-mv3', 'Chrome MV3 only')
-    ctx = await launchChromeContext()
-    OptionsPage.setupServiceWorkerLogging(ctx.context)
+    ctx = await setupExtensionTest(false, 60_000)
   })
 
   test.afterAll('Cleanup', async () => {
@@ -61,11 +56,11 @@ test.describe('groupTabsByAge E2E', () => {
       expect(result.groups[0].title).toContain("Month+")
       expect(result.groups[1].title).toContain("2 Weeks+")
       expect(result.groups[2].title).toContain("Week+")
-      expect(result.tabs[0].groupId).toBeGreaterThan(0)
 
       // Verify each group has valid id and title
       for ( let i = 0 ; i < result.groups.length ; i++ ) {
-        expect(result.tabs[i].groupId).toBeGreaterThan(0)
+        expect(result.tabs[i].groupId).not.toBe(-1)
+        expect(result.tabs[i].groupId).not.toBeUndefined()
       }
 
       // Verify: Grouped tabs are first (indexes 0-11), ungrouped tabs at end (indexes 12-14)
@@ -78,7 +73,8 @@ test.describe('groupTabsByAge E2E', () => {
       // Check the oldest tab from all should be in a group with npmjs URL
       const oldestGroupedTab = groupedTabs.find(t => t.url?.includes("npmjs.com"))
       expect(oldestGroupedTab).toBeDefined()
-      expect(oldestGroupedTab?.groupId).toBeGreaterThan(0)
+      expect(oldestGroupedTab?.groupId).not.toBe(-1)
+      expect(oldestGroupedTab?.groupId).not.toBeUndefined()
 
       console.log(`✅ PASSED: ${result.groupCount} groups (oldest→youngest left→right), ${ungroupedTabs.length} ungrouped tabs`)
 

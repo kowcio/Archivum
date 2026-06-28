@@ -6,18 +6,14 @@
  *
  * Tests content script initialization and UI rendering on web pages
  */
-import { expect, test, type BrowserContext } from "@playwright/test";
-import { launchChromeContext } from "./extensions.js";
-
-type ExtensionCtx = { context: BrowserContext; extensionId: string; cleanup: () => Promise<void> };
+import { expect, test } from "@playwright/test";
+import { setupExtensionTest, type ExtensionTestContext } from "./extensions.js";
 
 test.describe("Content Script Tests", () => {
-  let ctx: ExtensionCtx;
+  let ctx: ExtensionTestContext;
 
   test.beforeAll("Setup: launch Chrome context with extension", async () => {
-    test.skip(test.info().project.name !== "chrome-mv3", "Chrome MV3 only");
-    test.setTimeout(30_000);
-    ctx = await launchChromeContext();
+    ctx = await setupExtensionTest(false);
   });
 
   test.afterAll("Cleanup: close extension context", async () => {
@@ -56,4 +52,3 @@ test.describe("Content Script Tests", () => {
     await page.close();
   });
 });
-
