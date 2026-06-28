@@ -1,5 +1,5 @@
 <template>
-  <div class="row col-12 accent-border" data-testd="thresholds-view">
+  <div class="row col-12 " data-testd="thresholds-view">
     <div
       class="col-12 row items-center q-pa-md bg-grey-1 rounded-borders"
       data-testid="thresholds-config"
@@ -193,10 +193,6 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.accent-border {
-  border-left: 4px solid #1976d2;
-}
-
 .info-box {
   display: flex;
   gap: 8px;

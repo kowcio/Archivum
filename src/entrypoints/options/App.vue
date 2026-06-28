@@ -25,12 +25,12 @@
       </div>
 
       <!-- Thresholds Configuration -->
-      <div class="row q-mt-md">
+      <div class="row q-mt-md accent-border">
         <Thresholds @apply="refreshTabs"/>
       </div>
 
       <!-- Live tabs table -->
-      <div v-if="tabs.length" class="q-my-md accent-border bg-grey-1 rounded-borders">
+      <div v-if="tabs.length" class="q-my-md  bg-grey-1 rounded-borders">
         <div data-testid="table-error" v-if="tabRows.length <= 0 ">
           {{ tabRows.length }}
         </div>
@@ -40,7 +40,7 @@
           :columns="columns"
           :rows="tabRows"
           :filter="filter"
-          class="bg-grey-1 q-pa-md"
+          class="bg-grey-1 q-pa-md accent-border"
           row-key="rowKey"
           flat
           bordered
@@ -224,8 +224,21 @@ onMounted(() => {
   min-height: 100vh;
 }
 
+/* ── Accent left border with brand gradient ──────────────────────────── */
 .accent-border {
-  border-left: 4px solid #d47a2a;
+  position: relative;
+  border-left: none;
+  /* Use a pseudo-element for the gradient left border */
+}
+.accent-border::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 4px;
+  height: 100%;
+  background: var(--got-header-gradient);
+  border-radius: 4px 0 0 4px;
 }
 
 .error-text {
