@@ -1,76 +1,78 @@
 <template>
-  <div
-    class="row q-gutter-md q-pa-md bg-grey-1 rounded-borders "
-    style="border-left: 4px solid #1976d2"
-    data-testid="thresholds-config"
-  >
-    <div class="info-box col-auto">
-      <div class="label">Active Levels:</div>
-      <div class="value">{{ localThresholds.activeLevels }} / {{ maxLevels }}</div>
-    </div>
-    <div class="col-2">
-      <q-input
-        data-testid="thresholds-levels-input"
-        :model-value="localThresholds.activeLevels"
-        label="Levels"
-        type="number"
-        :min="1"
-        :max="maxLevels"
-        :disable="appStore.loading.value"
-        dense
-        class="levels-input"
-        @update:model-value="(v) => handleChangeCount(Number(v))"
-      />
-    </div>
-
-
-    <!-- Action buttons -->
-    <div class="col-auto action-buttons">
-      <q-btn
-        class="q-px-md"
-        v-if="hasChanges && !appStore.loading.value"
-        data-testid="threshold-apply"
-        icon="check"
-        label="Apply"
-        color="positive"
-        dense
-        @click="handleApply"
-      />
-      <q-btn
-        data-testid="threshold-reset"
-        icon="refresh"
-        label="Reset"
-        color="secondary"
-        dense
-        flat
-        :disable="appStore.loading.value"
-        @click="handleReset"
-      />
-    </div>
-  </div>
-
-  <div v-if="appStore.error.value" class="error-text row q-pt-xs">{{ appStore.error.value }}</div>
-
-  <div
-    class="row q-mt-md q-gutter-md q-pa-md bg-grey-1 rounded-borders"
-    style="border-left: 4px solid #1976d2"
-  >
-    <template v-for="(level, idx) in activeThresholds" :key="`threshold-${idx}`">
-      <div class="col-12 col-sm-6 col-md-4 col-lg-3">
+  <div>
+    <div
+      class="accent-border row items-center q-pa-md bg-grey-1 rounded-borders"
+      data-testid="thresholds-config"
+    >
+      <div class="info-box q-mr-md col-auto">
+        <div class="label">Active Levels:</div>
+        <div class="value">{{ localThresholds.activeLevels }} / {{ maxLevels }}</div>
+      </div>
+      <div class="q-mr-md col-auto">
         <q-input
-          :label-color="level.color"
-          :data-testid="`threshold-${idx}`"
-          :model-value="level.days"
-          :label="level.label"
+          data-testid="thresholds-levels-input"
+          :model-value="localThresholds.activeLevels"
+          label="Levels"
           type="number"
-          :min="idx === 0 ? 0 : activeThresholds[idx - 1].days + 1"
-          :max="idx === activeThresholds.length - 1 ? undefined : activeThresholds[idx + 1].days - 1"
+          :min="1"
+          :max="maxLevels"
           :disable="appStore.loading.value"
           dense
-          @update:model-value="(v) => onChange(idx, Number(v))"
+          hide-bottom-space
+          class="levels-input"
+          @update:model-value="(v) => handleChangeCount(Number(v))"
         />
       </div>
-    </template>
+
+
+      <!-- Action buttons -->
+      <div class="col-auto action-buttons">
+        <q-btn
+          class="q-mr-xs"
+          v-if="hasChanges && !appStore.loading.value"
+          data-testid="threshold-apply"
+          icon="check"
+          label="Apply"
+          color="positive"
+          dense
+          @click="handleApply"
+        />
+        <q-btn
+          data-testid="threshold-reset"
+          icon="refresh"
+          label="Reset"
+          color="secondary"
+          dense
+          flat
+          :disable="appStore.loading.value"
+          @click="handleReset"
+        />
+      </div>
+    </div>
+
+    <div v-if="appStore.error.value" class="error-text row q-pt-sm">{{ appStore.error.value }}</div>
+
+    <div
+      class="accent-border row items-center q-pa-md bg-grey-1 rounded-borders"
+    >
+      <template v-for="(level, idx) in activeThresholds" :key="`threshold-${idx}`">
+        <div class="col-12 col-sm-6 col-md-4 col-lg-3">
+          <q-input
+            :label-color="level.color"
+            :data-testid="`threshold-${idx}`"
+            :model-value="level.days"
+            :label="level.label"
+            type="number"
+            :min="idx === 0 ? 0 : activeThresholds[idx - 1].days + 1"
+            :max="idx === activeThresholds.length - 1 ? undefined : activeThresholds[idx + 1].days - 1"
+            :disable="appStore.loading.value"
+            dense
+            hide-bottom-space
+            @update:model-value="(v) => onChange(idx, Number(v))"
+          />
+        </div>
+      </template>
+    </div>
   </div>
 </template>
 
@@ -183,6 +185,7 @@ onMounted(() => {
 </script>
 
 <style scoped>
+.accent-border { border-left: 4px solid #1976d2; }
 .info-box {
   display: flex;
   gap: 8px;
@@ -196,7 +199,5 @@ onMounted(() => {
 }
 .label { font-weight: 600; color: #666; }
 .value { font-weight: 700; color: #1976d2; }
-.levels-input { min-width: 120px; }
-
 .error-text { font-size: 0.8rem; color: #d32f2f; width: 100%; }
 </style>

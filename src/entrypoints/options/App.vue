@@ -1,8 +1,8 @@
 <template>
   <AppTitle />
   <div id="options" class="row">
-    <div class="col-10 offset-1">
-      <!-- Actions — wrapping row, max col-3 per button -->
+    <div class="col-12 col-sm-10 offset-sm-1 col-md-8 offset-md-2 q-px-sm q-px-sm-none">
+      <!-- Actions — wrapping row -->
       <div class="row items-start q-mt-md q-gutter-sm">
 
           <GroupUngroup />
@@ -22,22 +22,22 @@
       </div>
 
       <!-- Thresholds Configuration -->
-      <div v-if="isDevEnv" class="row q-mt-lg">
+      <div v-if="isDevEnv" class="row q-mt-md">
         <div class="col">
           <Thresholds @apply="refreshTabs" />
         </div>
       </div>
 
       <!-- Live tabs table -->
-      <div class="table-container" v-if="tabs.length">
-        <div data-testid="table-error" v-if="tabRows.length <= 0 ">{{tabRows.length}}</div>
+      <div v-if="tabs.length" class="q-mt-md accent-border bg-grey-1 rounded-borders">
+        <div data-testid="table-error" v-if="tabRows.length <= 0 " class="q-pa-md">{{tabRows.length}}</div>
         <q-table
           title="Open Tabs"
           data-testid="table-open-tabs"
           :columns="columns"
           :rows="tabRows"
           :filter="filter"
-          class="rounded-borders bg-grey-1 table-wrapper"
+          class="bg-grey-1"
           row-key="rowKey"
           flat
           bordered
@@ -203,8 +203,7 @@ onMounted(() => {
   background: linear-gradient(180deg, rgba(255, 109, 0, 0.04) 0%, rgba(21, 101, 192, 0.04) 100%);
   min-height: 100vh;
 }
-.table-container { display: flex; justify-content: center; width: 100%; margin: 1rem 0; }
-.table-wrapper { max-height: 70vh; width: 100%; }
+.accent-border { border-left: 4px solid #1976d2; }
 .error-text { font-size: 0.8rem; color: red; }
 .favicon-wrapper { display: inline-flex; align-items: center; width: 22px; height: 22px; }
 .btn-action { padding: 2px 6px; font-size: 0.75rem; border: 1px solid #ccc; border-radius: 3px; background: #f5f5f5; cursor: pointer; }
