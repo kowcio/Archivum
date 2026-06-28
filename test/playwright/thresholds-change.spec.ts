@@ -48,7 +48,7 @@ test.describe('Threshold Change: Store → Options Auto-Update', () => {
     let result = await options.getGroupAndTabData()
 
     expect(result.groups.length).toBe(5)
-    expect(result.groups[0].title).toContain('Are You kidding')
+    expect(result.groups[0].title).toContain('Eat that frog!')
     expect(result.groups[1].title).toContain('Quarter+')
     expect(result.groups[2].title).toContain('Month+')
     expect(result.groups[3].title).toContain('2 Weeks+')

@@ -40,7 +40,7 @@ export enum ThresholdLabel {
   WEEKS_2 = '2 Weeks+',
   MONTH = 'Month+',
   QUARTERS = 'Quarter+',
-  YEARS = 'Are You kidding me ?',
+  YEARS = 'Eat that frog!',
 }
 
 /** Single threshold level configuration: key + label + days + color name. */
