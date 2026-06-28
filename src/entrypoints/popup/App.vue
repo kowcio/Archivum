@@ -15,7 +15,7 @@
           rounded
           no-caps
           size="md"
-          @click="groupByDomain"
+          @click="sortByDomain"
         />
 
         <RefreshButton class="got-btn-ghost" @refresh="() => {}" @error="(msg) => console.warn(msg)" />
@@ -67,7 +67,7 @@ async function openOptionsPageFull(): Promise<void> {
    window.close()
  }
 
-async function groupByDomain(): Promise<void> {
+async function sortByDomain(): Promise<void> {
   loading.value = true
   try {
     await browser.runtime.sendMessage({ action: BACKGROUND_MESSAGE_ACTIONS.GROUP_TABS_BY_DOMAIN })

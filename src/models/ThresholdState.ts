@@ -37,15 +37,33 @@ export interface AppState {
   configLastUpdated: number
   version: string
 }
+
+/**
+ * Normalize levels from storage (handle WXT edge case where arrays come as objects)
+ */
+function normalizeLevels(
+  levels: ThresholdLevel[] | Record<number, ThresholdLevel> | undefined
+): ThresholdLevel[] {
+  if (Array.isArray(levels)) return levels
+  if (levels && typeof levels === 'object') {
+    return Object.values(levels).filter(
+      (item): item is ThresholdLevel =>
+        item && typeof item === 'object' && 'days' in item && 'key' in item
+    )
+  }
+  return []
+}
+
 /**
  * Validate threshold state
  */
 export function isValidThresholdState(state: ThresholdState): boolean {
-  if (!state?.levels || state.levels.length === 0) return false
-  if (state.activeLevels < 1 || state.activeLevels > state.levels.length) return false
+  const levels = normalizeLevels(state?.levels)
+  if (levels.length === 0) return false
+  if (state.activeLevels < 1 || state.activeLevels > levels.length) return false
 
   // Check strict ordering: days must increase
-  const active = state.levels.slice(0, state.activeLevels)
+  const active = levels.slice(0, state.activeLevels)
   if (active[0]?.days < 0) return false
   for (let i = 1; i < active.length; i++) {
     if (active[i].days <= active[i - 1].days) return false
@@ -57,7 +75,8 @@ export function isValidThresholdState(state: ThresholdState): boolean {
  * Get active levels from threshold state
  */
 export function getActiveThresholds(state: ThresholdState): ThresholdLevel[] {
-  return state.levels.slice(0, state.activeLevels)
+  const levels = normalizeLevels(state?.levels)
+  return levels.slice(0, state.activeLevels)
 }
 
 /**
@@ -67,7 +86,8 @@ export function mergeThresholdState(
   current: ThresholdState,
   patch: Record<number, Partial<ThresholdLevel>>
 ): ThresholdState {
-  const updated = current.levels.map((level, idx) => {
+  const levels = normalizeLevels(current?.levels)
+  const updated = levels.map((level, idx) => {
     const patchByIndex = patch[idx]
     if (!patchByIndex) return level
     return {
@@ -84,9 +104,10 @@ export function mergeThresholdState(
  * Update active levels count
  */
 export function updateActiveThresholds(state: ThresholdState, count: number): ThresholdState {
+  const levels = normalizeLevels(state?.levels)
   return {
     ...state,
-    activeLevels: Math.max(1, Math.min(count, state.levels.length)),
+    levels,
+    activeLevels: Math.max(1, Math.min(count, levels.length)),
   }
 }
-

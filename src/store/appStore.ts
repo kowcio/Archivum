@@ -24,7 +24,7 @@
 import { ref, onMounted, type Ref } from 'vue'
 import { storage } from '#imports'
 import { AppThresholds, DEFAULT_THRESHOLDS } from '@/models/AppThresholds.ts'
-import { type ThresholdState, type AppState, isValidThresholdState, mergeThresholdState, updateActiveThresholds } from '@/models/ThresholdState.ts'
+import { type ThresholdState, type AppState, isValidThresholdState } from '@/models/ThresholdState.ts'
 import type { ThresholdLevel } from '@/constants.ts'
 import { APP_DEFAULTS } from '@/constants.ts'
 
@@ -102,9 +102,12 @@ export async function getStorageThresholds(): Promise<AppThresholds> {
  * ════════════════════════════════════════════════════════════════════
  * PART 2: VUE COMPOSABLE WRAPPER (Reactive Binding)
  * ════════════════════════════════════════════════════════════════════
- * Provides Vue reactivity around WXT storage
- * Storage layer: plain ThresholdState (interface)
- * Vue layer: AppThresholds class (for business logic methods)
+ * Provides Vue reactivity around WXT storage.
+ *
+ * ⚡ SINGLETON PATTERN: refs live at module level so every
+ *    useAppStore() caller shares the SAME reactive state.
+ * ⚡ Storage layer: plain ThresholdState (interface)
+ * ⚡ Vue layer: AppThresholds class (for business logic methods)
  */
 
 type UseAppStoreReturn = {
@@ -122,25 +125,25 @@ type UseAppStoreReturn = {
   resetToDefaults(): Promise<void>
 }
 
+// ── Module-level singleton refs (shared across all useAppStore() callers) ──
+const thresholds = ref<AppThresholds>(DEFAULT_THRESHOLDS)
+const configLastUpdated = ref<number>(Date.now())
+const loading = ref<boolean>(false)
+const error = ref<string | null>(null)
 let storageWatcherSetup = false
 
 /**
- * Main composable — call this in any Vue component to get reactive app state
+ * Main composable — call this in any Vue component to get reactive app state.
  *
- * Returns AppThresholds for business logic, but internally syncs with plain ThresholdState in storage
+ * ⚡ SINGLETON — every caller reads/writes the SAME refs.
+ * Returns AppThresholds for business logic, but internally syncs with plain ThresholdState in storage.
  *
  * Example: const { thresholds, save } = useAppStore()
  */
 export function useAppStore(): UseAppStoreReturn {
-  // Reactive refs — mirror storage state
-  const thresholds = ref<AppThresholds>(DEFAULT_THRESHOLDS)
-  const configLastUpdated = ref<number>(Date.now())
-  const loading = ref<boolean>(false)
-  const error = ref<string | null>(null)
+  // ── shared refs are at module level ↑, these inner functions
+  //    always read/write the SAME refs ──
 
-  /**
-   * Load initial state from storage
-   */
   async function load(): Promise<void> {
     loading.value = true
     error.value = null
@@ -159,9 +162,6 @@ export function useAppStore(): UseAppStoreReturn {
     }
   }
 
-  /**
-   * Persist current state to storage
-   */
   async function save(): Promise<void> {
     loading.value = true
     error.value = null
@@ -185,9 +185,6 @@ export function useAppStore(): UseAppStoreReturn {
     }
   }
 
-  /**
-   * Update threshold levels (partial)
-   */
   async function setThresholds(patch: Record<number, Partial<{ days: number }>>): Promise<void> {
     try {
       const updated = thresholds.value.merge(patch)
@@ -204,9 +201,6 @@ export function useAppStore(): UseAppStoreReturn {
     }
   }
 
-  /**
-   * Update active levels count
-   */
   async function setActiveLevels(count: number): Promise<void> {
     try {
       thresholds.value = thresholds.value.withActiveLevels(count)
@@ -219,9 +213,6 @@ export function useAppStore(): UseAppStoreReturn {
     }
   }
 
-  /**
-   * Reset to defaults
-   */
   async function resetToDefaults(): Promise<void> {
     try {
       thresholds.value = DEFAULT_THRESHOLDS
@@ -234,9 +225,6 @@ export function useAppStore(): UseAppStoreReturn {
     }
   }
 
-  /**
-   * Setup storage watcher — fires when storage changes in ANY context
-   */
   function setupStorageWatcher(): void {
     if (storageWatcherSetup) return
     storageWatcherSetup = true
@@ -256,9 +244,6 @@ export function useAppStore(): UseAppStoreReturn {
     })
   }
 
-  /**
-   * Auto-init on mount
-   */
   onMounted(async () => {
     await load()
     setupStorageWatcher()

@@ -414,13 +414,13 @@ describe('BackgroundTabService', () => {
   // ═══════════════════════════════════════════════════════════════════════════
   describe('groupTabsByDomain()', () => {
     it('should return 0 when no tabs exist', async () => {
-      const count = await BackgroundTabService.groupTabsByDomain()
+      const count = await BackgroundTabService.sortGroupsByDomain()
       expect(count).toBe(0)
     })
 
     it('should handle single tab gracefully', async () => {
       await fakeBrowser.tabs.create({ url: 'https://example.com' })
-      const count = await BackgroundTabService.groupTabsByDomain()
+      const count = await BackgroundTabService.sortGroupsByDomain()
       // Single tab = no group needed
       expect(count).toBe(0)
     })
@@ -430,7 +430,7 @@ describe('BackgroundTabService', () => {
       await fakeBrowser.tabs.create({ url: 'https://example.com/2' })
       await fakeBrowser.tabs.create({ url: 'https://github.com' })
 
-      const count = await BackgroundTabService.groupTabsByDomain()
+      const count = await BackgroundTabService.sortGroupsByDomain()
       // May create 0-2 groups depending on browser support
       expect(count).toBeGreaterThanOrEqual(0)
     })
@@ -441,7 +441,7 @@ describe('BackgroundTabService', () => {
       await fakeBrowser.tabs.create({ url: 'https://apple.com' })
       await fakeBrowser.tabs.create({ url: 'https://banana.com' })
 
-      const count = await BackgroundTabService.groupTabsByDomain()
+      const count = await BackgroundTabService.sortGroupsByDomain()
       // Groups created in alphabetical order (apple < banana < zebra)
       expect(count).toBeGreaterThanOrEqual(0)
     })
@@ -462,7 +462,7 @@ describe('BackgroundTabService', () => {
         [tabs[2].id!]: now - 10 * DAY_MS,
       })
 
-      const count = await BackgroundTabService.groupTabsByDomain()
+      const count = await BackgroundTabService.sortGroupsByDomain()
       // Within domain: 20d, 10d, 5d (oldest first)
       expect(count).toBeGreaterThanOrEqual(0)
     })
@@ -480,7 +480,7 @@ describe('BackgroundTabService', () => {
         [tabs[1].id!]: now - DAY_MS,
       })
 
-      const count = await BackgroundTabService.groupTabsByDomain()
+      const count = await BackgroundTabService.sortGroupsByDomain()
       expect(count).toBeGreaterThanOrEqual(0)
     })
 
@@ -493,7 +493,7 @@ describe('BackgroundTabService', () => {
       await fakeBrowser.tabs.create({ url: 'https://github.com/2' })
       await fakeBrowser.tabs.create({ url: 'https://npm.com' })
 
-      const count = await BackgroundTabService.groupTabsByDomain()
+      const count = await BackgroundTabService.sortGroupsByDomain()
       expect(count).toBeGreaterThanOrEqual(0)
     })
 
@@ -501,7 +501,7 @@ describe('BackgroundTabService', () => {
       await fakeBrowser.tabs.create({ url: 'https://example.com' })
       await fakeBrowser.tabs.create({ url: 'not-a-valid-url' })
 
-      const count = await BackgroundTabService.groupTabsByDomain()
+      const count = await BackgroundTabService.sortGroupsByDomain()
       expect(count).toBeGreaterThanOrEqual(0)
     })
 
@@ -521,7 +521,7 @@ describe('BackgroundTabService', () => {
         [tabs[2].id!]: now - 15 * DAY_MS,
       })
 
-      const count = await BackgroundTabService.groupTabsByDomain()
+      const count = await BackgroundTabService.sortGroupsByDomain()
       // Should not throw, regardless of grouping success
       expect(count).toBeGreaterThanOrEqual(0)
     })
@@ -540,7 +540,7 @@ describe('BackgroundTabService', () => {
       const ageCount = await BackgroundTabService.groupTabsByAge()
       expect(ageCount).toBeGreaterThanOrEqual(0)
 
-      const domainCount = await BackgroundTabService.groupTabsByDomain()
+      const domainCount = await BackgroundTabService.sortGroupsByDomain()
       expect(domainCount).toBeGreaterThanOrEqual(0)
     })
   })
@@ -552,7 +552,7 @@ describe('BackgroundTabService', () => {
     it('should not throw on empty operations', async () => {
       await expect(BackgroundTabService.groupTabsByAge()).resolves.not.toThrow()
       await expect(BackgroundTabService.ungroupAllTabs()).resolves.not.toThrow()
-      await expect(BackgroundTabService.groupTabsByDomain()).resolves.not.toThrow()
+      await expect(BackgroundTabService.sortGroupsByDomain()).resolves.not.toThrow()
     })
 
 
