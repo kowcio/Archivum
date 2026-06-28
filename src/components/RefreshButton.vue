@@ -1,6 +1,6 @@
 <template>
   <q-btn
-    label="Refresh tabs"
+    label="Refresh table"
     data-testid="load-tabs"
     icon="refresh"
     class="got-btn-cyan"
