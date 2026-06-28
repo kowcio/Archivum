@@ -4,6 +4,7 @@
   --got-orange: #ff6d00;
   --got-blue: #1565c0;
   --got-radius: 10px;
+  --got-header-gradient: linear-gradient(135deg, #ff6d00 0%, #1565c0 100%);
 }
 
 body, #app {
