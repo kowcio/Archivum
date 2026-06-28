@@ -31,55 +31,68 @@ body, #app {
   min-height: 100vh;
 }
 
-/* ── Group (orange→brand-dark, forward) ───────────────────────────────── */
+/* ── Group (bold orange — most important CTA) ─────────────────────────── */
 .got-btn-amber.q-btn {
-  background: linear-gradient(135deg, #d47a2a 0%, #d47a2a 50%, var(--got-brand-dark) 100%) !important;
+  background: #d47a2a !important;
   color: #fff !important;
   border-radius: var(--got-radius) !important;
-  box-shadow: 0 3px 10px rgba(99, 55, 34, 0.35) !important;
+  box-shadow: 0 4px 14px rgba(212, 122, 42, 0.45) !important;
   font-weight: 600;
 }
-.got-btn-amber.q-btn:hover { filter: brightness(1.06); }
+.got-btn-amber.q-btn:hover {
+  box-shadow: 0 6px 20px rgba(212, 122, 42, 0.55) !important;
+}
 
-/* ── Ungroup (brand-dark→orange, flipped) ────────────────────────────── */
+/* ── Ungroup (bold blue — second most important) ──────────────────────── */
 .got-btn-blue.q-btn {
-  background: linear-gradient(135deg, var(--got-brand-dark) 0%, var(--got-brand-dark) 50%, #d47a2a 100%) !important;
+  background: var(--got-cool) !important;
   color: #fff !important;
   border-radius: var(--got-radius) !important;
-  box-shadow: 0 3px 10px rgba(99, 55, 34, 0.35) !important;
+  box-shadow: 0 4px 14px rgba(56, 103, 164, 0.45) !important;
   font-weight: 600;
 }
-.got-btn-blue.q-btn:hover { filter: brightness(1.06); }
+.got-btn-blue.q-btn:hover {
+  box-shadow: 0 6px 20px rgba(56, 103, 164, 0.55) !important;
+}
 
-/* ── Refresh (cyan → brand-dark, 50% split) ──────────────────────────── */
+/* ── Refresh (muted teal) ─────────────────────────────────────────────── */
 .got-btn-cyan.q-btn {
-  background: linear-gradient(135deg, #7ab5c4 0%, #7ab5c4 50%, var(--got-brand-dark) 100%) !important;
+  background: rgba(122, 181, 196, 0.6) !important;
   color: #fff !important;
   border-radius: var(--got-radius) !important;
-  box-shadow: 0 2px 8px rgba(99, 55, 34, 0.3) !important;
-  font-weight: 600;
+  box-shadow: 0 2px 6px rgba(122, 181, 196, 0.2) !important;
+  font-weight: 500;
 }
-.got-btn-cyan.q-btn:hover { filter: brightness(1.06); }
+.got-btn-cyan.q-btn:hover {
+  background: rgba(122, 181, 196, 0.85) !important;
+  box-shadow: 0 3px 10px rgba(122, 181, 196, 0.35) !important;
+}
 
-/* ── Create mocks (yellow → brand-dark, 50% split) ───────────────────── */
+/* ── Create mocks (faded yellow) ──────────────────────────────────────── */
 .got-btn-yellow.q-btn {
-  background: linear-gradient(135deg, var(--got-yellow-base) 0%, var(--got-yellow-base) 50%, var(--got-brand-dark) 100%) !important;
-  color: #333 !important;
+  background: rgba(255, 202, 40, 0.45) !important;
+  color: #5a4a1a !important;
   border-radius: var(--got-radius) !important;
-  box-shadow: 0 2px 8px rgba(99, 55, 34, 0.3) !important;
-  font-weight: 600;
+  box-shadow: 0 1px 4px rgba(255, 202, 40, 0.12) !important;
+  font-weight: 500;
 }
-.got-btn-yellow.q-btn:hover { filter: brightness(1.06); }
+.got-btn-yellow.q-btn:hover {
+  background: rgba(255, 202, 40, 0.7) !important;
+  box-shadow: 0 2px 8px rgba(255, 202, 40, 0.25) !important;
+}
 
-/* ── Close all (red → brand-dark, 50% split) ──────────────────────────── */
+/* ── Close all (faded red) ────────────────────────────────────────────── */
 .got-btn-red.q-btn {
-  background: linear-gradient(135deg, var(--got-red-base) 0%, var(--got-red-base) 50%, var(--got-brand-dark) 100%) !important;
+  background: rgba(239, 83, 80, 0.5) !important;
   color: #fff !important;
   border-radius: var(--got-radius) !important;
-  box-shadow: 0 2px 8px rgba(99, 55, 34, 0.3) !important;
-  font-weight: 600;
+  box-shadow: 0 1px 4px rgba(239, 83, 80, 0.12) !important;
+  font-weight: 500;
 }
-.got-btn-red.q-btn:hover { filter: brightness(1.06); }
+.got-btn-red.q-btn:hover {
+  background: rgba(239, 83, 80, 0.75) !important;
+  box-shadow: 0 2px 8px rgba(239, 83, 80, 0.25) !important;
+}
 
 /* ── Table with brand palette ─────────────────────────────────────────── */
 
