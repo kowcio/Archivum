@@ -5,14 +5,17 @@
       <!-- Actions — wrapping row -->
       <div class="row items-start q-mt-sm q-gutter-sm justify-center">
 
-        <GroupUngroup />
-        <MockButton @mock-created="refreshTabs" v-if="isDevEnv"/>
+        <GroupUngroup/>
         <RefreshButton @refresh="onRefreshTabs" @error="(msg) => error = msg"/>
 
+        <!-- Dev Buttons -->
+        <MockButton @mock-created="refreshTabs" v-if="isDevEnv"/>
         <CloseAllTabsButton
+          v-if="isDevEnv"
           @success="refreshTabs"
           @error="(msg) => error = msg"
         />
+
       </div>
 
       <!-- Error display -->
@@ -28,7 +31,7 @@
 
       <!-- Live tabs table -->
       <div v-if="tabs.length" class="q-my-md accent-border bg-grey-1 rounded-borders">
-        <div data-testid="table-error" v-if="tabRows.length <= 0 " >
+        <div data-testid="table-error" v-if="tabRows.length <= 0 ">
           {{ tabRows.length }}
         </div>
         <q-table
@@ -128,13 +131,27 @@ const columns: {
   sortable?: boolean;
   sort?: (a: any, b: any) => number
 }[] = [
-  {name: 'ordinal', label: '#', field: 'ordinal', align: 'left', sortable: true, sort: (a, b) => a - b},
+  {
+    name: 'ordinal',
+    label: '#',
+    field: 'ordinal',
+    align: 'left',
+    sortable: true,
+    sort: (a, b) => a - b
+  },
   {name: 'actions', label: '', field: 'actions', align: 'left'},
   {name: 'thumbnail', label: '', field: 'thumbnail', align: 'left'},
   {name: 'domain', label: 'Domain', field: 'domain', align: 'left', sortable: true},
   {name: 'title', label: 'Title', field: 'title', align: 'left', sortable: true},
   {name: 'url', label: 'URL', field: 'url', align: 'left', sortable: true},
-  {name: 'lastAccess', label: 'Days old', field: 'lastAccessDays', align: 'left', sortable: true, sort: (a, b) => a - b},
+  {
+    name: 'lastAccess',
+    label: 'Days old',
+    field: 'lastAccessDays',
+    align: 'left',
+    sortable: true,
+    sort: (a, b) => a - b
+  },
 ]
 
 const tabRows = computed(() => {
