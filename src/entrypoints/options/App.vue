@@ -37,7 +37,7 @@
           :columns="columns"
           :rows="tabRows"
           :filter="filter"
-          class="bg-grey-1"
+          class="bg-grey-1 q-pa-md"
           row-key="rowKey"
           flat
           bordered
@@ -80,7 +80,7 @@
                   </div>
                 </template>
                 <template v-else-if="col.name === 'lastAccess'">
-                  {{ lastAccessMsg(props.row) }}
+                  {{ lastAccessMsg(props.row) ?? "-" }}
                 </template>
                 <template v-else-if="col.name === 'title'">
                   <span>{{ truncate(props.row.title, 50) }}</span>
@@ -134,7 +134,6 @@ const columns: {
   {name: 'title', label: 'Title', field: 'title', align: 'left', sortable: true},
   {name: 'url', label: 'URL', field: 'url', align: 'left', sortable: true},
   {name: 'lastAccess', label: 'Access', field: 'lastAccess', align: 'left', sortable: true},
-  {name: 'lastAccessAge', label: 'Age', field: 'lastAccessAge', align: 'left', sortable: true},
 ]
 
 const tabRows = computed(() => {
@@ -145,16 +144,14 @@ const tabRows = computed(() => {
     return {
       ...row,
       ordinal: i + 1,
-      lastAccessAge: `${days}d`,
+      lastAccessAge: Number(days),
       rowStyle: c.inlineStyle,
     }
   })
 })
 
-function lastAccessMsg(row: TabRow): string {
-  const d = row.lastAccessDays
-  if (d == null || !Number.isFinite(d)) return '—'
-  return `${d}d ago`
+function lastAccessMsg(row: TabRow): number | undefined {
+  return row.lastAccessDays
 }
 
 function truncate(text: string, max: number): string {
