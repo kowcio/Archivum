@@ -1,11 +1,11 @@
 <template>
-  <div class="app-options-wrapper">
+  <div class="app-options-wrapper row">
     <AppTitle />
 
-    <div class="content-wrapper">
+    <div class="content-wrapper row col-12">
       <!-- Single column grid with natural-width buttons -->
-      <div class="btn-grid">
-        <GroupUngroup rounded size="lg" />
+      <div class="btn-grid col-10">
+        <GroupUngroup rounded size="lg" class="q-mb-md"/>
 
         <q-btn
           class="got-btn-ghost"
@@ -70,8 +70,6 @@ async function openOptionsPageFull(): Promise<void> {
   gap: 0.75rem;
   justify-items: center;
   margin: 0 auto;
-  width: 100%;
-  max-width: 320px;
 }
 .btn-grid .q-btn {
   width: 100%;

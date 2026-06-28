@@ -5,6 +5,10 @@
   --got-blue: #1565c0;
   --got-radius: 10px;
   --got-header-gradient: linear-gradient(135deg, #ff6d00 0%, #1565c0 100%);
+  --got-warm-light: #F1B866;
+  --got-warm: #DF8638;
+  --got-cool-light: #55678B;
+  --got-cool: #3867A4;
 }
 
 body, #app {
@@ -12,52 +16,52 @@ body, #app {
   min-height: 100vh;
 }
 
-/* ── Group (logo warm gradient) ────────────────────────────────────────── */
+/* ── Group (orange→blue, forward) ─────────────────────────────────────── */
 .got-btn-amber.q-btn {
-  background: linear-gradient(135deg, #F1B866 0%, #DF8638 100%) !important;
+  background: linear-gradient(135deg, #d47a2a 0%, #2a5a91 100%) !important;
   color: #fff !important;
   border-radius: var(--got-radius) !important;
-  box-shadow: 0 2px 8px rgba(223, 134, 56, 0.35) !important;
+  box-shadow: 0 3px 10px rgba(42, 90, 145, 0.35) !important;
   font-weight: 600;
 }
-.got-btn-amber.q-btn:hover { filter: brightness(1.08); }
+.got-btn-amber.q-btn:hover { filter: brightness(1.06); }
 
-/* ── Ungroup (logo blue gradient) ──────────────────────────────────────── */
+/* ── Ungroup (blue→orange, flipped) ──────────────────────────────────── */
 .got-btn-blue.q-btn {
-  background: linear-gradient(135deg, #55678B 0%, #3867A4 100%) !important;
+  background: linear-gradient(135deg, #2a5a91 0%, #d47a2a 100%) !important;
   color: #fff !important;
   border-radius: var(--got-radius) !important;
-  box-shadow: 0 2px 8px rgba(56, 103, 164, 0.35) !important;
+  box-shadow: 0 3px 10px rgba(42, 90, 145, 0.35) !important;
   font-weight: 600;
 }
-.got-btn-blue.q-btn:hover { filter: brightness(1.08); }
+.got-btn-blue.q-btn:hover { filter: brightness(1.06); }
 
-/* ── Refresh (cyan gradient) ──────────────────────────────────────────── */
+/* ── Refresh (faded teal) ─────────────────────────────────────────────── */
 .got-btn-cyan.q-btn {
-  background: linear-gradient(135deg, #26c6da 0%, #00838f 100%) !important;
+  background: linear-gradient(135deg, #7ab5c4 0%, #4d8b9c 100%) !important;
   color: #fff !important;
   border-radius: var(--got-radius) !important;
-  box-shadow: 0 2px 8px rgba(0, 131, 143, 0.25) !important;
+  box-shadow: 0 2px 8px rgba(77, 139, 156, 0.3) !important;
   font-weight: 600;
 }
-.got-btn-cyan.q-btn:hover { filter: brightness(1.08); }
+.got-btn-cyan.q-btn:hover { filter: brightness(1.06); }
 
-/* ── Create mocks (yellow gradient) ─────────────────────────────────────── */
+/* ── Create mocks (faded gold) ────────────────────────────────────────── */
 .got-btn-yellow.q-btn {
-  background: linear-gradient(135deg, #ffca28 0%, #f9a825 100%) !important;
-  color: #333 !important;
-  border-radius: var(--got-radius) !important;
-  box-shadow: 0 2px 8px rgba(249, 168, 37, 0.25) !important;
-  font-weight: 600;
-}
-.got-btn-yellow.q-btn:hover { filter: brightness(1.08); }
-
-/* ── Close all (red gradient) ────────────────────────────────────────────── */
-.got-btn-red.q-btn {
-  background: linear-gradient(135deg, #ef5350 0%, #c62828 100%) !important;
+  background: linear-gradient(135deg, #ddb882 0%, #c4944f 100%) !important;
   color: #fff !important;
   border-radius: var(--got-radius) !important;
-  box-shadow: 0 2px 8px rgba(198, 40, 40, 0.25) !important;
+  box-shadow: 0 2px 8px rgba(196, 148, 79, 0.3) !important;
   font-weight: 600;
 }
-.got-btn-red.q-btn:hover { filter: brightness(1.08); }
+.got-btn-yellow.q-btn:hover { filter: brightness(1.06); }
+
+/* ── Close all (faded brick) ──────────────────────────────────────────── */
+.got-btn-red.q-btn {
+  background: linear-gradient(135deg, #c97a6f 0%, #a85147 100%) !important;
+  color: #fff !important;
+  border-radius: var(--got-radius) !important;
+  box-shadow: 0 2px 8px rgba(168, 81, 71, 0.3) !important;
+  font-weight: 600;
+}
+.got-btn-red.q-btn:hover { filter: brightness(1.06); }
