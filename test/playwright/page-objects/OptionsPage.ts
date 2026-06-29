@@ -175,6 +175,7 @@ export class OptionsPage {
    * Click "Close All Tabs" button.
    */
   async clickCloseAllTabs(): Promise<void> {
+    await this.closeAllTabsBtn.waitFor({ state: 'visible' });
     await this.closeAllTabsBtn.click();
   }
 

@@ -76,6 +76,10 @@ test.describe("Options Page Tests", () => {
     let tabs2 = await options.queryAllTabs();
     expect(tabs2.length).toBe(16);
     console.log(`   → After mock: ${tabs2.length} tabs`);
+    const html = await options.page.locator('#options').innerHTML()
+    const closeBtn = await options.page.getByText("Close all other tabs").innerHTML()
+    console.log("html", html)
+    console.log("html", closeBtn)
 
     // 3. Close all other → only active (options page) stays
     await options.clickCloseAllTabs();
