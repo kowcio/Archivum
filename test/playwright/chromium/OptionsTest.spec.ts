@@ -86,9 +86,9 @@ test.describe("Options Page Tests", () => {
     await options.page.waitForTimeout(1500);
 
     let tabs3 = await options.queryAllTabs();
+    tabs3.forEach(tab => console.log(`   → Remaining tab: ${tab.groupId} | ${tab.url}`));
     expect(tabs3.length).toBe(1);
     console.log(`   → After close all: ${tabs3.length} tab`);
-
     await options.close();
   });
 });

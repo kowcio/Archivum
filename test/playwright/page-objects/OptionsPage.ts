@@ -175,7 +175,7 @@ export class OptionsPage {
    * Click "Close All Tabs" button.
    */
   async clickCloseAllTabs(): Promise<void> {
-    await this.closeAllTabsBtn.waitFor({ state: 'visible' });
+    // await this.closeAllTabsBtn.waitFor({ state: 'visible' });
     await this.closeAllTabsBtn.click();
   }
 
@@ -377,9 +377,19 @@ export class OptionsPage {
 
   /**
    * Get all tabs from current browser window.
-   * Returns array: { id, url, groupId }
+   * Optionally waits for all tabs to finish loading (status === 'complete') via polling.
+   * Polling co 200ms jest szybsze niż fixed timeout – od razu zwraca gdy wszystkie gotowe.
+   * @param waitForLoad - If true, polls until all tabs have status 'complete' (timeout: 5000ms)
    */
-  async queryAllTabs(): Promise<Array<{ id?: number; url: string; groupId?: number }>> {
+  async queryAllTabs(waitForLoad: boolean = false): Promise<Array<{ id?: number; url: string; groupId?: number }>> {
+    if (waitForLoad) {
+      await this.page.waitForFunction(() => {
+        return chrome.tabs.query({ currentWindow: true }).then((tabs: any[]) => {
+          return tabs.length > 0 && tabs.every((t: any) => t.status === 'complete');
+        });
+      }, { timeout: 5000, polling: 200 });
+    }
+
     return this.page.evaluate(async () => {
       const raw = await chrome.tabs.query({ currentWindow: true });
       return (raw || []).map((t: any) => ({
