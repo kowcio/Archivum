@@ -93,7 +93,7 @@ import {BACKGROUND_MESSAGE_ACTIONS, APP_DEFAULTS, isDevEnv} from '@/constants'
 const appStore = useAppStore()
 const emit = defineEmits<{ apply: [] }>()
 const maxLevels = computed(() => APP_DEFAULTS.THRESHOLDS.presets.length)
-const isThresholdEditingDisabled = computed<boolean>(() => appStore.loading.value || isDevEnv)
+const isThresholdEditingDisabled = computed<boolean>(() => appStore.loading.value || !isDevEnv)
 
 // Local state to track unsaved changes
 // Initialize after store is loaded to avoid false change detection
@@ -221,3 +221,5 @@ onMounted(() => {
   width: 100%;
 }
 </style>
+
+

@@ -16,7 +16,6 @@ process.env.VITE_DEV_FEATURES = 'true'
 import fs from "fs";
 import path from "path";
 import crypto from "crypto";
-import { OptionsPage } from "../page-objects/OptionsPage.js";
 
 // ✅ Shared context type for all tests
 export type ExtensionTestContext = {
@@ -68,6 +67,39 @@ export async function launchChromeContext(): Promise<ExtensionTestContext> {
 }
 
 /**
+ * Setup service worker console logging for debugging.
+ * Captures all console messages from background service worker
+ * AND all page (popup/options) console logs.
+ * Usage: Call this in beforeAll hook to monitor SW + page execution.
+ */
+export function setupServiceWorkerLogging(context: BrowserContext): void {
+  const workers = context.serviceWorkers();
+  if (workers.length === 0) {
+    console.warn('[Test] No service workers found');
+  } else {
+    const sw = workers[0];
+    sw.on('console', (msg: any) => {
+      const type = msg.type();
+      const text = msg.text();
+      const prefix = type === 'error' ? '❌ [SW_ERROR]' : '✓ [SW_LOG]';
+      console.log(`${prefix}: ${text}`);
+    });
+  }
+
+  // Also capture logs from any page (popup, options, etc.)
+  context.on('page', (page) => {
+    page.on('console', (msg) => {
+      const type = msg.type();
+      const text = msg.text();
+      const prefix = type === 'error' ? '❌ [PAGE_ERROR]' : '🔵 [PAGE_LOG]';
+      console.log(`${prefix}: ${text}`);
+    });
+  });
+
+  console.log('[Test] Service worker + page logging enabled');
+}
+
+/**
  * ✅ Setup helper for all extension tests
  * Automatically sets timeout, skips non-Chrome, launches context, enables logging
  * @param withServiceWorkerLogging - Enable service worker console logging (default: true)
@@ -83,9 +115,8 @@ export async function setupExtensionTest(
   const ctx = await launchChromeContext();
 
   if (withServiceWorkerLogging) {
-    OptionsPage.setupServiceWorkerLogging(ctx.context);
+    setupServiceWorkerLogging(ctx.context);
   }
 
   return ctx;
 }
-

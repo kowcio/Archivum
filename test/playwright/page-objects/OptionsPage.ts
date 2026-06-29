@@ -511,27 +511,4 @@ export class OptionsPage {
    async close(): Promise<void> {
      await this.page.close();
    }
-
-  /**
-   * Setup service worker console logging for debugging.
-   * Captures all console messages from background service worker.
-   * Usage: Call this in beforeAll hook to monitor SW execution.
-   */
-  static setupServiceWorkerLogging(context: any): void {
-    const workers = context.serviceWorkers();
-    if (workers.length === 0) {
-      console.warn('[Test] No service workers found');
-      return;
-    }
-
-    const sw = workers[0];
-    sw.on('console', (msg: any) => {
-      const type = msg.type();
-      const text = msg.text();
-      const prefix = type === 'error' ? '❌ [SW_ERROR]' : '✓ [SW_LOG]';
-      console.log(`${prefix}: ${text}`);
-    });
-
-    console.log('[Test] Service worker logging enabled');
-  }
 }
