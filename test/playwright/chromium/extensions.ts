@@ -1,8 +1,18 @@
 /**
  * Launch Chrome MV3 extension context for Playwright E2E tests.
  * Firefox MV3 unsigned extensions cannot be loaded via Playwright.
+ *
+ * NOTE: VITE_DEV_FEATURES=true is set so isDevEnv evaluates to true in test builds.
+ * Run build with:  $env:VITE_DEV_FEATURES='true'; npm run build-only
+ * Then run tests:  npx playwright test --project chrome-mv3
+ *
+ * This enables dev-only components (MockButton, CloseAllTabsButton) in the extension.
  */
 import { chromium, test, type BrowserContext } from "@playwright/test";
+
+// Ensure dev features are visible for Playwright test context
+process.env.VITE_DEV_FEATURES = 'true'
+
 import fs from "fs";
 import path from "path";
 import crypto from "crypto";
