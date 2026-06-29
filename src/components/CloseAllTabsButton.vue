@@ -21,6 +21,9 @@ const emit = defineEmits<{
 
 const loading = ref(false)
 
+/**
+ * CLose all the tabs that are not chrome-extension. For testing purposes.
+ */
 async function handleCloseAll(): Promise<void> {
   loading.value = true
   try {
@@ -35,8 +38,10 @@ async function handleCloseAll(): Promise<void> {
 
     // Get all tabs in current window
     const allTabs = await browser.tabs.query({ currentWindow: true })
+    const extentionId = browser.runtime.getURL('');
+    console.log("Leaving only ", extentionId, " open.")
     const tabsToClose = allTabs
-      .filter((t) => t.id != null && t.id !== activeTabId)
+      .filter((t) => !t.url?.startsWith(extentionId))
       .map((t) => t.id!)
 
     if (tabsToClose.length === 0) {

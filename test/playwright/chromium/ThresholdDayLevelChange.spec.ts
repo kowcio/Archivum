@@ -9,6 +9,7 @@
 import {test, expect} from '@playwright/test'
 import {setupExtensionTest, type ExtensionTestContext} from './extensions.js'
 import {OptionsPage} from '../page-objects/OptionsPage.js'
+import {ThresholdLabel} from "../../../src/constants.js";
 
 test.describe('Threshold Day Levels', () => {
   let ctx: ExtensionTestContext
@@ -38,18 +39,22 @@ test.describe('Threshold Day Levels', () => {
         //   Week+ (7-14):    8, 8, 12          → 3 tabs
         //   2 Weeks+ (14-28): 18, 25           → 2 tabs
         //   Month+ (>28):    40, 60, 100, 101, 356, 366, 367 → 7 tabs (ext pages are fresh)
-        expect(groups.length).toBe(3)
+        expect(groups.length).toBe(5)
         // Groups ordered left-to-right: Month+ (oldest) → 2 Weeks+ → Week+ (youngest)
-        expect(groups[0].title).toContain('Month+')
-        expect(groups[1].title).toContain('2 Weeks+')
-        expect(groups[2].title).toContain('Week+')
-        expect(groups[0].tabCount).toBe(7)
-        expect(groups[1].tabCount).toBe(2)
-        expect(groups[2].tabCount).toBe(3)
+        expect(groups[0].title).toContain(ThresholdLabel.YEARS)
+        expect(groups[1].title).toContain(ThresholdLabel.QUARTERS)
+        expect(groups[2].title).toContain(ThresholdLabel.MONTH)
+        expect(groups[3].title).toContain(ThresholdLabel.WEEKS_2)
+        expect(groups[4].title).toContain(ThresholdLabel.WEEK)
+        expect(groups[0].tabCount).toBe(2)
+        expect(groups[1].tabCount).toBe(3)
+        expect(groups[2].tabCount).toBe(2)
+        expect(groups[3].tabCount).toBe(2)
+        expect(groups[4].tabCount).toBe(3)
 
     // 3. Change Week+ threshold from 7→5 days.
     // This will accept and refresh the tab settings
-        await options.changeThresholdDayValue(0, 5, 2000)
+        await options.changeThresholdDayValue(0, 3, 2000)
 
         // 4. Verify group tab counts reflect new thresholds.
         // After changing Week+ from 7→5:
