@@ -27,7 +27,7 @@
     },
 
     // Additional types for app code
-    "types": ["wxt"]
+    "types": ["wxt", "vite/client"]
   }
 }
 
