@@ -306,6 +306,7 @@ export class OptionsPage {
    * Optional: pass timeout override (default 1500ms for regroup completion).
    */
   async clickApplyThresholds(waitMs: number = 1500): Promise<void> {
+    await expect(this.applyThresholdBtn).toBeVisible();
     await this.applyThresholdBtn.click();
     await this.page.waitForTimeout(waitMs);
   }

@@ -38,8 +38,8 @@ test.describe('Threshold Change: Store → Options Auto-Update', () => {
     // 4. Verify page structure is ready
     await options.expectThresholdsVisible()
 
-    // 5. Change to 5 levels and verify groups
-    await options.changeThresholdLevels(5, 2000)
+    // 5. Group tabs with default thresholds (5 active levels)
+    await options.clickGroupTabs(2000)
     let result = await options.getGroupAndTabData()
 
     expect(result.groups.length).toBe(5)
@@ -63,14 +63,30 @@ test.describe('Threshold Change: Store → Options Auto-Update', () => {
       expect(tab.groupId).toBe(-1)
     })
 
-    // 7. Change to 1 level and verify
+    // 7. Change to 3 levels (was 5, so Apply button appears) and verify
+    await options.changeThresholdLevels(3, 3000)
+    result = await options.getGroupAndTabData()
+
+    expect(result.groups.length).toBe(3)
+    expect(result.groups[0].title).toContain('Month+')
+    expect(result.groups[1].title).toContain('2 Weeks+')
+    expect(result.groups[2].title).toContain('Week+')
+
+    // 8. Verify grouped/ungrouped status remains valid
+    groupedTabs = result.tabs.filter(t => t.groupId !== -1 && t.groupId !== undefined)
+    ungroupedTabs = result.tabs.filter(t => t.groupId === -1 || t.groupId === undefined)
+
+    expect(groupedTabs.length).not.toBe(0)
+    expect(ungroupedTabs.length).not.toBe(0)
+
+    // 9. Change to 1 level and verify
     await options.changeThresholdLevels(1, 3000)
     result = await options.getGroupAndTabData()
 
     expect(result.groups.length).toBe(1)
     expect(result.groups[0].title).toContain('Week+')
 
-    // 8. Verify grouped/ungrouped status remains valid
+    // 10. Verify grouped/ungrouped status remains valid
     groupedTabs = result.tabs.filter(t => t.groupId !== -1 && t.groupId !== undefined)
     ungroupedTabs = result.tabs.filter(t => t.groupId === -1 || t.groupId === undefined)
 
