@@ -1,8 +1,8 @@
 /**
  * E2E test: Change threshold day level and verify group tab counts change.
  *
- * Verifies that when Week+ threshold changes from 7→13 days:
- * - More tabs become "Fresh" (ungrouped)
+ * Verifies that when Week+ threshold changes from 7→3 days:
+ * - More tabs become "Week+" (shifted from fresh)
  * - Tab counts per group reflect the new classification
  * - All groups are created correctly after Apply
  */
@@ -52,26 +52,32 @@ test.describe('Threshold Day Levels', () => {
         expect(groups[3].tabCount).toBe(2)
         expect(groups[4].tabCount).toBe(3)
 
-    // 3. Change Week+ threshold from 7→5 days.
-    // This will accept and refresh the tab settings
+    // 3. Change Week+ threshold from 7→3 days.
+    // This will shift tab 6 (daysAgo=6) from fresh into Week+ group.
         await options.changeThresholdDayValue(0, 3, 2000)
 
         // 4. Verify group tab counts reflect new thresholds.
-        // After changing Week+ from 7→5:
-        //   Fresh (≤5):      1                 → 1 tab
-        //   Week+ (5-14):    6, 8, 8, 12       → 4 tabs (6 moves from fresh to week+)
-        //   2 Weeks+ (14-28): 18, 25           → 2 tabs (unchanged)
-        //   Month+ (>28):    40, 60, 100, 101, 356, 366, 367 → 7 tabs (unchanged)
+        // After changing Week+ from 7→3, activeLevels still 5, so 5 groups remain:
+        //   Years (>365):    356, 366, 367                → 3 tabs
+        //   Quarter+ (90-365): 100, 101                   → 2 tabs
+        //   Month+ (28-90):  40, 60                       → 2 tabs
+        //   2 Weeks+ (14-28): 18, 25                      → 2 tabs
+        //   Week+ (3-14):    6, 8, 8, 12                  → 4 tabs (6 moves from fresh to week+)
+        //   Fresh (≤3):      1                            → 1 tab (+ 2 ext pages = 3 ungrouped)
         groups = await options.getAllGroups()
-        expect(groups.length).toBe(3)
-        expect(groups[0].title).toContain('Month+')
-        expect(groups[1].title).toContain('2 Weeks+')
-        expect(groups[2].title).toContain('Week+')
-        expect(groups[0].tabCount).toBe(7)
-        expect(groups[1].tabCount).toBe(2)
-        expect(groups[2].tabCount).toBe(4)
+        expect(groups.length).toBe(5)
+        expect(groups[0].title).toContain('Eat that frog!')
+        expect(groups[1].title).toContain('Quarter+')
+        expect(groups[2].title).toContain('Month+')
+        expect(groups[3].title).toContain('2 Weeks+')
+        expect(groups[4].title).toContain('Week+')
+        expect(groups[0].tabCount).toBe(2)
+        expect(groups[1].tabCount).toBe(3)
+        expect(groups[2].tabCount).toBe(2)
+        expect(groups[3].tabCount).toBe(2)
+        expect(groups[4].tabCount).toBe(4)
 
-        // 5. Verify fresh (ungrouped) tabs: 3 total (1 fresh mock at ≤5 days + 2 extension pages)
+        // 5. Verify fresh (ungrouped) tabs: 3 total (1 fresh mock at ≤3 days + 2 extension pages)
             const ungroupedCount = await options.getUngroupedTabCount()
             expect(ungroupedCount).toBe(3)
 

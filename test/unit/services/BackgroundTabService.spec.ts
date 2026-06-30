@@ -152,13 +152,13 @@ describe('BackgroundTabService', () => {
        const activeLevels = thresholds.active()
        const boundaries = thresholds.toBoundaries()
 
-       // With default APP_DEFAULTS: activeLevels = 3, boundaries = [7, 14, 28]
+       // With default APP_DEFAULTS: activeLevels = 5, boundaries = [7, 14, 28, 90, 365]
        expect(activeLevels.length).toBe(5)
        expect(boundaries[0]).toBe(7)
        expect(boundaries[1]).toBe(14)
        expect(boundaries[2]).toBe(28)
        expect(boundaries[3]).toBe(90)
-       expect(boundaries[4]).toBe(360)
+       expect(boundaries[4]).toBe(365)
 
        // Create tabs spanning ALL age levels
        const freshTab1 = await fakeBrowser.tabs.create({ url: 'https://example.com/fresh-1' })
@@ -229,7 +229,7 @@ describe('BackgroundTabService', () => {
        expect(afterBoundary15Days.index).toBe(2)
 
        // ─ Test that activeLevels count matches expected
-       expect(activeLevels.length).toBe(3)
+       expect(activeLevels.length).toBe(5)
 
        // ─ Test color assignment for each level
        expect(activeLevels[0].color).toBe(ThemeColor.Green)

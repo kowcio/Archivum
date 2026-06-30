@@ -48,14 +48,16 @@ test.describe('groupTabsByAge E2E', () => {
        // Get all tabs and groups
        const result = await options.getGroupAndTabData()
 
-      // Verify: 3 groups created (one per active threshold level)
-      expect(result.groupCount).toBe(3)
-      expect(result.groups.length).toBe(3)
+      // Verify: 5 groups created (one per active threshold level — default is 5)
+      expect(result.groupCount).toBe(5)
+      expect(result.groups.length).toBe(5)
 
       // Verify: Each group has id and title (oldest → youngest, left → right)
-      expect(result.groups[0].title).toContain("Month+")
-      expect(result.groups[1].title).toContain("2 Weeks+")
-      expect(result.groups[2].title).toContain("Week+")
+      expect(result.groups[0].title).toContain("Eat that frog!")
+      expect(result.groups[1].title).toContain("Quarter+")
+      expect(result.groups[2].title).toContain("Month+")
+      expect(result.groups[3].title).toContain("2 Weeks+")
+      expect(result.groups[4].title).toContain("Week+")
 
       // Verify each group has valid id and title
       for ( let i = 0 ; i < result.groups.length ; i++ ) {
@@ -63,7 +65,7 @@ test.describe('groupTabsByAge E2E', () => {
         expect(result.tabs[i].groupId).not.toBeUndefined()
       }
 
-      // Verify: Grouped tabs are first (indexes 0-11), ungrouped tabs at end (indexes 12-14)
+      // Verify: Grouped tabs are first, ungrouped tabs at end
       const groupedTabs = result.tabs.filter(t => t.groupId != null && t.groupId !== -1)
       const ungroupedTabs = result.tabs.filter(t => !t.groupId || t.groupId === -1)
 

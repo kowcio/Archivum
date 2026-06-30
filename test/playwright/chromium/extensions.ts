@@ -10,9 +10,6 @@
  */
 import { chromium, test, type BrowserContext } from "@playwright/test";
 
-// Ensure dev features are visible for Playwright test context
-process.env.VITE_DEV_FEATURES = 'true'
-
 import fs from "fs";
 import path from "path";
 import crypto from "crypto";
