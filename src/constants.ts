@@ -134,13 +134,13 @@ export const BACKGROUND_MESSAGE_ACTIONS = {
  * Used for inline table styling via AgeClassification.inlineStyle.
  */
 export const THEME_COLOR_HEX: Record<string, string> = {
-  [ThemeColor.Green]:  '#588a66',
-  [ThemeColor.Blue]:   '#3867A4',
+  [ThemeColor.Green]: '#588a66',
+  [ThemeColor.Blue]: '#3867A4',
   [ThemeColor.Yellow]: '#d4a84b',
   [ThemeColor.Orange]: '#d47a2a',
-  [ThemeColor.Red]:    '#b85a4a',
-  [ThemeColor.Pink]:   '#b56073',
+  [ThemeColor.Red]: '#b85a4a',
+  [ThemeColor.Pink]: '#b56073',
   [ThemeColor.Purple]: '#7d5394',
-  [ThemeColor.Grey]:   '#8a8a8a',
-  [ThemeColor.Cyan]:   '#5d9aa8',
+  [ThemeColor.Grey]: '#8a8a8a',
+  [ThemeColor.Cyan]: '#5d9aa8',
 }
