@@ -91,7 +91,7 @@ jobs:
         run: npx playwright install chromium
       
       - name: Build extension (with DEV_FEATURES=true)
-              run: npm run build:test:chrome
+        run: npm run build:test:chrome
       
       - name: Run Playwright tests - ${{ matrix.browser }}
         run: npx playwright test -c playwright.config.ts --project ${{ matrix.browser }}
