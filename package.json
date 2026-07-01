@@ -14,6 +14,8 @@
     "build": "npm run type-check && wxt build -b chrome --mv3 && wxt build -b firefox --mv3",
     "build-only": "npm run type-check && wxt build -b chrome --mv3 && wxt build -b firefox --mv3",
     "build:test": "cross-env DEV_FEATURES=true wxt build -b chrome --mv3 && cross-env DEV_FEATURES=true wxt build -b firefox --mv3",
+    "build:test:chrome": "cross-env DEV_FEATURES=true wxt build -b chrome --mv3",
+    "build:test:firefox": "cross-env DEV_FEATURES=true wxt build -b firefox --mv3",
     "zip": "wxt zip -b chrome --mv3",
     "zip:firefox": "wxt zip -b firefox --mv3",
     "zip:all": "npm run zip && npm run zip:firefox",
@@ -27,10 +29,10 @@
     "test:unit": "vitest --run",
     "test:unit:watch": "vitest",
     "test:playwright": "npm run build:test && npx playwright test -c playwright.config.ts",
-    "test:playwright:chromium": "npm run build:test && npx playwright test -c playwright.config.ts --project chrome-mv3",
-    "test:playwright:firefox": "npm run build:test && npx playwright test -c playwright.config.ts --project firefox-mv3",
-    "test:playwright:debug": "npm run build:test && npx playwright test -c playwright.config.ts --project chrome-mv3 --debug",
-    "test:playwright:ui": "npm run build:test && npx playwright test -c playwright.config.ts --ui --project chrome-mv3",
+    "test:playwright:chromium": "npm run build:test:chrome && npx playwright test -c playwright.config.ts --project chrome-mv3",
+    "test:playwright:firefox": "npm run build:test:firefox && npx playwright test -c playwright.config.ts --project firefox-mv3",
+    "test:playwright:debug": "npm run build:test:chrome && npx playwright test -c playwright.config.ts --project chrome-mv3 --debug",
+    "test:playwright:ui": "npm run build:test:chrome && npx playwright test -c playwright.config.ts --ui --project chrome-mv3",
     "ci": "npm run type-check && npm run test:unit && npm run test:playwright:chromium && npm run build-only"
   },
   "dependencies": {

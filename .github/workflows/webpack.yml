@@ -90,8 +90,8 @@ jobs:
       - name: Prepare Playwright browsers
         run: npx playwright install chromium
       
-      - name: Build extension
-        run: npm run build
+      - name: Build extension (with DEV_FEATURES=true)
+              run: npm run build:test:chrome
       
       - name: Run Playwright tests - ${{ matrix.browser }}
         run: npx playwright test -c playwright.config.ts --project ${{ matrix.browser }}
