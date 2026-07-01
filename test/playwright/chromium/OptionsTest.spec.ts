@@ -91,4 +91,5 @@ test.describe("Options Page Tests", () => {
     console.log(`   → After close all: ${tabs3.length} tab`);
     await options.close();
   });
+
 });
