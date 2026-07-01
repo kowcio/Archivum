@@ -17,8 +17,8 @@
     "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.vitest.tsbuildinfo",
     "lib": [],
 
-    // Test-specific types
-    "types": ["node", "jsdom", "vitest/globals"],
+    // Test-specific types (includes vite/client for import.meta.env)
+    "types": ["node", "jsdom", "vitest/globals", "vite/client"],
 
     // Path aliases (extends tsconfig.app.json paths + src alias for tests)
     "paths": {
