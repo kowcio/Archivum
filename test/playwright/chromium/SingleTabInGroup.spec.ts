@@ -1,13 +1,14 @@
 /// <reference types="chrome" />
 
 
-import { expect, test } from "@playwright/test";
-import { setupExtensionTest, type ExtensionTestContext } from "./extensions.js";
-import { OptionsPage } from "../page-objects/OptionsPage.js";
-import {ThresholdKey, ThresholdLabel} from "../../../src/constants.js";
+import {expect, test} from "@playwright/test";
+import {type ExtensionTestContext, setupExtensionTest} from "./extensions.js";
+import {OptionsPage} from "../page-objects/OptionsPage.js";
+import {ThresholdLabel} from "../../../src/constants.js";
 
 test.describe("Options Page Tests", () => {
   let ctx: ExtensionTestContext;
+  const groupName = ThresholdLabel.WEEK;
 
   test.beforeAll("Setup: launch Chrome context with extension", async () => {
     ctx = await setupExtensionTest(true);
@@ -34,7 +35,7 @@ test.describe("Options Page Tests", () => {
     // 3. Verify Week+ group has 3 tabs (daysAgo 8, 8, 12 → 7 < days ≤ 14)
     const groups = await options.getAllGroups();
     const weekGroup =
-      groups.find(g => g.title.startsWith(ThresholdLabel.WEEK));
+      groups.find(g => g.title.startsWith(groupName));
     console.log("Group to be ungrouped", weekGroup);
     expect(weekGroup).toBeDefined();
     expect(weekGroup!.tabCount).toBe(3);
@@ -48,8 +49,9 @@ test.describe("Options Page Tests", () => {
 
     // 5. Activate each tab one by one — each should ungroup and move to rightmost
     for (let i = 0; i < weekGroupTabs.length; i++) {
-      const tabId = weekGroupTabs[i].id!;
-      console.log(`   → Activating tab#${tabId} (${i + 1}/${weekGroupTabs.length}) in Week+ group`);
+      const tab = weekGroupTabs[i];
+      const tabId = tab.id!;
+      console.log(`   → Activating tab#${tabId} ${tab.url.substring(0,445)} (${i + 1}/${weekGroupTabs.length}) in "${weekGroup?.title}" group`);
 
       await options.activateTab(tabId);
       await options.waitForTabActivated(tabId);
@@ -67,7 +69,7 @@ test.describe("Options Page Tests", () => {
 
     // 7. Verify Week+ group no longer exists (Chrome auto-removes empty groups)
     const groupsAfter = await options.getAllGroups();
-    const weekGroupAfter = groupsAfter.find(g => g.title.startsWith('Week+'));
+    const weekGroupAfter = groupsAfter.find(g => g.title.startsWith(groupName));
     expect(weekGroupAfter).toBeUndefined();
     console.log("   → Week+ group auto-removed (0 tabs left)");
 

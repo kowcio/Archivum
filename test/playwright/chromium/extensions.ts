@@ -79,12 +79,12 @@ export async function launchChromeContext(): Promise<ExtensionTestContext> {
  */
 export function setupServiceWorkerLogging(context: BrowserContext): void {
   function attachWorkerLogging(worker: any): void {
-    worker.on('console', (msg: any) => {
-      const type = msg.type();
-      const text = msg.text();
-      const prefix = type === 'error' ? '❌ [SW_ERROR]' : '✓ [SW_LOG]';
-      console.log(`${prefix}: ${text}`);
-    });
+    // worker.on('console', (msg: any) => {
+    //   const type = msg.type();
+    //   const text = msg.text();
+    //   const prefix = type === 'error' ? '❌ [SW_ERROR]' : '✓ [SW_LOG]';
+    //   console.log(`${prefix}: ${text}`);
+    // });
   }
 
   // Attach to any existing workers
