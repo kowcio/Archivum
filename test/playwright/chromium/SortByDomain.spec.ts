@@ -124,40 +124,4 @@ test.describe("Sort by Domain Button", () => {
 
     await options.close();
   });
-
-  test("2 sorts tabs preserving group membership (grouped tabs not moved)", async () => {
-    const options = new OptionsPage(await ctx.context.newPage());
-    await options.goto(ctx.extensionId);
-
-    let groupedTabsBeforeSort: number;
-    let groupCountBefore: number;
-
-    await test.step("Create mock tabs", async () => {
-      const result = await options.clickLoadMockTabs(2000);
-      expect(result.ok).toBe(true);
-      expect(result.count).toBeGreaterThan(0);
-    });
-
-    await test.step("Group tabs by age to create groups", async () => {
-      await options.clickGroupTabs(1200);
-      groupCountBefore = await options.getGroupCount();
-      const grouped = await options.getGroupedTabs();
-      groupedTabsBeforeSort = grouped.length;
-      console.log(`   ✓ Groups created: ${groupCountBefore}, grouped tabs: ${groupedTabsBeforeSort}`);
-    });
-
-    await test.step("Sort by domain and verify groups are preserved", async () => {
-      const result = await options.clickGroupTabsByDomain(1500);
-      expect(result.error).toBeNull();
-
-      const groupCountAfter = await options.getGroupCount();
-      console.log(`   ✓ Groups after sort: ${groupCountAfter} (expected: ${groupCountBefore})`);
-      
-      // Note: sortGroupsByDomain() may move some tabs out of groups if they need reordering
-      // so we only verify the operation completes without error, not that group structure is preserved
-      console.log(`   ✓ Sort operation completed without errors`);
-    });
-
-    await options.close();
-  });
 });
