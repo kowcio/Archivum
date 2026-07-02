@@ -85,39 +85,75 @@ test.describe("Sort by Domain Button", () => {
       await options.clickSortTabs(1500);
     });
 
-    // Step 7: Capture AFTER state and verify ungrouped tabs
-    await test.step("Verify ungrouped tabs after sort", async () => {
+    // Step 7: Capture AFTER state and verify
+    await test.step("Verify groups intact and ungrouped tabs sorted by domain", async () => {
       const allTabData = await options.getGroupAndTabData()
       const tabs = allTabData.tabs
       const groupedTabCount = allTabData.groupedTabCount
       const ungroupedTabCount = allTabData.ungroupedTabCount
-      // const groups = allTabData.groups
-      const groupCount = allTabData.groupCount
+     const groupCount = allTabData.groupCount
 
-    expect(tabs.length).toEqual(2+14+5)
-    expect(groupedTabCount).toEqual(12)
-    expect(ungroupedTabCount).toEqual(9)
-    expect(groupCount).toEqual(5)
+     expect(tabs.length).toEqual(2 + 14 + 5)
+     expect(groupedTabCount).toEqual(12)
+     expect(ungroupedTabCount).toEqual(9)
+     expect(groupCount).toEqual(5)
 
+     // Verify groups are intact (not broken by sorting)
+     const groupedTabs = tabs.filter(t => t.groupId != null && t.groupId !== -1)
+     const ungroupedTabs = tabs.filter(t => t.groupId == null || t.groupId === -1)
 
-      await test.step("Verify tab group and the proper tab[i] index", async () => {
-        const allTabData = await options.getGroupAndTabData();
-        console.log('\n📋 Tab Details:');
-        allTabData.tabs.forEach((tab, i) => {
-          const idx = String(i).padStart(2);
-          const id = String(tab.id || 0).padStart(4);
-          const group = (tab.groupId != null && tab.groupId !== -1 ? `Group ${tab.groupId}` : 'Ungrouped').padEnd(20);
-          const lastAccessed = tab.lastAccessed
-            ? new Date(tab.lastAccessed).toISOString().substring(0, 19)
-            : 'N/A'.padEnd(19);
-          const title = (tab.title || '').substring(0, 40).padEnd(40);
-          const url = (tab.url || '').substring(0, 40);
-          console.log(`  [${idx}] ID:${id} | ${group} | ${lastAccessed} | "${title}" | ${url}`);
-        });
-      });
+     console.log(`\n✅ Groups intact: ${groupedTabs.length} grouped, ${ungroupedTabs.length} ungrouped`)
 
+     // Verify ungrouped tabs appear AFTER all grouped tabs
+     const lastGroupedIndex = Math.max(...groupedTabs.map(t => tabs.indexOf(t)))
+     const firstUngroupedIndex = Math.min(...ungroupedTabs.map(t => tabs.indexOf(t)))
 
-        await options.close();
+     console.log(`   Last grouped tab at index ${lastGroupedIndex}`)
+     console.log(`   First ungrouped tab at index ${firstUngroupedIndex}`)
+     expect(firstUngroupedIndex).toBeGreaterThan(lastGroupedIndex)
+
+     // Verify ungrouped tabs are sorted by domain first, then by lastAccessed
+     const getSortKey = (url?: string): string => {
+       try {
+         return new URL(url ?? '').hostname.replace(/^www\d?\./i, '')
+       } catch {
+         return ''
+       }
+     }
+
+     for (let i = 0; i < ungroupedTabs.length - 1; i++) {
+       const currDomain = getSortKey(ungroupedTabs[i].url)
+       const nextDomain = getSortKey(ungroupedTabs[i + 1].url)
+       const domainCompare = currDomain.localeCompare(nextDomain)
+
+       expect(domainCompare).toBeLessThanOrEqual(0)
+
+       // If same domain, check lastAccessed is sorted (newest first)
+       if (domainCompare === 0) {
+         const currTime = ungroupedTabs[i].lastAccessed || 0
+         const nextTime = ungroupedTabs[i + 1].lastAccessed || 0
+         expect(currTime).toBeGreaterThanOrEqual(nextTime)
+       }
+     }
+
+     console.log(`   ✅ Ungrouped tabs sorted: domain (A→Z), then lastAccessed (newest first)`)
+
+     await test.step("Display tab details", async () => {
+       console.log('\n📋 Tab Details (Groups Intact + Ungrouped Sorted by Domain):');
+       tabs.forEach((tab, i) => {
+         const idx = String(i).padStart(2);
+         const id = String(tab.id || 0).padStart(4);
+         const group = (tab.groupId != null && tab.groupId !== -1 ? `Group ${tab.groupId}` : 'Ungrouped').padEnd(20);
+         const lastAccessed = tab.lastAccessed
+           ? new Date(tab.lastAccessed).toISOString().substring(0, 19)
+           : 'N/A'.padEnd(19);
+         const domain = getSortKey(tab.url);
+         const title = (tab.title || '').substring(0, 30).padEnd(30);
+         console.log(`  [${idx}] ID:${id} | ${group} | ${lastAccessed} | domain: ${domain.padEnd(20)} | "${title}"`);
+       });
+     });
+
+     await options.close();
     });
   });
 });

@@ -438,6 +438,12 @@ export class BackgroundTabService {
        const tabs = await browser.tabs.query({ currentWindow: true })
        if (tabs.length === 0) return 0
 
+       // Separate grouped and ungrouped tabs
+       const groupedTabs = tabs.filter(t => t.groupId != null && t.groupId !== -1)
+       const ungroupedTabs = tabs.filter(t => t.groupId == null || t.groupId === -1)
+
+       console.log(`[BackgroundTabService] Grouped: ${groupedTabs.length}, Ungrouped: ${ungroupedTabs.length}`)
+
        const getSortKey = (url?: string): string => {
          try {
            return new URL(url ?? '').hostname.replace(/^www\d?\./i, '')
@@ -446,7 +452,8 @@ export class BackgroundTabService {
          }
        }
 
-       const sorted = [...tabs].sort((a, b) => {
+       // Sort ungrouped tabs by domain, then by lastAccessed
+       const sortedUngrouped = [...ungroupedTabs].sort((a, b) => {
          const domainA = getSortKey(a.url)
          const domainB = getSortKey(b.url)
           
@@ -454,17 +461,25 @@ export class BackgroundTabService {
          const domainCompare = domainA.localeCompare(domainB)
          if (domainCompare !== 0) return domainCompare
           
-         // Within same domain, sort by lastAccessed (oldest first = higher values first)
+         // Within same domain, sort by lastAccessed (newest first = higher values first)
          const timeA = a.lastAccessed || 0
          const timeB = b.lastAccessed || 0
          return timeB - timeA
        })
 
-       const ids = sorted.map(t => t.id).filter((id): id is number => id != null)
-       await browser.tabs.move(ids, { index: 0 })
+       // Calculate the index where ungrouped tabs should start
+       // This is after all grouped tabs
+       const startIndex = groupedTabs.length
 
-       console.log(`[BackgroundTabService] ✅ Sorted ${ids.length} tabs by domain then lastAccessed`)
-       return ids.length
+       // Move ungrouped tabs to their sorted positions, starting after all groups
+       const ungroupedIds = sortedUngrouped.map(t => t.id).filter((id): id is number => id != null)
+       if (ungroupedIds.length > 0) {
+         await browser.tabs.move(ungroupedIds, { index: startIndex })
+         console.log(`[BackgroundTabService] ✅ Moved ${ungroupedIds.length} ungrouped tabs starting at index ${startIndex}`)
+       }
+
+       console.log(`[BackgroundTabService] ✅ Sorted ${ungroupedIds.length} ungrouped tabs by domain then lastAccessed`)
+       return ungroupedIds.length
      } catch (err) {
        console.error('[BackgroundTabService] ❌', err)
        return 0

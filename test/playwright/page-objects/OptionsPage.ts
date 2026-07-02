@@ -480,6 +480,7 @@ export class OptionsPage {
     /**
      * Get all groups and tabs data.
      * Returns group count, group details, and tab counts (grouped vs ungrouped).
+     * Applies mock overrides to lastAccessed timestamps if they exist.
      * Prints each tab: index, id, groupId, title, url
      */
     async getGroupAndTabData(): Promise<{
@@ -498,8 +499,27 @@ export class OptionsPage {
      }>;
     }> {
      return await this.page.evaluate(async () => {
+       // Fetch mock overrides
+       const mockOverrides = await new Promise<Record<number, number>>((resolve) => {
+         chrome.runtime.sendMessage({ action: 'getMockOverrides' }, (response: any) => {
+           resolve(response?.overrides || {});
+         });
+       });
+
        const groups = await (chrome.tabGroups as any).query({ windowId: (chrome.windows as any).WINDOW_ID_CURRENT })
        const tabs = await (chrome.tabs as any).query({ currentWindow: true })
+
+       // Apply mock overrides to tabs
+       for (const tab of tabs) {
+         if (tab.id != null) {
+           const numericOverride = (mockOverrides as Record<number, number>)[tab.id]
+           const stringOverride = (mockOverrides as Record<string, number>)[String(tab.id)]
+           const override = numericOverride ?? stringOverride
+           if (override != null) {
+             tab.lastAccessed = override
+           }
+         }
+       }
 
        return {
          groupCount: groups.length,
