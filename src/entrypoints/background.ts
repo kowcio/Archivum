@@ -15,6 +15,9 @@ export default defineBackground({
     // 🧹 Lifecycle
     ExtensionCleanupService.registerLifecycleListeners()
 
+    /**
+     * Scheduled alarms using cronns
+     */
     // ⏰ Daily alarm — group tabs by age
     if (browser.alarms != null) {
       browser.alarms.create(APP_DEFAULTS.ALARM_UPDATE_TABS, { periodInMinutes: 24 * 60 })
@@ -24,6 +27,9 @@ export default defineBackground({
       })
     }
 
+    /**
+     * On click when the tab si activated
+     */
     // 🖱️ Tab activation — ungroup + move to rightmost
     if (browser.tabs != null) {
       browser.tabs.onActivated.addListener(({ tabId }) => {
@@ -31,6 +37,10 @@ export default defineBackground({
       })
     }
 
+
+    /**
+     * Messages from  UI to handel browser API directly by the worker.
+     */
     // 💬 Messages from UI (popup, options)
     browser.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       if (typeof message !== 'object' || !message.action) return
