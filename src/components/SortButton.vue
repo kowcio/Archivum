@@ -27,13 +27,13 @@ async function handleSort(): Promise<void> {
   try {
     // Call background service to sort ungrouped tabs by domain
     const resp: any = await browser.runtime.sendMessage({
-      action: BACKGROUND_MESSAGE_ACTIONS.GROUP_TABS_BY_DOMAIN
+      action: BACKGROUND_MESSAGE_ACTIONS.SORT_TABS_BY_DOMAIN
     })
     if (resp?.error) {
       emit('error', `[SORT_BY_DOMAIN] ${resp.error}`)
       return
     }
-    
+
     // Emit the number of sorted tabs
     emit('sorted', resp?.groupsCreated ?? 0)
   } catch (err) {

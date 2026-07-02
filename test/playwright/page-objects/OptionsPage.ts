@@ -98,14 +98,14 @@ export class OptionsPage {
 
    /**
     * Group Tabs by Domain via background message (no UI button).
-    * Uses chrome.runtime.sendMessage to trigger groupTabsByDomain.
+    * Uses chrome.runtime.sendMessage to trigger sortTabsByDomain.
     * Optional: pass timeout override (default 1500ms).
     */
-   async clickGroupTabsByDomain(waitMs: number = 1500): Promise<{ groupsCreated: number; error: string | null }> {
+   async clicksortTabsByDomain(waitMs: number = 1500): Promise<{ groupsCreated: number; error: string | null }> {
      const result = await this.page.evaluate(() => {
        return new Promise<{ groupsCreated: number; error: string | null }>((resolve) => {
          try {
-           chrome.runtime.sendMessage({ action: 'groupTabsByDomain' }, (r: any) => {
+           chrome.runtime.sendMessage({ action: 'sortTabsByDomain' }, (r: any) => {
              resolve({ groupsCreated: r?.groupsCreated ?? 0, error: r?.error ?? null });
            });
          } catch (e: unknown) {
@@ -480,42 +480,46 @@ export class OptionsPage {
     /**
      * Get all groups and tabs data.
      * Returns group count, group details, and tab counts (grouped vs ungrouped).
+     * Prints each tab: index, id, groupId, title, url
      */
     async getGroupAndTabData(): Promise<{
-      groupCount: number;
-      groups: Array<{ id: number; title: string }>;
-      groupedTabCount: number;
-      ungroupedTabCount: number;
-      tabs: Array<{
-        id?: number;
-        url?: string;
-        title?: string;
-        active?: boolean;
-        groupId?: number;
-        index?: number;
-      }>;
+     groupCount: number;
+     groups: Array<{ id: number; title: string }>;
+     groupedTabCount: number;
+     ungroupedTabCount: number;
+     tabs: Array<{
+       id?: number;
+       url?: string;
+       title?: string;
+       active?: boolean;
+       lastAccessed?: number;
+       groupId?: number;
+       index?: number;
+     }>;
     }> {
-      return await this.page.evaluate(async () => {
-        const groups = await (chrome.tabGroups as any).query({ windowId: (chrome.windows as any).WINDOW_ID_CURRENT })
-        const tabs = await (chrome.tabs as any).query({ currentWindow: true })
-        return {
-          groupCount: groups.length,
-          groups: groups.map((g: any) => ({
-            id: g.id,
-            title: g.title
-          })),
-          groupedTabCount: tabs.filter((t: any) => t.groupId != null && t.groupId !== -1).length,
-          ungroupedTabCount: tabs.filter((t: any) => t.groupId == null || t.groupId === -1).length,
-          tabs: tabs.map((t: any) => ({
-            id: t.id,
-            url: t.url,
-            title: t.title,
-            active: t.active,
-            groupId: t.groupId,
-            index: t.index
-          }))
-        }
-      })
+     return await this.page.evaluate(async () => {
+       const groups = await (chrome.tabGroups as any).query({ windowId: (chrome.windows as any).WINDOW_ID_CURRENT })
+       const tabs = await (chrome.tabs as any).query({ currentWindow: true })
+
+       return {
+         groupCount: groups.length,
+         groups: groups.map((g: any) => ({
+           id: g.id,
+           title: g.title
+         })),
+         groupedTabCount: tabs.filter((t: any) => t.groupId != null && t.groupId !== -1).length,
+         ungroupedTabCount: tabs.filter((t: any) => t.groupId == null || t.groupId === -1).length,
+         tabs: tabs.map((t: any) => ({
+           id: t.id,
+           url: t.url,
+           title: t.title,
+           active: t.active,
+           lastAccessed: t.lastAccessed,
+           groupId: t.groupId,
+           index: t.index
+         }))
+       }
+     })
     }
 
    /**

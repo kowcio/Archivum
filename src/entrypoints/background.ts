@@ -43,7 +43,7 @@ export default defineBackground({
         return true
       }
 
-      if (action === BACKGROUND_MESSAGE_ACTIONS.GROUP_TABS_BY_DOMAIN) {
+      if (action === BACKGROUND_MESSAGE_ACTIONS.SORT_TABS_BY_DOMAIN) {
         BackgroundTabService.sortGroupsByDomain()
           .then((count) => sendResponse({ groupsCreated: count, error: null }))
           .catch((err: any) => sendResponse({ groupsCreated: 0, error: String(err) }))

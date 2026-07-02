@@ -9,7 +9,7 @@
  *   ✅ getTabs()
  *   ✅ createMockTabs()
  *   ✅ hasPluginGroups()
- *   ✅ groupTabsByDomain()
+ *   ✅ sortTabsByDomain()
  *
  * Uses fakeBrowser for efficient testing without real browser context.
  * Mock data from mockTabData.ts provides realistic test scenarios.
@@ -412,9 +412,9 @@ describe('BackgroundTabService', () => {
   })
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // GROUPTABSBYDOMAIN TESTS
+  // sortTabsByDomain TESTS
   // ═══════════════════════════════════════════════════════════════════════════
-  describe('groupTabsByDomain()', () => {
+  describe('sortTabsByDomain()', () => {
     it('should return 0 when no tabs exist', async () => {
       const count = await BackgroundTabService.sortGroupsByDomain()
       expect(count).toBe(0)

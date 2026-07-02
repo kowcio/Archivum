@@ -82,7 +82,24 @@ test.describe("Sort by Domain Button", () => {
     expect(groupCount).toEqual(5)
 
 
-      await options.close();
+      await test.step("Verify tab group and the proper tab[i] index", async () => {
+        const allTabData = await options.getGroupAndTabData();
+        console.log('\n📋 Tab Details:');
+        allTabData.tabs.forEach((tab, i) => {
+          const idx = String(i).padStart(2);
+          const id = String(tab.id || 0).padStart(4);
+          const group = (tab.groupId != null && tab.groupId !== -1 ? `Group ${tab.groupId}` : 'Ungrouped').padEnd(20);
+          const lastAccessed = tab.lastAccessed
+            ? new Date(tab.lastAccessed).toISOString().substring(0, 19)
+            : 'N/A'.padEnd(19);
+          const title = (tab.title || '').substring(0, 40).padEnd(40);
+          const url = (tab.url || '').substring(0, 40);
+          console.log(`  [${idx}] ID:${id} | ${group} | ${lastAccessed} | "${title}" | ${url}`);
+        });
+      });
+
+
+        await options.close();
     });
   });
 });
