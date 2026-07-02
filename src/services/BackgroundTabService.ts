@@ -190,34 +190,34 @@ export class BackgroundTabService {
          return
        }
 
-       // 🧩 Ungroup BEFORE move — removes tab from group (Chrome/Edge).
-       // IMPORTANT: Use browser.tabs.ungroup([tabId]) NOT browser.tabs.update({ groupId: -1 })
-       // The update() API does NOT accept groupId — it silently ignores it.
-       // Only ungroup() actually removes a tab from its group.
-       // Firefox has no ungroup API, so the catch block handles that gracefully.
-       try { await (browser.tabs as any).ungroup([tabId]) } catch { /* Firefox or already ungrouped */ }
+       // 🧩 Ungroup the tab, then move to rightmost.
+       // ungroup() is idempotent — harmless to call on an already-ungrouped tab.
+       // Retry loop with verification handles transient Chrome failures.
+       const RETRIES = 3
+       for (let attempt = 0; attempt < RETRIES; attempt++) {
+         try {
+           await (browser.tabs as any).ungroup([tabId])
+           await browser.tabs.move(tabId, { index: -1 })
 
-      // ➡️ Move to rightmost with retry — tabs may be locked during user drag
-      const maxRetries = 2
-      for (let attempt = 0; attempt < maxRetries; attempt++) {
-        try {
-          await browser.tabs.move(tabId, { index: -1 })
-          console.log(`[BackgroundTabService] ✅ Tab#${tabId} activated → timestamp saved + ungrouped + moved to rightmost`)
-          return
-        } catch (err: any) {
-          // If tabs cannot be edited (user dragging), retry with backoff
-          if (err?.message?.includes('cannot be edited') && attempt < maxRetries - 1) {
-            const delayMs = 100 * (attempt + 1)
-            await new Promise(r => setTimeout(r, delayMs))
-            continue
-          }
-          // Last attempt or unrelated error — log and skip
-          if (attempt === maxRetries - 1) {
-            console.warn(`[BackgroundTabService] ⚠️ Tab#${tabId} move failed after ${maxRetries} retries:`, err)
-          }
-          break
-        }
-      }
+           // Verify: confirm tab is actually ungrouped
+           const tab = await browser.tabs.get(tabId)
+           if (tab.groupId !== -1 && tab.groupId != null) {
+             console.warn(`[BackgroundTabService] ⚠️ Tab#${tabId} still in group after attempt ${attempt + 1}, retrying...`)
+             await new Promise(r => setTimeout(r, 100 * (attempt + 1)))
+             continue
+           }
+
+           console.log(`[BackgroundTabService] ✅ Tab#${tabId} activated → ungrouped + moved to rightmost`)
+           return
+         } catch (err: any) {
+           if (attempt < RETRIES - 1) {
+             await new Promise(r => setTimeout(r, 100 * (attempt + 1)))
+             continue
+           }
+           console.warn(`[BackgroundTabService] ⚠️ Tab#${tabId} ungroup+move failed after ${RETRIES} attempts:`, err)
+           break
+         }
+       }
     } catch (err) {
       console.error(`[BackgroundTabService] ❌ onTabActivated error:`, err)
     }

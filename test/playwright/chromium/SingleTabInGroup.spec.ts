@@ -9,7 +9,7 @@ test.describe("Options Page Tests", () => {
   let ctx: ExtensionTestContext;
 
   test.beforeAll("Setup: launch Chrome context with extension", async () => {
-    ctx = await setupExtensionTest(false);
+    ctx = await setupExtensionTest(true);
   });
 
   test.afterAll("Cleanup: close extension context", async () => {

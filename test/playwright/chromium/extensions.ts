@@ -65,17 +65,21 @@ export async function launchChromeContext(): Promise<ExtensionTestContext> {
 
 /**
  * Setup service worker console logging for debugging.
- * Captures all console messages from background service worker
- * AND all page (popup/options) console logs.
- * Usage: Call this in beforeAll hook to monitor SW + page execution.
+ * Captures all console messages from the background service worker.
+ *
+ * ⚡ Handles SW restarts: attaches to existing workers AND listens
+ *    for new ones via context.on('serviceworker').
+ *
+ * NOTE: Does NOT set up page-level console capture (separate from SW),
+ * because context.on('page') fires for every extension-created page
+ * (including mock tabs), adding duplicate listeners.
+ * Use page.on('console') explicitly in tests if needed.
+ *
+ * Usage: Call this in beforeAll hook to monitor SW execution.
  */
 export function setupServiceWorkerLogging(context: BrowserContext): void {
-  const workers = context.serviceWorkers();
-  if (workers.length === 0) {
-    console.warn('[Test] No service workers found');
-  } else {
-    const sw = workers[0];
-    sw.on('console', (msg: any) => {
+  function attachWorkerLogging(worker: any): void {
+    worker.on('console', (msg: any) => {
       const type = msg.type();
       const text = msg.text();
       const prefix = type === 'error' ? '❌ [SW_ERROR]' : '✓ [SW_LOG]';
@@ -83,17 +87,17 @@ export function setupServiceWorkerLogging(context: BrowserContext): void {
     });
   }
 
-  // Also capture logs from any page (popup, options, etc.)
-  context.on('page', (page) => {
-    page.on('console', (msg) => {
-      const type = msg.type();
-      const text = msg.text();
-      const prefix = type === 'error' ? '❌ [PAGE_ERROR]' : '🔵 [PAGE_LOG]';
-      console.log(`${prefix}: ${text}`);
-    });
+  // Attach to any existing workers
+  for (const worker of context.serviceWorkers()) {
+    attachWorkerLogging(worker);
+  }
+
+  // Listen for future SW restarts (MV3 suspends/resumes workers)
+  context.on('serviceworker', (worker: any) => {
+    attachWorkerLogging(worker);
   });
 
-  console.log('[Test] Service worker + page logging enabled');
+  console.log('[Test] Service worker logging enabled');
 }
 
 /**
