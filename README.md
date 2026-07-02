@@ -36,4 +36,19 @@
 
 ## Status
 
+---
+
+## Important: Sort by Domain Behavior
+
+⚠️ **CRITICAL LIMITATION - Chrome Tabs API Constraint**
+
+- The **"Sort by Domain" button ONLY sorts ungrouped tabs** — it does NOT reorder tabs within existing groups
+- **Why?** Chrome's `chrome.tabs.move()` API uses global window indices. Moving tabs within a group by global index automatically **removes them from the group**, breaking group membership
+- **What this means:**
+  - Grouped tabs stay exactly where they are (in their groups, in their current order)
+  - Only ungrouped tabs are reordered by domain (A→Z) then by lastAccessed (newest first)
+  - If you manually reorder tabs **within** a group and click Sort, they will NOT be re-sorted
+- **If you need tabs sorted within a group:** Ungroup them first, sort, then re-group them manually
+- **This is not a bug** — it's a Chrome API design limitation. We cannot sort within groups without destroying the groups.
+
 

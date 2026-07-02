@@ -230,7 +230,6 @@ export class OptionsPage {
     return all.filter(t => t.groupId === -1).length;
   }
 
-
   /**
    * Get count of table rows (excluding header).
    */

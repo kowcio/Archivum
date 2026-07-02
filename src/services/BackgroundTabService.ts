@@ -100,6 +100,21 @@ export class BackgroundTabService {
          if (row.id != null) ageMap.set(row.id, row.lastAccessDays ?? 0)
        }
 
+       // Helper: Extract domain from URL
+       const getDomain = (url?: string): string => {
+         try {
+           return new URL(url ?? '').hostname.replace(/^www\d?\./i, '')
+         } catch {
+           return ''
+         }
+       }
+
+       // Build domain map for sorting by domain within levels
+       const domainMap = new Map<number, string>()
+       for (const row of rows) {
+         if (row.id != null) domainMap.set(row.id, getDomain(row.url))
+       }
+
        // Classify tabs into age levels, collecting fresh tabs separately
        for (const row of rows) {
          if (row.id == null) continue
@@ -112,9 +127,15 @@ export class BackgroundTabService {
          }
        }
 
-       // Sort tabs within each level by age (oldest first = highest lastAccessDays first)
+       // Sort tabs within each level by domain (A→Z), then by age (oldest first)
        for (const ids of levelTabIds) {
-         ids.sort((a, b) => (ageMap.get(b) ?? 0) - (ageMap.get(a) ?? 0))
+         ids.sort((a, b) => {
+           const domainA = domainMap.get(a) ?? ''
+           const domainB = domainMap.get(b) ?? ''
+           const domainCompare = domainA.localeCompare(domainB)
+           if (domainCompare !== 0) return domainCompare
+           return (ageMap.get(b) ?? 0) - (ageMap.get(a) ?? 0)
+         })
        }
 
        // ── Reorder tabs so visual order matches: oldest→youngest groups left-to-right, fresh far right ──
@@ -129,7 +150,7 @@ export class BackgroundTabService {
        if (orderedTabIds.length > 0) {
          try {
            await browser.tabs.move(orderedTabIds, { index: 0 })
-           console.log(`[BackgroundTabService] ✅ Reordered ${orderedTabIds.length} tabs (oldest→youngest→fresh)`)
+           console.log(`[BackgroundTabService] ✅ Reordered ${orderedTabIds.length} tabs (oldest→youngest→fresh, sorted by domain within each level)`)
          } catch (err) {
            console.warn('[BackgroundTabService] ⚠️ Tab reorder failed, skipping:', err)
          }
@@ -152,7 +173,7 @@ export class BackgroundTabService {
              collapsed: true
            })
            groupsCreated++
-           console.log(`[BackgroundTabService] ✅ Created group "${level.label}" with ${tabIds.length} tabs`)
+           console.log(`[BackgroundTabService] ✅ Created group "${level.label}" with ${tabIds.length} tabs (sorted by domain then age)`)
          } catch (err) {
            console.error(`[BackgroundTabService] Failed to create group "${level.label}":`, err)
          }
@@ -456,11 +477,11 @@ export class BackgroundTabService {
        const sortedUngrouped = [...ungroupedTabs].sort((a, b) => {
          const domainA = getSortKey(a.url)
          const domainB = getSortKey(b.url)
-          
+           
          // First sort by domain alphabetically
          const domainCompare = domainA.localeCompare(domainB)
          if (domainCompare !== 0) return domainCompare
-          
+           
          // Within same domain, sort by lastAccessed (newest first = higher values first)
          const timeA = a.lastAccessed || 0
          const timeB = b.lastAccessed || 0
