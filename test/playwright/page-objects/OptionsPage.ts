@@ -23,6 +23,7 @@ const ON_TAB_ACTIVATED_ACTION = 'onTabActivated';
 export class OptionsPage {
   private readonly groupTabsBtn: Locator;
   private readonly ungroupTabsBtn: Locator;
+  private readonly sortTabsBtn: Locator;
   // private readonly loadTabsBtn: Locator;
   private readonly closeAllTabsBtn: Locator;
   private readonly thresholdsConfig: Locator;
@@ -36,6 +37,7 @@ export class OptionsPage {
     // Button locators - note: IDs are dynamic based on isGrouped state
     // When not grouped: 'group-tabs-btn', when grouped: 'ungroup-tabs-btn'
     this.groupTabsBtn = page.getByTestId('group-tabs-btn');
+    this.sortTabsBtn = page.getByTestId('sort-tabs-by-domain');
     this.ungroupTabsBtn = page.getByTestId('ungroup-tabs-btn');
     // this.loadTabsBtn = page.getByTestId('btn-load-tabs');
     this.closeAllTabsBtn = page.getByTestId('btn-close-all-tabs');
@@ -123,6 +125,16 @@ export class OptionsPage {
      await this.ungroupTabsBtn.click();
      await this.page.waitForTimeout(waitMs);
    }
+
+  /**
+   * Click "Ungroup All Tabs" button and wait for ungrouping to complete.
+   * Optional: pass timeout override (default 1000ms).
+   */
+  async clickSortTabs(waitMs: number = 1000): Promise<void> {
+    await this.sortTabsBtn.click();
+    await this.page.waitForTimeout(waitMs);
+
+  }
 
   /**
    * Set mock overrides for created tabs (backdated ages).

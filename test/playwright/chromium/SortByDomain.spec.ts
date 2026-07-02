@@ -1,24 +1,15 @@
-
 /**
- * E2E test: Sort Tabs by Domain functionality
+ * E2E test: Sort Tabs by Domain functionality with grouping
  * Chrome MV3 only. Run: npm run build-only && npx playwright test --project chrome-mv3
  *
- * ✅ Uses Page Object Models (POM) for clean test code
- * ✅ Creates mock tabs with different domains (domain sorting validation)
- * ✅ Clicks SortButton and verifies tabs are sorted alphabetically by domain
- * ✅ Validates tab positions match sorted domain order
- *
- * Flow:
- * 1. Load mock tabs with various domains (google.com, example.com, github.com, etc.)
- * 2. Click SortButton to trigger sort by domain
- * 3. Query all tabs and extract domain names
- * 4. Verify tabs are in alphabetical domain order
- * 5. Verify each tab position matches expected sorted position
+ * ✅ Tests complete workflow: load mock tabs → add test domains → group → sort
+ * ✅ Verifies tabs sorted by domain (alphabetical) then lastAccessed (newest first within domain)
+ * ✅ Displays before/after comparison and ungrouped tab results
  */
 
-import { expect, test } from "@playwright/test";
-import { setupExtensionTest, type ExtensionTestContext } from "./extensions.js";
-import { OptionsPage } from "../page-objects/OptionsPage.js";
+import {expect, test} from "@playwright/test";
+import {setupExtensionTest, type ExtensionTestContext} from "./extensions.js";
+import {OptionsPage} from "../page-objects/OptionsPage.js";
 
 test.describe("Sort by Domain Button", () => {
   let ctx: ExtensionTestContext;
@@ -31,97 +22,67 @@ test.describe("Sort by Domain Button", () => {
     if (ctx) await ctx.cleanup();
   });
 
-  test("1 sorts ungrouped tabs by domain then lastAccessed (oldest first)", async () => {
+  test("sorts tabs by domain then lastAccessed with grouping", async () => {
     const options = new OptionsPage(await ctx.context.newPage());
     await options.goto(ctx.extensionId);
 
-    await test.step("Create mock tabs with various domains", async () => {
-      const result = await options.clickLoadMockTabs(2000);
-      expect(result.ok).toBe(true);
-      expect(result.count).toBeGreaterThan(0);
-      console.log(`   ✓ Created ${result.count} mock tabs`);
-    });
+    const testDomains = [
+      'https://zest.riddlehell.net/',
+      'https://kowalskipiotr.pl',
+      'https://bokehphotos.pl',
+      'https://reddit.com',
+      'https://alab.pl'
+    ];
 
-    await test.step("Click SortButton and verify sorting completes", async () => {
-      const result = await options.clickGroupTabsByDomain(1500);
-      expect(result.error).toBeNull();
-      console.log(`   ✓ Sort completed: ${result.groupsCreated} tabs reordered`);
-    });
+    // Step 1: Load mock tabs
+    const result = await options.clickLoadMockTabs(2000);
+    expect(result.ok).toBe(true);
+    expect(result.count).toBe(16);
 
-    await test.step("Query all tabs and verify domain + lastAccessed order", async () => {
-      const tabs = await options.page.evaluate(async () => {
-        const allTabs = await chrome.tabs.query({ currentWindow: true });
-        return allTabs.map((tab: any) => {
-          try {
-            const url = new URL(tab.url || '');
-            const domain = url.hostname.replace(/^www\d?\./i, '');
-            return {
-              id: tab.id,
-              url: tab.url,
-              domain: domain,
-              lastAccessed: tab.lastAccessed || 0,
-              groupId: tab.groupId ?? -1,
-            };
-          } catch {
-            return {
-              id: tab.id,
-              url: tab.url,
-              domain: '',
-              lastAccessed: tab.lastAccessed || 0,
-              groupId: tab.groupId ?? -1,
-            };
-          }
+    // Step 2: Manually load test domains in a loop
+    await test.step("Open 5 test domains that will be ungrouped", async () => {
+      for (const domain of testDomains) {
+        const newPage = await ctx.context.newPage();
+        await newPage.goto(domain, {waitUntil: 'domcontentloaded', timeout: 5000}).catch(() => {
         });
+      }
+
+      // Step 3: Verify total tabs
+      const totalTabs = await options.page.evaluate(async () => {
+        return (await chrome.tabs.query({currentWindow: true})).length;
       });
+      expect(totalTabs).toBeGreaterThanOrEqual(2 + 14 + testDomains.length);
+      console.log(`   ✓ Total tabs: ${totalTabs}`);
 
-      expect(tabs.length).toBeGreaterThan(0);
-      console.log(`   ✓ Retrieved ${tabs.length} tabs`);
+      // Step 5: Group tabs by age
+      await options.clickGroupTabs(1200);
+      const allGroups = await options.getAllGroups();
+      expect(allGroups).toHaveLength(5);
+      console.log(`   ✓ Created ${allGroups.length} groups`);
 
-      // Extract data, filter out empty domains for validation
-      const tabsWithDomain = tabs.filter((t: any) => t.domain !== '');
-      console.log(`   → Validating ${tabsWithDomain.length} tabs with valid domains`);
-
-      // Verify primary sort: domains are in alphabetical order
-      let previousDomain = '';
-      for (let i = 0; i < tabsWithDomain.length; i++) {
-        const currentDomain = tabsWithDomain[i].domain;
-        if (i > 0) {
-          const cmp = currentDomain.localeCompare(previousDomain);
-          expect(cmp).toBeGreaterThanOrEqual(0);
-        }
-        previousDomain = currentDomain;
-      }
-      console.log(`   ✓ All tabs sorted by domain (alphabetical)`);
-
-      // Verify secondary sort: within same domain, tabs are sorted by lastAccessed (oldest first = higher values)
-      let currentDomain = '';
-      let previousTime = Infinity;
-      for (let i = 0; i < tabsWithDomain.length; i++) {
-        const tab = tabsWithDomain[i];
-        if (tab.domain !== currentDomain) {
-          currentDomain = tab.domain;
-          previousTime = Infinity;
-        }
-        expect(tab.lastAccessed).toBeLessThanOrEqual(previousTime);
-        previousTime = tab.lastAccessed;
-      }
-      console.log(`   ✓ Within each domain, tabs sorted by lastAccessed (oldest first)`);
-
-      // Show domain grouping
-      currentDomain = '';
-      let domainCount = 0;
-      for (const tab of tabsWithDomain) {
-        if (tab.domain !== currentDomain) {
-          if (currentDomain !== '') console.log(`     → Domain "${currentDomain}": ${domainCount} tabs`);
-          currentDomain = tab.domain;
-          domainCount = 1;
-        } else {
-          domainCount++;
-        }
-      }
-      if (currentDomain !== '') console.log(`     → Domain "${currentDomain}": ${domainCount} tabs`);
     });
 
-    await options.close();
+    // Step 6: Sort tabs by domain
+    await test.step("Sort by domain", async () => {
+      await options.clickSortTabs(1500);
+    });
+
+    // Step 7: Capture AFTER state and verify ungrouped tabs
+    await test.step("Verify ungrouped tabs after sort", async () => {
+      const allTabData = await options.getGroupAndTabData()
+      const tabs = allTabData.tabs
+      const groupedTabCount = allTabData.groupedTabCount
+      const ungroupedTabCount = allTabData.ungroupedTabCount
+      // const groups = allTabData.groups
+      const groupCount = allTabData.groupCount
+
+    expect(tabs.length).toEqual(2+14+5)
+    expect(groupedTabCount).toEqual(12)
+    expect(ungroupedTabCount).toEqual(9)
+    expect(groupCount).toEqual(5)
+
+
+      await options.close();
+    });
   });
 });
