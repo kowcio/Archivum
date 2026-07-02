@@ -62,6 +62,21 @@ test.describe("Options Page Tests", () => {
       expect(tabState).toBeDefined();
       expect(tabState!.groupId).toBe(-1);
       console.log(`   → Tab#${tabId} successfully ungrouped`);
+
+      // Verify the group has changed the title (or was auto-removed if empty)
+      const groupsAfterUngroup = await options.getAllGroups();
+      const weekGroupUpdated = groupsAfterUngroup.find(g => g.id === weekGroupId);
+      const expectedCount = weekGroupTabs.length - (i + 1);
+      
+      if (expectedCount === 0) {
+        // Chrome auto-removes empty groups
+        expect(weekGroupUpdated).toBeUndefined();
+        console.log(`   → Week+ group auto-removed (0 tabs left)`);
+      } else {
+        expect(weekGroupUpdated?.title).toBe(`Week+ (${expectedCount})`);
+        console.log(`   → Week+ group title updated to "${weekGroupUpdated?.title}" (${expectedCount} tabs remaining)`);
+      }
+
     }
 
     // 6. Small wait for Chrome to auto-remove the now-empty Week+ group

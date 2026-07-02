@@ -182,46 +182,56 @@ export class BackgroundTabService {
   }
 
    static async onTabActivated(tabId: number): Promise<void> {
-     try {
-       // 🎯 Filter: Only modify tabs IN plugin-created groups
-       const inPluginGroup = await this.isInPluginGroup(tabId)
-       if (!inPluginGroup) {
-         console.log(`[BackgroundTabService] ⏭️ Tab#${tabId} not in plugin group → skip modification`)
+     // 🎯 Filter: Only modify tabs IN plugin-created groups
+     const inPluginGroup = await this.isInPluginGroup(tabId)
+     if (!inPluginGroup) {
+       console.log(`[BackgroundTabService] ⏭️ Tab#${tabId} not in plugin group → skip`)
+       return
+     }
+
+     // 📝 Get current tab + group info (guaranteed to exist after isInPluginGroup check)
+     const tab = await browser.tabs.get(tabId)
+     const groupId = tab.groupId as number
+     const groupTitle = (await browser.tabGroups.get(groupId)).title
+
+     // 🧩 Ungroup the tab, then move to rightmost — with retry
+     const RETRIES = 3
+     for (let attempt = 0; attempt < RETRIES; attempt++) {
+       try {
+         await (browser.tabs as any).ungroup([tabId])
+         await browser.tabs.move(tabId, { index: -1 })
+       } catch (err) {
+         // "Tabs cannot be edited right now" — Chrome is busy, retry
+         if (attempt < RETRIES - 1) {
+           await new Promise(r => setTimeout(r, 100 * (attempt + 1)))
+           continue
+         }
+         throw err
+       }
+
+       // Verify ungrouped
+       const tabAfter = await browser.tabs.get(tabId)
+       if (tabAfter.groupId === -1 || tabAfter.groupId == null) {
+         console.log(`[BackgroundTabService] ✅ Tab#${tabId} ungrouped + moved to rightmost`)
+
+         // 📊 Update group title with new count
+         const groupTabs = await browser.tabs.query({ groupId })
+         const labelPrefix = groupTitle!.match(/^(.+?)\s*\(\d+\)$/)?.[1] || groupTitle
+         await (browser.tabGroups as any).update(groupId, {
+           title: `${labelPrefix} (${groupTabs.length})`
+         })
+         console.log(`[BackgroundTabService] ✅ Group title → "${labelPrefix} (${groupTabs.length})"`)
          return
        }
 
-       // 🧩 Ungroup the tab, then move to rightmost.
-       // ungroup() is idempotent — harmless to call on an already-ungrouped tab.
-       // Retry loop with verification handles transient Chrome failures.
-       const RETRIES = 3
-       for (let attempt = 0; attempt < RETRIES; attempt++) {
-         try {
-           await (browser.tabs as any).ungroup([tabId])
-           await browser.tabs.move(tabId, { index: -1 })
-
-           // Verify: confirm tab is actually ungrouped
-           const tab = await browser.tabs.get(tabId)
-           if (tab.groupId !== -1 && tab.groupId != null) {
-             console.warn(`[BackgroundTabService] ⚠️ Tab#${tabId} still in group after attempt ${attempt + 1}, retrying...`)
-             await new Promise(r => setTimeout(r, 100 * (attempt + 1)))
-             continue
-           }
-
-           console.log(`[BackgroundTabService] ✅ Tab#${tabId} activated → ungrouped + moved to rightmost`)
-           return
-         } catch (err: any) {
-           if (attempt < RETRIES - 1) {
-             await new Promise(r => setTimeout(r, 100 * (attempt + 1)))
-             continue
-           }
-           console.warn(`[BackgroundTabService] ⚠️ Tab#${tabId} ungroup+move failed after ${RETRIES} attempts:`, err)
-           break
-         }
+       // Retry with backoff
+       if (attempt < RETRIES - 1) {
+         await new Promise(r => setTimeout(r, 100 * (attempt + 1)))
        }
-    } catch (err) {
-      console.error(`[BackgroundTabService] ❌ onTabActivated error:`, err)
-    }
-  }
+     }
+
+     console.warn(`[BackgroundTabService] ⚠️ Tab#${tabId} still grouped after ${RETRIES} retries`)
+   }
 
    /**
     * Queries tabs from current window.
