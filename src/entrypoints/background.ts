@@ -108,6 +108,20 @@ export default defineBackground({
            })
          return true
        }
+
+       // 🧪 Test helper: Get mock overrides (for inspection in tests)
+       if (action === 'getMockOverrides') {
+         mockOverrides.getValue()
+           .then((overrides) => {
+             console.log('[background] Returning mock overrides:', Object.keys(overrides).length, 'tabs')
+             sendResponse({ overrides, error: null })
+           })
+           .catch((err: any) => {
+             console.error('[background] Failed to get mock overrides:', err)
+             sendResponse({ overrides: {}, error: String(err) })
+           })
+         return true
+       }
       })
 
     console.log('[background] ✅ Ready')

@@ -49,10 +49,28 @@ test.describe("Sort by Domain Button", () => {
 
       // Step 3: Verify total tabs
       const totalTabs = await options.page.evaluate(async () => {
-        return (await chrome.tabs.query({currentWindow: true})).length;
+        return (await chrome.tabs.query({currentWindow: true}));
       });
-      expect(totalTabs).toBeGreaterThanOrEqual(2 + 14 + testDomains.length);
-      console.log(`   ✓ Total tabs: ${totalTabs}`);
+      expect(totalTabs.length).toBeGreaterThanOrEqual(2 + 14 + testDomains.length);
+      console.log(`   ✓ Total tabs: ${(totalTabs.length)}`);
+
+      // Check if mock overrides were actually applied by querying storage
+      const mockOverridesFromStorage = await options.page.evaluate(async () => {
+        return new Promise<Record<number, number>>((resolve) => {
+          chrome.runtime.sendMessage({ action: 'getMockOverrides' }, (response: any) => {
+            resolve(response?.overrides || {});
+          });
+        });
+      });
+      console.log(`   📝 Mock overrides in storage:`, Object.keys(mockOverridesFromStorage).length, 'tabs');
+
+      totalTabs.forEach((tab: any) => {
+        const override = (mockOverridesFromStorage as Record<string | number, number>)[tab.id] || (mockOverridesFromStorage as Record<string | number, number>)[String(tab.id)];
+        const displayDate = override
+          ? new Date(override).toISOString()
+          : new Date(tab.lastAccessed).toISOString();
+        console.log(` ${displayDate} [${override ? 'MOCKED' : 'REAL'} ${ new Date(tab.lastAccessed).toISOString()} ] ${tab.url}`);
+      })
 
       // Step 5: Group tabs by age
       await options.clickGroupTabs(1200);

@@ -18,7 +18,7 @@
 
 import { TabRow } from '@/entrypoints/options/models/TabRow.ts'
 import { AgeClassification } from '@/models/AgeClassification.ts'
-import { getStorageThresholds } from '@/store/appStore.ts'
+import { getStorageThresholds, mockOverrides } from '@/store/appStore.ts'
 import { AppThresholds } from '@/models/AppThresholds'
 import { browser } from 'wxt/browser'
 import type { Browser } from 'wxt/browser'
@@ -49,8 +49,7 @@ export class BackgroundTabService {
      */
     private static async applyMockOverrides(tabs: { id?: number; lastAccessed?: number }[]): Promise<void> {
       try {
-        const storageData = await browser.storage.local.get(['mock_overrides'])
-        const overrides: Record<number, number> = (storageData?.mock_overrides ?? {}) as Record<number, number>
+        const overrides = await mockOverrides.getValue()
         const ids = Object.keys(overrides)
 
         if (ids.length === 0) {
@@ -61,8 +60,14 @@ export class BackgroundTabService {
         console.log('[BackgroundTabService] 📥 Applying mock overrides to', ids.length, 'tabs')
 
         for (const tab of tabs) {
-          if (tab.id != null && overrides[tab.id] != null) {
-            tab.lastAccessed = overrides[tab.id]
+          if (tab.id != null) {
+            // Handle both numeric and string keys (JSON serialization issue)
+            const numericOverride = (overrides as Record<number, number>)[tab.id]
+            const stringOverride = (overrides as Record<string, number>)[String(tab.id)]
+            const override = numericOverride ?? stringOverride
+            if (override != null) {
+              tab.lastAccessed = override
+            }
           }
         }
         console.log('[BackgroundTabService] ✅ Applied mock overrides to', ids.length, 'tabs')
@@ -296,11 +301,11 @@ export class BackgroundTabService {
        // console.log(`[BackgroundTabService] Mock override: tab#${tabId} → ${daysAgo} days ago`)
      }
 
-     // Set overrides in browser.storage.local directly (ensures cross-context sync)
+     // Set overrides via WXT storage (unified approach with setMockOverrides action)
      try {
        console.log(`[BackgroundTabService] About to set ${Object.keys(overridesMap).length} overrides...`)
-       await browser.storage.local.set({ mock_overrides: overridesMap })
-       console.log(`[BackgroundTabService] ✅ Set ${Object.keys(overridesMap).length} mock overrides via browser.storage.local`)
+       await mockOverrides.setValue(overridesMap)
+       console.log(`[BackgroundTabService] ✅ Set ${Object.keys(overridesMap).length} mock overrides via WXT storage`)
      } catch (err) {
        console.error(`[BackgroundTabService] ❌ Failed to set overrides:`, err)
      }
