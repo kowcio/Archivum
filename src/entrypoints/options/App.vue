@@ -7,6 +7,7 @@
 
         <GroupUngroup/>
         <RefreshButton @refresh="onRefreshTabs" @error="(msg) => error = msg"/>
+        <SortButton @sorted="refreshTabs" @error="(msg) => error = msg"/>
 
         <!-- Dev Buttons -->
         <MockButton @mock-created="refreshTabs" v-if="isDevEnv"/>
@@ -117,6 +118,7 @@ import GroupUngroup from '@/components/GroupUngroup.vue'
 import MockButton from '@/components/MockButton.vue'
 import CloseAllTabsButton from '@/components/CloseAllTabsButton.vue'
 import RefreshButton from '@/components/RefreshButton.vue'
+import SortButton from '@/components/SortButton.vue'
 
 const appStore = useAppStore()
 const filter = ref('')

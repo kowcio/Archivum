@@ -6,6 +6,7 @@
       <!-- Single column grid with natural-width buttons -->
       <div class="btn-grid col-10">
         <GroupUngroup rounded size="lg" class="q-mb-md"/>
+        <SortButton @error="(msg) => console.error(msg)" />
 
         <q-btn
           class="got-btn-ghost"
@@ -39,7 +40,7 @@ import {browser} from 'wxt/browser'
 import {isDevEnv} from '@/constants'
 import AppTitle from '@/components/Title.vue'
 import GroupUngroup from "@/components/GroupUngroup.vue";
-import RefreshButton from "@/components/RefreshButton.vue";
+import SortButton from '@/components/SortButton.vue';
 
 function openOptionsPage(): void {
   browser.runtime.openOptionsPage()
