@@ -18,7 +18,7 @@
 
 import { TabRow } from '@/entrypoints/options/models/TabRow.ts'
 import { AgeClassification } from '@/models/AgeClassification.ts'
-import { getStorageThresholds, mockOverrides } from '@/store/appStore.ts'
+import { getStorageThresholds, mockOverrides, appStateStorage } from '@/store/appStore.ts'
 import { AppThresholds } from '@/models/AppThresholds'
 import { browser } from 'wxt/browser'
 import type { Browser } from 'wxt/browser'
@@ -87,6 +87,9 @@ export class BackgroundTabService {
 
        const rawTabs = await browser.tabs.query({ currentWindow: true })
        const thresholds = await this.getThresholds()
+       const appState = await appStateStorage.getValue()
+       const sortByDomainInGroups = appState?.sortSettings?.sortByDomainInGroups ?? true
+
        await this.applyMockOverrides(rawTabs)
 
        const rows = TabRow.fromTabs(rawTabs, thresholds)
@@ -109,10 +112,12 @@ export class BackgroundTabService {
          }
        }
 
-       // Build domain map for sorting by domain within levels
+       // Build domain map for sorting by domain within levels (if enabled)
        const domainMap = new Map<number, string>()
-       for (const row of rows) {
-         if (row.id != null) domainMap.set(row.id, getDomain(row.url))
+       if (sortByDomainInGroups) {
+         for (const row of rows) {
+           if (row.id != null) domainMap.set(row.id, getDomain(row.url))
+         }
        }
 
        // Classify tabs into age levels, collecting fresh tabs separately
@@ -127,15 +132,22 @@ export class BackgroundTabService {
          }
        }
 
-       // Sort tabs within each level by domain (A→Z), then by age (oldest first)
-       for (const ids of levelTabIds) {
-         ids.sort((a, b) => {
-           const domainA = domainMap.get(a) ?? ''
-           const domainB = domainMap.get(b) ?? ''
-           const domainCompare = domainA.localeCompare(domainB)
-           if (domainCompare !== 0) return domainCompare
-           return (ageMap.get(b) ?? 0) - (ageMap.get(a) ?? 0)
-         })
+       // Sort tabs within each level by domain (A→Z), then by age (oldest first) — only if enabled
+       if (sortByDomainInGroups) {
+         for (const ids of levelTabIds) {
+           ids.sort((a, b) => {
+             const domainA = domainMap.get(a) ?? ''
+             const domainB = domainMap.get(b) ?? ''
+             const domainCompare = domainA.localeCompare(domainB)
+             if (domainCompare !== 0) return domainCompare
+             return (ageMap.get(b) ?? 0) - (ageMap.get(a) ?? 0)
+           })
+         }
+       } else {
+         // If not sorting by domain, at least sort by age (oldest first)
+         for (const ids of levelTabIds) {
+           ids.sort((a, b) => (ageMap.get(b) ?? 0) - (ageMap.get(a) ?? 0))
+         }
        }
 
        // ── Reorder tabs so visual order matches: oldest→youngest groups left-to-right, fresh far right ──
@@ -150,7 +162,8 @@ export class BackgroundTabService {
        if (orderedTabIds.length > 0) {
          try {
            await browser.tabs.move(orderedTabIds, { index: 0 })
-           console.log(`[BackgroundTabService] ✅ Reordered ${orderedTabIds.length} tabs (oldest→youngest→fresh, sorted by domain within each level)`)
+           const sortMsg = sortByDomainInGroups ? 'sorted by domain within each level' : 'sorted by age only'
+           console.log(`[BackgroundTabService] ✅ Reordered ${orderedTabIds.length} tabs (oldest→youngest→fresh, ${sortMsg})`)
          } catch (err) {
            console.warn('[BackgroundTabService] ⚠️ Tab reorder failed, skipping:', err)
          }

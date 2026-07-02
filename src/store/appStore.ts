@@ -48,6 +48,9 @@ export const appStateStorage = storage.defineItem<AppState>('local:appState', {
     },
     configLastUpdated: Date.now(),
     version: '1.0.0',
+    sortSettings: {
+      sortByDomainInGroups: true,  // ON by default
+    },
   }),
 })
 

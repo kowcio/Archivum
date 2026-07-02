@@ -36,6 +36,9 @@ export interface AppState {
   thresholds: ThresholdState
   configLastUpdated: number
   version: string
+  sortSettings?: {
+    sortByDomainInGroups: boolean  // Sort tabs by domain within age groups (default: true)
+  }
 }
 
 /**

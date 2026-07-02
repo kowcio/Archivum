@@ -38,17 +38,31 @@
 
 ---
 
-## Important: Sort by Domain Behavior
+## Important: Sorting Behavior (Business Model)
 
-⚠️ **CRITICAL LIMITATION - Chrome Tabs API Constraint**
+### 🎯 **Grouping by Age**
+- **[Group Tabs by Age]** button creates age-based groups (Week+, Month+, Quarter+, etc.)
+- Tabs within each group are **sorted by domain (A→Z) by default** ✅
+- This setting can be toggled in **Settings** (⚙️):
+  ```
+  ☑️ Sort by domain within age groups  [ON by default]
+  ```
+- If disabled, tabs within groups are sorted by age only (oldest first)
 
-- The **"Sort by Domain" button ONLY sorts ungrouped tabs** — it does NOT reorder tabs within existing groups
-- **Why?** Chrome's `chrome.tabs.move()` API uses global window indices. Moving tabs within a group by global index automatically **removes them from the group**, breaking group membership
-- **What this means:**
-  - Grouped tabs stay exactly where they are (in their groups, in their current order)
-  - Only ungrouped tabs are reordered by domain (A→Z) then by lastAccessed (newest first)
-  - If you manually reorder tabs **within** a group and click Sort, they will NOT be re-sorted
-- **If you need tabs sorted within a group:** Ungroup them first, sort, then re-group them manually
-- **This is not a bug** — it's a Chrome API design limitation. We cannot sort within groups without destroying the groups.
+### 🎯 **Sorting Ungrouped Tabs**
+- **[Sort by Domain]** button ONLY sorts ungrouped tabs (right side)
+- Fresh tabs and manually ungrouped tabs get reordered alphabetically by domain
+- This respects your manual workflow — only ungrouped tabs are affected
+
+### ⚠️ **Why This Design?**
+- **Groups are stable** — Don't reorder during grouping (respects user intent)
+- **Ungrouped tabs stay in order** — Only sort by domain when you explicitly click the button
+- **Domain sorting is optional** — Turn it off if you prefer age-only sorting within groups
+- **User control** — You choose when to sort, groups don't surprise you
+
+### 📌 **Remember**
+- ❌ Cannot reorder tabs **within** a group using the sort button (Chrome API limitation)
+- ✅ Can sort **ungrouped** tabs by domain
+- ✅ Can toggle domain sorting within groups in Settings
 
 

@@ -1,6 +1,6 @@
 <template>
   <q-btn
-    label="Sort by Domain"
+    label="Sort ungrouped"
     data-testid="sort-tabs-by-domain"
     icon="sort_by_alpha"
     class="got-btn-cyan"
