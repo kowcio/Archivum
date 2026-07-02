@@ -4,6 +4,7 @@
 import { expect, test } from "@playwright/test";
 import { setupExtensionTest, type ExtensionTestContext } from "./extensions.js";
 import { OptionsPage } from "../page-objects/OptionsPage.js";
+import {ThresholdKey, ThresholdLabel} from "../../../src/constants.js";
 
 test.describe("Options Page Tests", () => {
   let ctx: ExtensionTestContext;
@@ -32,7 +33,9 @@ test.describe("Options Page Tests", () => {
 
     // 3. Verify Week+ group has 3 tabs (daysAgo 8, 8, 12 → 7 < days ≤ 14)
     const groups = await options.getAllGroups();
-    const weekGroup = groups.find(g => g.title.startsWith('Week+'));
+    const weekGroup =
+      groups.find(g => g.title.startsWith(ThresholdLabel.WEEK));
+    console.log("Group to be ungrouped", weekGroup);
     expect(weekGroup).toBeDefined();
     expect(weekGroup!.tabCount).toBe(3);
     const weekGroupId = weekGroup!.id;
