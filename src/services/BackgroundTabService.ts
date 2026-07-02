@@ -441,14 +441,24 @@ export class BackgroundTabService {
          }
        }
 
-       const sorted = [...tabs].sort((a, b) =>
-         getSortKey(a.url).localeCompare(getSortKey(b.url))
-       )
+       const sorted = [...tabs].sort((a, b) => {
+         const domainA = getSortKey(a.url)
+         const domainB = getSortKey(b.url)
+          
+         // First sort by domain alphabetically
+         const domainCompare = domainA.localeCompare(domainB)
+         if (domainCompare !== 0) return domainCompare
+          
+         // Within same domain, sort by lastAccessed (oldest first = higher values first)
+         const timeA = a.lastAccessed || 0
+         const timeB = b.lastAccessed || 0
+         return timeB - timeA
+       })
 
        const ids = sorted.map(t => t.id).filter((id): id is number => id != null)
        await browser.tabs.move(ids, { index: 0 })
 
-       console.log(`[BackgroundTabService] ✅ Sorted ${ids.length} tabs by domain`)
+       console.log(`[BackgroundTabService] ✅ Sorted ${ids.length} tabs by domain then lastAccessed`)
        return ids.length
      } catch (err) {
        console.error('[BackgroundTabService] ❌', err)
