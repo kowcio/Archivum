@@ -27,7 +27,7 @@
         no-caps
         size="md"
         :loading="isLoading"
-        @click="handleRestore"
+        @click="showRestoreDialog = true"
       />
       <div class="row items-center q-gutter-xs">
         <span class="text-caption text-grey" data-testid="backup-status">{{ statusMessage }}</span>
@@ -43,6 +43,50 @@
       </div>
     </template>
   </div>
+
+  <!-- Restore Confirmation Dialog -->
+  <q-dialog
+    v-model="showRestoreDialog"
+    persistent
+    data-testid="restore-dialog"
+  >
+    <q-card style="min-width: 400px">
+      <q-card-section class="row items-center q-pb-none">
+        <div class="text-h6">⚠️ Restore Tabs</div>
+        <q-space />
+        <q-btn
+          icon="close"
+          flat
+          round
+          dense
+          @click="showRestoreDialog = false"
+        />
+      </q-card-section>
+
+      <q-card-section>
+        <p>This will close all current tabs and restore {{ backupCount }} backed-up tabs.</p>
+        <p>Your current state will be lost. Continue?</p>
+      </q-card-section>
+
+      <q-card-actions align="right">
+        <q-btn
+          flat
+          label="Cancel"
+          color="primary"
+          @click="showRestoreDialog = false"
+          data-testid="restore-cancel"
+        />
+        <q-btn
+          unelevated
+          label="Restore"
+          color="primary"
+          @click="confirmRestore"
+          :loading="isLoading"
+          data-testid="restore-confirm"
+        />
+      </q-card-actions>
+    </q-card>
+  </q-dialog>
 </template>
 
 <script setup lang="ts">
@@ -54,6 +98,7 @@ const backupCount = ref(0)
 const backupDate = ref('')
 const isLoading = ref(false)
 const statusMessage = ref('')
+const showRestoreDialog = ref(false)
 
 const BACKUP_KEY = 'archivum:tab_backup'
 
@@ -115,8 +160,9 @@ async function handleBackup(): Promise<void> {
   }
 }
 
-async function handleRestore(): Promise<void> {
-  console.log('[BackupRestore] Restore started')
+async function confirmRestore(): Promise<void> {
+  showRestoreDialog.value = false
+  console.log('[BackupRestore] User confirmed restore')
   isLoading.value = true
   statusMessage.value = 'Restoring tabs...'
   

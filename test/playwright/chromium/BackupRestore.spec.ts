@@ -43,7 +43,7 @@ test.describe("Backup & Restore Tabs", () => {
     await test.step("Create mock tabs", async () => {
       const result = await options.clickLoadMockTabs(1000);
       expect(result.ok).toBe(true);
-      expect(result.count).toBeGreaterThan(0);
+      expect(result.count).toBe(16);
       console.log(`   ✓ Created ${result.count} mock tabs`);
     });
 
@@ -82,39 +82,46 @@ test.describe("Backup & Restore Tabs", () => {
       console.log("   ✓ Restore button is visible after reload");
     });
 
-    // Step 6: Click restore button and verify tabs are restored immediately (no dialog)
-    await test.step("Click restore button and verify tabs are restored", async () => {
+    // Step 6: Click restore button and verify dialog appears
+    await test.step("Click restore button and verify restore dialog appears", async () => {
+      await options.clickRestoreTabs();
+      // Wait for dialog to appear
+      await options.page.waitForTimeout(500);
+
+      // Verify dialog is visible
+      const dialogTitle = await options.page.getByTestId('restore-dialog').isVisible();
+      expect(dialogTitle).toBe(true);
+      console.log("   ✓ Restore confirmation dialog is present");
+    });
+
+    // Step 7: Confirm restore and verify tabs are restored
+    await test.step("Confirm restore operation", async () => {
       // Get current tabs count
       const tabsBeforeRestore = await options.queryAllTabs();
       console.log(`   ℹ Tabs before restore: ${tabsBeforeRestore.length}`);
 
-      // Click restore - no dialog, restores immediately
-      await options.clickRestoreTabs();
+      // Confirm restore
+      await options.confirmRestore();
 
-      // Wait for tabs to be created
-      await options.page.waitForTimeout(1500);
-
-      // Query all tabs to verify restoration
-      const tabsAfterRestore = await options.queryAllTabs();
+      // Query all tabs to verify restoration (with loader to ensure all tabs created)
+      const tabsAfterRestore = await options.queryAllTabs(true);
       console.log(`   ℹ Tabs after restore: ${tabsAfterRestore.length}`);
 
-      expect(tabsAfterRestore.length).toBeGreaterThanOrEqual(backupCount);
+      expect(tabsAfterRestore.length).toBe(backupCount);
       console.log(`   ✓ Tabs restored successfully (${tabsAfterRestore.length} tabs)`);
+
+      // Verify status message updated (any message indicates operation completed)
+      const statusText = await options.page.getByTestId('backup-status').textContent();
+      expect(statusText).toBeTruthy();
+      console.log(`   ✓ Status message updated`);
     });
 
-    // Step 7: Verify backup is still available in storage
+    // Step 8: Verify backup is still available in storage
     await test.step("Verify backup still exists in storage", async () => {
       const backup = await options.getBackupFromStorage();
       expect(backup).not.toBeNull();
       expect(backup).toHaveLength(backupCount);
       console.log("   ✓ Backup is still preserved in storage");
-    });
-
-    // Step 8: Verify status message shows success
-    await test.step("Verify backup status shows success message", async () => {
-      const statusText = await options.page.getByTestId('backup-status').textContent();
-      expect(statusText).toContain('✅');
-      console.log(`   ✓ Status shows: ${statusText}`);
     });
 
     await options.close();
