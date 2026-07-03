@@ -57,7 +57,7 @@ describe('BackupService', () => {
     mockBrowser.tabGroups.query.mockResolvedValue(mockGroups)
     mockBrowser.storage.local.set.mockResolvedValue(undefined)
 
-    await BackupService.autoBackupTabs()
+    await BackupService.backupTabs()
 
     // Verify storage.local.set was called
     expect(mockBrowser.storage.local.set).toHaveBeenCalledOnce()
@@ -85,7 +85,7 @@ describe('BackupService', () => {
     mockBrowser.storage.local.set.mockResolvedValue(undefined)
 
     // Should not throw, just complete
-    await BackupService.autoBackupTabs()
+    await BackupService.backupTabs()
 
     // Verify it was called even with null tabGroups
     expect(mockBrowser.storage.local.set).toHaveBeenCalled()
@@ -99,7 +99,7 @@ describe('BackupService', () => {
     mockBrowser.tabGroups.query.mockResolvedValue([])
     mockBrowser.storage.local.set.mockResolvedValue(undefined)
 
-    await BackupService.autoBackupTabs()
+    await BackupService.backupTabs()
 
     const callArg = mockBrowser.storage.local.set.mock.calls[0][0]
     const backup = callArg['local:backup'] as Backup
@@ -112,7 +112,7 @@ describe('BackupService', () => {
 
     const consoleSpy = vi.spyOn(console, 'error')
 
-    await BackupService.autoBackupTabs()
+    await BackupService.backupTabs()
 
     expect(consoleSpy).toHaveBeenCalledWith(
       '[BackupService] ❌ Auto-backup failed:',

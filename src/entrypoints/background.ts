@@ -1,5 +1,6 @@
 import { ExtensionCleanupService } from '@/services/ExtensionCleanupService'
 import { BackgroundTabService } from '@/services/BackgroundTabService'
+import { BackupService } from '@/services/BackupService'
 import { APP_DEFAULTS, BACKGROUND_MESSAGE_ACTIONS } from '@/constants'
 import { browser } from 'wxt/browser'
 import { mockOverrides } from '@/store/appStore'
@@ -18,12 +19,19 @@ export default defineBackground({
     /**
      * Scheduled alarms using cronns
      */
-    // ⏰ Daily alarm — group tabs by age
+    // ⏰ Alarms— periodic interval function execution for given schedules / crons
     if (browser.alarms != null) {
+      //alarms schedules - crons
       browser.alarms.create(APP_DEFAULTS.ALARM_UPDATE_TABS, { periodInMinutes: 24 * 60 })
+      browser.alarms.create(APP_DEFAULTS.ALARM_BACKUP_TABS, { periodInMinutes: 60 })
+      //alarms listeners
       browser.alarms.onAlarm.addListener((alarm) => {
-        if (alarm.name !== APP_DEFAULTS.ALARM_UPDATE_TABS) return
-        BackgroundTabService.groupTabsByAge()
+        if (alarm.name === APP_DEFAULTS.ALARM_UPDATE_TABS) {
+          BackgroundTabService.groupTabsByAge()
+        }
+        if (alarm.name === APP_DEFAULTS.ALARM_BACKUP_TABS) {
+          BackupService.backupTabs()
+        }
       })
     }
 
@@ -96,13 +104,27 @@ export default defineBackground({
           return true
         }
 
-        if (action === BACKGROUND_MESSAGE_ACTIONS.CLOSE_TAB) {
-          const { tabId } = message as { action: string; tabId: number }
-          BackgroundTabService.closeTab(tabId)
-            .then((error) => sendResponse({ error }))
-            .catch((err: any) => sendResponse({ error: String(err) }))
-          return true
-        }
+         if (action === BACKGROUND_MESSAGE_ACTIONS.CLOSE_TAB) {
+           const { tabId } = message as { action: string; tabId: number }
+           BackgroundTabService.closeTab(tabId)
+             .then((error) => sendResponse({ error }))
+             .catch((err: any) => sendResponse({ error: String(err) }))
+           return true
+         }
+
+         if (action === BACKGROUND_MESSAGE_ACTIONS.BACKUP_TABS) {
+           BackupService.backupTabs()
+             .then((backup) => sendResponse({ success: true, count: backup.count }))
+             .catch((err: any) => sendResponse({ success: false, count: 0, error: String(err) }))
+           return true
+         }
+
+         if (action === BACKGROUND_MESSAGE_ACTIONS.RESTORE_TABS) {
+           BackupService.restoreTabs()
+             .then(() => sendResponse({ success: true }))
+             .catch((err: any) => sendResponse({ success: false, error: String(err) }))
+           return true
+         }
 
         // 🧪 Test helper: Set mock overrides for created tabs
         if (action === 'setMockOverrides') {

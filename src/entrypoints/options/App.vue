@@ -16,8 +16,9 @@
           @success="refreshTabs"
           @error="(msg) => error = msg"
         />
+        <div class="row col-12 ">
         <BackupRestoreButton />
-
+        </div>
       </div>
 
       <!-- Error display -->

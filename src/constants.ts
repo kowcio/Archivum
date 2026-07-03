@@ -64,6 +64,8 @@ export const APP_CONSTANTS = {
 export const APP_DEFAULTS = {
   // Background alarm for daily tab grouping (24 hours)
   ALARM_UPDATE_TABS: 'updateTabsDaily',
+  // Background alarm for hourly backup (1 hour)
+  ALARM_BACKUP_TABS: 'backupTabsHourly',
   // WXT Storage key for tab history
   TAB_HISTORY_KEY: 'local:tab_history',
 
@@ -127,6 +129,8 @@ export const BACKGROUND_MESSAGE_ACTIONS = {
   ON_TAB_ACTIVATED: 'onTabActivated',
   HAS_PLUGIN_GROUPS: 'hasPluginGroups',
   CLOSE_TAB: 'closeTab',
+  BACKUP_TABS: 'backupTabs',
+  RESTORE_TABS: 'restoreTabs',
 } as const
 
 /**
