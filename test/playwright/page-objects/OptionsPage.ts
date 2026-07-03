@@ -583,10 +583,12 @@ export class OptionsPage {
 
   /**
    * Confirm the restore dialog by clicking the "Restore" button in the confirmation popup.
+   * Uses .nth(1) to target the dialog's Restore button (not the main toolbar button).
    */
   async confirmRestore(): Promise<void> {
-    // Wait for dialog to appear and click the Restore button
-    await this.page.getByRole('button', { name: /Restore/i }).click();
+    // Wait for dialog to appear and click the Restore button (2nd one - inside dialog)
+    const restoreButtons = await this.page.getByRole('button', { name: /Restore/i });
+    await restoreButtons.nth(1).click();
     // Wait for restore operation to complete
     await this.page.waitForTimeout(2000);
   }

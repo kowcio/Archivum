@@ -88,8 +88,8 @@ test.describe("Backup & Restore Tabs", () => {
       // Wait for dialog to appear
       await options.page.waitForTimeout(500);
 
-      // Check if dialog title is visible
-      const dialogTitle = await options.page.locator('text=/Restore Tabs/i').isVisible();
+      // Check if dialog title is visible (q-dialog__title is Quasar's dialog title class)
+      const dialogTitle = await options.page.locator('.q-dialog__title').isVisible();
       expect(dialogTitle).toBe(true);
       console.log("   ✓ Restore confirmation dialog is present");
     });

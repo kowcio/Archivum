@@ -1,5 +1,5 @@
 import { createApp, type App as VueApp } from 'vue'
-import { Quasar, QTable, QTd, QTr, QBtn, QBtnGroup, QInput, QTooltip } from 'quasar'
+import { Quasar, QTable, QTd, QTr, QBtn, QBtnGroup, QInput, QTooltip, Dialog, Notify } from 'quasar'
 import { APP_CONSTANTS } from '@/constants.ts'
 
 /**
@@ -26,10 +26,11 @@ export class AppBootstrapper {
 
     app.use(Quasar, {
       components: { QTable, QTr, QTd, QBtn, QBtnGroup, QInput, QTooltip },
+      plugins: { Dialog, Notify },
     })
 
     app.mount(options.mountTarget)
-    console.log('[AppBootstrapper] ✅ App mounted (using WXT storage as single source of truth)')
+    console.log('[AppBootstrapper] ✅ App mounted with Dialog & Notify plugins (using WXT storage as single source of truth)')
     return { app }
   }
 }
