@@ -102,21 +102,8 @@ const showRestoreDialog = ref(false)
 
 const BACKUP_KEY = 'archivum:tab_backup'
 
-interface BackupTab {
-  url?: string
-  title?: string
-  groupId?: number | null
-}
-
-interface BackupGroup {
-  id: number
-  title: string
-  color?: string
-}
-
 interface Backup {
-  tabs: BackupTab[]
-  groups: BackupGroup[]
+  tabs: Browser.tabs.Tab[]
   createdAt: number
   count: number
 }
@@ -147,25 +134,8 @@ async function handleBackup(): Promise<void> {
   isLoading.value = true
   try {
     const tabs = await browser.tabs.query({ currentWindow: true })
-    
-    // Get groups if available (Chrome/Edge only)
-    let groups: BackupGroup[] = []
-    if (browser.tabGroups != null) {
-      try {
-        const rawGroups = await (browser.tabGroups as any).query({ windowId: (browser.windows as any).WINDOW_ID_CURRENT })
-        groups = rawGroups.map((g: any) => ({ id: g.id, title: g.title, color: g.color }))
-      } catch (err) {
-        console.warn('[BackupRestore] Could not fetch groups:', err)
-      }
-    }
-
     const backup: Backup = {
-      tabs: tabs.map(t => ({ 
-        url: t.url, 
-        title: t.title,
-        groupId: t.groupId 
-      })),
-      groups,
+      tabs,
       createdAt: Date.now(),
       count: tabs.length,
     }
@@ -173,15 +143,14 @@ async function handleBackup(): Promise<void> {
     hasBackup.value = true
     backupCount.value = backup.count
     backupDate.value = new Date(backup.createdAt).toLocaleDateString()
-    statusMessage.value = `✅ Backed up ${backup.count} tabs${groups.length > 0 ? ` in ${groups.length} groups` : ''}`
-    console.log('[BackupRestore] Backup successful:', backup.count, 'tabs,', groups.length, 'groups')
+    statusMessage.value = `✅ Backed up ${backup.count} tabs`
+    console.log('[BackupRestore] Backup successful:', backup.count, 'tabs')
   } catch (err) {
     const errorMsg = err instanceof Error ? err.message : 'Failed to backup tabs'
     statusMessage.value = `❌ Backup failed: ${errorMsg}`
     console.error('[BackupRestore] Backup error:', err)
   } finally {
     isLoading.value = false
-    // Show success/error for 3 seconds then revert to normal status
     setTimeout(() => {
       if (hasBackup.value) {
         updateStatusMessage()
@@ -201,21 +170,18 @@ async function confirmRestore(): Promise<void> {
     console.log('[BackupRestore] Query all tabs:', allTabs.length)
 
     const extensionId = browser.runtime.getURL('')
-    console.log('[BackupRestore] Extension ID:', extensionId)
 
     // Get current tab to avoid switching away
     const currentTab = allTabs.find(t => t.active)
-    console.log('[BackupRestore] Current active tab:', currentTab?.id)
 
     const tabsToClose = allTabs
       .filter((t) => !t.url?.startsWith(extensionId))
       .map((t) => t.id!)
 
-    console.log('[BackupRestore] Tabs to close:', tabsToClose.length)
+    console.log('[BackupRestore] Closing', tabsToClose.length, 'tabs')
 
     if (tabsToClose.length > 0) {
       await browser.tabs.remove(tabsToClose)
-      console.log('[BackupRestore] Closed tabs, waiting 500ms')
       await new Promise(r => setTimeout(r, 500))
     }
 
@@ -225,82 +191,42 @@ async function confirmRestore(): Promise<void> {
       throw new Error('No backup found in storage')
     }
 
-    console.log('[BackupRestore] Backup found with', backup.count, 'tabs and', backup.groups?.length ?? 0, 'groups')
+    console.log('[BackupRestore] Restoring', backup.count, 'tabs from backup')
 
-    // Recreate groups if available (Chrome/Edge only)
-    const groupMap: Record<number, number> = {} // oldGroupId -> newGroupId
-    if (browser.tabGroups != null && backup.groups && backup.groups.length > 0) {
-      console.log('[BackupRestore] Recreating', backup.groups.length, 'groups...')
-      for (const group of backup.groups) {
-        try {
-          const newGroup = await (browser.tabGroups as any).create([], {
-            title: group.title,
-            color: group.color,
-            windowId: (browser.windows as any).WINDOW_ID_CURRENT
-          })
-          groupMap[group.id] = newGroup.id
-          console.log(`[BackupRestore] Created group: ${group.title} (${group.id} -> ${newGroup.id})`)
-        } catch (err) {
-          console.warn(`[BackupRestore] Failed to create group ${group.title}:`, err)
-        }
-      }
-    }
-
-    // Restore tabs
     let restoredCount = 0
-    const newTabIds: number[] = []
-    
-    for (const tabItem of backup.tabs) {
-      if (tabItem.url && !tabItem.url.startsWith('chrome://') && !tabItem.url.startsWith('chrome-extension://')) {
-        const newTab = await browser.tabs.create({ url: tabItem.url, active: false })
-        if (newTab.id != null) {
-          newTabIds.push(newTab.id)
+    for (const tab of backup.tabs) {
+      try {
+        if (tab.url && !tab.url.startsWith('chrome://') && !tab.url.startsWith('chrome-extension://')) {
+          await browser.tabs.create({ 
+            url: tab.url,
+            active: false,
+            pinned: tab.pinned,
+          })
           restoredCount++
         }
+      } catch (err) {
+        console.warn(`[BackupRestore] Could not restore tab ${tab.title}: ${err}`)
       }
     }
 
-    console.log('[BackupRestore] Restored', restoredCount, 'tabs')
-
-    // Assign tabs to groups if groups exist
-    if (browser.tabGroups != null && Object.keys(groupMap).length > 0) {
-      console.log('[BackupRestore] Assigning', newTabIds.length, 'tabs to groups...')
-      for (let i = 0; i < backup.tabs.length && i < newTabIds.length; i++) {
-        const oldTab = backup.tabs[i]
-        const newTabId = newTabIds[i]
-        if (oldTab.groupId != null && oldTab.groupId !== -1) {
-          const newGroupId = groupMap[oldTab.groupId]
-          if (newGroupId != null) {
-            try {
-              await (browser.tabs as any).group({ tabIds: [newTabId], groupId: newGroupId })
-              console.log(`[BackupRestore] Assigned tab ${newTabId} to group ${newGroupId}`)
-            } catch (err) {
-              console.warn(`[BackupRestore] Could not assign tab to group:`, err)
-            }
-          }
-        }
-      }
-    }
+    console.log('[BackupRestore] Restored', restoredCount, 'tabs successfully')
     
-    // Reactivate the current tab if it still exists
+    // Reactivate current tab if it still exists
     if (currentTab?.id) {
       try {
         await browser.tabs.update(currentTab.id, { active: true })
-        console.log('[BackupRestore] Reactivated tab:', currentTab.id)
       } catch (err) {
         console.warn('[BackupRestore] Could not reactivate tab:', err)
       }
     }
 
-    statusMessage.value = `✅ Restored ${restoredCount} tabs ${restoredCount < backup.count ? `(${backup.count - restoredCount} skipped)` : ''}`
-    console.log('[BackupRestore] Success')
+    statusMessage.value = `✅ Restored ${restoredCount} tabs`
   } catch (err) {
     const errorMsg = err instanceof Error ? err.message : 'Failed to restore tabs'
     statusMessage.value = `❌ Restore failed: ${errorMsg}`
     console.error('[BackupRestore] Error:', err)
   } finally {
     isLoading.value = false
-    // Show success/error for 3 seconds then revert to normal status
     setTimeout(() => {
       if (hasBackup.value) {
         updateStatusMessage()
