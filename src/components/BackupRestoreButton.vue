@@ -209,28 +209,9 @@ async function confirmRestore(): Promise<void> {
 
     console.log('[BackupRestore] Restoring', backup.count, 'tabs from backup with', backup.groups?.length ?? 0, 'groups')
 
-    // Step 1: Recreate groups and map old IDs to new IDs
-    const groupIdMap: Record<number, number> = {}
-    if (browser.tabGroups != null && backup.groups && backup.groups.length > 0) {
-      console.log('[BackupRestore] Recreating', backup.groups.length, 'groups...')
-      for (const group of backup.groups) {
-        try {
-          const newGroup = await (browser.tabGroups as any).create([], {
-            title: group.title,
-            color: group.color,
-            windowId: (browser.windows as any).WINDOW_ID_CURRENT
-          })
-          groupIdMap[group.oldId] = newGroup.id
-          console.log(`[BackupRestore] Created group "${group.title}" (${group.oldId} -> ${newGroup.id})`)
-        } catch (err) {
-          console.warn(`[BackupRestore] Failed to create group "${group.title}":`, err)
-        }
-      }
-    }
-
-    // Step 2: Restore tabs
+    // Step 1: Restore all tabs (ungrouped)
     let restoredCount = 0
-    const restoredTabIds: number[] = []
+    const restoredTabs: { tabId: number; originalGroupId?: number }[] = []
 
     for (const tab of backup.tabs) {
       try {
@@ -241,8 +222,9 @@ async function confirmRestore(): Promise<void> {
             pinned: tab.pinned,
           })
           if (newTab.id != null) {
-            restoredTabIds.push(newTab.id)
+            restoredTabs.push({ tabId: newTab.id, originalGroupId: tab.groupId })
             restoredCount++
+            console.log(`[BackupRestore] Created tab: ${tab.title || tab.url}`)
           }
         }
       } catch (err) {
@@ -252,30 +234,37 @@ async function confirmRestore(): Promise<void> {
 
     console.log('[BackupRestore] Restored', restoredCount, 'tabs')
 
-    // Step 3: Assign restored tabs to their groups
-    if (browser.tabGroups != null && Object.keys(groupIdMap).length > 0) {
-      console.log('[BackupRestore] Assigning tabs to groups...')
-      let tabIndex = 0
-      for (const tab of backup.tabs) {
-        if (tab.url && !tab.url.startsWith('chrome://') && !tab.url.startsWith('chrome-extension://') && tabIndex < restoredTabIds.length) {
-          const newTabId = restoredTabIds[tabIndex]
-          if (tab.groupId && tab.groupId !== -1) {
-            const newGroupId = groupIdMap[tab.groupId]
-            if (newGroupId != null) {
-              try {
-                await (browser.tabs as any).group({ tabIds: [newTabId], groupId: newGroupId })
-                console.log(`[BackupRestore] Assigned tab ${newTabId} to group ${newGroupId}`)
-              } catch (err) {
-                console.warn(`[BackupRestore] Could not assign tab to group:`, err)
-              }
-            }
+    // Step 2: Group tabs by their original group ID
+    if (browser.tabGroups != null && backup.groups && backup.groups.length > 0) {
+      console.log('[BackupRestore] Grouping', restoredTabs.length, 'tabs into', backup.groups.length, 'groups')
+      
+      for (const group of backup.groups) {
+        try {
+          // Find all tabs that belonged to this group
+          const tabsForGroup = restoredTabs.filter(t => t.originalGroupId === group.oldId)
+          
+          if (tabsForGroup.length > 0) {
+            const tabIds = tabsForGroup.map(t => t.tabId)
+            console.log(`[BackupRestore] Grouping ${tabIds.length} tabs into group "${group.title}"`)
+            
+            // Create group with these tabs
+            const groupId = await (browser.tabs as any).group({ tabIds })
+            
+            // Update group properties
+            await (browser.tabGroups as any).update(groupId, {
+              title: group.title,
+              color: group.color,
+            })
+            
+            console.log(`[BackupRestore] Created group "${group.title}" with ${tabIds.length} tabs`)
           }
-          tabIndex++
+        } catch (err) {
+          console.warn(`[BackupRestore] Failed to create group "${group.title}":`, err)
         }
       }
     }
     
-    // Step 4: Reactivate current tab if it still exists
+    // Step 3: Reactivate current tab if it still exists
     if (currentTab?.id) {
       try {
         await browser.tabs.update(currentTab.id, { active: true })
