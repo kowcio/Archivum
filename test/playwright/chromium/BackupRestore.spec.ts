@@ -129,4 +129,51 @@ test.describe("Backup & Restore Tabs", () => {
 
     await options.close();
   });
+
+  test("2. Verify grouped tabs are created and persist", async () => {
+    const options = new OptionsPage(await ctx.context.newPage());
+    await options.goto(ctx.extensionId);
+
+    await options.expectPageLoaded();
+    console.log("   ✓ Options page loaded");
+
+    // Create mock tabs
+    await test.step("Create mock tabs", async () => {
+      const result = await options.clickLoadMockTabs(150);
+      expect(result.ok).toBe(true);
+      console.log(`   ✓ Created ${result.count} mock tabs`);
+    });
+
+    // Verify no groups initially
+    await test.step("Verify no groups initially", async () => {
+      const data = await options.getGroupAndTabData();
+      expect(data.groupCount).toBe(0);
+      console.log(`   ✓ Initial: 0 groups, ${data.tabs.length} tabs`);
+    });
+
+    // Group tabs by age
+    await test.step("Group tabs by age", async () => {
+      await options.clickGroupTabs();
+      await options.page.waitForTimeout(1000);
+      
+      const data = await options.getGroupAndTabData();
+      expect(data.groupCount).toBeGreaterThan(0);
+      expect(data.groupedTabCount).toBeGreaterThan(0);
+      console.log(`   ✓ Groups created: ${data.groupCount} groups with ${data.groupedTabCount} tabs`);
+    });
+
+    // Verify groups persist
+    await test.step("Verify groups persist", async () => {
+      const data = await options.getGroupAndTabData();
+      expect(data.groupCount).toBeGreaterThan(0);
+      console.log(`   ✓ Groups still present: ${data.groupCount} groups`);
+      
+      if (data.groups.length > 0) {
+        const titles = data.groups.map(g => g.title).join(", ");
+        console.log(`   ✓ Group titles: ${titles}`);
+      }
+    });
+
+    await options.close();
+  });
 });
