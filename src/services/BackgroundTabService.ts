@@ -14,9 +14,6 @@
  *   browser.alarms → groupTabsByAge()
  *   browser.tabs.onActivated → onTabActivated()
  *   UI message → groupTabsByAge() / ungroupAllTabs()
- *
- * Backup/Restore:
- *   UI → backupTabsNow() / restoreTabsFromBackup()
  */
 
 import { TabRow } from '@/entrypoints/options/models/TabRow.ts'
@@ -28,21 +25,6 @@ import type { Browser } from 'wxt/browser'
 import { MOCK_TABS } from '@/utils/mockTabData'
 import { APP_DEFAULTS } from '@/constants'
 import dayjs from "dayjs";
-
-export interface BackupGroup {
-  oldId: number
-  title: string
-  color?: string
-}
-
-export interface Backup {
-  tabs: Browser.tabs.Tab[]
-  groups: BackupGroup[]
-  createdAt: number
-  count: number
-}
-
-const BACKUP_KEY = 'archivum:tab_backup'
 
 export class BackgroundTabService {
   /**
@@ -537,143 +519,4 @@ export class BackgroundTabService {
        return 0
      }
    }
-
-   /**
-    * Backup all current tabs + groups to browser.storage.local
-    * Returns the backup object for confirmation
-    */
-   static async backupTabsNow(): Promise<Backup> {
-     try {
-       const tabs = await browser.tabs.query({ currentWindow: true })
-
-       // Store groups if available
-       let groups: BackupGroup[] = []
-       if (browser.tabGroups != null) {
-         try {
-           const rawGroups = await (browser.tabGroups as any).query({ windowId: (browser.windows as any).WINDOW_ID_CURRENT })
-           groups = rawGroups.map((g: any) => ({ oldId: g.id, title: g.title, color: g.color }))
-         } catch (err) {
-           console.warn('[BackgroundTabService] Could not fetch groups:', err)
-         }
-       }
-
-       const backup: Backup = {
-         tabs,
-         groups,
-         createdAt: Date.now(),
-         count: tabs.length,
-       }
-
-       await browser.storage.local.set({ [BACKUP_KEY]: backup })
-       console.log(`[BackgroundTabService] ✅ Backup saved: ${backup.count} tabs, ${groups.length} groups`)
-       return backup
-     } catch (err) {
-       const msg = err instanceof Error ? err.message : 'Failed to backup tabs'
-       console.error('[BackgroundTabService] ❌ Backup error:', err)
-       throw new Error(msg)
-     }
-   }
-
-   /**
-    * Restore all tabs from backup
-    * Closes current tabs, creates backed-up tabs, groups them
-    */
-   static async restoreTabsFromBackup(): Promise<number> {
-     try {
-       const allTabs = await browser.tabs.query({ currentWindow: true })
-       const extensionId = browser.runtime.getURL('')
-       const currentTab = allTabs.find(t => t.active)
-
-       // Close all non-extension tabs
-       const tabsToClose = allTabs
-         .filter((t) => !t.url?.startsWith(extensionId))
-         .map((t) => t.id!)
-
-       if (tabsToClose.length > 0) {
-         await browser.tabs.remove(tabsToClose)
-         await new Promise(r => setTimeout(r, 500))
-       }
-
-       // Get backup from storage
-       const data = await browser.storage.local.get(BACKUP_KEY)
-       const backup = data[BACKUP_KEY] as Backup | undefined
-       if (!backup) {
-         throw new Error('No backup found in storage')
-       }
-
-       console.log(`[BackgroundTabService] Restoring ${backup.count} tabs from backup with ${backup.groups?.length ?? 0} groups`)
-
-       // Step 1: Restore all tabs (ungrouped)
-       let restoredCount = 0
-       const restoredTabs: { tabId: number; originalGroupId?: number }[] = []
-
-       for (const tab of backup.tabs) {
-         try {
-           if (tab.url && !tab.url.startsWith('chrome://') && !tab.url.startsWith('chrome-extension://')) {
-             const newTab = await browser.tabs.create({
-               url: tab.url,
-               active: false,
-               pinned: tab.pinned,
-             })
-             if (newTab.id != null) {
-               restoredTabs.push({ tabId: newTab.id, originalGroupId: tab.groupId })
-               restoredCount++
-               console.log(`[BackgroundTabService] Created tab: ${tab.title || tab.url}`)
-             }
-           }
-         } catch (err) {
-           console.warn(`[BackgroundTabService] Could not restore tab: ${err}`)
-         }
-       }
-
-       console.log(`[BackgroundTabService] Restored ${restoredCount} tabs`)
-
-       // Step 2: Group tabs by their original group ID
-       if (browser.tabGroups != null && backup.groups && backup.groups.length > 0) {
-         console.log(`[BackgroundTabService] Grouping ${restoredTabs.length} tabs into ${backup.groups.length} groups`)
-
-         for (const group of backup.groups) {
-           try {
-             const tabsForGroup = restoredTabs.filter(t => t.originalGroupId === group.oldId)
-
-             if (tabsForGroup.length > 0) {
-               const tabIds = tabsForGroup.map(t => t.tabId)
-               console.log(`[BackgroundTabService] Grouping ${tabIds.length} tabs into group "${group.title}"`)
-
-               // Create group with these tabs
-               const groupId = await (browser.tabs as any).group({ tabIds })
-
-               // Update group properties
-               await (browser.tabGroups as any).update(groupId, {
-                 title: group.title,
-                 color: group.color,
-                 collapsed: true
-               })
-
-               console.log(`[BackgroundTabService] Created group "${group.title}" with ${tabIds.length} tabs`)
-             }
-           } catch (err) {
-             console.warn(`[BackgroundTabService] Failed to create group "${group.title}":`, err)
-           }
-         }
-       }
-
-       // Step 3: Reactivate current tab if it still exists
-       if (currentTab?.id) {
-         try {
-           await browser.tabs.update(currentTab.id, { active: true })
-         } catch (err) {
-           console.warn('[BackgroundTabService] Could not reactivate tab:', err)
-         }
-       }
-
-       console.log(`[BackgroundTabService] ✅ Restore complete: ${restoredCount} tabs`)
-       return restoredCount
-     } catch (err) {
-       const msg = err instanceof Error ? err.message : 'Failed to restore tabs'
-       console.error('[BackgroundTabService] ❌ Restore error:', err)
-       throw new Error(msg)
-     }
-   }
- }
-
+}

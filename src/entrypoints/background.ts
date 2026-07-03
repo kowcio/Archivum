@@ -1,6 +1,5 @@
 import { ExtensionCleanupService } from '@/services/ExtensionCleanupService'
 import { BackgroundTabService } from '@/services/BackgroundTabService'
-import { BackupService } from '@/services/BackupService'
 import { APP_DEFAULTS, BACKGROUND_MESSAGE_ACTIONS } from '@/constants'
 import { browser } from 'wxt/browser'
 import { mockOverrides } from '@/store/appStore'
@@ -23,16 +22,9 @@ export default defineBackground({
     if (browser.alarms != null) {
       browser.alarms.create(APP_DEFAULTS.ALARM_UPDATE_TABS, { periodInMinutes: 24 * 60 })
       browser.alarms.onAlarm.addListener((alarm) => {
-        if (alarm.name === APP_DEFAULTS.ALARM_UPDATE_TABS) {
-          BackgroundTabService.groupTabsByAge()
-        }
-        // ⏰ Hourly alarm — auto-backup tabs
-        if (alarm.name === APP_DEFAULTS.ALARM_AUTO_BACKUP_TABS) {
-          BackupService.autoBackupTabs()
-        }
+        if (alarm.name !== APP_DEFAULTS.ALARM_UPDATE_TABS) return
+        BackgroundTabService.groupTabsByAge()
       })
-      // Create hourly backup alarm
-      browser.alarms.create(APP_DEFAULTS.ALARM_AUTO_BACKUP_TABS, { periodInMinutes: 60 })
     }
 
     /**
@@ -109,22 +101,6 @@ export default defineBackground({
           BackgroundTabService.closeTab(tabId)
             .then((error) => sendResponse({ error }))
             .catch((err: any) => sendResponse({ error: String(err) }))
-          return true
-        }
-
-        // 💾 Backup: Save all current tabs + groups
-        if (action === 'backupTabsNow') {
-          BackgroundTabService.backupTabsNow()
-            .then((backup) => sendResponse({ backup, error: null }))
-            .catch((err: any) => sendResponse({ backup: null, error: String(err) }))
-          return true
-        }
-
-        // 📥 Restore: Close current tabs, restore from backup
-        if (action === 'restoreTabsFromBackup') {
-          BackgroundTabService.restoreTabsFromBackup()
-            .then((count) => sendResponse({ restoredCount: count, error: null }))
-            .catch((err: any) => sendResponse({ restoredCount: 0, error: String(err) }))
           return true
         }
 
