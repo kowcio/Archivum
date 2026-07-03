@@ -17,7 +17,10 @@
           @error="(msg) => error = msg"
         />
         <div class="row col-12 ">
-        <BackupRestoreButton />
+        <!-- ✅ FIX: Listen to @restored event and refresh table -->
+        <!-- Before: No listener → table never refreshes after restore ❌ -->
+        <!-- Now: @restored triggers refreshTabs() → table updates with new tabs ✅ -->
+        <BackupRestoreButton @restored="refreshTabs" />
         </div>
       </div>
 

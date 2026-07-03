@@ -78,6 +78,11 @@ import { BACKGROUND_MESSAGE_ACTIONS } from '@/constants'
 
 type Backup = { tabs: Browser.tabs.Tab[]; groups: any[]; createdAt: number; count: number }
 
+// ✅ FIX: Define emit event so parent component knows restore completed
+// Before: No emit → parent doesn't know restore finished → table never refreshes ❌
+// Now: Emit 'restored' → parent calls refreshTabs() → table updates ✅
+const emit = defineEmits<{ restored: [] }>()
+
 const hasBackup = ref(false)
 const backupCount = ref(0)
 const backupDate = ref('')
@@ -127,6 +132,11 @@ async function confirmRestore(): Promise<void> {
     }) as any
     if (!response?.success) {
       statusMessage.value = '❌ Restore failed'
+    } else {
+      // ✅ FIX: Emit 'restored' event after successful restore
+      // Before: No event → App.vue doesn't know restore completed → table stays old ❌
+      // Now: Parent catches @restored event → calls refreshTabs() → table refreshes ✅
+      emit('restored')
     }
   } catch (err) {
     console.error('[BackupRestore]', err)
