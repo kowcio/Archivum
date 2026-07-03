@@ -1,32 +1,38 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { BackupService, type Backup } from '@/services/BackupService'
 
-// Mock browser API
-const mockBrowser = {
-  tabs: {
-    query: vi.fn(),
-  },
-  tabGroups: {
-    query: vi.fn(),
-  },
-  windows: {
-    WINDOW_ID_CURRENT: -2,
-  },
-  storage: {
-    local: {
-      set: vi.fn(),
+// Mock must be defined inline to avoid hoisting issues
+vi.mock('wxt/browser', () => ({
+  browser: {
+    tabs: {
+      query: vi.fn(),
+    },
+    tabGroups: {
+      query: vi.fn(),
+    },
+    windows: {
+      WINDOW_ID_CURRENT: -2,
+    },
+    storage: {
+      local: {
+        set: vi.fn(),
+      },
     },
   },
-}
-
-vi.mock('wxt/browser', () => ({
-  browser: mockBrowser,
 }))
+
+import { BackupService, type Backup } from '@/services/BackupService'
+import { browser } from 'wxt/browser'
+
+const mockBrowser = vi.mocked(browser)
 
 describe('BackupService', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.useFakeTimers()
+    // Reset mock browser state
+    mockBrowser.tabGroups = {
+      query: vi.fn(),
+    }
   })
 
   afterEach(() => {
@@ -71,33 +77,18 @@ describe('BackupService', () => {
   })
 
   it('should handle missing tabGroups gracefully (Firefox)', async () => {
-    const mockBrowser2 = {
-      tabs: {
-        query: vi.fn(),
-      },
-      tabGroups: null,
-      storage: {
-        local: {
-          set: vi.fn(),
-        },
-      },
-    }
-
-    vi.mocked(require('wxt/browser'), true).browser = mockBrowser2
-
-    const mockTabs = [
+    // Setup: mock browser with no tabGroups
+    mockBrowser.tabs.query.mockResolvedValue([
       { id: 1, title: 'Tab 1', url: 'https://example.com' },
-    ]
+    ])
+    mockBrowser.tabGroups = null as any
+    mockBrowser.storage.local.set.mockResolvedValue(undefined)
 
-    mockBrowser2.tabs.query.mockResolvedValue(mockTabs)
-    mockBrowser2.storage.local.set.mockResolvedValue(undefined)
+    // Should not throw, just complete
+    await BackupService.autoBackupTabs()
 
-    // Re-import to get updated mock
-    const { BackupService: BS } = await import('@/services/BackupService')
-
-    // This test demonstrates graceful handling
-    // In real scenario, the service checks browser.tabGroups != null
-    expect(mockBrowser2.tabGroups).toBeNull()
+    // Verify it was called even with null tabGroups
+    expect(mockBrowser.storage.local.set).toHaveBeenCalled()
   })
 
   it('should store backup with current timestamp', async () => {
