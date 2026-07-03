@@ -3,7 +3,7 @@
   <div id="options" class="row justify-center">
     <div class="col-10">
       <!-- Actions — wrapping row -->
-      <div class="row items-start q-mt-sm q-gutter-sm justify-center">
+      <div class="row items-start q-mt-sm q-gutter-sm ">
 
         <GroupUngroup/>
         <RefreshButton @refresh="onRefreshTabs" @error="(msg) => error = msg"/>
@@ -16,6 +16,7 @@
           @success="refreshTabs"
           @error="(msg) => error = msg"
         />
+        <BackupRestoreButton />
 
       </div>
 
@@ -119,6 +120,7 @@ import MockButton from '@/components/MockButton.vue'
 import CloseAllTabsButton from '@/components/CloseAllTabsButton.vue'
 import RefreshButton from '@/components/RefreshButton.vue'
 import SortButton from '@/components/SortButton.vue'
+import BackupRestoreButton from "@/components/BackupRestoreButton.vue";
 
 const appStore = useAppStore()
 const filter = ref('')

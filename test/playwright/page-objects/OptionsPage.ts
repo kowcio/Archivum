@@ -541,10 +541,60 @@ export class OptionsPage {
      })
     }
 
-   /**
-    * Close the page.
-    */
-   async close(): Promise<void> {
-     await this.page.close();
-   }
+  /**
+   * Click "Backup Tabs" button to save current tabs.
+   */
+  async clickBackupTabs(): Promise<void> {
+    await this.page.getByTestId('backup-btn').click();
+  }
+
+  /**
+   * Click "Restore Tabs" button.
+   */
+  async clickRestoreTabs(): Promise<void> {
+    await this.page.getByTestId('restore-btn').click();
+  }
+
+  /**
+   * Get backed-up tabs from browser storage.
+   * @returns Array of backed-up tab URLs, or null if no backup exists
+   */
+  async getBackupFromStorage(): Promise<Array<{ url?: string; title?: string }> | null> {
+    return this.page.evaluate(async () => {
+      const data = await chrome.storage.local.get('archivum:tab_backup');
+      const backup = data['archivum:tab_backup'];
+      return backup?.tabs || null;
+    });
+  }
+
+  /**
+   * Verify that backup button is visible (no backup exists).
+   */
+  async expectBackupButtonVisible(): Promise<void> {
+    await expect(this.page.getByTestId('backup-btn')).toBeVisible();
+  }
+
+  /**
+   * Verify that restore button is visible (backup exists).
+   */
+  async expectRestoreButtonVisible(): Promise<void> {
+    await expect(this.page.getByTestId('restore-btn')).toBeVisible();
+  }
+
+  /**
+   * Confirm the restore dialog by clicking the "Restore" button in the confirmation popup.
+   */
+  async confirmRestore(): Promise<void> {
+    // Wait for dialog to appear and click the Restore button
+    await this.page.getByRole('button', { name: /Restore/i }).click();
+    // Wait for restore operation to complete
+    await this.page.waitForTimeout(2000);
+  }
+
+  /**
+   * Close the page.
+   */
+  async close(): Promise<void> {
+    await this.page.close();
+  }
 }

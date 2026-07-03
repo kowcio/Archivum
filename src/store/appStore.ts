@@ -64,7 +64,6 @@ export const mockOverrides = storage.defineItem<Record<number, number>>('local:m
 })
 
 
-
 /**
  * Helper: Normalize levels from storage (handle WXT edge case where arrays come as objects)
  */
