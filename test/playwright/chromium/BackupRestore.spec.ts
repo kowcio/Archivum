@@ -82,26 +82,14 @@ test.describe("Backup & Restore Tabs", () => {
       console.log("   ✓ Restore button is visible after reload");
     });
 
-    // Step 6: Click restore button and verify dialog appears
-    await test.step("Click restore button and verify confirmation dialog", async () => {
-      await options.clickRestoreTabs();
-      // Wait for dialog to appear
-      await options.page.waitForTimeout(500);
-
-      // Check if dialog title is visible (q-dialog__title is Quasar's dialog title class)
-      const dialogTitle = await options.page.locator('.q-dialog__title').isVisible();
-      expect(dialogTitle).toBe(true);
-      console.log("   ✓ Restore confirmation dialog is present");
-    });
-
-    // Step 7: Confirm restore and verify tabs are restored
-    await test.step("Confirm restore operation", async () => {
+    // Step 6: Click restore button and verify tabs are restored immediately (no dialog)
+    await test.step("Click restore button and verify tabs are restored", async () => {
       // Get current tabs count
       const tabsBeforeRestore = await options.queryAllTabs();
       console.log(`   ℹ Tabs before restore: ${tabsBeforeRestore.length}`);
 
-      // Confirm restore
-      await options.confirmRestore();
+      // Click restore - no dialog, restores immediately
+      await options.clickRestoreTabs();
 
       // Wait for tabs to be created
       await options.page.waitForTimeout(1500);
@@ -114,12 +102,19 @@ test.describe("Backup & Restore Tabs", () => {
       console.log(`   ✓ Tabs restored successfully (${tabsAfterRestore.length} tabs)`);
     });
 
-    // Step 8: Verify backup is still available in storage
+    // Step 7: Verify backup is still available in storage
     await test.step("Verify backup still exists in storage", async () => {
       const backup = await options.getBackupFromStorage();
       expect(backup).not.toBeNull();
       expect(backup).toHaveLength(backupCount);
       console.log("   ✓ Backup is still preserved in storage");
+    });
+
+    // Step 8: Verify status message shows success
+    await test.step("Verify backup status shows success message", async () => {
+      const statusText = await options.page.getByTestId('backup-status').textContent();
+      expect(statusText).toContain('✅');
+      console.log(`   ✓ Status shows: ${statusText}`);
     });
 
     await options.close();

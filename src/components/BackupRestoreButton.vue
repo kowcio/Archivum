@@ -30,7 +30,7 @@
         @click="handleRestore"
       />
       <div class="row items-center q-gutter-xs">
-        <span class="text-caption text-grey">{{ backupDate }} | {{ backupCount }} tabs</span>
+        <span class="text-caption text-grey" data-testid="backup-status">{{ statusMessage }}</span>
         <q-btn
           flat
           dense
@@ -48,13 +48,12 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { browser } from 'wxt/browser'
-import { useQuasar } from 'quasar'
 
-const $q = useQuasar()
 const hasBackup = ref(false)
 const backupCount = ref(0)
 const backupDate = ref('')
 const isLoading = ref(false)
+const statusMessage = ref('')
 
 const BACKUP_KEY = 'archivum:tab_backup'
 
@@ -72,110 +71,120 @@ onMounted(async () => {
     hasBackup.value = true
     backupCount.value = backup.count
     backupDate.value = new Date(backup.createdAt).toLocaleDateString()
+    updateStatusMessage()
   }
 })
 
-async function handleBackup(): Promise<void> {
-  isLoading.value = true
-  const tabs = await browser.tabs.query({ currentWindow: true })
-  const backup: Backup = {
-    tabs: tabs.map(t => ({ url: t.url, title: t.title })),
-    createdAt: Date.now(),
-    count: tabs.length,
+function updateStatusMessage(): void {
+  if (isLoading.value) {
+    statusMessage.value = 'Restoring tabs...'
+  } else if (hasBackup.value) {
+    statusMessage.value = `${backupDate.value} | ${backupCount.value} tabs`
+  } else {
+    statusMessage.value = ''
   }
-  await browser.storage.local.set({ [BACKUP_KEY]: backup })
-  hasBackup.value = true
-  backupCount.value = backup.count
-  backupDate.value = new Date(backup.createdAt).toLocaleDateString()
-  $q.notify({
-    type: 'positive',
-    message: `✅ Backed up ${backup.count} tabs`,
-    position: 'top',
-    timeout: 3000,
-  })
-  isLoading.value = false
 }
 
-function handleRestore(): void {
-  console.log('[BackupRestore] handleRestore() called')
+async function handleBackup(): Promise<void> {
+  isLoading.value = true
   try {
-    $q.dialog({
-      title: '⚠️ Restore Tabs',
-      message: `This will close all current tabs and restore ${backupCount.value} backed-up tabs. Your current state will be lost. Continue?`,
-      cancel: true,
-      persistent: true,
-      ok: 'Restore',
-    })
-      .onOk(async () => {
-        console.log('[BackupRestore] Dialog confirmed - starting restore')
-        isLoading.value = true
-        try {
-          const allTabs = await browser.tabs.query({ currentWindow: true })
-          console.log('[BackupRestore] Query all tabs:', allTabs.length)
-          
-          const extensionId = browser.runtime.getURL('')
-          console.log('[BackupRestore] Extension ID:', extensionId)
-          
-          const tabsToClose = allTabs
-            .filter((t) => !t.url?.startsWith(extensionId))
-            .map((t) => t.id!)
-          
-          console.log('[BackupRestore] Tabs to close:', tabsToClose.length)
-          
-          if (tabsToClose.length > 0) {
-            await browser.tabs.remove(tabsToClose)
-            console.log('[BackupRestore] Closed tabs, waiting 500ms')
-            await new Promise(r => setTimeout(r, 500))
-          }
-
-          const data = await browser.storage.local.get(BACKUP_KEY)
-          const backup = data[BACKUP_KEY] as Backup | undefined
-          if (!backup) {
-            throw new Error('No backup found in storage')
-          }
-
-          console.log('[BackupRestore] Backup found with', backup.count, 'tabs')
-
-          let restoredCount = 0
-          for (const tabItem of backup.tabs) {
-            if (tabItem.url && !tabItem.url.startsWith('chrome://') && !tabItem.url.startsWith('chrome-extension://')) {
-              await browser.tabs.create({ url: tabItem.url })
-              restoredCount++
-            }
-          }
-          
-          console.log('[BackupRestore] Restored', restoredCount, 'tabs')
-          
-          $q.notify({
-            type: 'positive',
-            message: `✅ Restored ${restoredCount} tabs (${backup.count - restoredCount} skipped)`,
-            position: 'top',
-            timeout: 3000,
-          })
-        } catch (err) {
-          const errorMsg = err instanceof Error ? err.message : 'Failed to restore tabs'
-          console.error('[BackupRestore] Error:', err)
-          $q.notify({
-            type: 'negative',
-            message: `❌ Error: ${errorMsg}`,
-            position: 'top',
-            timeout: 3000,
-          })
-        } finally {
-          isLoading.value = false
-        }
-      })
-      .onCancel(() => {
-        console.log('[BackupRestore] Restore cancelled by user')
-      })
+    const tabs = await browser.tabs.query({ currentWindow: true })
+    const backup: Backup = {
+      tabs: tabs.map(t => ({ url: t.url, title: t.title })),
+      createdAt: Date.now(),
+      count: tabs.length,
+    }
+    await browser.storage.local.set({ [BACKUP_KEY]: backup })
+    hasBackup.value = true
+    backupCount.value = backup.count
+    backupDate.value = new Date(backup.createdAt).toLocaleDateString()
+    statusMessage.value = `✅ Backed up ${backup.count} tabs`
+    console.log('[BackupRestore] Backup successful:', backup.count, 'tabs')
   } catch (err) {
-    console.error('[BackupRestore] Dialog creation error:', err)
-    $q.notify({
-      type: 'negative',
-      message: `❌ Failed to show dialog: ${err instanceof Error ? err.message : 'Unknown error'}`,
-      position: 'top',
-      timeout: 3000,
-    })
+    const errorMsg = err instanceof Error ? err.message : 'Failed to backup tabs'
+    statusMessage.value = `❌ Backup failed: ${errorMsg}`
+    console.error('[BackupRestore] Backup error:', err)
+  } finally {
+    isLoading.value = false
+    // Show success/error for 3 seconds then revert to normal status
+    setTimeout(() => {
+      if (hasBackup.value) {
+        updateStatusMessage()
+      }
+    }, 3000)
+  }
+}
+
+async function handleRestore(): Promise<void> {
+  console.log('[BackupRestore] Restore started')
+  isLoading.value = true
+  statusMessage.value = 'Restoring tabs...'
+  
+  try {
+    const allTabs = await browser.tabs.query({ currentWindow: true })
+    console.log('[BackupRestore] Query all tabs:', allTabs.length)
+
+    const extensionId = browser.runtime.getURL('')
+    console.log('[BackupRestore] Extension ID:', extensionId)
+
+    // Get current tab to avoid switching away
+    const currentTab = allTabs.find(t => t.active)
+    console.log('[BackupRestore] Current active tab:', currentTab?.id)
+
+    const tabsToClose = allTabs
+      .filter((t) => !t.url?.startsWith(extensionId))
+      .map((t) => t.id!)
+
+    console.log('[BackupRestore] Tabs to close:', tabsToClose.length)
+
+    if (tabsToClose.length > 0) {
+      await browser.tabs.remove(tabsToClose)
+      console.log('[BackupRestore] Closed tabs, waiting 500ms')
+      await new Promise(r => setTimeout(r, 500))
+    }
+
+    const data = await browser.storage.local.get(BACKUP_KEY)
+    const backup = data[BACKUP_KEY] as Backup | undefined
+    if (!backup) {
+      throw new Error('No backup found in storage')
+    }
+
+    console.log('[BackupRestore] Backup found with', backup.count, 'tabs')
+
+    let restoredCount = 0
+    for (const tabItem of backup.tabs) {
+      if (tabItem.url && !tabItem.url.startsWith('chrome://') && !tabItem.url.startsWith('chrome-extension://')) {
+        await browser.tabs.create({ url: tabItem.url, active: false })
+        restoredCount++
+      }
+    }
+
+    console.log('[BackupRestore] Restored', restoredCount, 'tabs')
+    
+    // Reactivate the current tab if it still exists
+    if (currentTab?.id) {
+      try {
+        await browser.tabs.update(currentTab.id, { active: true })
+        console.log('[BackupRestore] Reactivated tab:', currentTab.id)
+      } catch (err) {
+        console.warn('[BackupRestore] Could not reactivate tab:', err)
+      }
+    }
+
+    statusMessage.value = `✅ Restored ${restoredCount} tabs ${restoredCount < backup.count ? `(${backup.count - restoredCount} skipped)` : ''}`
+    console.log('[BackupRestore] Success')
+  } catch (err) {
+    const errorMsg = err instanceof Error ? err.message : 'Failed to restore tabs'
+    statusMessage.value = `❌ Restore failed: ${errorMsg}`
+    console.error('[BackupRestore] Error:', err)
+  } finally {
+    isLoading.value = false
+    // Show success/error for 3 seconds then revert to normal status
+    setTimeout(() => {
+      if (hasBackup.value) {
+        updateStatusMessage()
+      }
+    }, 3000)
   }
 }
 
@@ -184,12 +193,13 @@ async function handleClearBackup(): Promise<void> {
   hasBackup.value = false
   backupCount.value = 0
   backupDate.value = ''
-  $q.notify({
-    type: 'info',
-    message: 'Backup cleared',
-    position: 'top',
-    timeout: 2000,
-  })
+  statusMessage.value = 'Backup cleared'
+  console.log('[BackupRestore] Backup cleared')
+  
+  // Show confirmation for 2 seconds
+  setTimeout(() => {
+    statusMessage.value = ''
+  }, 2000)
 }
 </script>
 
