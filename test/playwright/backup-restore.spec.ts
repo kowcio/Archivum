@@ -6,7 +6,7 @@
  */
 
 import { test, expect } from '@playwright/test'
-import { setupExtensionTest, type ExtensionTestContext } from './chromium/extensions.js'
+import { setupExtensionTest } from './chromium/extensions.js'
 import { OptionsPage } from './page-objects/OptionsPage.js'
 
 test.describe('Backup & Restore', () => {
