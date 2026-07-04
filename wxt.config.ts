@@ -9,6 +9,9 @@ export default defineConfig({
     outDir: '.output',
     publicDir: 'public',
     entrypointsDir: 'entrypoints',
+    suppressWarnings: {
+      firefoxDataCollection: true,
+    },
 
     manifest: {
       name: 'Archivum - Tab Age Manager',
