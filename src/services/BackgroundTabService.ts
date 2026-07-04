@@ -76,7 +76,7 @@ export class BackgroundTabService {
       }
     }
 
-   static async groupTabsByAge(): Promise<number> {
+     static async groupTabsByAge(): Promise<number> {
      console.log('[BackgroundTabService] groupTabsByAge...')
      try {
        const hasTabGroups = browser.tabGroups != null

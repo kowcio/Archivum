@@ -496,50 +496,54 @@ export class OptionsPage {
        groupId?: number;
        index?: number;
      }>;
-    }> {
-     return await this.page.evaluate(async () => {
-       // Fetch mock overrides
-       const mockOverrides = await new Promise<Record<number, number>>((resolve) => {
-         chrome.runtime.sendMessage({ action: 'getMockOverrides' }, (response: any) => {
-           resolve(response?.overrides || {});
-         });
-       });
+     }> {
+      return await this.page.evaluate(function() {
+        // Fetch mock overrides
+        const mockOverridesPromise = new Promise<Record<number, number>>((resolve) => {
+          (chrome.runtime as any).sendMessage({ action: 'getMockOverrides' }, (response: any) => {
+            resolve(response?.overrides || {});
+          });
+        });
 
-       const groups = await (chrome.tabGroups as any).query({ windowId: (chrome.windows as any).WINDOW_ID_CURRENT })
-       const tabs = await (chrome.tabs as any).query({ currentWindow: true })
+        return mockOverridesPromise.then((mockOverrides) => {
+          return Promise.all([
+            (chrome.tabGroups as any).query({ windowId: (chrome.windows as any).WINDOW_ID_CURRENT }),
+            (chrome.tabs as any).query({ currentWindow: true })
+          ]).then(([groups, tabs]) => {
+            // Apply mock overrides to tabs
+            for (const tab of tabs) {
+              if (tab.id != null) {
+                const numericOverride = (mockOverrides as Record<number, number>)[tab.id]
+                const stringOverride = (mockOverrides as Record<string, number>)[String(tab.id)]
+                const override = numericOverride ?? stringOverride
+                if (override != null) {
+                  tab.lastAccessed = override
+                }
+              }
+            }
 
-       // Apply mock overrides to tabs
-       for (const tab of tabs) {
-         if (tab.id != null) {
-           const numericOverride = (mockOverrides as Record<number, number>)[tab.id]
-           const stringOverride = (mockOverrides as Record<string, number>)[String(tab.id)]
-           const override = numericOverride ?? stringOverride
-           if (override != null) {
-             tab.lastAccessed = override
-           }
-         }
-       }
-
-       return {
-         groupCount: groups.length,
-         groups: groups.map((g: any) => ({
-           id: g.id,
-           title: g.title
-         })),
-         groupedTabCount: tabs.filter((t: any) => t.groupId != null && t.groupId !== -1).length,
-         ungroupedTabCount: tabs.filter((t: any) => t.groupId == null || t.groupId === -1).length,
-         tabs: tabs.map((t: any) => ({
-           id: t.id,
-           url: t.url,
-           title: t.title,
-           active: t.active,
-           lastAccessed: t.lastAccessed,
-           groupId: t.groupId,
-           index: t.index
-         }))
-       }
-     })
-    }
+            return {
+              groupCount: groups.length,
+              groups: groups.map((g: any) => ({
+                id: g.id,
+                title: g.title
+              })),
+              groupedTabCount: tabs.filter((t: any) => t.groupId != null && t.groupId !== -1).length,
+              ungroupedTabCount: tabs.filter((t: any) => t.groupId == null || t.groupId === -1).length,
+              tabs: tabs.map((t: any) => ({
+                id: t.id,
+                url: t.url,
+                title: t.title,
+                active: t.active,
+                lastAccessed: t.lastAccessed,
+                groupId: t.groupId,
+                index: t.index
+              }))
+            }
+          })
+        })
+      })
+     }
 
   /**
    * Click "Backup Tabs" button to save current tabs.
