@@ -29,9 +29,15 @@ test.describe("Sort by Domain Button", () => {
       'https://reddit.com',
       'https://alab.pl'
     ];
+    const newPages = [];
     for (const domain of testDomains) {
       const newPage = await ctx.context.newPage();
+      newPages.push(newPage);
       await newPage.goto(domain, {waitUntil: 'domcontentloaded', timeout: 5000}).catch(() => {});
+    }
+    // Close all test domain pages after creating tabs
+    for (const page of newPages) {
+      await page.close().catch(() => {});
     }
 
     // Count tabs before grouping
@@ -57,8 +63,8 @@ test.describe("Sort by Domain Button", () => {
     expect(groupedTabCount + ungroupedTabCount).toEqual(tabsBeforeGrouping);
 
     // Groups should have some tabs
-    expect(groupedTabCount).toBeGreaterThan(0);
-    expect(ungroupedTabCount).toBeGreaterThan(0);
+    expect(groupedTabCount > 0).toBe(true);
+    expect(ungroupedTabCount > 0).toBe(true);
 
     // Verify ungrouped tabs are sorted by domain then lastAccessed
     const getSortKey = (url?: string): string => {
@@ -79,7 +85,7 @@ test.describe("Sort by Domain Button", () => {
       const nextDomain = getSortKey(ungroupedTabs[i + 1].url);
       const domainCompare = currDomain.localeCompare(nextDomain);
 
-      expect(domainCompare).toBeLessThanOrEqual(0);
+      expect(domainCompare <= 0).toBe(true);
       console.log(`  [${i}] ${currDomain} ≤ ${nextDomain}`);
     }
 
