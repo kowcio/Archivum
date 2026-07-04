@@ -36,12 +36,12 @@ type Props = {
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  groupLabel: 'Group',
-  ungroupLabel: 'Ungroup',
+  groupLabel: 'Archive by Age',
+  ungroupLabel: 'Clear Archive',
   groupIcon: 'folder',
   ungroupIcon: 'unfold_more',
-  size: 'md',
-  rounded: false,
+  size: 'lg',
+  rounded: true,
   square: false,
 })
 
@@ -81,8 +81,8 @@ const buttonLabel = computed(() => {
 })
 
 const btnClasses = computed(() => ({
-  'got-btn-amber': !isGrouped.value && hasStaleTabsToGroup.value,
-  'got-btn-blue': isGrouped.value,
+  'got-btn-primary': !isGrouped.value && hasStaleTabsToGroup.value,
+  'got-btn-blue-faded': isGrouped.value,
 }))
 
 /**

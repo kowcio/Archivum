@@ -31,6 +31,25 @@ body, #app {
   min-height: 100vh;
 }
 
+/* ── Primary Action (gold gradient — MOST PROMINENT CTA) ──────────────── */
+.got-btn-primary.q-btn {
+  background: linear-gradient(135deg, #ff8a00 0%, #ffca28 100%) !important;
+  color: #5a4a1a !important;
+  border-radius: var(--got-radius) !important;
+  box-shadow: 0 6px 20px rgba(255, 138, 0, 0.6), 0 3px 8px rgba(0,0,0,0.3) !important;
+  font-weight: 700;
+  font-size: 1.05em !important;
+  padding: 10px 20px !important;
+  letter-spacing: 0.5px;
+}
+.got-btn-primary.q-btn:hover {
+  box-shadow: 0 8px 28px rgba(255, 138, 0, 0.75), 0 4px 12px rgba(0,0,0,0.35) !important;
+  transform: translateY(-2px);
+}
+.got-btn-primary.q-btn:active {
+  transform: translateY(0);
+}
+
 /* ── Group (bold orange — most important CTA) ─────────────────────────── */
 .got-btn-amber.q-btn {
   background: #d47a2a !important;
@@ -53,6 +72,19 @@ body, #app {
 }
 .got-btn-blue.q-btn:hover {
   box-shadow: 0 6px 20px rgba(56, 103, 164, 0.55), 0 3px 6px rgba(0,0,0,0.25) !important;
+}
+
+/* ── Ungroup Faded (muted blue — when grouped, de-emphasized) ──────────── */
+.got-btn-blue-faded.q-btn {
+  background: rgba(56, 103, 164, 0.4) !important;
+  color: #fff !important;
+  border-radius: var(--got-radius) !important;
+  box-shadow: 0 2px 6px rgba(56, 103, 164, 0.2), 0 2px 4px rgba(0,0,0,0.12) !important;
+  font-weight: 500;
+}
+.got-btn-blue-faded.q-btn:hover {
+  background: rgba(56, 103, 164, 0.6) !important;
+  box-shadow: 0 3px 10px rgba(56, 103, 164, 0.3), 0 3px 6px rgba(0,0,0,0.18) !important;
 }
 
 /* ── Refresh (muted teal) ─────────────────────────────────────────────── */
