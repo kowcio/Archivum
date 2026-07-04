@@ -30,6 +30,13 @@ export default defineConfig({
       content_security_policy: {
         extension_pages: "script-src 'self'; object-src 'self'",
       },
+      // Firefox MV3 requires add-on ID
+      browser_specific_settings: {
+        gecko: {
+          id: 'archivum@kowalskipiotr.pl',
+          strict_min_version: '109.0',
+        },
+      },
       // Self-hosting auto-update configuration (uncomment for self-hosting)
       // update_url: 'https://yourblog.pl/extensions/archivum/update.json',
     },
