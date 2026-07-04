@@ -490,11 +490,11 @@ export class BackgroundTabService {
        const sortedUngrouped = [...ungroupedTabs].sort((a, b) => {
          const domainA = getSortKey(a.url)
          const domainB = getSortKey(b.url)
-           
+
          // First sort by domain alphabetically
          const domainCompare = domainA.localeCompare(domainB)
          if (domainCompare !== 0) return domainCompare
-           
+
          // Within same domain, sort by lastAccessed (newest first = higher values first)
          const timeA = a.lastAccessed || 0
          const timeB = b.lastAccessed || 0
@@ -519,4 +519,5 @@ export class BackgroundTabService {
        return 0
      }
    }
+
 }
