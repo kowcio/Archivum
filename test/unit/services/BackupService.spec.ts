@@ -23,7 +23,7 @@ vi.mock('wxt/browser', () => ({
 import { BackupService, type Backup } from '@/services/BackupService'
 import { browser } from 'wxt/browser'
 
-const mockBrowser = vi.mocked(browser)
+const mockBrowser = vi.mocked(browser) as any
 
 describe('BackupService', () => {
   beforeEach(() => {

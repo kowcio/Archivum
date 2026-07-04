@@ -40,7 +40,7 @@ describe('Popup App.vue', () => {
   })
 
   it('sends groupTabsByAge message on Group click', async () => {
-    vi.spyOn(fakeBrowser.runtime, 'sendMessage').mockResolvedValue(undefined)
+    vi.spyOn(fakeBrowser.runtime, 'sendMessage' as any).mockResolvedValue(undefined)
     const w = mount(App, {
       global: {
         stubs: {
@@ -56,7 +56,7 @@ describe('Popup App.vue', () => {
   })
 
   it('sends ungroupAllTabs message on Ungroup click', async () => {
-    vi.spyOn(fakeBrowser.runtime, 'sendMessage').mockResolvedValue(undefined)
+    vi.spyOn(fakeBrowser.runtime, 'sendMessage' as any).mockResolvedValue(undefined)
     const w = mount(App, {
       global: {
         stubs: {
