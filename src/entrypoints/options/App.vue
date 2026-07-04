@@ -115,6 +115,7 @@ import {computed, onMounted, ref} from 'vue'
 import {browser} from 'wxt/browser'
 import {BACKGROUND_MESSAGE_ACTIONS, isDevEnv} from '@/constants'
 import {useAppStore} from '@/store/appStore.ts'
+import { mockOverrides } from '@/store/appStore'
 import {TabRow} from '@/entrypoints/options/models/TabRow.ts'
 import {AgeClassification} from '@/models/AgeClassification.ts'
 import Thresholds from '../../components/Thresholds.vue'
@@ -180,6 +181,43 @@ function truncate(text: string, max: number): string {
   return !text || text.length <= max ? text : text.substring(0, max) + '…'
 }
 
+/**
+ * Apply mock overrides to tabs array
+ * Used for testing: allows simulating older tab ages
+ * ✅ After restore: applies backed-up lastAccessed timestamps
+ * ✅ After mock create: applies backdated timestamps
+ */
+async function applyMockOverridesToTabs(): Promise<void> {
+  try {
+    const overridesObj = await mockOverrides.getValue()
+    console.log('[App] Raw overrides from storage:', overridesObj, 'type:', typeof overridesObj)
+
+    // ✅ FIX: Handle both numeric keys and string keys (WXT JSON serialization issue)
+    // Sometimes keys come as strings: {"10": timestamp, "11": timestamp}
+    const overrides: Record<number, number> = {}
+    for (const key in overridesObj) {
+      const numKey = parseInt(key, 10)
+      overrides[numKey] = overridesObj[key as any]
+    }
+
+    console.log('[App] Parsed overrides:', overrides, 'Tabs to update:', tabs.value.map(t => ({id: t.id, current: t.lastAccessed})))
+
+    let appliedCount = 0
+    for (const tab of tabs.value) {
+      if (tab.id != null) {
+        const override = overrides[tab.id]
+        if (override != null && override > 0) {
+          console.log(`[App] ✅ Applying override to tab#${tab.id}: ${override} (was ${tab.lastAccessed})`)
+          tab.lastAccessed = override
+          appliedCount++
+        }
+      }
+    }
+    console.log(`[App] ✅ Applied ${appliedCount} overrides out of ${tabs.value.length} tabs`)
+  } catch (err) {
+    console.error('[App] Failed to apply mock overrides:', err)
+  }
+}
 
 async function refreshTabs(): Promise<void> {
   error.value = null
@@ -192,6 +230,15 @@ async function refreshTabs(): Promise<void> {
       return
     }
     tabs.value = resp?.tabs ?? []
+    console.log(`[App] Got ${tabs.value.length} tabs from background`)
+
+    // ✅ NEW: Small delay to let storage settle, then apply mock overrides
+    // This ensures mockOverrides storage has synced and is ready to read
+    await new Promise(r => setTimeout(r, 100))
+
+    // ✅ NEW: Apply mock overrides locally after getting tabs
+    // Even though background service applies them, we ensure they're used in the table
+    await applyMockOverridesToTabs()
   } catch (err) {
     error.value = `[GET_TABS_ERROR] ${err instanceof Error ? err.message : 'Failed to load tabs'}`
   }
@@ -221,6 +268,14 @@ async function closeTab(tabId: number | null): Promise<void> {
 
 onMounted(() => {
   refreshTabs()
+
+  // ✅ NEW: Listen to mock overrides changes
+  // When restore happens or mocks are created, overrides change in storage
+  // Automatically refresh table to apply new overrides
+  mockOverrides.watch(() => {
+    console.log('[App] Mock overrides changed → applying to table')
+    applyMockOverridesToTabs()
+  })
 })
 
 

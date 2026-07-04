@@ -1,11 +1,12 @@
 import { browser } from 'wxt/browser'
+import { mockOverrides } from '@/store/appStore'
 
 export interface Backup {
   count: number
   // ✅ FIX: Added groupId to track which group each tab belonged to
   // Before: tabs without groupId → couldn't map tabs back to groups during restore
   // Now: Each tab knows its original groupId → can recreate group structure
-  tabs: Array<{ id?: number; title?: string; url: string; groupId?: number }>
+  tabs: Array<{ id?: number; title?: string; url: string; groupId?: number; lastAccessed?: number }>
   groups: Array<{ oldId: number; title: string; color?: string }>
   createdAt: number
 }
@@ -15,6 +16,23 @@ export class BackupService {
 
   static async backupTabs(): Promise<Backup> {
     const tabs = await browser.tabs.query({ currentWindow: true })
+
+    // ✅ NEW: Apply mock overrides BEFORE backup so we capture real ages
+    // When testing with mocks: backup should have 7d, 14d, etc. not current timestamps
+    const mockOvds = await mockOverrides.getValue()
+    const mockOverridesMap: Record<number, number> = {}
+    for (const key in mockOvds) {
+      const numKey = parseInt(key, 10)
+      mockOverridesMap[numKey] = mockOvds[key as any]
+    }
+
+    for (const tab of tabs) {
+      if (tab.id != null && mockOverridesMap[tab.id] != null) {
+        console.log(`[BackupService] Backup: Applying mock override to tab#${tab.id}: ${mockOverridesMap[tab.id]}`)
+        tab.lastAccessed = mockOverridesMap[tab.id]
+      }
+    }
+
     let groups: any[] = []
     try {
       if (browser.tabGroups) {
@@ -26,10 +44,17 @@ export class BackupService {
 
     const backup: Backup = {
       count: tabs.length,
-      // ✅ FIX: Capture groupId from each tab
+      // ✅ FIX: Capture groupId + lastAccessed from each tab
       // groupId = reference to which group the tab belongs to (e.g., 5)
-      // This is the KEY to restoring the group structure later!
-      tabs: tabs.map(t => ({ id: t.id, title: t.title, url: t.url || '', groupId: t.groupId })),
+      // lastAccessed = timestamp when tab was last accessed
+      // This enables: (1) recreating group structure, (2) restoring tab ages via mock overrides
+      tabs: tabs.map(t => ({
+        id: t.id,
+        title: t.title,
+        url: t.url || '',
+        groupId: t.groupId,
+        lastAccessed: t.lastAccessed
+      })),
       // Also get group metadata (title, color) separately via tabGroups API
       groups: groups?.map((g: any) => ({
         oldId: g.id,
@@ -39,6 +64,7 @@ export class BackupService {
       createdAt: Date.now(),
     }
 
+    console.log('[BackupService] Backup data - tabs with lastAccessed:', backup.tabs.map(t => ({id: t.id, lastAccessed: t.lastAccessed})))
     await browser.storage.local.set({ [this.BACKUP_KEY]: backup })
     return backup
   }
@@ -56,6 +82,8 @@ export class BackupService {
      if (tabsToClose.length > 0) await browser.tabs.remove(tabsToClose)
 
       const restoredTabs: { tabId: number; originalGroupId?: number }[] = []
+      const restoredOverrides: Record<number, number> = {}
+
       for (const tab of backup.tabs) {
         if (tab.url && !tab.url.startsWith('chrome://') && !tab.url.startsWith('chrome-extension://')) {
           const newTab = await browser.tabs.create({ url: tab.url, active: false, pinned: false })
@@ -65,8 +93,28 @@ export class BackupService {
           // WRONG: originalGroupId: tab.id  → matches group.oldId never → tabs stay ungrouped ❌
           // CORRECT: originalGroupId: tab.groupId → matches group.oldId correctly → groups recreated ✅
           restoredTabs.push({ tabId: newTab.id!, originalGroupId: tab.groupId })
+
+          // ✅ NEW: Store lastAccessed override for mock overrides
+          // This preserves tab ages when restored (e.g., "7 days old" stays "7 days old")
+          if (newTab.id != null && tab.lastAccessed != null) {
+            console.log(`[BackupService] Override: newTab#${newTab.id} ← oldTab.lastAccessed=${tab.lastAccessed}`)
+            restoredOverrides[newTab.id] = tab.lastAccessed
+          }
         }
       }
+
+     // ✅ NEW: Restore mock overrides so table shows correct tab ages
+     // Before: Restored tabs show "0 days" (fresh) because lastAccessed = now ❌
+     // After: Mock overrides applied → table shows original ages (7d, 14d, etc.) ✅
+     if (Object.keys(restoredOverrides).length > 0) {
+       try {
+         console.log(`[BackupService] About to set ${Object.keys(restoredOverrides).length} overrides:`, restoredOverrides)
+         await mockOverrides.setValue(restoredOverrides)
+         console.log(`[BackupService] ✅ Restored ${Object.keys(restoredOverrides).length} tab age overrides`)
+       } catch (err) {
+         console.warn('[BackupService] ⚠️ Failed to restore mock overrides:', err)
+       }
+     }
 
      console.log('[BackupService] Restored tabs (ungrouped):', restoredTabs.length)
      console.log('[BackupService] Groups to restore:', backup.groups.map(g => ({ id: g.oldId, title: g.title })))

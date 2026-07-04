@@ -16,8 +16,25 @@
 import { ref, onMounted } from 'vue'
 import { browser } from 'wxt/browser'
 import { BACKGROUND_MESSAGE_ACTIONS } from '@/constants'
+import { MOCK_TABS } from '@/utils/mockTabData'
 
 const emit = defineEmits<{
+  /**
+   * Fired after mock tabs are successfully created with backdated timestamps.
+   *
+   * Parent components should listen and refresh their state:
+   * @example
+   * <MockButton @mock-created="refreshTabs" />
+   *
+   * Flow:
+   * 1. User clicks "Create mocks"
+   * 2. BackgroundTabService creates REAL tabs + sets mock overrides in storage
+   * 3. MockButton emits 'mock-created'
+   * 4. Parent catches event and refreshes (e.g., calls refreshTabs())
+   * 5. UI updates with new mock tabs showing correct ages
+   *
+   * @event mock-created
+   */
   (e: 'mock-created'): void
 }>()
 

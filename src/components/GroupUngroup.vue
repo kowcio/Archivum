@@ -93,11 +93,19 @@ async function refreshAllTabs(): Promise<void> {
     const tabs = await browser.tabs.query({ currentWindow: true })
 
     // Apply mock overrides for testing
-    const overrides = await mockOverrides.getValue()
+    const overridesObj = await mockOverrides.getValue()
+
+    // ✅ FIX: Handle both numeric keys and string keys (WXT JSON serialization)
+    const overrides: Record<number, number> = {}
+    for (const key in overridesObj) {
+      const numKey = parseInt(key, 10)
+      overrides[numKey] = overridesObj[key as any]
+    }
+
     for (const tab of tabs) {
       if (tab.id != null) {
         const override = overrides[tab.id]
-        if (override != null) {
+        if (override != null && override > 0) {
           tab.lastAccessed = override
         }
       }
