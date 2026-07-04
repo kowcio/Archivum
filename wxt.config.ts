@@ -37,6 +37,10 @@ export default defineConfig({
           strict_min_version: '109.0',
         },
       },
+      // Firefox data collection permissions (required from Nov 3, 2025)
+      data_collection_permissions: {
+        required: ['none'],
+      },
       // Self-hosting auto-update configuration (uncomment for self-hosting)
       // update_url: 'https://yourblog.pl/extensions/archivum/update.json',
     },
