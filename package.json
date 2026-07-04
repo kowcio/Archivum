@@ -1,6 +1,6 @@
 {
-  "name": "vue-project",
-  "version": "0.0.1",
+  "name": "archivum",
+  "version": "1.0.0",
   "private": true,
   "type": "module",
   "engines": {
@@ -18,7 +18,9 @@
     "build:test:firefox": "cross-env DEV_FEATURES=true wxt build -b firefox --mv3",
     "zip": "wxt zip -b chrome --mv3",
     "zip:firefox": "wxt zip -b firefox --mv3",
-    "zip:all": "npm run zip && npm run zip:firefox",
+    "zip:edge": "wxt zip -b edge --mv3",
+    "zip:all": "npm run type-check && wxt zip -b chrome --mv3 && wxt zip -b firefox --mv3 && wxt zip -b edge --mv3",
+    "release": "npm run build && npm run zip:all && echo '✅ Release packages ready in .output/' && ls -lh .output/*.zip",
     "publish": "wxt submit --dry-run",
     "publish:submit": "wxt submit",
     "postinstall": "wxt prepare && npx playwright install chromium firefox",
