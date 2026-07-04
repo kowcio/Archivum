@@ -582,6 +582,13 @@ export class OptionsPage {
   }
 
   /**
+   * Verify that restore button is NOT visible (no backup exists).
+   */
+  async expectRestoreButtonHidden(): Promise<void> {
+    await expect(this.page.getByTestId('restore-btn')).not.toBeVisible();
+  }
+
+  /**
    * Confirm the restore dialog by clicking the "Restore" button in the confirmation popup.
    * Uses data-testid="restore-confirm" to target the dialog's Restore button specifically.
    */
@@ -590,6 +597,27 @@ export class OptionsPage {
     await this.page.getByTestId('restore-confirm').click();
     // Wait for restore operation to complete
     await this.page.waitForTimeout(2000);
+  }
+
+  /**
+   * Click "Delete/Clear Backup" button to remove the backup.
+   */
+  async clickDeleteBackup(): Promise<void> {
+    await this.page.getByTestId('clear-backup-btn').click();
+  }
+
+  /**
+   * Verify that delete backup button is visible (backup exists).
+   */
+  async expectDeleteBackupButtonVisible(): Promise<void> {
+    await expect(this.page.getByTestId('clear-backup-btn')).toBeVisible();
+  }
+
+  /**
+   * Verify that delete backup button is NOT visible (no backup exists).
+   */
+  async expectDeleteBackupButtonHidden(): Promise<void> {
+    await expect(this.page.getByTestId('clear-backup-btn')).not.toBeVisible();
   }
 
   /**

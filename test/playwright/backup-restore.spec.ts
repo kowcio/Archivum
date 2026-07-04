@@ -10,17 +10,8 @@ import { setupExtensionTest, type ExtensionTestContext } from './chromium/extens
 import { OptionsPage } from './page-objects/OptionsPage.js'
 
 test.describe('Backup & Restore', () => {
-  let ctx: ExtensionTestContext
-
-  test.beforeAll('Setup', async () => {
-    ctx = await setupExtensionTest(false, 60_000)
-  })
-
-  test.afterAll('Cleanup', async () => {
-    if (ctx) await ctx.cleanup()
-  })
-
   test('Happy path: backup grouped tabs, close all, restore with groups intact', async () => {
+    const ctx = await setupExtensionTest(false, 60_000)
     const options = new OptionsPage(await ctx.context.newPage())
 
     // Load options
@@ -63,6 +54,49 @@ test.describe('Backup & Restore', () => {
       })
     })
     expect(groupDetailsAfter.length).toBe(groupsBefore)
+
+    // Cleanup
+    await ctx.cleanup()
+  })
+
+  test('Delete backup after successful restore', async () => {
+    const ctx = await setupExtensionTest(false, 60_000)
+    const options = new OptionsPage(await ctx.context.newPage())
+
+    // Load options
+    await options.goto(ctx.extensionId)
+
+    // Create mock tabs
+    await options.clickCloseAllTabs()
+    await options.page.waitForTimeout(500)
+    await options.clickLoadMockTabs()
+    await options.page.waitForTimeout(1000)
+
+    // Group tabs by age
+    await options.clickGroupTabs(2000)
+
+    // Backup
+    await options.clickBackupTabs()
+    await options.page.waitForTimeout(500)
+
+    // Verify backup exists (delete button should be visible)
+    await options.expectDeleteBackupButtonVisible()
+    await options.expectRestoreButtonVisible()
+
+    // Delete the backup
+    await options.clickDeleteBackup()
+    await options.page.waitForTimeout(500)
+
+    // Verify backup is deleted (delete button and restore button should be hidden)
+    await options.expectDeleteBackupButtonHidden()
+    await options.expectRestoreButtonHidden()
+
+    // Verify backup was actually removed from storage
+    const backupData = await options.getBackupFromStorage()
+    expect(backupData).toBeNull()
+
+    // Cleanup
+    await ctx.cleanup()
   })
 })
 
