@@ -16,7 +16,7 @@
     <!-- Section 2: Delete/Clear Backup Button (with date) -->
     <q-btn
       v-show="hasBackup"
-      class="got-btn-red"
+      class="got-btn-grey-info"
       :label="statusMessage"
       data-testid="clear-backup-btn"
       icon="delete"

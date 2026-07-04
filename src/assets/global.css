@@ -141,6 +141,21 @@ body, #app {
   box-shadow: 0 3px 10px rgba(239, 83, 80, 0.35), 0 3px 6px rgba(0,0,0,0.2) !important;
 }
 
+/* ── Delete/Info (grey background with red icon) ────────────────────────── */
+.got-btn-grey-info.q-btn {
+  background: rgba(158, 158, 158, 0.4) !important;
+  border-radius: var(--got-radius) !important;
+  box-shadow: 0 2px 6px rgba(158, 158, 158, 0.2), 0 2px 4px rgba(0,0,0,0.1) !important;
+  font-weight: 500;
+}
+.got-btn-grey-info.q-btn:hover {
+  background: rgba(158, 158, 158, 0.6) !important;
+  box-shadow: 0 3px 10px rgba(158, 158, 158, 0.3), 0 3px 6px rgba(0,0,0,0.15) !important;
+}
+.got-btn-grey-info.q-btn :deep(.q-icon) {
+  color: #ef5350 !important;
+}
+
 /* ── Ghost (light outline) ───────────────────────────────────────────── */
 .got-btn-ghost.q-btn {
   background: transparent !important;
