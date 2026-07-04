@@ -6,7 +6,7 @@
       <div class="row items-start q-mt-sm q-gutter-md ">
 
         <GroupUngroup/>
-        <RefreshButton @refresh="onRefreshTabs" @error="(msg) => error = msg"/>
+        <RefreshButton v-if="isDevEnv" @refresh="onRefreshTabs" @error="(msg) => error = msg"/>
         <SortButton @sorted="refreshTabs" @error="(msg) => error = msg"/>
 
         <!-- Dev Buttons -->
