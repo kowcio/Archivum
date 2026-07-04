@@ -39,7 +39,7 @@
           data-testid="threshold-reset"
           icon="refresh"
           label="Reset"
-          class="got-btn-cyan"
+          class="got-btn-cyan q-px-md"
           dense
           :disable="appStore.loading.value"
           @click="handleReset"
