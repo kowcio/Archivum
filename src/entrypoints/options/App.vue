@@ -20,7 +20,9 @@
         <!-- ✅ FIX: Listen to @restored event and refresh table -->
         <!-- Before: No listener → table never refreshes after restore ❌ -->
         <!-- Now: @restored triggers refreshTabs() → table updates with new tabs ✅ -->
-        <BackupRestoreButton @restored="refreshTabs" />
+        <div class="col-12 row items-center q-pa-md bg-grey-1 rounded-borders accent-border" style="gap: 0.75rem">
+          <BackupRestoreButton @restored="refreshTabs" />
+        </div>
         </div>
       </div>
 
