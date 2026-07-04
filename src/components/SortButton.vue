@@ -7,7 +7,11 @@
     unelevated
     :loading="loading"
     @click="handleSort"
-  />
+  >
+    <q-tooltip class="bg-dark text-white">
+      Sort ungrouped tabs by domain, then by lastAccessed
+    </q-tooltip>
+  </q-btn>
 </template>
 
 <script setup lang="ts">

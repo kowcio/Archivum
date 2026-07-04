@@ -3,7 +3,7 @@
   <div id="options" class="row justify-center">
     <div class="col-10">
       <!-- Actions — wrapping row -->
-      <div class="row items-start q-mt-sm q-gutter-sm ">
+      <div class="row items-start q-mt-sm q-gutter-md ">
 
         <GroupUngroup/>
         <RefreshButton @refresh="onRefreshTabs" @error="(msg) => error = msg"/>

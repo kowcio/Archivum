@@ -22,8 +22,8 @@ export default defineBackground({
     // ⏰ Alarms— periodic interval function execution for given schedules / crons
     if (browser.alarms != null) {
       //alarms schedules - crons
-      browser.alarms.create(APP_DEFAULTS.ALARM_UPDATE_TABS, { periodInMinutes: 24 * 60 })
-      browser.alarms.create(APP_DEFAULTS.ALARM_BACKUP_TABS, { periodInMinutes: 60 })
+      browser.alarms.create(APP_DEFAULTS.ALARM_UPDATE_TABS, { periodInMinutes: 60 * 24 })
+      browser.alarms.create(APP_DEFAULTS.ALARM_BACKUP_TABS, { periodInMinutes: 1 })
       //alarms listeners
       browser.alarms.onAlarm.addListener((alarm) => {
         if (alarm.name === APP_DEFAULTS.ALARM_UPDATE_TABS) {
