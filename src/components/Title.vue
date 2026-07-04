@@ -4,7 +4,7 @@
       <img class="got-title-icon" src="../assets/icon.png" alt="Archivum plugin" width="64"></img>
       <div class="title-content">
         <h1 class="got-title">Archivum</h1>
-        <p class="got-title got-tagline">Tab manager that clears your mind</p>
+        <p class="got-title got-tagline">Tab manager to clear your mind</p>
       </div>
     </div>
     <div class="row">

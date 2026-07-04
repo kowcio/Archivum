@@ -4,7 +4,7 @@
     :label="buttonLabel"
     :icon="isGrouped ? ungroupIcon : groupIcon"
     :loading="isLoading"
-    :size="size"
+    :size="buttonSize"
     :class="btnClasses"
     :rounded="rounded"
     :disabled="!isGrouped && !hasStaleTabsToGroup"
@@ -12,7 +12,7 @@
     @click="handleToggle"
   >
     <q-tooltip v-if="!isGrouped && !hasStaleTabsToGroup" class="bg-dark">
-      All tabs are fresh (less than {{ minThresholdDays }} days old)
+      Nothing to archive, all tabs are less than {{ minThresholdDays }} days of age.
     </q-tooltip>
   </q-btn>
 </template>
@@ -77,13 +77,20 @@ const hasStaleTabsToGroup = computed(() => {
 
 const buttonLabel = computed(() => {
   if (isGrouped.value) return props.ungroupLabel
-  return hasStaleTabsToGroup.value ? props.groupLabel : 'All tabs fresh'
+  return hasStaleTabsToGroup.value ? props.groupLabel : 'Nothing to archive'
 })
 
 const btnClasses = computed(() => ({
   'got-btn-primary': !isGrouped.value && hasStaleTabsToGroup.value,
-  'got-btn-blue-faded': isGrouped.value,
+  'got-btn-primary-faded': !isGrouped.value && !hasStaleTabsToGroup.value,
+  'got-btn-primary-blue-faded': isGrouped.value,
 }))
+
+const buttonSize = computed(() => {
+  // State 1 & 2 (archiving or all fresh): lg size
+  // State 3 (grouped): md size (default)
+  return isGrouped.value ? 'md' : 'lg'
+})
 
 /**
  * Query all tabs from current window + apply mock overrides

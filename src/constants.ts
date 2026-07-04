@@ -94,6 +94,7 @@ export const APP_DEFAULTS = {
  * SINGLE PLACE TO CHANGE — tests vs production.
  */
 export const isDevEnv = import.meta.env?.DEV === true || import.meta.env?.VITE_DEV_FEATURES === 'true'
+// export const isDevEnv = false
 
 // ─── Environment banner ──────────────────────────────────────────────
 if (isDevEnv) {

@@ -74,17 +74,30 @@ body, #app {
   box-shadow: 0 6px 20px rgba(56, 103, 164, 0.55), 0 3px 6px rgba(0,0,0,0.25) !important;
 }
 
-/* ── Ungroup Faded (muted blue — when grouped, de-emphasized) ──────────── */
-.got-btn-blue-faded.q-btn {
-  background: rgba(56, 103, 164, 0.4) !important;
-  color: #fff !important;
+/* ── All Tabs Fresh (faded gold — disabled state) ──────────────────────── */
+.got-btn-primary-faded.q-btn {
+  background: linear-gradient(135deg, rgba(255, 138, 0, 0.4) 0%, rgba(255, 202, 40, 0.4) 100%) !important;
+  color: #5a4a1a !important;
   border-radius: var(--got-radius) !important;
-  box-shadow: 0 2px 6px rgba(56, 103, 164, 0.2), 0 2px 4px rgba(0,0,0,0.12) !important;
-  font-weight: 500;
+  box-shadow: 0 2px 6px rgba(255, 138, 0, 0.15), 0 2px 4px rgba(0,0,0,0.1) !important;
+  font-weight: 600;
 }
-.got-btn-blue-faded.q-btn:hover {
-  background: rgba(56, 103, 164, 0.6) !important;
-  box-shadow: 0 3px 10px rgba(56, 103, 164, 0.3), 0 3px 6px rgba(0,0,0,0.18) !important;
+.got-btn-primary-faded.q-btn:hover {
+  background: linear-gradient(135deg, rgba(255, 138, 0, 0.55) 0%, rgba(255, 202, 40, 0.55) 100%) !important;
+  box-shadow: 0 3px 8px rgba(255, 138, 0, 0.25), 0 2px 4px rgba(0,0,0,0.12) !important;
+}
+
+/* ── Already Grouped (brand blue — de-emphasized) ─────────────────────── */
+.got-btn-primary-blue-faded.q-btn {
+  background: linear-gradient(135deg, rgba(56, 103, 164, 0.4) 0%, rgba(66, 165, 245, 0.4) 100%) !important;
+  color: #1a3a5a !important;
+  border-radius: var(--got-radius) !important;
+  box-shadow: 0 2px 6px rgba(56, 103, 164, 0.2), 0 2px 4px rgba(0,0,0,0.1) !important;
+  font-weight: 600;
+}
+.got-btn-primary-blue-faded.q-btn:hover {
+  background: linear-gradient(135deg, rgba(56, 103, 164, 0.55) 0%, rgba(66, 165, 245, 0.55) 100%) !important;
+  box-shadow: 0 3px 10px rgba(56, 103, 164, 0.3), 0 2px 4px rgba(0,0,0,0.15) !important;
 }
 
 /* ── Refresh (muted teal) ─────────────────────────────────────────────── */
