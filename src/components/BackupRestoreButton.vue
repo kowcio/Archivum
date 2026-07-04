@@ -1,50 +1,53 @@
 <template>
-  <!-- Section 1: Backup Button -->
-  <q-btn
-    class="got-btn-green"
-    label="Backup Tabs"
-    data-testid="backup-btn"
-    icon="cloud_upload"
-    rounded
-    no-caps
-    size="md"
-    :loading="isLoading"
-    @click="handleBackup"
-  />
+  <div class="backup-sections">
+    <!-- Section 1: Backup Button -->
+    <q-btn
+      class="got-btn-green"
+      label="Backup Tabs"
+      data-testid="backup-btn"
+      icon="cloud_upload"
+      rounded
+      no-caps
+      size="md"
+      :loading="isLoading"
+      @click="handleBackup"
+    />
 
-  <!-- Section 2: Status Message + Delete Button -->
-  <div class="row items-center q-gutter-sm">
+    <!-- Section 2: Delete/Clear Backup Button (with date) -->
+    <q-btn
+      v-show="hasBackup"
+      class="got-btn-red"
+      :label="statusMessage"
+      data-testid="clear-backup-btn"
+      icon="delete"
+      rounded
+      no-caps
+      size="md"
+      :loading="isLoading"
+      @click="handleClearBackup"
+    >
+      <q-tooltip class="bg-dark text-white">
+        Remove the archived tabs
+      </q-tooltip>
+    </q-btn>
+
+    <!-- Fallback text when no backup -->
     <span v-if="!hasBackup" class="text-caption text-grey">Nothing archived yet</span>
-    <template v-else>
-      <span class="text-caption text-grey" data-testid="backup-status">{{ statusMessage }}</span>
-      <q-btn
-        class="got-btn-red"
-        dense
-        size="sm"
-        icon="delete"
-        @click="handleClearBackup"
-        data-testid="clear-backup-btn"
-      >
-        <q-tooltip class="bg-dark text-white">
-          Remove currently saved backup
-        </q-tooltip>
-      </q-btn>
-    </template>
-  </div>
 
-  <!-- Section 3: Restore Button -->
-  <q-btn
-    v-show="hasBackup"
-    class="got-btn-pink"
-    label="Restore Tabs"
-    data-testid="restore-btn"
-    icon="cloud_download"
-    rounded
-    no-caps
-    size="md"
-    :loading="isLoading"
-    @click="showRestoreDialog = true"
-  />
+    <!-- Section 3: Restore Button -->
+    <q-btn
+      v-show="hasBackup"
+      class="got-btn-pink"
+      label="Restore Tabs"
+      data-testid="restore-btn"
+      icon="cloud_download"
+      rounded
+      no-caps
+      size="md"
+      :loading="isLoading"
+      @click="showRestoreDialog = true"
+    />
+  </div>
 
 
   <!-- Restore Confirmation Dialog -->
@@ -162,5 +165,7 @@ async function handleClearBackup(): Promise<void> {
 </script>
 
 <style scoped>
-/* No component-level styling needed - wrapper styling defined in parent */
+.backup-sections {
+  display: contents;  /* Let parent handle layout */
+}
 </style>

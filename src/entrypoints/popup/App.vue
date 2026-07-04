@@ -71,10 +71,17 @@ async function openOptionsPageFull(): Promise<void> {
   display: grid;
   grid-template-columns: 1fr;
   gap: 0.75rem;
-  justify-items: center;
+  justify-items: stretch;
   margin: 0 auto;
+  width: 100%;
 }
-.btn-grid .q-btn {
+.btn-grid > div {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: inherit;
+}
+.btn-grid > div .q-btn {
   width: 100%;
 }
 </style>
