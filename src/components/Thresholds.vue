@@ -5,8 +5,8 @@
       data-testid="thresholds-config"
       style="gap: 12px"
     >
-      <div class="info-box col-2">
-        <div class="label">Active Levels:</div>
+      <div class="info-box col-auto">
+        <div class="label">Archivum levels :</div>
         <div class="value">{{ localThresholds.activeLevels }} / {{ maxLevels }}</div>
       </div>
       <div class="col-2">
@@ -28,7 +28,7 @@
         <q-btn
           v-if="hasChanges && !appStore.loading.value"
           data-testid="threshold-apply"
-          class="q-px-sm"
+          class="q-px-md q-mr-md got-btn-green"
           icon="check"
           label="Apply"
           color="positive"
@@ -39,9 +39,8 @@
           data-testid="threshold-reset"
           icon="refresh"
           label="Reset"
-          color="secondary"
+          class="got-btn-cyan"
           dense
-          flat
           :disable="appStore.loading.value"
           @click="handleReset"
         />

@@ -1,51 +1,55 @@
 <template>
-  <div class="row grid-backup-restore">
-    <!-- A. Backup Button (Green, always visible) -->
-    <q-btn
-      class="got-btn-green"
-      label="Backup Tabs"
-      data-testid="backup-btn"
-      icon="backup"
-      rounded
-      no-caps
-      size="md"
-      :loading="isLoading"
-      @click="handleBackup"
-    />
-
-    <!-- Status Message: No backup yet -->
-    <span v-if="!hasBackup" class="text-caption text-grey">No backup yet</span>
-
-    <!-- Status Message: Latest backup info + Delete Button -->
-    <template v-else>
-      <span class="text-caption text-grey" data-testid="backup-status">{{ statusMessage }}</span>
+  <div class="backup-section bg-grey-1 q-pa-md accent-border col-12">
+    <div class="row items-center q-gutter-md">
+      <!-- A. Backup Button (Green, always visible) -->
       <q-btn
-        flat
-        dense
-        size="xs"
-        label="Clear"
-        icon="delete_outline"
-        @click="handleClearBackup"
-        data-testid="clear-backup-btn"
+        class="got-btn-green"
+        label="Backup Tabs"
+        data-testid="backup-btn"
+        icon="cloud_upload"
+        rounded
+        no-caps
+        size="md"
+        :loading="isLoading"
+        @click="handleBackup"
       />
-    </template>
+
+      <!-- Status Message: No backup yet -->
+      <span v-if="!hasBackup" class="text-caption text-grey">Nothing archived yet</span>
+
+      <!-- Status Message: Latest backup info + Delete Button -->
+      <template v-else>
+        <span class="text-caption text-grey" data-testid="backup-status">{{ statusMessage }}</span>
+        <q-btn
+          class="got-btn-red"
+          dense
+          size="sm"
+          icon="delete"
+          @click="handleClearBackup"
+          data-testid="clear-backup-btn"
+        >
+          <q-tooltip class="bg-dark text-white">
+            Remove currently saved backup
+          </q-tooltip>
+        </q-btn>
+      </template>
+
+      <!-- B. Restore Button (Pink, only when backup exists) -->
+      <q-btn
+        v-show="hasBackup"
+        class="got-btn-pink"
+        label="Restore Tabs"
+        data-testid="restore-btn"
+        icon="cloud_download"
+        rounded
+        no-caps
+        size="md"
+        :loading="isLoading"
+        @click="showRestoreDialog = true"
+      />
 
 
-    <!-- B. Restore Button (Pink, only when backup exists) -->
-    <q-btn
-      v-show="hasBackup"
-      class="got-btn-pink justify-end"
-      label="Restore Tabs"
-      data-testid="restore-btn"
-      icon="history"
-      rounded
-      no-caps
-      size="md"
-      :loading="isLoading"
-      @click="showRestoreDialog = true"
-    />
-
-
+    </div>
   </div>
 
   <!-- Restore Confirmation Dialog -->
@@ -163,10 +167,21 @@ async function handleClearBackup(): Promise<void> {
 </script>
 
 <style scoped>
-.grid-backup-restore {
-  display: grid;
-  grid-template-columns: auto auto 1fr auto;
-  align-items: center;
-  gap: 0.5rem;
+.backup-section {
+  position: relative;
+  border-left: none;
+  /* Use a pseudo-element for the gradient left border */
+  border-radius: 4px;
+}
+
+.backup-section::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 4px;
+  height: 100%;
+  background: var(--got-header-gradient);
+  border-radius: 4px 0 0 4px;
 }
 </style>
