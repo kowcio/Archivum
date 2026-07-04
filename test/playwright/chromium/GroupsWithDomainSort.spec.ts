@@ -17,28 +17,10 @@ test.describe("Groups created with domain sorting", () => {
     const options = new OptionsPage(await ctx.context.newPage());
     await options.goto(ctx.extensionId);
 
-    // Load mock tabs
+    // Load mock tabs (already includes multiple domains for sorting tests)
     const result = await options.clickLoadMockTabs(2000);
     expect(result.ok).toBe(true);
 
-    // Load 5 test domains and close them after
-    const testDomains = [
-      'https://zest.riddlehell.net/',
-      'https://kowalskipiotr.pl',
-      'https://bokehphotos.pl',
-      'https://reddit.com',
-      'https://alab.pl'
-    ];
-    const newPages = [];
-    for (const domain of testDomains) {
-      const newPage = await ctx.context.newPage();
-      newPages.push(newPage);
-      await newPage.goto(domain, {waitUntil: 'domcontentloaded', timeout: 5000}).catch(() => {});
-    }
-    // Close all test domain pages after creating tabs
-    for (const page of newPages) {
-      await page.close().catch(() => {});
-    }
 
     // Group tabs by age (should now be sorted by domain within each group)
     await options.clickGroupTabs(1200);
