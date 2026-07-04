@@ -7,7 +7,13 @@ export default defineConfig({
   testDir: './test/playwright',
   timeout: 30000,
   expect: { timeout: 15000 },  // Global timeout for all expect() assertions: 15 seconds
+
+  // ── Parallelism Control ──
+  // fullyParallel: false  →  Projects (chrome, firefox) run sequentially
+  // workers: 1            →  Each project uses 1 worker process (max stability on localhost)
   fullyParallel: false,
+  workers: 1,
+
   reporter: [
     ['list', { printSteps: true }],
     ['html', { printSteps: true, outputFolder: 'reports/playwright-report', open: 'never' }],

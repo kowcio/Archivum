@@ -35,7 +35,12 @@ test.describe('Backup & Restore', () => {
     // Group tabs by age
     await options.clickGroupTabs(2000)
     const groupsBefore = await options.getGroupCount()
-
+    await options.getAllGroups().then(groups => {
+      console.log("BEFORE ")
+      groups.forEach(group => {
+        console.log(group)
+      })
+    })
     // Backup
     await options.clickBackupTabs()
     await options.page.waitForTimeout(500)
@@ -51,6 +56,12 @@ test.describe('Backup & Restore', () => {
 
     // Verify groups restored — fetch from scratch (exact count)
     const groupDetailsAfter = await options.getAllGroups()
+    await options.getAllGroups().then(groups => {
+      console.log("AFTER ")
+      groups.forEach(group => {
+        console.log(group)
+      })
+    })
     expect(groupDetailsAfter.length).toBe(groupsBefore)
   })
 })
