@@ -38,9 +38,9 @@ jobs:
 
       - name: Create ZIP archives
         run: |
-          wxt zip -b chrome --mv3
-          wxt zip -b firefox --mv3
-          wxt zip -b edge --mv3
+          npx wxt zip -b chrome --mv3
+          npx wxt zip -b firefox --mv3
+          npx wxt zip -b edge --mv3
 
       - name: Firefox manifest validation
         run: npx web-ext lint --source-dir .output/firefox-mv3
