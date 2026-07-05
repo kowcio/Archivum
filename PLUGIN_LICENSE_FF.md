@@ -6,11 +6,11 @@
 ## 1. Summary (102 characters max)
 
 ```
-Automatycznie grupuj taby po wieku. Zorganizuj swoje taby w grupy: 
-Tydzień+, Miesiąc+, Kwartał+ i starsze.
+Automatically group your tabs by age. Organize tabs into groups: 
+Week+, Month+, Quarter+ and older.
 ```
 
-**Character count:** ~140 (fits within limits)
+**Character count:** ~95 (fits within limits)
 
 ---
 
@@ -19,30 +19,30 @@ Tydzień+, Miesiąc+, Kwartał+ i starsze.
 ```
 🗂️ ARCHIVUM - Tab Age Manager
 
-Zarządzaj setkami otwartych tabów bez chaosu.
+Manage hundreds of open tabs without chaos.
 
-✨ Główne funkcje:
-• Automatyczne grupowanie tabów po wieku (co 24h)
-• Inteligentne kategorie: Świeże (0-7 dni), Tydzień+ (7-14), Miesiąc+, Kwartał+, Starsze (365+)
-• Pogrupowane taby pozostają po odświeżeniu
-• Obsługa Chrome, Firefox i Edge
-• Konfigurowalny próg wiekowy
-• Tryb focus: aktywuj konkretny tab z tabeli
-• Kopia zapasowa i restore ustawień
+✨ Key Features:
+• Automatic tab grouping by age (every 24h)
+• Smart categories: Fresh (0-7 days), Week+ (7-14), Month+, Quarter+, Older (365+)
+• Grouped tabs persist after refresh
+• Support for Chrome, Firefox, and Edge
+• Customizable age thresholds
+• Focus mode: activate specific tabs from the table
+• Backup and restore settings
 
-🎯 Idealne dla:
-- Power userów z 100+ otwartymi tabami
-- Badaczy, programistów, entuzjastów informacji
-- Osób, które zapominają zamykać taby
+🎯 Perfect for:
+- Power users with 100+ open tabs
+- Researchers, developers, information enthusiasts
+- People who forget to close tabs
 
-⚙️ Instalacja:
-Kliknij "Dodaj do Firefox" i gotowe! Najpierw uruchomi się raz 
-po zainstalowaniu, potem co 24 godziny automatycznie.
+⚙️ Installation:
+Click "Add to Firefox" and you're done! Runs once after installation, 
+then automatically every 24 hours.
 
-📊 Status: Stabilny, bez limitów, bez śledzenia.
+📊 Status: Stable, no limits, no tracking.
 ```
 
-**Character count:** ~900 (excellent for SEO, describes first 250 chars clearly)
+**Character count:** ~850 (excellent for SEO, clearly describes key features in first 250 chars)
 
 ---
 
