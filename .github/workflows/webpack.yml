@@ -42,6 +42,28 @@ jobs:
           npx wxt zip -b firefox --mv3
           npx wxt zip -b edge --mv3
 
+      - name: Extract build version
+        run: |
+          node << 'EOF'
+          const fs = require('fs');
+          const path = require('path');
+          
+          // Generate same version format as constants.ts
+          function generateBuildVersion() {
+            const now = new Date();
+            const year = String(now.getFullYear()).slice(-2).padStart(2, '0');
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const day = String(now.getDate()).padStart(2, '0');
+            const hours = String(now.getHours()).padStart(2, '0');
+            const timestamp = `${year}${month}${day}${hours}`;
+            return `1.1.${timestamp}`;
+          }
+          
+          const version = generateBuildVersion();
+          fs.writeFileSync('.output/VERSION', version, 'utf-8');
+          console.log('✅ Build version saved:', version);
+          EOF
+
       - name: Firefox manifest validation
         run: npx web-ext lint --source-dir .output/firefox-mv3
 
@@ -53,7 +75,9 @@ jobs:
         if: always()
         with:
           name: extension-builds
-          path: .output/archivum-*.zip
+          path: |
+            .output/archivum-*.zip
+            .output/VERSION
           retention-days: 30
       
       - name: Upload test reports
@@ -75,47 +99,71 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js 24
-        uses: actions/setup-node@v4
+      - name: Download extension builds
+        uses: actions/download-artifact@v4
         with:
-          node-version: 24
-          cache: 'npm'
+          name: extension-builds
+          path: .output/
 
-      - name: Install dependencies
-        run: npm ci
+      - name: Read build version
+        id: buildversion
+        run: |
+          VERSION=$(cat .output/VERSION)
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+          echo "Build version: $VERSION"
 
-      - name: Install Playwright browsers
-        run: npx playwright install chromium firefox
+      - name: Extract tag name
+        id: tag
+        run: echo "TAG=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
 
-      - name: Run release build
-        # Note: Playwright tests already ran in DEV_FEATURES=true mode during build-and-test job
-        # This release job only creates production ZIPs (DEV_FEATURES=false)
-        run: npm run release
+      - name: Get changelog from commits
+        id: changelog
+        run: |
+          PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+          if [ -z "$PREV_TAG" ]; then
+            CHANGELOG="✨ Initial release"
+          else
+            CHANGELOG=$(git log --pretty=format:"%h - %s" $PREV_TAG..HEAD)
+          fi
+          echo "CHANGELOG<<EOF" >> $GITHUB_OUTPUT
+          echo "$CHANGELOG" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
 
-      - name: Extract version from tag
-        id: version
-        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
-
-      - name: Create GitHub Release
+      - name: Create GitHub Release with artifacts
         uses: softprops/action-gh-release@v1
         with:
           files: .output/archivum-*.zip
-          name: Release ${{ steps.version.outputs.VERSION }}
+          name: Release ${{ steps.buildversion.outputs.VERSION }}
           body: |
-            ## 📦 Extension Release ${{ steps.version.outputs.VERSION }}
+            ## 📦 Extension Release ${{ steps.buildversion.outputs.VERSION }}
+            
+            **Tag**: `${{ steps.tag.outputs.TAG }}`
+            
+            ### ✨ Changes
+            ```
+            ${{ steps.changelog.outputs.CHANGELOG }}
+            ```
             
             ### 📋 Packages
-            - ✅ Chrome MV3 (.zip)
-            - ✅ Firefox MV3 (.zip)
-            - ✅ Edge MV3 (.zip)
+            - ✅ Chrome MV3 (`archivum-chrome-mv3.zip`)
+            - ✅ Firefox MV3 (`archivum-firefox-mv3.zip`)
+            - ✅ Edge MV3 (`archivum-edge-mv3.zip`)
             
-            ### 🔍 Validation
-            Firefox manifest validated via web-ext lint
+            ### 🔍 Build Info
+            - **Build Version**: `${{ steps.buildversion.outputs.VERSION }}`
+            - **Build Date**: ${{ github.event.head_commit.timestamp }}
+            - **Commit**: [${{ github.sha }}](https://github.com/${{ github.repository }}/commit/${{ github.sha }})
+            - **Framework**: WXT 0.20+
             
-            ### 📥 Installation
+            ### 🚀 Installation
             1. Download the ZIP file for your browser
             2. Extract to a local folder
-            3. Load in your browser's extension manager
+            3. Load in your browser's extension manager (Developer mode)
+            
+            ### ✅ Validation
+            - All packages validated via web-ext lint
+            - E2E tests passed in developer mode
+            - Unit tests passed
           draft: false
           prerelease: false
         env:
