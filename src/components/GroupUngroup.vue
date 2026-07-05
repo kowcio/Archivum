@@ -151,11 +151,10 @@ onMounted(async () => {
     browser.tabs.onRemoved.addListener(() => refreshAllTabs())
   }
 
-  // Listen to mock overrides changes (for testing with backdated tabs)
-  mockOverrides.watch(() => {
-    console.log('[GroupUngroup] Mock overrides changed → refreshing tabs')
-    refreshAllTabs()
-  })
+   // Listen to mock overrides changes (for testing with backdated tabs)
+   mockOverrides.watch(() => {
+     refreshAllTabs()
+   })
 })
 
 async function handleToggle(): Promise<void> {
