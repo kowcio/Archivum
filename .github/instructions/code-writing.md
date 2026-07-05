@@ -20,29 +20,3 @@ applyTo:
 | `services/*.ts` | static class, no Vue/Pinia imports |
 | `models/**/*.ts` | `type` (not `interface`), factory static methods |
 | `content/*.ts` | `ctx.addEventListener`, `ctx.isValid`, `ctx.onInvalidated` |
-
-## Always
-
-```ts
-// ✅
-import browser from 'webextension-polyfill'
-export type State = { items: T[]; loading: boolean; error: string | null }
-catch (err) { this.error = err instanceof Error ? err.message : 'Unknown error' }
-obj.x  // not const { x } = obj
-
-// ❌
-chrome.*  |  interface  |  any  |  setInterval  |  localStorage  |  const { x } = obj
-Options API  |  Pinia in background.ts  |  inline style=""  |  uncaught promises
-```
-
-## Storage Sync Pattern (all tab-displaying components)
-
-```ts
-let unsubscribeStorageSync: (() => void) | null = null
-onMounted(async () => {
-  await global.init()
-  await tabStore.loadTabsHistory()        // must come first (crash recovery)
-  unsubscribeStorageSync = tabStore.initStorageSync()
-})
-onUnmounted(() => { unsubscribeStorageSync?.() })
-```
