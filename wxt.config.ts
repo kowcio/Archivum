@@ -10,18 +10,36 @@ export default defineConfig({
     publicDir: 'public',
     entrypointsDir: 'entrypoints',
     suppressWarnings: {
+      // ✅ FIX #1: Suppress Firefox data collection warning
+      // WXT warns about missing data_collection_permissions, but we handle it in manifest config below
+      // This prevents build log spam while we explicitly set required: ['none']
       firefoxDataCollection: true,
     },
 
-    // Firefox MV3: Keep both scripts AND service_worker for compatibility
+    // ✅ FIX #2: Firefox MV3 Compatibility Hook
+    // PROBLEM: Firefox MV3 is transitional - it needs BOTH background.scripts (Firefox) AND background.service_worker (MV3)
+    // SOLUTION: Use build hook to add service_worker while keeping scripts array
+    // WHY: Chrome/Edge use service_worker only, but Firefox requires scripts as fallback for compatibility
+    // Reference: https://mzl.la/firefox-mv3-migration
     hooks: {
       'build:manifestGenerated': (_wxt, manifest) => {
-        // Firefox MV3 requires BOTH service_worker AND scripts as fallback
+        // Check if background was generated with scripts array (WXT's default for Firefox)
         if (manifest.background?.scripts && Array.isArray(manifest.background.scripts)) {
-          // Add service_worker (MV3 standard)
+          // STEP 1: Add service_worker pointing to first script (MV3 standard)
           manifest.background.service_worker = manifest.background.scripts[0];
-          // Keep scripts array as Firefox fallback
-          // (don't delete it!)
+
+          // STEP 2: Keep scripts array (Firefox fallback - DO NOT DELETE!)
+          // Without scripts[], Firefox MV3 throws: "Unsupported /background/service_worker without /background/scripts fallback"
+          // With both properties, Firefox properly loads the service worker via backward compatibility
+
+          // RESULT: Final manifest has:
+          // {
+          //   "background": {
+          //     "type": "module",
+          //     "scripts": ["background.js"],           ← Firefox uses this as fallback
+          //     "service_worker": "background.js"      ← MV3 standard
+          //   }
+          // }
         }
       },
     },
@@ -45,21 +63,41 @@ export default defineConfig({
       content_security_policy: {
         extension_pages: "script-src 'self'; object-src 'self'",
       },
-      // Firefox MV3 requires add-on ID
+      // ✅ FIX #3: Firefox MV3 Configuration
+      // PROBLEM: Firefox requires add-on ID and minimum version declaration
+      // SOLUTION: Use browser_specific_settings.gecko with strict_min_version
+      // ✅ FIX #4: Firefox Data Collection Permissions (REQUIRED)
+      // ISSUE: Mozilla requires data_collection_permissions INSIDE gecko block since Nov 3, 2025
+      // IMPACT: Must be at /browser_specific_settings/gecko/data_collection_permissions
+      // SOLUTION: Declare what data types your extension uses
+      // OPTIONS:
+      //   - required: ['none']           ← We use this (no data collection required)
+      //   - required: ['personalInfo']   ← If collecting user data
+      //   - optional: [...]              ← Optional data user can consent to
       browser_specific_settings: {
         gecko: {
+          // Firefox add-on ID (must match what's registered on addons.mozilla.org)
           id: 'archivum@kowalskipiotr.pl',
-          strict_min_version: '109.0',
+          // UPDATED: 109.0 → 140.0
+          // WHY: tabGroups permission requires Firefox 139+, but data_collection_permissions requires 140+
+          // This prevents NOTICE warnings from web-ext lint about unsupported properties
+          strict_min_version: '140.0',
+          // ⭐ CRITICAL: data_collection_permissions MUST be inside gecko block
+          // NOT at root level! Mozilla expects it here specifically.
+          // 'none' = No data collection required to use extension
+          // Users won't see consent screens unless you change this
+          data_collection_permissions: {
+            required: ['none'],
+          },
         },
-      },
-      // Firefox data collection permissions (required from Nov 3, 2025)
-      data_collection_permissions: {
-        required: ['none'],
       },
       // Self-hosting auto-update configuration (uncomment for self-hosting)
       // update_url: 'https://yourblog.pl/extensions/archivum/update.json',
     },
 
+    // ✅ WEB-EXT CONFIG
+    // Used by: npm run dev:firefox, npm run sign:firefox
+    // Note: Updated from deprecated 'runner' to 'webExt' (WXT v0.20+ migration)
     webExt: {
       chromiumArgs: [
         '--window-size=1280,800',
@@ -67,10 +105,24 @@ export default defineConfig({
       ],
     },
 
+    // ✅ ZIP CONFIG for Publishing
+    // These settings control how release packages are created
     zip: {
       // Artifact naming template with version and timestamp
-      // Format: archivum-1.0.0-chrome-202607042313.zip
+      // Format: archivum-1.0.0-chrome-202607050906.zip
+      // Benefits:
+      //   - Version included (easy to track)
+      //   - Browser included (chrome/firefox/edge)
+      //   - Timestamp included (multiple builds visible)
       artifactTemplate: `{{name}}-{{version}}-{{browser}}-${date}.zip`,
+
+      // ✅ IMPORTANT: Exclude sources ensures ZIPs are clean for store submission
+      // web-ext lint checks these - if excluded files are present, validation may fail
+      // We exclude:
+      //   - Markdown docs (bloats package, not needed in production)
+      //   - Source maps (debug only, increases size)
+      //   - Test files (never shipped to users)
+      //   - Dev config (.github, eslint, etc)
       excludeSources: [
         '**/README*',
         '**/*.md',
@@ -86,13 +138,23 @@ export default defineConfig({
       ],
     },
 
+    // ✅ VITE BUILD CONFIG
+    // Customizations for production builds (npm run release, npm run build)
     vite: () => ({
       define: {
+        // Feature flag for development features
+        // VITE_DEV_FEATURES=true: Enables debug logging, mock data, test components
+        // VITE_DEV_FEATURES=false (default): Production build, all debug hidden
+        // Usage in code: if (import.meta.env.VITE_DEV_FEATURES === 'true') { ... }
         'import.meta.env.VITE_DEV_FEATURES': JSON.stringify(process.env.DEV_FEATURES || 'false'),
       },
       plugins: [
         {
           name: 'exclude-docs-from-bundle',
+          // ✅ IMPORTANT: Vite plugin to remove docs from bundle
+          // WHY: WXT zips source files into .output/
+          // Without this, .md files and dev config bloat the package
+          // web-ext lint checks for these - presence can trigger warnings
           generateBundle(_options: unknown, bundle: Record<string, unknown>) {
             for (const fileName of Object.keys(bundle)) {
               if (
@@ -101,6 +163,7 @@ export default defineConfig({
                 /^\.github\//i.test(fileName) ||
                 /^docs\//i.test(fileName)
               ) {
+                // Remove file from final bundle
                 delete bundle[fileName]
               }
             }
