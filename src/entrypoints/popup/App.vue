@@ -6,6 +6,19 @@
       <!-- Single column grid with natural-width buttons -->
       <div class="btn-grid col-10">
         <GroupUngroup rounded size="lg" class="q-mb-md"/>
+
+        <q-btn
+          v-if="isDevEnv"
+          class="got-btn-ghost"
+          label="Manage archivum"
+          data-testid="popup-btn-plugin-browser-option"
+          icon="settings"
+          rounded
+          no-caps
+          size="md"
+          @click="openOptionsPage"
+        />
+
         <SortButton @error="(msg) => console.error(msg)" />
         <BackupRestoreButton />
 
@@ -20,17 +33,7 @@
           @click="openOptionsPageFull"
         />
 
-        <q-btn
-          v-if="isDevEnv"
-          class="got-btn-ghost"
-          label="Browser options"
-          data-testid="popup-btn-plugin-browser-option"
-          icon="settings"
-          rounded
-          no-caps
-          size="md"
-          @click="openOptionsPage"
-        />
+
       </div>
     </div>
   </div>
