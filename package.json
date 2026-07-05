@@ -1,6 +1,7 @@
 {
   "name": "archivum",
   "version": "1.0.0",
+  "description": "Organize your browser tabs by age. Automatically group tabs into age-based groups (Week+, Month+, Quarter+, etc.) and keep your workspace organized.",
   "private": true,
   "type": "module",
   "engines": {
@@ -26,7 +27,10 @@
     "build:test:chromium": "cross-env DEV_FEATURES=true wxt build -b chrome --mv3",
     "build:test:firefox": "cross-env DEV_FEATURES=true wxt build -b firefox --mv3",
     "build:test": "cross-env DEV_FEATURES=true wxt build -b chrome --mv3 && cross-env DEV_FEATURES=true wxt build -b firefox --mv3",
-    "release": "npm run type-check && npm run lint && npm run test:unit && npm run build && wxt zip -b chrome --mv3 && wxt zip -b firefox --mv3 && npx web-ext lint --source-dir .output/firefox-mv3 --verbose && wxt zip -b edge --mv3 && echo '✅ All packages ready - Firefox manifest validated via web-ext lint' && ls -lh .output/archivum-1.0.0-*.zip 2>/dev/null | grep -v sources | tail -3",
+    "bump:patch": "npm version patch --no-git-tag-version",
+    "bump:minor": "npm version minor --no-git-tag-version",
+    "bump:major": "npm version major --no-git-tag-version",
+    "release": "npm run type-check && npm run lint && npm run test:unit && npm run build && wxt zip -b chrome --mv3 && wxt zip -b firefox --mv3 && npx web-ext lint --source-dir .output/firefox-mv3 --verbose && wxt zip -b edge --mv3 && echo '✅ All packages ready - Firefox manifest validated via web-ext lint' && ls -lh .output/archivum-*.zip 2>/dev/null | grep -v sources | tail -3",
     "sign:firefox": "web-ext sign --source-dir \".output/firefox-mv3\" --api-key $WEB_EXT_API_KEY --api-secret $WEB_EXT_API_SECRET --channel listed",
     "ci": "npm run type-check && npm run test:unit && npm run test:playwright:chromium && npm run build && wxt zip -b chrome --mv3 && wxt zip -b firefox --mv3 && wxt zip -b edge --mv3"
   },
@@ -78,4 +82,5 @@
     "vue-tsc": "^3.2.9",
     "web-ext": "^10.1.0",
     "wxt": "^0.20.26"
-}}
+  }
+}
