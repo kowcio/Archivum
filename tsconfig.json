@@ -24,6 +24,7 @@
     }
   },
   "include": [
+    "env.d.ts",
     "src/**/*",
     "wxt.config.ts",
     ".wxt/wxt.d.ts"
