@@ -57,6 +57,21 @@ Set your own age thresholds in the **Options** page:
 - Adjust days for each level
 - Changes apply on next grouping cycle
 
+### 📋 Interactive Tab Table in Options
+The **Options** page features a comprehensive table view of all your tabs:
+- **Review stale tabs** - See all tabs with their age, last accessed time, and domain
+- **Quick close functionality** - Select and close multiple old tabs with a single click
+- **Easy filtering** - Sort by age, domain, or last accessed time
+- **Batch operations** - Close multiple stale tabs at once without individual tab management
+- **Visual age indicators** - Color-coded age groups for quick identification
+- **Search & filter** - Find specific tabs or focus on old tabs to clean up
+
+**Perfect for:**
+- Deep cleaning of aged tabs before archiving
+- Finding forgotten research tabs
+- Identifying tabs that haven't been accessed in months
+- Bulk closing of old tabs without manual tab-by-tab closing
+
 ### 🔧 Development Features
 - Mock tab data generator for testing
 - Dev tools visible in development builds
@@ -118,6 +133,13 @@ npx wxt zip -b edge --mv3
 2. Click "Group Tabs by Age"
 3. Focus on fresh tabs (ungrouped, right side)
 4. Archive old tabs when ready
+
+**Clean up stale tabs (using Options page):**
+1. Click **Options** to open the Options page
+2. Review the **Tab Table** showing all tabs with their age
+3. Select old/stale tabs (365+ days, "Eat that frog!" group)
+4. Click **Close Selected Tabs** to bulk remove them
+5. Much faster than closing individual tabs!
 
 **Manage by domain:**
 1. Click "Sort by Domain" to alphabetize ungrouped tabs
