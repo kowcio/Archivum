@@ -5,7 +5,6 @@ import { APP_DEFAULTS, BACKGROUND_MESSAGE_ACTIONS } from '@/constants'
 import { browser } from 'wxt/browser'
 import { mockOverrides } from '@/store/appStore'
 
-console.debug('[EXT-DBG] background initialized - TOKEN:EXT_DBG_BACKGROUND_v1')
 
 export { BACKGROUND_MESSAGE_ACTIONS }
 

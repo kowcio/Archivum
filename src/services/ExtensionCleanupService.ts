@@ -9,7 +9,6 @@ import { browser } from 'wxt/browser'
 
 export class ExtensionCleanupService {
     static async performFullCleanup(): Promise<void> {
-        console.log('[ExtensionCleanupService] Starting full cleanup...')
         try {
             if (browser.tabGroups != null) {
                 const allTabs = await browser.tabs.query({})
@@ -19,7 +18,6 @@ export class ExtensionCleanupService {
                 }
             }
             await browser.storage.local.clear()
-            console.log('[ExtensionCleanupService] ✅ Cleanup done')
         } catch (err) {
             console.error('[ExtensionCleanupService] ❌', err)
         }
