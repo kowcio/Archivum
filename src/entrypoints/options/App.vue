@@ -80,20 +80,20 @@
               >
                 <template v-if="col.name === 'actions'">
                   <div class="btn-group">
-                    <button class="btn-action btn-focus-tab" @click="focusTab(props.row.id)"
-                            :disabled="!props.row.id" title="Focus tab (bring to foreground)">
-                      👁️ Focus
-                    </button>
-                    <button class="btn-action btn-close-tab" @click="closeTab(props.row.id)"
-                            :disabled="!props.row.id" title="Close tab">
-                      Close
-                    </button>
+                      <button class="btn-action btn-focus-tab" @click="focusTab(props.row.id)"
+                              :disabled="!props.row.id" title="Focus tab (bring to foreground)">
+                        👁️ Focus
+                      </button>
+                      <button class="btn-action btn-close-tab" @click="closeTab(props.row.id)"
+                              :disabled="!props.row.id" title="Close tab">
+                        ✕ Close
+                      </button>
                   </div>
                 </template>
                 <template v-else-if="col.name === 'thumbnail'">
                   <div class="favicon-wrapper">
-                    <img v-if="props.row.thumbnail" :src="props.row.thumbnail" alt="" width="16"
-                         height="16"/>
+                    <img v-if="props.row.thumbnail" :src="props.row.thumbnail" alt="" width="24"
+                         height="24"/>
                     <span v-else>—</span>
                   </div>
                 </template>
@@ -154,11 +154,9 @@ const columns: {
     label: '#',
     field: 'ordinal',
     align: 'left',
-    sortable: true,
-    sort: (a, b) => a - b
   },
-  {name: 'actions', label: '', field: 'actions', align: 'left'},
-  {name: 'thumbnail', label: '', field: 'thumbnail', align: 'left'},
+  {name: 'actions', label: 'Actions', field: 'actions', align: 'left'},
+  {name: 'thumbnail', label: 'Icon', field: 'thumbnail', align: 'left'},
   {name: 'domain', label: 'Domain', field: 'domain', align: 'left', sortable: true},
   {name: 'title', label: 'Title', field: 'title', align: 'left', sortable: true},
   {name: 'url', label: 'URL', field: 'url', align: 'left', sortable: true},
@@ -348,19 +346,21 @@ onMounted(() => {
 /* ── Button Group Layout (Focus + Close buttons) ──────────────────────── */
 .btn-group {
   display: flex;
+  flex-direction: column;
   gap: 0.5rem;
-  flex-wrap: wrap;
+  width: fit-content;
 }
 
 .btn-action {
-  padding: 4px 8px;
-  font-size: 0.75rem;
+  padding: 3px 6px;
+  font-size: 0.7rem;
   border: 1px solid #633722;
   border-radius: 3px;
   background: #f5f5f5;
   cursor: pointer;
   white-space: nowrap;
-  flex-shrink: 0;
+  width: 70px;
+  text-align: center;
   transition: background 0.2s ease;
 }
 
@@ -400,9 +400,10 @@ onMounted(() => {
 
 :deep(.q-table th:nth-child(2),
       .q-table td:nth-child(2)) {
-  width: 9rem;
-  min-width: 6rem;
-  flex: 0 0 auto;
+  width: 84px;
+  min-width: 84px;
+  flex: 0 0 84px;
+  padding: 8px 4px;
 }
 
 :deep(.q-table th:nth-child(3),
