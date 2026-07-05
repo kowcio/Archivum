@@ -152,7 +152,7 @@ body, #app {
   background: rgba(158, 158, 158, 0.6) !important;
   box-shadow: 0 3px 10px rgba(158, 158, 158, 0.3), 0 3px 6px rgba(0,0,0,0.15) !important;
 }
-.got-btn-grey-info.q-btn :deep(.q-icon) {
+.got-btn-grey-info.q-btn .q-icon {
   color: #ef5350 !important;
 }
 

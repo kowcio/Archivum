@@ -13,6 +13,7 @@ export default defineConfig({
       firefoxDataCollection: true,
     },
 
+
     manifest: {
       name: 'Archivum - Tab Age Manager',
       description: 'Organize your browser tabs by age. Automatically group tabs into age-based groups (Week+, Month+, Quarter+, etc.) and keep your workspace organized.',
