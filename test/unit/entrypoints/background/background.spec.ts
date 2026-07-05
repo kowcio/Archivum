@@ -18,9 +18,9 @@ describe('BackgroundTabService', () => {
     await BackgroundTabService.onTabActivated(tab.id!)
     expect(spy).not.toHaveBeenCalled()
   })
-  it('getThresholds returns defaults with 3 active levels', async () => {
+  it('getThresholds returns defaults with 5 active levels', async () => {
     const t = await BackgroundTabService.getThresholds()
-    expect(t.activeLevels).toBe(3)
+    expect(t.activeLevels).toBe(5)
   })
 })
 

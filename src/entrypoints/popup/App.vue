@@ -1,67 +1,52 @@
 <template>
-  <div class="app-options-wrapper">
+  <div class="app-options-wrapper row">
     <AppTitle />
 
-    <div class="content-wrapper">
-      <div class="square-grid">
-        <GroupUngroup />
+    <div class="content-wrapper row col-12">
+      <!-- Single column grid with natural-width buttons -->
+      <div class="btn-grid col-10">
+        <GroupUngroup rounded size="lg" class="q-mb-md"/>
 
         <q-btn
-          class="got-btn-secondary square-btn"
-          label="Manage plugin"
+          class="got-btn-ghost"
+          v-if="isDevEnv"
+          label="Manage archivum"
           data-testid="popup-btn-open-option-page"
           icon="dashboard_customize"
-          @click="openOptionsPageFull"
-          elevated
+          rounded
           no-caps
-          fab
+          size="md"
+          @click="openOptionsPageFull"
         />
 
         <q-btn
-          class="got-btn-ghost square-btn"
-          label="Browser options"
+          v-if="isDevEnv"
+          class="got-btn-ghost"
+          label="Manage archivum - browser"
           data-testid="popup-btn-plugin-browser-option"
           icon="settings"
-          @click="openOptionsPage"
-          elevated
+          rounded
           no-caps
-          fab
+          size="md"
+          @click="openOptionsPage"
         />
+
+        <SortButton @error="(msg) => console.error(msg)" />
+        <BackupRestoreButton />
+
+
       </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
-import { browser } from 'wxt/browser'
-import { BACKGROUND_MESSAGE_ACTIONS } from '@/constants'
+import {browser} from 'wxt/browser'
+import {isDevEnv} from '@/constants'
 import AppTitle from '@/components/Title.vue'
 import GroupUngroup from "@/components/GroupUngroup.vue";
-
-const loading = ref(false)
-
-async function handleGroup(): Promise<void> {
-  loading.value = true
-  try {
-    await browser.runtime.sendMessage({
-      action: BACKGROUND_MESSAGE_ACTIONS.GROUP_TABS_BY_AGE
-    })
-  } finally {
-    loading.value = false
-  }
-}
-
-async function handleUngroup(): Promise<void> {
-  loading.value = true
-  try {
-    await browser.runtime.sendMessage({
-      action: BACKGROUND_MESSAGE_ACTIONS.UNGROUP_ALL_TABS
-    })
-  } finally {
-    loading.value = false
-  }
-}
+import SortButton from '@/components/SortButton.vue';
+import BackupRestoreButton from "@/components/BackupRestoreButton.vue";
 
 function openOptionsPage(): void {
   browser.runtime.openOptionsPage()
@@ -84,32 +69,23 @@ async function openOptionsPageFull(): Promise<void> {
 }
 .content-wrapper {
   flex: 1;
-  padding: 0.5rem;
+  padding: 0.75rem;
 }
-.square-grid {
+.btn-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 0.5rem;
-  justify-items: center;
-  margin: 0.5rem auto;
+  grid-template-columns: 1fr;
+  gap: 0.75rem;
+  justify-items: stretch;
+  margin: 0 auto;
   width: 100%;
-  max-width: 250px;
 }
-.square-btn {
+.btn-grid > div {
   width: 100%;
-  aspect-ratio: 1;
-  min-width: 80px;
-  max-width: 100px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-direction: column;
-  text-align: center;
-}
-.square-btn :deep(.q-btn__content) {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 0.25rem;
+  gap: inherit;
+}
+.btn-grid > div .q-btn {
+  width: 100%;
 }
 </style>

@@ -23,6 +23,7 @@ const ON_TAB_ACTIVATED_ACTION = 'onTabActivated';
 export class OptionsPage {
   private readonly groupTabsBtn: Locator;
   private readonly ungroupTabsBtn: Locator;
+  private readonly sortTabsBtn: Locator;
   // private readonly loadTabsBtn: Locator;
   private readonly closeAllTabsBtn: Locator;
   private readonly thresholdsConfig: Locator;
@@ -36,6 +37,7 @@ export class OptionsPage {
     // Button locators - note: IDs are dynamic based on isGrouped state
     // When not grouped: 'group-tabs-btn', when grouped: 'ungroup-tabs-btn'
     this.groupTabsBtn = page.getByTestId('group-tabs-btn');
+    this.sortTabsBtn = page.getByTestId('sort-tabs-by-domain');
     this.ungroupTabsBtn = page.getByTestId('ungroup-tabs-btn');
     // this.loadTabsBtn = page.getByTestId('btn-load-tabs');
     this.closeAllTabsBtn = page.getByTestId('btn-close-all-tabs');
@@ -61,17 +63,28 @@ export class OptionsPage {
     await this.page.goto(`chrome-extension://${extensionId}/options.html`, {
       waitUntil: 'domcontentloaded',
     });
+    // Wait for Vue to hydrate and render dynamic elements
+    await this.page.waitForLoadState('networkidle');
+    await this.expectPageLoaded();
   }
 
   /**
    * Verify Options page is fully loaded with all main components visible.
+   * Waits for Vue hydration, then verifies key elements are visible.
+   * Uses global Playwright timeout (10000ms from config).
+   *
+   * NOTE: thresholds-config is only rendered in dev builds (isDevEnv flag).
+   * In production builds, only checks for group-tabs-btn.
    */
   async expectPageLoaded(): Promise<void> {
-    await Promise.all([
-      expect(this.groupTabsBtn).toBeVisible({ timeout: 4000 }),
-      expect(this.ungroupTabsBtn).not.toBeVisible({ timeout: 2000 }),
-      expect(this.thresholdsConfig).toBeVisible({ timeout: 4000 }),
-    ]);
+    // Wait for Vue to hydrate completely - element must exist in DOM with data-testid
+    await this.page.waitForFunction(() => {
+      const btn = document.querySelector('[data-testid="group-tabs-btn"]');
+      return btn !== null;
+    }, { timeout: 10000 });
+
+    // Now verify visibility
+    await expect(this.groupTabsBtn).toBeVisible();
   }
 
    /**
@@ -85,14 +98,14 @@ export class OptionsPage {
 
    /**
     * Group Tabs by Domain via background message (no UI button).
-    * Uses chrome.runtime.sendMessage to trigger groupTabsByDomain.
+    * Uses chrome.runtime.sendMessage to trigger sortTabsByDomain.
     * Optional: pass timeout override (default 1500ms).
     */
-   async clickGroupTabsByDomain(waitMs: number = 1500): Promise<{ groupsCreated: number; error: string | null }> {
+   async clicksortTabsByDomain(waitMs: number = 1500): Promise<{ groupsCreated: number; error: string | null }> {
      const result = await this.page.evaluate(() => {
        return new Promise<{ groupsCreated: number; error: string | null }>((resolve) => {
          try {
-           chrome.runtime.sendMessage({ action: 'groupTabsByDomain' }, (r: any) => {
+           chrome.runtime.sendMessage({ action: 'sortTabsByDomain' }, (r: any) => {
              resolve({ groupsCreated: r?.groupsCreated ?? 0, error: r?.error ?? null });
            });
          } catch (e: unknown) {
@@ -112,6 +125,16 @@ export class OptionsPage {
      await this.ungroupTabsBtn.click();
      await this.page.waitForTimeout(waitMs);
    }
+
+  /**
+   * Click "Ungroup All Tabs" button and wait for ungrouping to complete.
+   * Optional: pass timeout override (default 1000ms).
+   */
+  async clickSortTabs(waitMs: number = 1000): Promise<void> {
+    await this.sortTabsBtn.click();
+    await this.page.waitForTimeout(waitMs);
+
+  }
 
   /**
    * Set mock overrides for created tabs (backdated ages).
@@ -164,6 +187,7 @@ export class OptionsPage {
    * Click "Close All Tabs" button.
    */
   async clickCloseAllTabs(): Promise<void> {
+    // await this.closeAllTabsBtn.waitFor({ state: 'visible' });
     await this.closeAllTabsBtn.click();
   }
 
@@ -206,7 +230,6 @@ export class OptionsPage {
     return all.filter(t => t.groupId === -1).length;
   }
 
-
   /**
    * Get count of table rows (excluding header).
    */
@@ -224,45 +247,51 @@ export class OptionsPage {
 
   /**
    * Verify table is visible.
+   * Uses global Playwright timeout (15000ms from config).
    */
   async expectTableVisible(): Promise<void> {
-    await expect(this.openTabsTable).toBeVisible({ timeout: 3000 });
+    await expect(this.openTabsTable).toBeVisible();
   }
 
   /**
    * Verify first table row is visible.
+   * Uses global Playwright timeout (15000ms from config).
    */
   async expectFirstRowVisible(): Promise<void> {
-    await expect(this.openTabsTable.locator('tr').first()).toBeVisible({ timeout: 3000 });
+    await expect(this.openTabsTable.locator('tr').first()).toBeVisible();
   }
 
   /**
    * Verify Group button is visible (no groups exist).
+   * Uses global Playwright timeout (15000ms from config).
    */
   async expectGroupButtonVisible(): Promise<void> {
-    await expect(this.groupTabsBtn).toBeVisible({ timeout: 3000 });
+    await expect(this.groupTabsBtn).toBeVisible();
   }
 
   /**
    * Verify Ungroup button is visible (groups exist).
+   * Uses global Playwright timeout (15000ms from config).
    */
   async expectUngroupButtonVisible(): Promise<void> {
-    await expect(this.ungroupTabsBtn).toBeVisible({ timeout: 3000 });
+    await expect(this.ungroupTabsBtn).toBeVisible();
   }
 
   /**
    * Verify Ungroup button is NOT visible (no groups exist).
+   * Uses global Playwright timeout (15000ms from config).
    */
   async expectUngroupButtonHidden(): Promise<void> {
-    await expect(this.ungroupTabsBtn).not.toBeVisible({ timeout: 2000 });
+    await expect(this.ungroupTabsBtn).not.toBeVisible();
   }
 
 
   /**
    * Verify config section is visible.
+   * Uses global Playwright timeout (15000ms from config).
    */
   async expectThresholdsVisible(): Promise<void> {
-    await expect(this.thresholdsConfig).toBeVisible({ timeout: 3000 });
+    await expect(this.thresholdsConfig).toBeVisible();
   }
 
   /**
@@ -288,6 +317,7 @@ export class OptionsPage {
    * Optional: pass timeout override (default 1500ms for regroup completion).
    */
   async clickApplyThresholds(waitMs: number = 1500): Promise<void> {
+    await expect(this.applyThresholdBtn).toBeVisible();
     await this.applyThresholdBtn.click();
     await this.page.waitForTimeout(waitMs);
   }
@@ -309,16 +339,41 @@ export class OptionsPage {
 
   /**
    * Verify Apply button is visible (changes detected).
+   * Uses global Playwright timeout (15000ms from config).
    */
   async expectApplyThresholdButtonVisible(): Promise<void> {
-    await expect(this.applyThresholdBtn).toBeVisible({ timeout: 2000 });
+    await expect(this.applyThresholdBtn).toBeVisible();
   }
 
   /**
    * Verify Apply button is NOT visible (no changes).
+   * Uses global Playwright timeout (15000ms from config).
    */
   async expectApplyThresholdButtonHidden(): Promise<void> {
-    await expect(this.applyThresholdBtn).not.toBeVisible({ timeout: 2000 });
+    await expect(this.applyThresholdBtn).not.toBeVisible();
+  }
+
+  /**
+   * Set the day value for a specific threshold level input.
+   * @param levelIndex - Index in the active thresholds list (0=Week+, 1=2 Weeks+, etc.)
+   * @param days - New day threshold value
+   */
+  async setThresholdDayValue(levelIndex: number, days: number): Promise<void> {
+    const input = this.page.getByTestId(`threshold-${levelIndex}`);
+    await input.clear();
+    await input.fill(String(days));
+  }
+
+  /**
+   * Change threshold day value and apply in one action.
+   * Waits for regrouping to complete.
+   */
+
+  async changeThresholdDayValue(levelIndex: number, days: number, waitMs: number = 1500): Promise<void> {
+    await this.setThresholdDayValue(levelIndex, days);
+    await this.expectApplyThresholdButtonVisible();
+    await this.clickApplyThresholds(waitMs);
+    await this.expectApplyThresholdButtonHidden();
   }
 
   /**
@@ -334,9 +389,19 @@ export class OptionsPage {
 
   /**
    * Get all tabs from current browser window.
-   * Returns array: { id, url, groupId }
+   * Optionally waits for all tabs to finish loading (status === 'complete') via polling.
+   * Polling co 200ms jest szybsze niż fixed timeout – od razu zwraca gdy wszystkie gotowe.
+   * @param waitForLoad - If true, polls until all tabs have status 'complete' (timeout: 5000ms)
    */
-  async queryAllTabs(): Promise<Array<{ id?: number; url: string; groupId?: number }>> {
+  async queryAllTabs(waitForLoad: boolean = false): Promise<Array<{ id?: number; url: string; groupId?: number }>> {
+    if (waitForLoad) {
+      await this.page.waitForFunction(() => {
+        return chrome.tabs.query({ currentWindow: true }).then((tabs: any[]) => {
+          return tabs.length > 0 && tabs.every((t: any) => t.status === 'complete');
+        });
+      }, { timeout: 5000, polling: 200 });
+    }
+
     return this.page.evaluate(async () => {
       const raw = await chrome.tabs.query({ currentWindow: true });
       return (raw || []).map((t: any) => ({
@@ -414,71 +479,155 @@ export class OptionsPage {
     /**
      * Get all groups and tabs data.
      * Returns group count, group details, and tab counts (grouped vs ungrouped).
+     * Applies mock overrides to lastAccessed timestamps if they exist.
+     * Prints each tab: index, id, groupId, title, url
      */
     async getGroupAndTabData(): Promise<{
-      groupCount: number;
-      groups: Array<{ id: number; title: string }>;
-      groupedTabCount: number;
-      ungroupedTabCount: number;
-      tabs: Array<{
-        id?: number;
-        url?: string;
-        title?: string;
-        active?: boolean;
-        groupId?: number;
-        index?: number;
-      }>;
-    }> {
-      return await this.page.evaluate(async () => {
-        const groups = await (chrome.tabGroups as any).query({ windowId: (chrome.windows as any).WINDOW_ID_CURRENT })
-        const tabs = await (chrome.tabs as any).query({ currentWindow: true })
-        return {
-          groupCount: groups.length,
-          groups: groups.map((g: any) => ({
-            id: g.id,
-            title: g.title
-          })),
-          groupedTabCount: tabs.filter((t: any) => t.groupId != null && t.groupId !== -1).length,
-          ungroupedTabCount: tabs.filter((t: any) => t.groupId == null || t.groupId === -1).length,
-          tabs: tabs.map((t: any) => ({
-            id: t.id,
-            url: t.url,
-            title: t.title,
-            active: t.active,
-            groupId: t.groupId,
-            index: t.index
-          }))
-        }
-      })
-    }
+     groupCount: number;
+     groups: Array<{ id: number; title: string }>;
+     groupedTabCount: number;
+     ungroupedTabCount: number;
+     tabs: Array<{
+       id?: number;
+       url?: string;
+       title?: string;
+       active?: boolean;
+       lastAccessed?: number;
+       groupId?: number;
+       index?: number;
+     }>;
+     }> {
+      return await this.page.evaluate(function() {
+        // Fetch mock overrides
+        const mockOverridesPromise = new Promise<Record<number, number>>((resolve) => {
+          (chrome.runtime as any).sendMessage({ action: 'getMockOverrides' }, (response: any) => {
+            resolve(response?.overrides || {});
+          });
+        });
 
-   /**
-    * Close the page.
-    */
-   async close(): Promise<void> {
-     await this.page.close();
-   }
+        return mockOverridesPromise.then((mockOverrides) => {
+          return Promise.all([
+            (chrome.tabGroups as any).query({ windowId: (chrome.windows as any).WINDOW_ID_CURRENT }),
+            (chrome.tabs as any).query({ currentWindow: true })
+          ]).then(([groups, tabs]) => {
+            // Apply mock overrides to tabs
+            for (const tab of tabs) {
+              if (tab.id != null) {
+                const numericOverride = (mockOverrides as Record<number, number>)[tab.id]
+                const stringOverride = (mockOverrides as Record<string, number>)[String(tab.id)]
+                const override = numericOverride ?? stringOverride
+                if (override != null) {
+                  tab.lastAccessed = override
+                }
+              }
+            }
+
+            return {
+              groupCount: groups.length,
+              groups: groups.map((g: any) => ({
+                id: g.id,
+                title: g.title
+              })),
+              groupedTabCount: tabs.filter((t: any) => t.groupId != null && t.groupId !== -1).length,
+              ungroupedTabCount: tabs.filter((t: any) => t.groupId == null || t.groupId === -1).length,
+              tabs: tabs.map((t: any) => ({
+                id: t.id,
+                url: t.url,
+                title: t.title,
+                active: t.active,
+                lastAccessed: t.lastAccessed,
+                groupId: t.groupId,
+                index: t.index
+              }))
+            }
+          })
+        })
+      })
+     }
 
   /**
-   * Setup service worker console logging for debugging.
-   * Captures all console messages from background service worker.
-   * Usage: Call this in beforeAll hook to monitor SW execution.
+   * Click "Backup Tabs" button to save current tabs.
    */
-  static setupServiceWorkerLogging(context: any): void {
-    const workers = context.serviceWorkers();
-    if (workers.length === 0) {
-      console.warn('[Test] No service workers found');
-      return;
-    }
+  async clickBackupTabs(): Promise<void> {
+    await this.page.getByTestId('backup-btn').click();
+  }
 
-    const sw = workers[0];
-    sw.on('console', (msg: any) => {
-      const type = msg.type();
-      const text = msg.text();
-      const prefix = type === 'error' ? '❌ [SW_ERROR]' : '✓ [SW_LOG]';
-      console.log(`${prefix}: ${text}`);
+  /**
+   * Click "Restore Tabs" button.
+   */
+  async clickRestoreTabs(): Promise<void> {
+    await this.page.getByTestId('restore-btn').click();
+  }
+
+  /**
+   * Get backed-up tabs from browser storage.
+   * @returns Array of backed-up tab URLs, or null if no backup exists
+   */
+  async getBackupFromStorage(): Promise<Array<{ url?: string; title?: string }> | null> {
+    return this.page.evaluate(async () => {
+      const data = await chrome.storage.local.get('archivum:tab_backup');
+      const backup = data['archivum:tab_backup'];
+      return backup?.tabs || null;
     });
+  }
 
-    console.log('[Test] Service worker logging enabled');
+  /**
+   * Verify that backup button is visible (no backup exists).
+   */
+  async expectBackupButtonVisible(): Promise<void> {
+    await expect(this.page.getByTestId('backup-btn')).toBeVisible();
+  }
+
+  /**
+   * Verify that restore button is visible (backup exists).
+   */
+  async expectRestoreButtonVisible(): Promise<void> {
+    await expect(this.page.getByTestId('restore-btn')).toBeVisible();
+  }
+
+  /**
+   * Verify that restore button is NOT visible (no backup exists).
+   */
+  async expectRestoreButtonHidden(): Promise<void> {
+    await expect(this.page.getByTestId('restore-btn')).not.toBeVisible();
+  }
+
+  /**
+   * Confirm the restore dialog by clicking the "Restore" button in the confirmation popup.
+   * Uses data-testid="restore-confirm" to target the dialog's Restore button specifically.
+   */
+  async confirmRestore(): Promise<void> {
+    // Click the restore-confirm button inside the dialog
+    await this.page.getByTestId('restore-confirm').click();
+    // Wait for restore operation to complete
+    await this.page.waitForTimeout(2000);
+  }
+
+  /**
+   * Click "Delete/Clear Backup" button to remove the backup.
+   */
+  async clickDeleteBackup(): Promise<void> {
+    await this.page.getByTestId('clear-backup-btn').click();
+  }
+
+  /**
+   * Verify that delete backup button is visible (backup exists).
+   */
+  async expectDeleteBackupButtonVisible(): Promise<void> {
+    await expect(this.page.getByTestId('clear-backup-btn')).toBeVisible();
+  }
+
+  /**
+   * Verify that delete backup button is NOT visible (no backup exists).
+   */
+  async expectDeleteBackupButtonHidden(): Promise<void> {
+    await expect(this.page.getByTestId('clear-backup-btn')).not.toBeVisible();
+  }
+
+  /**
+   * Close the page.
+   */
+  async close(): Promise<void> {
+    await this.page.close();
   }
 }

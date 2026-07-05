@@ -1,17 +1,15 @@
 {
   "extends": "@tsconfig/node22/tsconfig.json",
   "include": [
+    ".wxt/wxt.d.ts",
+    ".wxt/types/globals.d.ts",
     "wxt.config.*",
     "web-ext.config.*",
     "vite.config.*",
     "vitest.config.*",
     "nightwatch.conf.*",
     "playwright.config.*",
-    "eslint.config.*",
-    "test/playwright/**/*.ts",
-    "test/playwright/**/*.js",
-    "test/playwright/**/*.ts",
-    "test/playwright/**/*.js"
+    "eslint.config.*"
   ],
   "compilerOptions": {
     // Inherits from root: target, module, moduleResolution,
@@ -19,6 +17,9 @@
     "noEmit": true,
 
     "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.node.tsbuildinfo",
+
+    // resolveJsonModule required when Playwright test files import src/constants.ts
+    "resolveJsonModule": true,
 
     // Additional types for build tools
     "types": ["node", "@playwright/test", "wxt", "chrome"],

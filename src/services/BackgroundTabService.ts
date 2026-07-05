@@ -18,12 +18,13 @@
 
 import { TabRow } from '@/entrypoints/options/models/TabRow.ts'
 import { AgeClassification } from '@/models/AgeClassification.ts'
-import { getStorageThresholds } from '@/store/appStore.ts'
+import { getStorageThresholds, mockOverrides, appStateStorage } from '@/store/appStore.ts'
 import { AppThresholds } from '@/models/AppThresholds'
 import { browser } from 'wxt/browser'
 import type { Browser } from 'wxt/browser'
 import { MOCK_TABS } from '@/utils/mockTabData'
 import { APP_DEFAULTS } from '@/constants'
+import dayjs from "dayjs";
 
 export class BackgroundTabService {
   /**
@@ -48,12 +49,9 @@ export class BackgroundTabService {
      */
     private static async applyMockOverrides(tabs: { id?: number; lastAccessed?: number }[]): Promise<void> {
       try {
-        // Try to read mock_overrides — if empty or missing, early return (fast path)
-        const storageData = await browser.storage.local.get(['mock_overrides'])
-        const overrides: Record<number, number> = (storageData?.mock_overrides ?? {}) as Record<number, number>
+        const overrides = await mockOverrides.getValue()
         const ids = Object.keys(overrides)
 
-        // Early return: no overrides means zero extra work
         if (ids.length === 0) {
           console.log('[BackgroundTabService] ✓ No mock overrides (production path)')
           return
@@ -61,13 +59,15 @@ export class BackgroundTabService {
 
         console.log('[BackgroundTabService] 📥 Applying mock overrides to', ids.length, 'tabs')
 
-        // Apply overrides only to tabs that have them
-        const numMap = ids.map(Number)
         for (const tab of tabs) {
-          if (tab.id != null && overrides[tab.id] != null) {
-            const oldAccess = tab.lastAccessed
-            tab.lastAccessed = overrides[tab.id]
-            console.log(`[BackgroundTabService] Tab#${tab.id}: ${oldAccess} → ${tab.lastAccessed}`)
+          if (tab.id != null) {
+            // Handle both numeric and string keys (JSON serialization issue)
+            const numericOverride = (overrides as Record<number, number>)[tab.id]
+            const stringOverride = (overrides as Record<string, number>)[String(tab.id)]
+            const override = numericOverride ?? stringOverride
+            if (override != null) {
+              tab.lastAccessed = override
+            }
           }
         }
         console.log('[BackgroundTabService] ✅ Applied mock overrides to', ids.length, 'tabs')
@@ -76,7 +76,7 @@ export class BackgroundTabService {
       }
     }
 
-   static async groupTabsByAge(): Promise<number> {
+     static async groupTabsByAge(): Promise<number> {
      console.log('[BackgroundTabService] groupTabsByAge...')
      try {
        const hasTabGroups = browser.tabGroups != null
@@ -87,6 +87,9 @@ export class BackgroundTabService {
 
        const rawTabs = await browser.tabs.query({ currentWindow: true })
        const thresholds = await this.getThresholds()
+       const appState = await appStateStorage.getValue()
+       const sortByDomainInGroups = appState?.sortSettings?.sortByDomainInGroups ?? true
+
        await this.applyMockOverrides(rawTabs)
 
        const rows = TabRow.fromTabs(rawTabs, thresholds)
@@ -98,6 +101,23 @@ export class BackgroundTabService {
        const ageMap = new Map<number, number>()
        for (const row of rows) {
          if (row.id != null) ageMap.set(row.id, row.lastAccessDays ?? 0)
+       }
+
+       // Helper: Extract domain from URL
+       const getDomain = (url?: string): string => {
+         try {
+           return new URL(url ?? '').hostname.replace(/^www\d?\./i, '')
+         } catch {
+           return ''
+         }
+       }
+
+       // Build domain map for sorting by domain within levels (if enabled)
+       const domainMap = new Map<number, string>()
+       if (sortByDomainInGroups) {
+         for (const row of rows) {
+           if (row.id != null) domainMap.set(row.id, getDomain(row.url))
+         }
        }
 
        // Classify tabs into age levels, collecting fresh tabs separately
@@ -112,9 +132,22 @@ export class BackgroundTabService {
          }
        }
 
-       // Sort tabs within each level by age (oldest first = highest lastAccessDays first)
-       for (const ids of levelTabIds) {
-         ids.sort((a, b) => (ageMap.get(b) ?? 0) - (ageMap.get(a) ?? 0))
+       // Sort tabs within each level by domain (A→Z), then by age (oldest first) — only if enabled
+       if (sortByDomainInGroups) {
+         for (const ids of levelTabIds) {
+           ids.sort((a, b) => {
+             const domainA = domainMap.get(a) ?? ''
+             const domainB = domainMap.get(b) ?? ''
+             const domainCompare = domainA.localeCompare(domainB)
+             if (domainCompare !== 0) return domainCompare
+             return (ageMap.get(b) ?? 0) - (ageMap.get(a) ?? 0)
+           })
+         }
+       } else {
+         // If not sorting by domain, at least sort by age (oldest first)
+         for (const ids of levelTabIds) {
+           ids.sort((a, b) => (ageMap.get(b) ?? 0) - (ageMap.get(a) ?? 0))
+         }
        }
 
        // ── Reorder tabs so visual order matches: oldest→youngest groups left-to-right, fresh far right ──
@@ -129,7 +162,8 @@ export class BackgroundTabService {
        if (orderedTabIds.length > 0) {
          try {
            await browser.tabs.move(orderedTabIds, { index: 0 })
-           console.log(`[BackgroundTabService] ✅ Reordered ${orderedTabIds.length} tabs (oldest→youngest→fresh)`)
+           const sortMsg = sortByDomainInGroups ? 'sorted by domain within each level' : 'sorted by age only'
+           console.log(`[BackgroundTabService] ✅ Reordered ${orderedTabIds.length} tabs (oldest→youngest→fresh, ${sortMsg})`)
          } catch (err) {
            console.warn('[BackgroundTabService] ⚠️ Tab reorder failed, skipping:', err)
          }
@@ -152,7 +186,7 @@ export class BackgroundTabService {
              collapsed: true
            })
            groupsCreated++
-           console.log(`[BackgroundTabService] ✅ Created group "${level.label}" with ${tabIds.length} tabs`)
+           console.log(`[BackgroundTabService] ✅ Created group "${level.label}" with ${tabIds.length} tabs (sorted by domain then age)`)
          } catch (err) {
            console.error(`[BackgroundTabService] Failed to create group "${level.label}":`, err)
          }
@@ -187,46 +221,56 @@ export class BackgroundTabService {
   }
 
    static async onTabActivated(tabId: number): Promise<void> {
-     try {
-       // 🎯 Filter: Only modify tabs IN plugin-created groups
-       const inPluginGroup = await this.isInPluginGroup(tabId)
-       if (!inPluginGroup) {
-         console.log(`[BackgroundTabService] ⏭️ Tab#${tabId} not in plugin group → skip modification`)
+     // 🎯 Filter: Only modify tabs IN plugin-created groups
+     const inPluginGroup = await this.isInPluginGroup(tabId)
+     if (!inPluginGroup) {
+       console.log(`[BackgroundTabService] ⏭️ Tab#${tabId} not in plugin group → skip`)
+       return
+     }
+
+     // 📝 Get current tab + group info (guaranteed to exist after isInPluginGroup check)
+     const tab = await browser.tabs.get(tabId)
+     const groupId = tab.groupId as number
+     const groupTitle = (await browser.tabGroups.get(groupId)).title
+
+     // 🧩 Ungroup the tab, then move to rightmost — with retry
+     const RETRIES = 3
+     for (let attempt = 0; attempt < RETRIES; attempt++) {
+       try {
+         await (browser.tabs as any).ungroup([tabId])
+         await browser.tabs.move(tabId, { index: -1 })
+       } catch (err) {
+         // "Tabs cannot be edited right now" — Chrome is busy, retry
+         if (attempt < RETRIES - 1) {
+           await new Promise(r => setTimeout(r, 100 * (attempt + 1)))
+           continue
+         }
+         throw err
+       }
+
+       // Verify ungrouped
+       const tabAfter = await browser.tabs.get(tabId)
+       if (tabAfter.groupId === -1 || tabAfter.groupId == null) {
+         console.log(`[BackgroundTabService] ✅ Tab#${tabId} ungrouped + moved to rightmost`)
+
+         // 📊 Update group title with new count
+         const groupTabs = await browser.tabs.query({ groupId })
+         const labelPrefix = groupTitle!.match(/^(.+?)\s*\(\d+\)$/)?.[1] || groupTitle
+         await (browser.tabGroups as any).update(groupId, {
+           title: `${labelPrefix} (${groupTabs.length})`
+         })
+         console.log(`[BackgroundTabService] ✅ Group title → "${labelPrefix} (${groupTabs.length})"`)
          return
        }
 
-       // 🧩 Ungroup BEFORE move — removes tab from group (Chrome/Edge).
-       // IMPORTANT: Use browser.tabs.ungroup([tabId]) NOT browser.tabs.update({ groupId: -1 })
-       // The update() API does NOT accept groupId — it silently ignores it.
-       // Only ungroup() actually removes a tab from its group.
-       // Firefox has no ungroup API, so the catch block handles that gracefully.
-       try { await (browser.tabs as any).ungroup([tabId]) } catch { /* Firefox or already ungrouped */ }
+       // Retry with backoff
+       if (attempt < RETRIES - 1) {
+         await new Promise(r => setTimeout(r, 100 * (attempt + 1)))
+       }
+     }
 
-      // ➡️ Move to rightmost with retry — tabs may be locked during user drag
-      const maxRetries = 2
-      for (let attempt = 0; attempt < maxRetries; attempt++) {
-        try {
-          await browser.tabs.move(tabId, { index: -1 })
-          console.log(`[BackgroundTabService] ✅ Tab#${tabId} activated → timestamp saved + ungrouped + moved to rightmost`)
-          return
-        } catch (err: any) {
-          // If tabs cannot be edited (user dragging), retry with backoff
-          if (err?.message?.includes('cannot be edited') && attempt < maxRetries - 1) {
-            const delayMs = 100 * (attempt + 1)
-            await new Promise(r => setTimeout(r, delayMs))
-            continue
-          }
-          // Last attempt or unrelated error — log and skip
-          if (attempt === maxRetries - 1) {
-            console.warn(`[BackgroundTabService] ⚠️ Tab#${tabId} move failed after ${maxRetries} retries:`, err)
-          }
-          break
-        }
-      }
-    } catch (err) {
-      console.error(`[BackgroundTabService] ❌ onTabActivated error:`, err)
-    }
-  }
+     console.warn(`[BackgroundTabService] ⚠️ Tab#${tabId} still grouped after ${RETRIES} retries`)
+   }
 
    /**
     * Queries tabs from current window.
@@ -264,7 +308,12 @@ export class BackgroundTabService {
            url: mock.url,
            active: false,
          })
-         if (tab.id != null) tabIds.push(tab.id)
+         if (tab.id != null) {
+           const data = dayjs(tab.lastAccessed).toISOString();
+           //Pusty title to tylko efekt uboczny asynchronicznego renderowania strony.
+           console.log(`Tab created[${i}]: ${String(tab.id).padEnd(8)} groupId=${tab.groupId} data=${data} "${tab.title}"`)
+           tabIds.push(tab.id)
+         }
        } catch {
          // Some URLs may fail — create simpler tabs as fallback
          const tab = await browser.tabs.create({ url: `https://example.com/mock-${i}`, active: false })
@@ -283,14 +332,14 @@ export class BackgroundTabService {
        const tabId = tabIds[i]
        const daysAgo = MOCK_TABS[i].daysAgo ?? 1
        overridesMap[tabId] = now - daysAgo * DAY_MS
-       console.log(`[BackgroundTabService] Mock override: tab#${tabId} → ${daysAgo} days ago`)
+       // console.log(`[BackgroundTabService] Mock override: tab#${tabId} → ${daysAgo} days ago`)
      }
 
-     // Set overrides in browser.storage.local directly (ensures cross-context sync)
+     // Set overrides via WXT storage (unified approach with setMockOverrides action)
      try {
        console.log(`[BackgroundTabService] About to set ${Object.keys(overridesMap).length} overrides...`)
-       await browser.storage.local.set({ mock_overrides: overridesMap })
-       console.log(`[BackgroundTabService] ✅ Set ${Object.keys(overridesMap).length} mock overrides via browser.storage.local`)
+       await mockOverrides.setValue(overridesMap)
+       console.log(`[BackgroundTabService] ✅ Set ${Object.keys(overridesMap).length} mock overrides via WXT storage`)
      } catch (err) {
        console.error(`[BackgroundTabService] ❌ Failed to set overrides:`, err)
      }
@@ -412,100 +461,88 @@ export class BackgroundTabService {
       }
     }
 
-   /**
-    * Groups tabs by domain name, with secondary sorting by age (if >2 tabs per domain).
-    * Creates groups like "example.com (5)", "github.com (3)" etc.
-    * Within each domain: if >2 tabs, sort by age (oldest first).
-    *
-    * CROSS-BROWSER SUPPORT:
-    *   ✅ Chrome/Edge: Full grouping via browser.tabGroups API
-    *   ✅ Firefox: No tabGroups API, gracefully skips grouping
-    *   ✅ All browsers: Tabs sorted by domain, ungrouped tabs preserved
-    */
-   static async groupTabsByDomain(): Promise<number> {
-    console.log('[BackgroundTabService] groupTabsByDomain...')
-    try {
-      const hasTabGroups = browser.tabGroups != null
-      if (!hasTabGroups) {
-        console.log('[BackgroundTabService] ℹ️ Tab grouping not available (Firefox)')
-        return 0
-      }
+    /**
+     * Focus/activate a tab and bring its window to foreground
+     * User can then investigate the tab content before closing manually
+     */
+    static async focusTab(tabId: number): Promise<string | null> {
+      try {
+        const tab = await browser.tabs.get(tabId)
 
-      const rawTabs = await browser.tabs.query({ currentWindow: true })
-      console.log(`[BackgroundTabService] Raw tabs: ${rawTabs.length}`)
+        // Activate the tab (brings it to focus)
+        await browser.tabs.update(tabId, { active: true })
 
-      // Apply mock overrides
-      await this.applyMockOverrides(rawTabs)
-
-      // Get thresholds for sorting tabs by age
-      const thresholds = await this.getThresholds()
-
-      // Create TabRow objects to access domain info
-      const rows = TabRow.fromTabs(rawTabs, thresholds)
-      console.log(`[BackgroundTabService] TabRows after fromTabs: ${rows.length}`)
-
-      // Build age map for sorting
-      const ageMap = new Map<number, number>()
-      for (const row of rows) {
-        if (row.id != null) ageMap.set(row.id, row.lastAccessDays ?? 0)
-      }
-
-      // Group tabs by domain
-      const domainGroups = new Map<string, number[]>()
-      for (const row of rows) {
-        if (row.id == null) continue
-        const domain = row.domain || 'unknown'
-        if (!domainGroups.has(domain)) {
-          domainGroups.set(domain, [])
+        // Bring window to foreground if tab is in a window
+        if (tab.windowId != null) {
+          await (browser.windows as any).update(tab.windowId, { focused: true })
         }
-        domainGroups.get(domain)!.push(row.id)
+
+        console.log(`[BackgroundTabService] ✅ Focused tab#${tabId}`)
+        return null
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err)
+        console.error(`[BackgroundTabService] ❌ focusTab error:`, msg)
+        return msg
       }
-
-      console.log(`[BackgroundTabService] Found ${domainGroups.size} unique domains`)
-
-      // Sort domains alphabetically and prepare for grouping
-      const sortedDomains = Array.from(domainGroups.keys()).sort()
-      const domainTabIds: Array<{ domain: string; tabIds: number[] }> = []
-
-      for (const domain of sortedDomains) {
-        const tabIds = domainGroups.get(domain)!
-        // If more than 2 tabs in this domain, sort by age (oldest first = highest days first)
-        if (tabIds.length > 2) {
-          tabIds.sort((a, b) => (ageMap.get(b) ?? 0) - (ageMap.get(a) ?? 0))
-          console.log(`[BackgroundTabService] Domain "${domain}" has ${tabIds.length} tabs (sorted by age)`)
-        } else {
-          console.log(`[BackgroundTabService] Domain "${domain}" has ${tabIds.length} tab(s) (no age sort needed)`)
-        }
-        domainTabIds.push({ domain, tabIds })
-      }
-
-      const createGroup = async (ids: number[], title: string, color: string): Promise<number | null> => {
-        if (!ids.length) return null
-        try {
-          const id = await (browser.tabs as any).group({ tabIds: ids })
-          await (browser.tabGroups as any).update(id, { title, color, collapsed: true })
-          return id
-        } catch {
-          return null
-        }
-      }
-
-      // Create groups from sorted domains (left to right = A to Z)
-      let groupsCreated = 0
-      const colorPalette = ['green', 'blue', 'orange', 'red', 'pink', 'purple', 'cyan', 'grey']
-      for (let i = 0; i < domainTabIds.length; i++) {
-        const { domain, tabIds } = domainTabIds[i]
-        const color = colorPalette[i % colorPalette.length]
-        const title = `${domain} (${tabIds.length})`
-        const gid = await createGroup(tabIds, title, color)
-        if (gid !== null) groupsCreated++
-      }
-
-      console.log(`[BackgroundTabService] ✅ Created ${groupsCreated} domain groups`)
-      return groupsCreated
-    } catch (err) {
-      console.error('[BackgroundTabService] ❌', err)
-      return 0
     }
-  }
+
+   /**
+    * Sort all tabs alphabetically by domain (A→Z).
+    * Strips `www.` and protocol before sorting, e.g. `https://www.EXAMPLE.com/path` sorts as `example.com`.
+    * Ungrouped and grouped tabs are both reordered — existing groups are preserved.
+    */
+   static async sortGroupsByDomain(): Promise<number> {
+     console.log('[BackgroundTabService] sortGroupsByDomain...')
+     try {
+       const tabs = await browser.tabs.query({ currentWindow: true })
+       if (tabs.length === 0) return 0
+
+       // Separate grouped and ungrouped tabs
+       const groupedTabs = tabs.filter(t => t.groupId != null && t.groupId !== -1)
+       const ungroupedTabs = tabs.filter(t => t.groupId == null || t.groupId === -1)
+
+       console.log(`[BackgroundTabService] Grouped: ${groupedTabs.length}, Ungrouped: ${ungroupedTabs.length}`)
+
+       const getSortKey = (url?: string): string => {
+         try {
+           return new URL(url ?? '').hostname.replace(/^www\d?\./i, '')
+         } catch {
+           return ''
+         }
+       }
+
+       // Sort ungrouped tabs by domain, then by lastAccessed
+       const sortedUngrouped = [...ungroupedTabs].sort((a, b) => {
+         const domainA = getSortKey(a.url)
+         const domainB = getSortKey(b.url)
+
+         // First sort by domain alphabetically
+         const domainCompare = domainA.localeCompare(domainB)
+         if (domainCompare !== 0) return domainCompare
+
+         // Within same domain, sort by lastAccessed (newest first = higher values first)
+         const timeA = a.lastAccessed || 0
+         const timeB = b.lastAccessed || 0
+         return timeB - timeA
+       })
+
+       // Calculate the index where ungrouped tabs should start
+       // This is after all grouped tabs
+       const startIndex = groupedTabs.length
+
+       // Move ungrouped tabs to their sorted positions, starting after all groups
+       const ungroupedIds = sortedUngrouped.map(t => t.id).filter((id): id is number => id != null)
+       if (ungroupedIds.length > 0) {
+         await browser.tabs.move(ungroupedIds, { index: startIndex })
+         console.log(`[BackgroundTabService] ✅ Moved ${ungroupedIds.length} ungrouped tabs starting at index ${startIndex}`)
+       }
+
+       console.log(`[BackgroundTabService] ✅ Sorted ${ungroupedIds.length} ungrouped tabs by domain then lastAccessed`)
+       return ungroupedIds.length
+     } catch (err) {
+       console.error('[BackgroundTabService] ❌', err)
+       return 0
+     }
+   }
+
 }

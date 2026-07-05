@@ -1,53 +1,132 @@
 <template>
-  <q-btn-group>
-    <q-btn
-      :data-testid="isGrouped ? 'ungroup-tabs-btn' : 'group-tabs-btn'"
-      :label="isGrouped ? ungroupLabel : groupLabel"
-      :icon="isGrouped ? ungroupIcon : groupIcon"
-      :color="isGrouped ? ungroupColor : groupColor"
-      :loading="isLoading"
-      v-bind="$attrs"
-      @click="handleToggle"
-    />
-  </q-btn-group>
+  <q-btn
+    :data-testid="isGrouped ? 'ungroup-tabs-btn' : 'group-tabs-btn'"
+    :label="buttonLabel"
+    :icon="isGrouped ? ungroupIcon : groupIcon"
+    :loading="isLoading"
+    :size="buttonSize"
+    :class="btnClasses"
+    :rounded="rounded"
+    :disabled="!isGrouped && !hasStaleTabsToGroup"
+    no-caps
+    @click="handleToggle"
+  >
+    <q-tooltip v-if="!isGrouped && !hasStaleTabsToGroup" class="bg-dark">
+      Nothing to archive, all tabs are less than {{ minThresholdDays }} days of age.
+    </q-tooltip>
+  </q-btn>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { browser } from 'wxt/browser'
 import { BACKGROUND_MESSAGE_ACTIONS } from '@/constants'
+import { useAppStore } from '@/store/appStore'
+import { TabRow } from '@/entrypoints/options/models/TabRow.ts'
+import { mockOverrides } from '@/store/appStore'
 
 type Props = {
   groupLabel?: string
   ungroupLabel?: string
   groupIcon?: string
   ungroupIcon?: string
-  groupColor?: string
-  ungroupColor?: string
+  size?: string
+  rounded?: boolean
+  square?: boolean
 }
 
-withDefaults(defineProps<Props>(), {
-  groupLabel: 'Group by age',
-  ungroupLabel: 'Ungroup',
+const props = withDefaults(defineProps<Props>(), {
+  groupLabel: 'Archive by Age',
+  ungroupLabel: 'Clear Archive',
   groupIcon: 'folder',
   ungroupIcon: 'unfold_more',
-  groupColor: 'purple',
-  ungroupColor: 'warning',
+  size: 'lg',
+  rounded: true,
+  square: false,
 })
 
+const appStore = useAppStore()
 const isGrouped = ref(false)
 const isLoading = ref(false)
+const allTabs = ref<any[]>([])
 
+const minThresholdDays = computed(() => {
+  const levels = appStore.thresholds.value?.active()
+  return levels && levels.length > 0 ? levels[0].days : 7
+})
+
+/**
+ * Reactively check if ANY tab is older than the minimum threshold.
+ * Uses actual browser tabs + mock overrides (for testing).
+ */
+const hasStaleTabsToGroup = computed(() => {
+  if (allTabs.value.length === 0) return false
+
+  const thresholds = appStore.thresholds.value
+  const minDays = minThresholdDays.value
+
+  // Check if any tab is older than the minimum threshold
+  for (const tab of allTabs.value) {
+    const row = new TabRow(tab, thresholds)
+    if ((row.lastAccessDays ?? 0) > minDays) {
+      return true
+    }
+  }
+  return false
+})
+
+const buttonLabel = computed(() => {
+  if (isGrouped.value) return props.ungroupLabel
+  return hasStaleTabsToGroup.value ? props.groupLabel : 'Nothing to archive'
+})
+
+const btnClasses = computed(() => ({
+  'got-btn-primary': !isGrouped.value && hasStaleTabsToGroup.value,
+  'got-btn-primary-faded': !isGrouped.value && !hasStaleTabsToGroup.value,
+  'got-btn-primary-blue-faded': isGrouped.value,
+}))
+
+const buttonSize = computed(() => {
+  // State 1 & 2 (archiving or all fresh): lg size
+  // State 3 (grouped): md size (default)
+  return isGrouped.value ? 'md' : 'lg'
+})
+
+/**
+ * Query all tabs from current window + apply mock overrides
+ */
+async function refreshAllTabs(): Promise<void> {
+  try {
+    const tabs = await browser.tabs.query({ currentWindow: true })
+
+    // Apply mock overrides for testing
+    const overridesObj = await mockOverrides.getValue()
+
+    // ✅ FIX: Handle both numeric keys and string keys (WXT JSON serialization)
+    const overrides: Record<number, number> = {}
+    for (const key in overridesObj) {
+      const numKey = parseInt(key, 10)
+      overrides[numKey] = overridesObj[key as any]
+    }
+
+    for (const tab of tabs) {
+      if (tab.id != null) {
+        const override = overrides[tab.id]
+        if (override != null && override > 0) {
+          tab.lastAccessed = override
+        }
+      }
+    }
+
+    allTabs.value = tabs
+  } catch (e) {
+    console.error('[GroupUngroup] refreshAllTabs failed:', e)
+    allTabs.value = []
+  }
+}
 
 /**
  * Query actual browser state: are there any PLUGIN-CREATED groups?
- * ⚠️ Only un-group if groups were created by THIS PLUGIN (title pattern match)
- *
- * Logic:
- * - Ask background.ts: "Do plugin groups exist?"
- * - Background checks tabGroups titles: "Week+ (5)", "Month+ (2)" etc
- * - Only show "Ungroup" if plugin groups found
- * - This prevents accidentally ungrouping user's own groups!
  */
 async function checkGroupState(): Promise<void> {
   try {
@@ -56,42 +135,42 @@ async function checkGroupState(): Promise<void> {
     }) as any
     isGrouped.value = response?.hasPluginGroups ?? false
   } catch (e) {
-    // On error, assume no groups (safe fallback: show "Group" button)
     console.error('[GroupUngroup] checkGroupState failed:', e)
     isGrouped.value = false
   }
 }
 
-/**
- * Init: check state on mount
- */
 onMounted(async () => {
+  await appStore.load()
+  await refreshAllTabs()
   await checkGroupState()
+
+  // Listen to tab changes to stay reactive
+  if (browser.tabs != null) {
+    browser.tabs.onCreated.addListener(() => refreshAllTabs())
+    browser.tabs.onRemoved.addListener(() => refreshAllTabs())
+  }
+
+  // Listen to mock overrides changes (for testing with backdated tabs)
+  mockOverrides.watch(() => {
+    console.log('[GroupUngroup] Mock overrides changed → refreshing tabs')
+    refreshAllTabs()
+  })
 })
 
-/**
- * Click handler: send message to background, then re-verify state
- * ⚠️ Never pre-set isGrouped - always query browser state!
- */
 async function handleToggle(): Promise<void> {
   isLoading.value = true
   try {
-    // Send action to background service worker
     const action = isGrouped.value
       ? BACKGROUND_MESSAGE_ACTIONS.UNGROUP_ALL_TABS
       : BACKGROUND_MESSAGE_ACTIONS.GROUP_TABS_BY_AGE
     await browser.runtime.sendMessage({ action })
-
-    // Wait for browser to process the change
-    // (Chrome needs ~150ms for tab grouping operations)
     await new Promise(r => setTimeout(r, 150))
-
-    // ✅ Always re-check from source of truth (browser.tabs)
-    // Never trust the response or pre-set state
+    await refreshAllTabs()
     await checkGroupState()
   } catch (err) {
     console.error('[GroupUngroup] handleToggle failed:', err)
-    // Re-check state even on error (browser might have changed it anyway)
+    await refreshAllTabs()
     await checkGroupState()
   } finally {
     isLoading.value = false

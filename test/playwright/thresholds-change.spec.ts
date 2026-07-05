@@ -8,20 +8,15 @@
  * 4. Groups are recreated with new granularity
  */
 
-import {test, expect, type BrowserContext} from '@playwright/test'
-import {launchChromeContext} from './chromium/extensions.js'
+import {test, expect} from '@playwright/test'
+import {setupExtensionTest, type ExtensionTestContext} from './chromium/extensions.js'
 import {OptionsPage} from './page-objects/OptionsPage.js'
 
-type Ctx = { context: BrowserContext; extensionId: string; cleanup: () => Promise<void> }
-
 test.describe('Threshold Change: Store → Options Auto-Update', () => {
-  test.setTimeout(90_000)
-  let ctx: Ctx
+  let ctx: ExtensionTestContext
 
   test.beforeAll('Setup: launch Chrome context with extension', async () => {
-    test.skip(test.info().project.name !== 'chrome-mv3', 'Chrome MV3 only')
-    ctx = await launchChromeContext()
-    OptionsPage.setupServiceWorkerLogging(ctx.context)
+    ctx = await setupExtensionTest(false, 90_000)
   })
 
   test.afterAll('Cleanup: close extension context', async () => {
@@ -29,7 +24,7 @@ test.describe('Threshold Change: Store → Options Auto-Update', () => {
   })
 
   test('should create threshold groups with proper order when thresholds change', async () => {
-    const options = new OptionsPage(ctx.context.pages()[0])
+    const options = new OptionsPage(await ctx.context.newPage())
 
     // 1. Open options page
     await options.goto(ctx.extensionId)
@@ -43,12 +38,12 @@ test.describe('Threshold Change: Store → Options Auto-Update', () => {
     // 4. Verify page structure is ready
     await options.expectThresholdsVisible()
 
-    // 5. Change to 5 levels and verify groups
-    await options.changeThresholdLevels(5, 2000)
+    // 5. Group tabs with default thresholds (5 active levels)
+    await options.clickGroupTabs(2000)
     let result = await options.getGroupAndTabData()
 
     expect(result.groups.length).toBe(5)
-    expect(result.groups[0].title).toContain('Are You kidding')
+    expect(result.groups[0].title).toContain('Eat that frog!')
     expect(result.groups[1].title).toContain('Quarter+')
     expect(result.groups[2].title).toContain('Month+')
     expect(result.groups[3].title).toContain('2 Weeks+')
@@ -58,8 +53,8 @@ test.describe('Threshold Change: Store → Options Auto-Update', () => {
     let groupedTabs = result.tabs.filter(t => t.groupId !== -1 && t.groupId !== undefined)
     let ungroupedTabs = result.tabs.filter(t => t.groupId === -1 || t.groupId === undefined)
 
-    expect(groupedTabs.length).toBeGreaterThan(0)
-    expect(ungroupedTabs.length).toBeGreaterThan(0)
+    expect(groupedTabs.length).not.toBe(0)
+    expect(ungroupedTabs.length).not.toBe(0)
     groupedTabs.forEach(tab => {
       expect(typeof tab.groupId).toBe('number')
       expect(tab.groupId).not.toBe(-1)
@@ -68,19 +63,35 @@ test.describe('Threshold Change: Store → Options Auto-Update', () => {
       expect(tab.groupId).toBe(-1)
     })
 
-    // 7. Change to 1 level and verify
+    // 7. Change to 3 levels (was 5, so Apply button appears) and verify
+    await options.changeThresholdLevels(3, 3000)
+    result = await options.getGroupAndTabData()
+
+    expect(result.groups.length).toBe(3)
+    expect(result.groups[0].title).toContain('Month+')
+    expect(result.groups[1].title).toContain('2 Weeks+')
+    expect(result.groups[2].title).toContain('Week+')
+
+    // 8. Verify grouped/ungrouped status remains valid
+    groupedTabs = result.tabs.filter(t => t.groupId !== -1 && t.groupId !== undefined)
+    ungroupedTabs = result.tabs.filter(t => t.groupId === -1 || t.groupId === undefined)
+
+    expect(groupedTabs.length).not.toBe(0)
+    expect(ungroupedTabs.length).not.toBe(0)
+
+    // 9. Change to 1 level and verify
     await options.changeThresholdLevels(1, 3000)
     result = await options.getGroupAndTabData()
 
     expect(result.groups.length).toBe(1)
     expect(result.groups[0].title).toContain('Week+')
 
-    // 8. Verify grouped/ungrouped status remains valid
+    // 10. Verify grouped/ungrouped status remains valid
     groupedTabs = result.tabs.filter(t => t.groupId !== -1 && t.groupId !== undefined)
     ungroupedTabs = result.tabs.filter(t => t.groupId === -1 || t.groupId === undefined)
 
-    expect(groupedTabs.length).toBeGreaterThan(0)
-    expect(ungroupedTabs.length).toBeGreaterThan(0)
+    expect(groupedTabs.length).not.toBe(0)
+    expect(ungroupedTabs.length).not.toBe(0)
   })
 
 })

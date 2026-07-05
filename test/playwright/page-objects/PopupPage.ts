@@ -20,6 +20,8 @@ export class PopupPage {
   private readonly openPluginOptionsBtn: Locator;
 
   constructor(public readonly page: Page) {
+    // ⚠️ GroupUngroup component renders with base testid (no "popup-btn-" prefix)
+    // Component uses dynamic: isGrouped ? 'ungroup-tabs-btn' : 'group-tabs-btn'
     this.groupTabsBtn = page.getByTestId('group-tabs-btn');
     this.openOptionsBtn = page.getByTestId('popup-btn-open-option-page');
     this.openPluginOptionsBtn = page.getByTestId('popup-btn-plugin-browser-option');
@@ -27,10 +29,16 @@ export class PopupPage {
 
   /**
    * Navigate to Popup page using extension ID.
+   * Uses waitForSelector to ensure Vue has hydrated before returning.
    */
   async goto(extensionId: string): Promise<void> {
     await this.page.goto(`chrome-extension://${extensionId}/popup.html`, {
       waitUntil: 'domcontentloaded',
+    });
+    // Wait for Vue to mount the GroupUngroup component in DOM
+    await this.page.waitForSelector('[data-testid="group-tabs-btn"]', {
+      state: 'attached',
+      timeout: 5000
     });
   }
 
@@ -57,20 +65,22 @@ export class PopupPage {
 
   /**
    * Verify all action buttons are visible.
+   * Uses global Playwright timeout (15000ms from config).
    */
   async expectAllButtonsVisible(): Promise<void> {
     await Promise.all([
-      expect(this.groupTabsBtn).toBeVisible({ timeout: 3000 }),
-      expect(this.openOptionsBtn).toBeVisible({ timeout: 3000 }),
-      expect(this.openPluginOptionsBtn).toBeVisible({ timeout: 3000 }),
+      expect(this.groupTabsBtn).toBeVisible(),
+      expect(this.openOptionsBtn).toBeVisible(),
+      expect(this.openPluginOptionsBtn).toBeVisible(),
     ]);
   }
 
   /**
    * Verify Group Tabs button is visible.
+   * Uses global Playwright timeout (15000ms from config).
    */
   async expectGroupButtonVisible(): Promise<void> {
-    await expect(this.groupTabsBtn).toBeVisible({ timeout: 3000 });
+    await expect(this.groupTabsBtn).toBeVisible();
   }
 
   /**
@@ -80,4 +90,3 @@ export class PopupPage {
     await this.page.close();
   }
 }
-

@@ -10,6 +10,7 @@ import { fakeBrowser } from 'wxt/testing/fake-browser'
 import { appStateStorage, mockOverrides } from '@/store/appStore.ts'
 import { BackgroundTabService } from '@/services/BackgroundTabService'
 import { DEFAULT_THRESHOLDS } from '@/models/AppThresholds'
+import { ThemeColor } from '@/constants'
 
 beforeEach(() => {
   fakeBrowser.reset()
@@ -44,8 +45,8 @@ describe('integration: background service + storage', () => {
     await appStateStorage.setValue({
       thresholds: {
         levels: [
-          { key: 'YOUNG', label: 'Young', days: 2, color: 'green' },
-          { key: 'OLD', label: 'Old', days: 10, color: 'red' },
+          { key: 'YOUNG', label: 'Young', days: 2, color: ThemeColor.Green },
+          { key: 'OLD', label: 'Old', days: 10, color: ThemeColor.Red },
         ],
         activeLevels: 2,
       },

@@ -1,62 +1,200 @@
 /* ─── Good Old Tabs – Global Design System ───────────────────────────────── */
-/* Orange-to-blue gradient theme shared across popup, options and content     */
 
-/* ── CSS Variables ─────────────────────────────────────────────────────── */
 :root {
-  --got-orange: #ff6d00;
-  --got-orange-light: #ff9e40;
-  --got-blue: #1565c0;
-  --got-blue-light: #42a5f5;
-  --got-bg-gradient: linear-gradient(135deg, #fff3e0 0%, #e3f2fd 100%);
-  --got-header-gradient: linear-gradient(90deg, var(--got-orange) 0%, var(--got-blue) 100%);
-  --got-btn-primary-gradient: linear-gradient(135deg, var(--got-orange-light) 0%, var(--got-orange) 100%);
-  --got-btn-secondary-gradient: linear-gradient(135deg, var(--got-blue-light) 0%, var(--got-blue) 100%);
+  /* ── Brand (icon.svg) colors ─────────────────────────────────────────── */
+  --got-brand-dark:   #633722;
+  --got-brand-gold:   #FFD083;
+  --got-orange:       #ff6d00;
+  --got-blue:         #1565c0;
+
+  /* ── ThemeColor base values ──────────────────────────────────────────── */
+  --got-green-base:   #66bb6a;
+  --got-blue-base:    #42a5f5;
+  --got-yellow-base:  #ffca28;
+  --got-orange-base:  #ff8a00;
+  --got-red-base:     #ef5350;
+  --got-pink-base:    #ec407a;
+  --got-purple-base:  #ab47bc;
+  --got-grey-base:    #9e9e9e;
+  --got-cyan-base:    #26c6da;
+
   --got-radius: 10px;
-  --got-shadow: 0 2px 12px 0 rgba(21, 101, 192, 0.10);
+  --got-header-gradient: linear-gradient(135deg, #ff6d00 0%, #1565c0 100%);
+  --got-warm-light: #F1B866;
+  --got-warm: #DF8638;
+  --got-cool-light: #55678B;
+  --got-cool: #3867A4;
 }
 
-/* ── App background ─────────────────────────────────────────────────────── */
 body, #app {
-  background: var(--got-bg-gradient) !important;
+  background: linear-gradient(135deg, #fff3e0 0%, #e3f2fd 100%);
   min-height: 100vh;
 }
 
-/* ── Primary action button (orange gradient) ────────────────────────────── */
+/* ── Primary Action (gold gradient — MOST PROMINENT CTA) ──────────────── */
 .got-btn-primary.q-btn {
-  background: var(--got-btn-primary-gradient) !important;
-  color: #fff !important;
+  background: linear-gradient(135deg, #ff8a00 0%, #ffca28 100%) !important;
+  color: #5a4a1a !important;
   border-radius: var(--got-radius) !important;
-  box-shadow: 0 2px 8px rgba(255, 109, 0, 0.25) !important;
-  font-weight: 600;
+  box-shadow: 0 6px 20px rgba(255, 138, 0, 0.6), 0 3px 8px rgba(0,0,0,0.3) !important;
+  font-weight: 700;
+  font-size: 1.05em !important;
+  padding: 10px 20px !important;
+  letter-spacing: 0.5px;
 }
-
 .got-btn-primary.q-btn:hover {
-  filter: brightness(1.08);
+  box-shadow: 0 8px 28px rgba(255, 138, 0, 0.75), 0 4px 12px rgba(0,0,0,0.35) !important;
+  transform: translateY(-2px);
+}
+.got-btn-primary.q-btn:active {
+  transform: translateY(0);
 }
 
-/* ── Secondary action button (blue gradient) ────────────────────────────── */
-.got-btn-secondary.q-btn {
-  background: var(--got-btn-secondary-gradient) !important;
-  color: #fff !important;
+/* ── Group (bold orange — most important CTA) ─────────────────────────── */
+.got-btn-amber.q-btn {
+  background: #d47a2a !important;
+  color: #5a4a1a !important;
   border-radius: var(--got-radius) !important;
-  box-shadow: 0 2px 8px rgba(21, 101, 192, 0.2) !important;
+  box-shadow: 0 4px 14px rgba(212, 122, 42, 0.45), 0 2px 4px rgba(0,0,0,0.2) !important;
   font-weight: 600;
 }
-
-.got-btn-secondary.q-btn:hover {
-  filter: brightness(1.08);
+.got-btn-amber.q-btn:hover {
+  box-shadow: 0 6px 20px rgba(212, 122, 42, 0.55), 0 3px 6px rgba(0,0,0,0.25) !important;
 }
 
-/* ── Subtle tertiary button ─────────────────────────────────────────────── */
-.got-btn-ghost.q-btn {
-  border: 1.5px solid var(--got-blue-light) !important;
-  color: var(--got-blue) !important;
+/* ── Ungroup (bold blue — second most important) ──────────────────────── */
+.got-btn-blue.q-btn {
+  background: var(--got-cool) !important;
+  color: #5a4a1a !important;
   border-radius: var(--got-radius) !important;
-  background: transparent !important;
+  box-shadow: 0 4px 14px rgba(56, 103, 164, 0.45), 0 2px 4px rgba(0,0,0,0.2) !important;
+  font-weight: 600;
+}
+.got-btn-blue.q-btn:hover {
+  box-shadow: 0 6px 20px rgba(56, 103, 164, 0.55), 0 3px 6px rgba(0,0,0,0.25) !important;
+}
+
+/* ── All Tabs Fresh (faded gold — disabled state) ──────────────────────── */
+.got-btn-primary-faded.q-btn {
+  background: linear-gradient(135deg, rgba(255, 138, 0, 0.4) 0%, rgba(255, 202, 40, 0.4) 100%) !important;
+  color: #5a4a1a !important;
+  border-radius: var(--got-radius) !important;
+  box-shadow: 0 2px 6px rgba(255, 138, 0, 0.15), 0 2px 4px rgba(0,0,0,0.1) !important;
+  font-weight: 600;
+}
+.got-btn-primary-faded.q-btn:hover {
+  background: linear-gradient(135deg, rgba(255, 138, 0, 0.55) 0%, rgba(255, 202, 40, 0.55) 100%) !important;
+  color: #5a4a1a !important;
+  box-shadow: 0 3px 8px rgba(255, 138, 0, 0.25), 0 2px 4px rgba(0,0,0,0.12) !important;
+}
+
+/* ── Already Grouped (brand blue — de-emphasized) ─────────────────────── */
+.got-btn-primary-blue-faded.q-btn {
+  background: linear-gradient(135deg, rgba(56, 103, 164, 0.4) 0%, rgba(66, 165, 245, 0.4) 100%) !important;
+  color: #1a3a5a !important;
+  border-radius: var(--got-radius) !important;
+  box-shadow: 0 2px 6px rgba(56, 103, 164, 0.2), 0 2px 4px rgba(0,0,0,0.1) !important;
+  font-weight: 600;
+}
+.got-btn-primary-blue-faded.q-btn:hover {
+  background: linear-gradient(135deg, rgba(56, 103, 164, 0.55) 0%, rgba(66, 165, 245, 0.55) 100%) !important;
+  color: #1a3a5a !important;
+  box-shadow: 0 3px 10px rgba(56, 103, 164, 0.3), 0 2px 4px rgba(0,0,0,0.15) !important;
+}
+
+/* ── Refresh (muted teal) ─────────────────────────────────────────────── */
+.got-btn-cyan.q-btn {
+  background: rgba(122, 181, 196, 0.6) !important;
+  color: #5a4a1a !important;
+  border-radius: var(--got-radius) !important;
+  box-shadow: 0 3px 8px rgba(122, 181, 196, 0.25), 0 2px 4px rgba(0,0,0,0.15) !important;
   font-weight: 500;
 }
-
-.got-btn-ghost.q-btn:hover {
-  background: rgba(66, 165, 245, 0.10) !important;
+.got-btn-cyan.q-btn:hover {
+  background: rgba(122, 181, 196, 0.85) !important;
+  box-shadow: 0 4px 12px rgba(122, 181, 196, 0.4), 0 3px 6px rgba(0,0,0,0.2) !important;
 }
 
+/* ── Create mocks (faded yellow) ──────────────────────────────────────── */
+.got-btn-yellow.q-btn {
+  background: rgba(255, 202, 40, 0.45) !important;
+  color: #5a4a1a !important;
+  border-radius: var(--got-radius) !important;
+  box-shadow: 0 2px 6px rgba(255, 202, 40, 0.15), 0 2px 4px rgba(0,0,0,0.12) !important;
+  font-weight: 500;
+}
+.got-btn-yellow.q-btn:hover {
+  background: rgba(255, 202, 40, 0.7) !important;
+  box-shadow: 0 3px 10px rgba(255, 202, 40, 0.3), 0 3px 6px rgba(0,0,0,0.18) !important;
+}
+
+/* ── Close all (faded red) ────────────────────────────────────────────── */
+.got-btn-red.q-btn {
+  background: rgba(239, 83, 80, 0.5) !important;
+  color: #5a4a1a !important;
+  border-radius: var(--got-radius) !important;
+  box-shadow: 0 2px 6px rgba(239, 83, 80, 0.15), 0 2px 4px rgba(0,0,0,0.12) !important;
+  font-weight: 500;
+}
+.got-btn-red.q-btn:hover {
+  background: rgba(239, 83, 80, 0.75) !important;
+  box-shadow: 0 3px 10px rgba(239, 83, 80, 0.35), 0 3px 6px rgba(0,0,0,0.2) !important;
+}
+
+/* ── Delete/Info (grey background with red icon) ────────────────────────── */
+.got-btn-grey-info.q-btn {
+  background: rgba(158, 158, 158, 0.4) !important;
+  border-radius: var(--got-radius) !important;
+  box-shadow: 0 2px 6px rgba(158, 158, 158, 0.2), 0 2px 4px rgba(0,0,0,0.1) !important;
+  font-weight: 500;
+}
+.got-btn-grey-info.q-btn:hover {
+  background: rgba(158, 158, 158, 0.6) !important;
+  box-shadow: 0 3px 10px rgba(158, 158, 158, 0.3), 0 3px 6px rgba(0,0,0,0.15) !important;
+}
+.got-btn-grey-info.q-btn .q-icon {
+  color: #ef5350 !important;
+}
+
+/* ── Ghost (light outline) ───────────────────────────────────────────── */
+.got-btn-ghost.q-btn {
+  background: transparent !important;
+  color: #666 !important;
+  border: 1px solid #ddd !important;
+  border-radius: var(--got-radius) !important;
+  font-weight: 500;
+}
+.got-btn-ghost.q-btn:hover {
+  background: rgba(0, 0, 0, 0.03) !important;
+  border-color: #999 !important;
+}
+
+/* ── Save Backup (faded green) ──────────────────────────────────────── */
+.got-btn-green.q-btn {
+  background: rgba(102, 187, 106, 0.5) !important;
+  color: #5a4a1a !important;
+  border-radius: var(--got-radius) !important;
+  box-shadow: 0 2px 6px rgba(102, 187, 106, 0.15), 0 2px 4px rgba(0,0,0,0.12) !important;
+  font-weight: 500;
+}
+.got-btn-green.q-btn:hover {
+  background: rgba(102, 187, 106, 0.75) !important;
+  box-shadow: 0 3px 10px rgba(102, 187, 106, 0.3), 0 3px 6px rgba(0,0,0,0.18) !important;
+}
+
+/* ── Restore Tabs (faded pink) ──────────────────────────────────────── */
+.got-btn-pink.q-btn {
+  background: rgba(236, 64, 122, 0.5) !important;
+  color: #5a4a1a !important;
+  border-radius: var(--got-radius) !important;
+  box-shadow: 0 2px 6px rgba(236, 64, 122, 0.15), 0 2px 4px rgba(0,0,0,0.12) !important;
+  font-weight: 500;
+}
+.got-btn-pink.q-btn:hover {
+  background: rgba(236, 64, 122, 0.75) !important;
+  box-shadow: 0 3px 10px rgba(236, 64, 122, 0.3), 0 3px 6px rgba(0,0,0,0.18) !important;
+}
+
+/* ── Table with brand palette ─────────────────────────────────────────── */
+
+/* option page table uses got-brand for borders & accent */

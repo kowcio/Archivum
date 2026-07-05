@@ -5,6 +5,31 @@ stack: "WXT 0.20+ · Vue 3.5 · TypeScript 5.8 · Pinia 3 · Quasar 2 · Vitest 
 
 # Project Instructions
 
+
+# Self improvvement instructions
+If You see that we are working on things for a longer time when You see a proper FIX that you should add to this instructions
+improve them. Add here instruction for the future that should be a self improvement.
+
+## Dev Features Configuration (Vite + WXT)
+
+**Setup**: `DEV_FEATURES` environment variable controls dev mode visibility
+
+**Chain of responsibility**:
+1. **package.json** (dev commands): Set `cross-env DEV_FEATURES=true` for dev, `DEV_FEATURES=false` for production
+   - Dev: `npm run dev` → `DEV_FEATURES=true wxt ...`
+   - Build: `npm run build` → `DEV_FEATURES=false wxt ...`
+   - Test: `npm run build:test` → `DEV_FEATURES=true wxt ...`
+
+2. **wxt.config.ts** (line 143): Pass env var to Vite
+   - `'import.meta.env.VITE_DEV_FEATURES': JSON.stringify(process.env.DEV_FEATURES || 'false')`
+   - Reads `DEV_FEATURES` env var, assigns to `import.meta.env.VITE_DEV_FEATURES`
+
+3. **constants.ts** (line 100): Check in code
+   - `export const isDevEnv = import.meta.env?.VITE_DEV_FEATURES === 'true'`
+   - Use to gate dev components: `v-if="isDevEnv"`
+
+**Remember**: Use `DEV_FEATURES` (not `VITE_DEV_FEATURES`) in package.json commands! 
+
 ## Architecture
 
 ```
@@ -25,29 +50,31 @@ background.ts (service worker — NO Pinia)
 | **Daily alarm (24h)** | BackgroundTabService.groupTabsByAge() → creates groups from youngest to oldest (left-to-right) | Chrome + Edge only; Firefox skips gracefully |
 | **Tab activated in group** | BackgroundTabService.onTabActivated() → ungroup + move to rightmost + update lastAccessed | ✅ All browsers (Firefox has no ungroup API, skips step 1) |
 | **Tab order** | **Groups:** Youngest (7 days, left) → Oldest (365+ days, right). **Fresh tabs:** Stay in original positions (rightmost, ungrouped) | ✅ All browsers |
-| **Group titles** | `Week+`, `2 Weeks+`, `Month+`, `Quarter+`, `Are you kidding me?` — youngest to oldest | Chrome + Edge only |
+| **Group titles** | `Week+`, `2 Weeks+`, `Month+`, `Quarter+`, `Are You kidding me?` — youngest to oldest | Chrome + Edge only |
 
 ## Universal Rules
 
-| Rule | Detail |
-|---|---|
-| **GroupBy Age Order** | Iterate FORWARD `for (i=0; i<activeLevels.length; i++)` to create groups youngest→oldest (left-to-right). Fresh tabs stay in place, NOT moved to rightmost. |
-| **Vue** | `<script setup lang="ts">` only — no Options API |
-| **Pinia** | `type State`, `loading` + `error: string \| null` in every store |
-| **Browser** | Use unified `browser` API from `wxt/browser` everywhere — works Chrome + Firefox + Edge. Feature detect for Chrome-only APIs (`tabGroups`). Never mix `chrome` and `browser`. **Import rule:** `import { browser } from 'wxt/browser'` (runtime) + `import type { Browser } from 'wxt/browser'` (type namespace, np. `Browser.tabs.Tab[]`). WXT v0.20+ uses `@types/chrome` — namespace to `Browser`, nie `Tabs` |
-| **Storage** | Use `browser.storage` via `tabStorageItem` in background + UI (unified approach). Background writes, UI reads only |
-| **Tests** | Vitest (unit/jsdom) + Playwright (E2E/real Chromium) |
-| **UI** | Quasar: `q-btn`, `q-table`, `q-tooltip`; project CSS: `got-*` from `global.css` |
-| **No destructuring** | `const { x } = obj` ❌ → use `obj.x` (explicit, grep-safe) |
-| **No docs** | NEVER auto-generate `*.md` files. ONLY create `*.md` if user explicitly asks ("create doc", "write guide", etc). Can update existing docs if requested. Saves tokens for code work. |
-| **No Pinia in background** | background.ts has no Vue context — use `browser` API from `wxt/browser`. Callbacks only (no promises) for MV3 service worker compatibility |
-| **No setInterval** | Use `browser.alarms` — service workers suspend ~30s (MV3 constraint) |
-| **L-brackets deprecated** | LBracketService exists for future use but is NOT active — use tab groups |
-| **Token economy** | Code + SHORT explanation only — no long descriptions, no helper scripts |
-| **Minimalism** | Answer query directly — no "how to use" essays, no verbose summaries |
-| **Test assertions** | NEVER use `>`, `<`, `toBeGreaterThan()`, `toBeLessThan()`, `toBeGreaterThanOrEqual()`, `toBeLessThanOrEqual()` — always assert **exact values** with `toBe()`, `toEqual()`. No approximations. |
-| **Test simplicity** | Minimize test steps: only test one core behavior per test. Use minimal clicks/setup. Focus on what you're testing, not side effects. |
-| **Playwright POM** | E2E tests MUST use Page Object Models (test/playwright/page-objects/). Keep locators/waits hidden in POM. Tests read like one-liners: `await options.clickGroupTabs()` not raw Playwright. See test/playwright/README.md |
+| Rule                       | Detail                                                                                                                                                                                                                                                                                                                                                                                                           |
+|----------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| **GroupBy Age Order**      | Iterate FORWARD `for (i=0; i<activeLevels.length; i++)` to create groups youngest→oldest (left-to-right). Fresh tabs stay in place, NOT moved to rightmost.                                                                                                                                                                                                                                                      |
+| **Vue**                    | `<script setup lang="ts">` only — no Options API                                                                                                                                                                                                                                                                                                                                                                 |
+| **Pinia**                  | `type State`, `loading` + `error: string \| null` in every store                                                                                                                                                                                                                                                                                                                                                 |
+| **Browser**                | Use unified `browser` API from `wxt/browser` everywhere — works Chrome + Firefox + Edge. Feature detect for Chrome-only APIs (`tabGroups`). Never mix `chrome` and `browser`. **Import rule:** `import { browser } from 'wxt/browser'` (runtime) + `import type { Browser } from 'wxt/browser'` (type namespace, np. `Browser.tabs.Tab[]`). WXT v0.20+ uses `@types/chrome` — namespace to `Browser`, nie `Tabs` |
+| **Storage**                | Use `browser.storage` via `tabStorageItem` in background + UI (unified approach). Background writes, UI reads only                                                                                                                                                                                                                                                                                               |
+| **Tests**                  | Vitest (unit/jsdom) + Playwright (E2E/real Chromium)                                                                                                                                                                                                                                                                                                                                                             |
+| **UI**                     | Quasar: `q-btn`, `q-table`, `q-tooltip`; project CSS: `got-*` from `global.css`                                                                                                                                                                                                                                                                                                                                  |
+| **No destructuring**       | `const { x } = obj` ❌ → use `obj.x` (explicit, grep-safe)                                                                                                                                                                                                                                                                                                                                                        |
+| **No docs**                | NEVER auto-generate `*.md` files. ONLY create `*.md` if user explicitly asks ("create doc", "write guide", etc). Can update existing docs if requested. Saves tokens for code work.                                                                                                                                                                                                                              |
+| **No Pinia in background** | background.ts has no Vue context — use `browser` API from `wxt/browser`. Callbacks only (no promises) for MV3 service worker compatibility                                                                                                                                                                                                                                                                       |
+| **No setInterval**         | Use `browser.alarms` — service workers suspend ~30s (MV3 constraint)                                                                                                                                                                                                                                                                                                                                             |
+| **L-brackets deprecated**  | LBracketService exists for future use but is NOT active — use tab groups                                                                                                                                                                                                                                                                                                                                         |
+| **Firefox MV3 Manifest**   | ⭐ **CRITICAL**: Use browser-specific build hook in `wxt.config.ts` to manage `background`. Firefox uses `scripts[]` only; Chrome/Edge use `service_worker`. Mozilla requires `data_collection_permissions` inside `browser_specific_settings.gecko` (not root). Set `strict_min_version: 142.0` for Android 142+ support. See `UPLOAD_READY.md` and hook at `wxt.config.ts:64-83` |
+| **Token economy**          | Code + SHORT explanation only — no long descriptions, no helper scripts                                                                                                                                                                                                                                                                                                                                          |
+| **Minimalism**             | Answer query directly — no "how to use" essays, no verbose summaries                                                                                                                                                                                                                                                                                                                                             |
+| **Test assertions**        | NEVER use `>`, `<`, `toBeGreaterThan()`, `toBeLessThan()`, `toBeGreaterThanOrEqual()`, `toBeLessThanOrEqual()` — always assert **exact values** with `toBe()`, `toEqual()`. No approximations.                                                                                                                                                                                                                   |
+| **Test simplicity**        | Minimize test steps: only test one core behavior per test. Use minimal clicks/setup. Focus on what you're testing, not side effects.                                                                                                                                                                                                                                                                             |
+| **Playwright POM**         | E2E tests MUST use Page Object Models (test/playwright/page-objects/). Keep locators/waits hidden in POM. Tests read like one-liners: `await options.clickGroupTabs()` not raw Playwright. See test/playwright/README.md                                                                                                                                                                                         |
+| **Component work**         | Remember to register new quasar compoennts and check if they are propely available.                                                                                                                                                                                                                                                                                                                              |
 
 ## Tab Age Management
 
@@ -206,6 +233,7 @@ await options.expectGroupCountEqual(3);
 - ✅ Use `page.evaluate()` + `chrome.runtime.sendMessage()` for SW calls
 - ✅ Monitor `[SW_LOG]` output in test runs
 - ✅ Add descriptive console.log() in background.ts and services
+- NEVER create DEAD CODE !! always check if the created code is actualyl used somewhere
 - ❌ Don't try VSCode breakpoints on service worker code
 - ❌ Don't assume synchronous execution—always use Promises/callbacks
 - ❌ Don't try to navigate to `background.html`—it's not accessible from UI

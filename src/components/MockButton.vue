@@ -1,10 +1,11 @@
 <template>
   <div data-testid="mock-button">
     <q-btn
-      :label="`Mock tabs -> ${mocksCount}`"
+      :label="`Create mocks (${mocksCount})`"
       data-testid="mock-tabs"
       icon="science"
-      color="grey-7"
+      class="got-btn-yellow"
+      unelevated
       :loading="loading"
       @click="createMockWithPreset()"
     />
@@ -15,10 +16,25 @@
 import { ref, onMounted } from 'vue'
 import { browser } from 'wxt/browser'
 import { BACKGROUND_MESSAGE_ACTIONS } from '@/constants'
-import { mockOverrides } from '@/store/appStore'
 import { MOCK_TABS } from '@/utils/mockTabData'
 
 const emit = defineEmits<{
+  /**
+   * Fired after mock tabs are successfully created with backdated timestamps.
+   *
+   * Parent components should listen and refresh their state:
+   * @example
+   * <MockButton @mock-created="refreshTabs" />
+   *
+   * Flow:
+   * 1. User clicks "Create mocks"
+   * 2. BackgroundTabService creates REAL tabs + sets mock overrides in storage
+   * 3. MockButton emits 'mock-created'
+   * 4. Parent catches event and refreshes (e.g., calls refreshTabs())
+   * 5. UI updates with new mock tabs showing correct ages
+   *
+   * @event mock-created
+   */
   (e: 'mock-created'): void
 }>()
 
@@ -43,20 +59,7 @@ async function createMockWithPreset(): Promise<void> {
       return
     }
 
-    const now = Date.now()
-    const DAY_MS = 86400000
-    const newOverrides: Record<number, number> = {}
-
-    // Load ages from MOCK_TABS
-    tabs.forEach((tab: any, i: number) => {
-      if (tab.id != null) {
-        const mockDaysAgo = MOCK_TABS[i]?.daysAgo ?? 40
-        newOverrides[tab.id] = now - mockDaysAgo * DAY_MS
-      }
-    })
-    console.log(`[MockButton] Applied MOCK_TABS data: ${Object.keys(newOverrides).length} tabs`)
-
-    await mockOverrides.setValue(newOverrides)
+    console.log(`[MockButton] ✅ Created ${tabs.length} mock tabs with backdated timestamps`)
     emit('mock-created')
   } catch (err) {
     console.error('[MockButton] Error:', err)

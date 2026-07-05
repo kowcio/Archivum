@@ -8,7 +8,8 @@
     "lib": ["dom"],
     "types": [
       "node",
-      "chrome"
-    ]
+          "chrome",
+          "vite/client"
+        ]
   }
 }

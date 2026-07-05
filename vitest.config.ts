@@ -16,6 +16,9 @@ export default defineConfig({
       'src': path.resolve(__dirname, 'src'),
     },
   },
+  define: {
+    'import.meta.env.VITE_DEV_FEATURES': JSON.stringify('true'),
+  },
   test: {
     environment: 'happy-dom',
     include: ['test/unit/**/*.spec.{js,ts,vue}'],

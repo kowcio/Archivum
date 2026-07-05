@@ -1,9 +1,11 @@
 <template>
   <div class="got-title-bar">
     <div class="row title-row">
-<!--      <span class="got-title-icon">🕰️</span>-->
       <img class="got-title-icon" src="../assets/icon.png" alt="Archivum plugin" width="64"></img>
-      <h1 class="got-title">Archivum</h1>
+      <div class="title-content">
+        <h1 class="got-title">Archivum</h1>
+        <p class="got-title got-tagline">Tab manager to clear your mind</p>
+      </div>
     </div>
     <div class="row">
       <span class="got-version q-ml-auto">v{{ version }}</span>
@@ -34,14 +36,23 @@ const version = APP_CONSTANTS.APP_VERSION
   line-height: 1.2;
 }
 
+.got-tagline {
+  font-size: 0.75rem;
+  color: #ff6d00;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  margin: 0;
+  padding: 2px 0 0 0;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
 
 .got-title-bar {
-  align-items: center;
-  padding: 10px;
+  padding: 20px 20px 0px 20px;
   background: linear-gradient(90deg, rgba(255, 109, 0, 0.08) 0%, rgba(21, 101, 192, 0.08) 100%);
-  border-bottom: 4px solid;
+  border-bottom: 2px solid;
   border-image: var(--got-header-gradient) 1;
-  margin-bottom: 12px;
 }
 
 
@@ -54,6 +65,12 @@ const version = APP_CONSTANTS.APP_VERSION
   display: flex;
   align-items: center;
   gap: 0.6rem;
+}
+
+.title-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
 }
 
 /* ── Version badge ──────────────────────────────────────────────────────── */

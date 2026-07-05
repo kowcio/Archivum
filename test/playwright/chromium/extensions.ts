@@ -1,12 +1,18 @@
 /**
  * Launch Chrome MV3 extension context for Playwright E2E tests.
  * Firefox MV3 unsigned extensions cannot be loaded via Playwright.
+ *
+ * NOTE: DEV_FEATURES=true must be set so isDevEnv evaluates to true in test builds.
+ * Run build with:  $env:DEV_FEATURES='true'; npm run build-only
+ * Then run tests:  npx playwright test --project chrome-mv3
+ *
+ * This enables dev-only components (MockButton, CloseAllTabsButton) in the extension.
  */
 import { chromium, test, type BrowserContext } from "@playwright/test";
+
 import fs from "fs";
 import path from "path";
 import crypto from "crypto";
-import { OptionsPage } from "../page-objects/OptionsPage.js";
 
 // ✅ Shared context type for all tests
 export type ExtensionTestContext = {
@@ -58,6 +64,46 @@ export async function launchChromeContext(): Promise<ExtensionTestContext> {
 }
 
 /**
+ * Setup service worker console logging for debugging.
+ * Captures all console messages from the background service worker.
+ *
+ * ⚡ Handles SW restarts: attaches to existing workers AND listens
+ *    for new ones via context.on('serviceworker').
+ *
+ * NOTE: Does NOT set up page-level console capture (separate from SW),
+ * because context.on('page') fires for every extension-created page
+ * (including mock tabs), adding duplicate listeners.
+ * Use page.on('console') explicitly in tests if needed.
+ *
+ * Usage: Call this in beforeAll hook to monitor SW execution.
+ */
+export function setupServiceWorkerLogging(context: BrowserContext): void {
+  function attachWorkerLogging(worker: any): void {
+    worker.on('console', (msg: any) => {
+      const type = msg.type();
+      const text = msg.text();
+      // Only log actual service worker messages (contain [BackgroundTabService] or similar markers)
+      if (text.includes('[') && text.includes(']')) {
+        const prefix = type === 'error' ? '[SW_ERROR]' : '[SW_LOG]';
+        console.log(`${prefix} ${text}`);
+      }
+    });
+  }
+
+  // Attach to any existing workers
+  for (const worker of context.serviceWorkers()) {
+    attachWorkerLogging(worker);
+  }
+
+  // Listen for future SW restarts (MV3 suspends/resumes workers)
+  context.on('serviceworker', (worker: any) => {
+    attachWorkerLogging(worker);
+  });
+
+  console.log('[Test] Service worker logging enabled');
+}
+
+/**
  * ✅ Setup helper for all extension tests
  * Automatically sets timeout, skips non-Chrome, launches context, enables logging
  * @param withServiceWorkerLogging - Enable service worker console logging (default: true)
@@ -73,9 +119,8 @@ export async function setupExtensionTest(
   const ctx = await launchChromeContext();
 
   if (withServiceWorkerLogging) {
-    OptionsPage.setupServiceWorkerLogging(ctx.context);
+    setupServiceWorkerLogging(ctx.context);
   }
 
   return ctx;
 }
-

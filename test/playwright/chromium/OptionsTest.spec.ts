@@ -9,20 +9,15 @@
  *
  * Flow: No mocks, uses natural tabs from browser
  */
-import { expect, test, type BrowserContext } from "@playwright/test";
-import { launchChromeContext } from "./extensions.js";
+import { expect, test } from "@playwright/test";
+import { setupExtensionTest, type ExtensionTestContext } from "./extensions.js";
 import { OptionsPage } from "../page-objects/OptionsPage.js";
 
-type ExtensionCtx = { context: BrowserContext; extensionId: string; cleanup: () => Promise<void> };
-
 test.describe("Options Page Tests", () => {
-  let ctx: ExtensionCtx;
+  let ctx: ExtensionTestContext;
 
   test.beforeAll("Setup: launch Chrome context with extension", async () => {
-    test.skip(test.info().project.name !== "chrome-mv3", "Chrome MV3 only");
-    test.setTimeout(30_000);
-    ctx = await launchChromeContext();
-    OptionsPage.setupServiceWorkerLogging(ctx.context);
+    ctx = await setupExtensionTest(false);
   });
 
   test.afterAll("Cleanup: close extension context", async () => {
@@ -32,7 +27,15 @@ test.describe("Options Page Tests", () => {
   test("1a options page loads with all components", async () => {
     const options = new OptionsPage(await ctx.context.newPage());
     await options.goto(ctx.extensionId);
-    await options.expectPageLoaded();
+
+    // Wait for page to fully load and render all components
+    await options.page.waitForLoadState('networkidle');
+
+    // Verify core UI elements are present (table is more reliable than Quasar buttons)
+    await options.expectTableVisible();
+    await options.expectThresholdsVisible();
+
+    console.log("   ✓ Page loaded with all main components visible");
     await options.close();
   });
 
@@ -57,40 +60,32 @@ test.describe("Options Page Tests", () => {
     await options.close();
   });
 
-  test("3a close all tabs button reduces tab count", async () => {
+  test("3a close all tabs — 2 tabs → mock 14 → close all → 1 tab", async () => {
     const options = new OptionsPage(await ctx.context.newPage());
     await options.goto(ctx.extensionId);
 
-    let initialTabsCount = 0;
+    // 1. Initial: native new tab + options page = 2
+    let tabs1 = await options.queryAllTabs();
+    expect(tabs1.length).toBe(2);
+    console.log(`   → Initial tabs: ${tabs1.length}`);
 
-    await test.step("Get initial tab count", async () => {
-      const tabs = await options.queryAllTabs();
-      initialTabsCount = tabs.filter(t => !t.url?.includes("options.html")).length;
-      console.log(`   → Initial tabs (excluding options): ${initialTabsCount}`);
-    });
+    // 2. Click mock → 2 + 14 = 16 tabs
+    const mock = await options.clickLoadMockTabs(1000);
+    expect(mock.ok).toBe(true);
 
-    // Skip if no tabs to close
-    if (initialTabsCount === 0) {
-      console.log("   ⊘ No tabs to close, test skipped");
-      await options.close();
-      return;
-    }
+    let tabs2 = await options.queryAllTabs();
+    expect(tabs2.length).toBe(16);
+    console.log(`   → After mock: ${tabs2.length} tabs`);
 
-    await test.step("Click Close All Tabs button", async () => {
-      await options.clickCloseAllTabs();
-      await options.page.waitForTimeout(2000);
-    });
+    // 3. Close all other → only active (options page) stays
+    await options.clickCloseAllTabs();
+    await options.page.waitForTimeout(1500);
 
-    await test.step("Verify CloseAllTabs was called", async () => {
-      const remainingTabs = await options.queryAllTabs();
-      const remainingNonOptions = remainingTabs.filter(t => !t.url?.includes("options.html")).length;
-      // Test passed if close button was clicked (functional test)
-      expect(remainingTabs.length).toBe(remainingTabs.length);
-      console.log(`   → Close All Tabs executed: ${initialTabsCount} → ${remainingNonOptions} remaining`);
-    });
-
+    let tabs3 = await options.queryAllTabs();
+    tabs3.forEach(tab => console.log(`   → Remaining tab: ${tab.groupId} | ${tab.url}`));
+    expect(tabs3.length).toBe(1);
+    console.log(`   → After close all: ${tabs3.length} tab`);
     await options.close();
   });
+
 });
-
-

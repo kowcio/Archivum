@@ -9,7 +9,7 @@
  *   ✅ getTabs()
  *   ✅ createMockTabs()
  *   ✅ hasPluginGroups()
- *   ✅ groupTabsByDomain()
+ *   ✅ sortTabsByDomain()
  *
  * Uses fakeBrowser for efficient testing without real browser context.
  * Mock data from mockTabData.ts provides realistic test scenarios.
@@ -20,6 +20,7 @@ import { fakeBrowser } from 'wxt/testing/fake-browser'
 import { BackgroundTabService } from '@/services/BackgroundTabService'
 import { mockOverrides } from '@/store/appStore.ts'
 import { AgeClassification } from '@/models/AgeClassification'
+import { ThemeColor } from '@/constants'
 
 describe('BackgroundTabService', () => {
   beforeEach(async () => {
@@ -151,11 +152,13 @@ describe('BackgroundTabService', () => {
        const activeLevels = thresholds.active()
        const boundaries = thresholds.toBoundaries()
 
-       // With default APP_DEFAULTS: activeLevels = 3, boundaries = [7, 14, 28]
-       expect(activeLevels.length).toBe(3)
+       // With default APP_DEFAULTS: activeLevels = 5, boundaries = [7, 14, 28, 90, 365]
+       expect(activeLevels.length).toBe(5)
        expect(boundaries[0]).toBe(7)
        expect(boundaries[1]).toBe(14)
        expect(boundaries[2]).toBe(28)
+       expect(boundaries[3]).toBe(90)
+       expect(boundaries[4]).toBe(365)
 
        // Create tabs spanning ALL age levels
        const freshTab1 = await fakeBrowser.tabs.create({ url: 'https://example.com/fresh-1' })
@@ -226,12 +229,12 @@ describe('BackgroundTabService', () => {
        expect(afterBoundary15Days.index).toBe(2)
 
        // ─ Test that activeLevels count matches expected
-       expect(activeLevels.length).toBe(3)
+       expect(activeLevels.length).toBe(5)
 
        // ─ Test color assignment for each level
-       expect(activeLevels[0].color).toBe('green')
-       expect(activeLevels[1].color).toBe('blue')
-       expect(activeLevels[2].color).toBe('orange')
+       expect(activeLevels[0].color).toBe(ThemeColor.Green)
+       expect(activeLevels[1].color).toBe(ThemeColor.Blue)
+       expect(activeLevels[2].color).toBe(ThemeColor.Orange)
 
        // ─ Verify labels match expected threshold names
        expect(activeLevels[0].label).toBe('Week+')
@@ -409,17 +412,17 @@ describe('BackgroundTabService', () => {
   })
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // GROUPTABSBYDOMAIN TESTS
+  // sortTabsByDomain TESTS
   // ═══════════════════════════════════════════════════════════════════════════
-  describe('groupTabsByDomain()', () => {
+  describe('sortTabsByDomain()', () => {
     it('should return 0 when no tabs exist', async () => {
-      const count = await BackgroundTabService.groupTabsByDomain()
+      const count = await BackgroundTabService.sortGroupsByDomain()
       expect(count).toBe(0)
     })
 
     it('should handle single tab gracefully', async () => {
       await fakeBrowser.tabs.create({ url: 'https://example.com' })
-      const count = await BackgroundTabService.groupTabsByDomain()
+      const count = await BackgroundTabService.sortGroupsByDomain()
       // Single tab = no group needed
       expect(count).toBe(0)
     })
@@ -429,7 +432,7 @@ describe('BackgroundTabService', () => {
       await fakeBrowser.tabs.create({ url: 'https://example.com/2' })
       await fakeBrowser.tabs.create({ url: 'https://github.com' })
 
-      const count = await BackgroundTabService.groupTabsByDomain()
+      const count = await BackgroundTabService.sortGroupsByDomain()
       // May create 0-2 groups depending on browser support
       expect(count).toBeGreaterThanOrEqual(0)
     })
@@ -440,7 +443,7 @@ describe('BackgroundTabService', () => {
       await fakeBrowser.tabs.create({ url: 'https://apple.com' })
       await fakeBrowser.tabs.create({ url: 'https://banana.com' })
 
-      const count = await BackgroundTabService.groupTabsByDomain()
+      const count = await BackgroundTabService.sortGroupsByDomain()
       // Groups created in alphabetical order (apple < banana < zebra)
       expect(count).toBeGreaterThanOrEqual(0)
     })
@@ -461,7 +464,7 @@ describe('BackgroundTabService', () => {
         [tabs[2].id!]: now - 10 * DAY_MS,
       })
 
-      const count = await BackgroundTabService.groupTabsByDomain()
+      const count = await BackgroundTabService.sortGroupsByDomain()
       // Within domain: 20d, 10d, 5d (oldest first)
       expect(count).toBeGreaterThanOrEqual(0)
     })
@@ -479,7 +482,7 @@ describe('BackgroundTabService', () => {
         [tabs[1].id!]: now - DAY_MS,
       })
 
-      const count = await BackgroundTabService.groupTabsByDomain()
+      const count = await BackgroundTabService.sortGroupsByDomain()
       expect(count).toBeGreaterThanOrEqual(0)
     })
 
@@ -492,7 +495,7 @@ describe('BackgroundTabService', () => {
       await fakeBrowser.tabs.create({ url: 'https://github.com/2' })
       await fakeBrowser.tabs.create({ url: 'https://npm.com' })
 
-      const count = await BackgroundTabService.groupTabsByDomain()
+      const count = await BackgroundTabService.sortGroupsByDomain()
       expect(count).toBeGreaterThanOrEqual(0)
     })
 
@@ -500,7 +503,7 @@ describe('BackgroundTabService', () => {
       await fakeBrowser.tabs.create({ url: 'https://example.com' })
       await fakeBrowser.tabs.create({ url: 'not-a-valid-url' })
 
-      const count = await BackgroundTabService.groupTabsByDomain()
+      const count = await BackgroundTabService.sortGroupsByDomain()
       expect(count).toBeGreaterThanOrEqual(0)
     })
 
@@ -520,7 +523,7 @@ describe('BackgroundTabService', () => {
         [tabs[2].id!]: now - 15 * DAY_MS,
       })
 
-      const count = await BackgroundTabService.groupTabsByDomain()
+      const count = await BackgroundTabService.sortGroupsByDomain()
       // Should not throw, regardless of grouping success
       expect(count).toBeGreaterThanOrEqual(0)
     })
@@ -539,7 +542,7 @@ describe('BackgroundTabService', () => {
       const ageCount = await BackgroundTabService.groupTabsByAge()
       expect(ageCount).toBeGreaterThanOrEqual(0)
 
-      const domainCount = await BackgroundTabService.groupTabsByDomain()
+      const domainCount = await BackgroundTabService.sortGroupsByDomain()
       expect(domainCount).toBeGreaterThanOrEqual(0)
     })
   })
@@ -551,7 +554,7 @@ describe('BackgroundTabService', () => {
     it('should not throw on empty operations', async () => {
       await expect(BackgroundTabService.groupTabsByAge()).resolves.not.toThrow()
       await expect(BackgroundTabService.ungroupAllTabs()).resolves.not.toThrow()
-      await expect(BackgroundTabService.groupTabsByDomain()).resolves.not.toThrow()
+      await expect(BackgroundTabService.sortGroupsByDomain()).resolves.not.toThrow()
     })
 
 
