@@ -33,10 +33,7 @@ jobs:
       - name: Unit tests (Vitest)
         run: npm run test:unit
 
-      - name: E2E tests - Playwright (Chrome)
-        run: npm run test:playwright:chromium
-
-      - name: Build extensions
+      - name: Build extensions (PRODUCTION MODE - DEV_FEATURES=false)
         run: npm run build
 
       - name: Create ZIP archives
@@ -47,6 +44,9 @@ jobs:
 
       - name: Firefox manifest validation
         run: npx web-ext lint --source-dir .output/firefox-mv3
+
+      - name: E2E tests - Playwright (DEVELOPER MODE - DEV_FEATURES=true)
+        run: npm run test:playwright:chromium
 
       - name: Upload extension builds
         uses: actions/upload-artifact@v4
@@ -88,6 +88,8 @@ jobs:
         run: npx playwright install chromium firefox
 
       - name: Run release build
+        # Note: Playwright tests already ran in DEV_FEATURES=true mode during build-and-test job
+        # This release job only creates production ZIPs (DEV_FEATURES=false)
         run: npm run release
 
       - name: Extract version from tag
