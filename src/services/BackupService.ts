@@ -76,9 +76,9 @@ export class BackupService {
 
      console.log('[BackupService] Restoring tabs from backup:', { tabCount: backup.tabs.length, groupCount: backup.groups.length })
 
-     const allTabs = await browser.tabs.query({ currentWindow: true })
-     const extensionId = browser.runtime.getURL('')
-     const tabsToClose = allTabs.filter((t) => !t.url?.startsWith(extensionId)).map((t) => t.id!)
+      const allTabs = await browser.tabs.query({ currentWindow: true })
+      const extensionId = (browser.runtime as any).getURL('')
+      const tabsToClose = allTabs.filter((t) => !t.url?.startsWith(extensionId)).map((t) => t.id!)
      if (tabsToClose.length > 0) await browser.tabs.remove(tabsToClose)
 
       const restoredTabs: { tabId: number; originalGroupId?: number }[] = []

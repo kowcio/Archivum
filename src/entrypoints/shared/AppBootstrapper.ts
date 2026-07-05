@@ -3,7 +3,7 @@ import { Quasar, QTable, QTd, QTr, QBtn, QBtnGroup, QInput, QTooltip, QDialog, Q
 import { APP_CONSTANTS } from '@/constants.ts'
 
 /**
- * Centralized app bootstrapper for UI extension contexts (popup, options, content).
+ * Centralized app bootstrapper for UI extension contexts (popup, options).
  *
  * NO Pinia. Using WXT storage as single source of truth.
  * Each component uses useAppStore() composable to get reactive state from storage.

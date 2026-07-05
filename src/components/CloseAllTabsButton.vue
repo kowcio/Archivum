@@ -36,9 +36,9 @@ async function handleCloseAll(): Promise<void> {
       return
     }
 
-    // Get all tabs in current window
-    const allTabs = await browser.tabs.query({ currentWindow: true })
-    const extentionId = browser.runtime.getURL('');
+     // Get all tabs in current window
+     const allTabs = await browser.tabs.query({ currentWindow: true })
+     const extentionId = (browser.runtime as any).getURL('')
     console.log("Leaving only ", extentionId, " open.")
     const tabsToClose = allTabs
       .filter((t) => !t.url?.startsWith(extentionId))

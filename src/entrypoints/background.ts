@@ -1,3 +1,4 @@
+import { defineBackground } from 'wxt/utils/define-background'
 import { ExtensionCleanupService } from '@/services/ExtensionCleanupService'
 import { BackgroundTabService } from '@/services/BackgroundTabService'
 import { BackupService } from '@/services/BackupService'

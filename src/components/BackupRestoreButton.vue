@@ -75,6 +75,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { browser } from 'wxt/browser'
+import type { Browser } from 'wxt/browser'
 import dayjs from 'dayjs'
 import { BACKGROUND_MESSAGE_ACTIONS } from '@/constants'
 

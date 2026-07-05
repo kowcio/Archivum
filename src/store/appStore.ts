@@ -22,7 +22,7 @@
  */
 
 import { ref, onMounted, type Ref } from 'vue'
-import { storage } from '#imports'
+import { storage } from 'wxt/utils/storage'
 import { AppThresholds, DEFAULT_THRESHOLDS } from '@/models/AppThresholds.ts'
 import { type ThresholdState, type AppState, isValidThresholdState } from '@/models/ThresholdState.ts'
 import type { ThresholdLevel } from '@/constants.ts'
