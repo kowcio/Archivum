@@ -461,6 +461,31 @@ export class BackgroundTabService {
       }
     }
 
+    /**
+     * Focus/activate a tab and bring its window to foreground
+     * User can then investigate the tab content before closing manually
+     */
+    static async focusTab(tabId: number): Promise<string | null> {
+      try {
+        const tab = await browser.tabs.get(tabId)
+
+        // Activate the tab (brings it to focus)
+        await browser.tabs.update(tabId, { active: true })
+
+        // Bring window to foreground if tab is in a window
+        if (tab.windowId != null) {
+          await (browser.windows as any).update(tab.windowId, { focused: true })
+        }
+
+        console.log(`[BackgroundTabService] ✅ Focused tab#${tabId}`)
+        return null
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err)
+        console.error(`[BackgroundTabService] ❌ focusTab error:`, msg)
+        return msg
+      }
+    }
+
    /**
     * Sort all tabs alphabetically by domain (A→Z).
     * Strips `www.` and protocol before sorting, e.g. `https://www.EXAMPLE.com/path` sorts as `example.com`.

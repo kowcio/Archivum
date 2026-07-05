@@ -104,13 +104,21 @@ export default defineBackground({
           return true
         }
 
-         if (action === BACKGROUND_MESSAGE_ACTIONS.CLOSE_TAB) {
-           const { tabId } = message as { action: string; tabId: number }
-           BackgroundTabService.closeTab(tabId)
-             .then((error) => sendResponse({ error }))
-             .catch((err: any) => sendResponse({ error: String(err) }))
-           return true
-         }
+          if (action === BACKGROUND_MESSAGE_ACTIONS.CLOSE_TAB) {
+            const { tabId } = message as { action: string; tabId: number }
+            BackgroundTabService.closeTab(tabId)
+              .then((error) => sendResponse({ error }))
+              .catch((err: any) => sendResponse({ error: String(err) }))
+            return true
+          }
+
+          if (action === BACKGROUND_MESSAGE_ACTIONS.FOCUS_TAB) {
+            const { tabId } = message as { action: string; tabId: number }
+            BackgroundTabService.focusTab(tabId)
+              .then((error) => sendResponse({ error }))
+              .catch((err: any) => sendResponse({ error: String(err) }))
+            return true
+          }
 
          if (action === BACKGROUND_MESSAGE_ACTIONS.BACKUP_TABS) {
            BackupService.backupTabs()

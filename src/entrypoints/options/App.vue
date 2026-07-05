@@ -79,9 +79,16 @@
                 :style="col.name === 'lastAccess' ? props.row.rowStyle : undefined"
               >
                 <template v-if="col.name === 'actions'">
-                  <button class="btn-action btn-close-tab" @click="closeTab(props.row.id)"
-                          :disabled="!props.row.id" title="Close tab">Close
-                  </button>
+                  <div class="btn-group">
+                    <button class="btn-action btn-focus-tab" @click="focusTab(props.row.id)"
+                            :disabled="!props.row.id" title="Focus tab (bring to foreground)">
+                      👁️ Focus
+                    </button>
+                    <button class="btn-action btn-close-tab" @click="closeTab(props.row.id)"
+                            :disabled="!props.row.id" title="Close tab">
+                      Close
+                    </button>
+                  </div>
                 </template>
                 <template v-else-if="col.name === 'thumbnail'">
                   <div class="favicon-wrapper">
@@ -268,6 +275,24 @@ async function closeTab(tabId: number | null): Promise<void> {
   }
 }
 
+async function focusTab(tabId: number | null): Promise<void> {
+  if (tabId == null) return
+  try {
+    const resp: any = await browser.runtime.sendMessage({
+      action: BACKGROUND_MESSAGE_ACTIONS.FOCUS_TAB,
+      tabId
+    })
+    if (resp?.error) {
+      error.value = `[FOCUS_TAB] Tab#${tabId}: ${resp.error}`
+      return
+    }
+    // Success - tab is now focused, close the options page so user can investigate
+    window.close()
+  } catch (err) {
+    error.value = `[FOCUS_TAB_ERROR] Tab#${tabId}: ${err instanceof Error ? err.message : 'Failed to focus tab'}`
+  }
+}
+
 onMounted(() => {
   refreshTabs()
 
@@ -287,6 +312,7 @@ onMounted(() => {
 #options {
   background: linear-gradient(180deg, rgba(255, 109, 0, 0.04) 0%, rgba(21, 101, 192, 0.04) 100%);
   min-height: 100vh;
+  overflow-x: hidden;
 }
 
 /* ── Accent left border with brand gradient ──────────────────────────── */
@@ -316,15 +342,26 @@ onMounted(() => {
   align-items: center;
   width: 22px;
   height: 22px;
+  flex-shrink: 0;
+}
+
+/* ── Button Group Layout (Focus + Close buttons) ──────────────────────── */
+.btn-group {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
 }
 
 .btn-action {
-  padding: 2px 6px;
+  padding: 4px 8px;
   font-size: 0.75rem;
   border: 1px solid #633722;
   border-radius: 3px;
   background: #f5f5f5;
   cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: background 0.2s ease;
 }
 
 .btn-action:hover:not(:disabled) {
@@ -336,8 +373,70 @@ onMounted(() => {
   cursor: not-allowed;
 }
 
+.btn-focus-tab {
+  color: #1565c0;
+}
+
 .btn-close-tab {
   color: #d47a2a;
+}
+
+/* ── Table Cell Text Wrapping (prevent overflow) ──────────────────────── */
+:deep(.q-table td) {
+  word-break: break-word;
+  overflow-wrap: break-word;
+  max-width: 0;
+  padding: 8px 12px;
+  line-height: 1.4;
+}
+
+/* ── Specific column widths ──────────────────────────────────────────── */
+:deep(.q-table th:nth-child(1),
+      .q-table td:nth-child(1)) {
+  width: 2.5rem;
+  min-width: 2.5rem;
+  flex: 0 0 2.5rem;
+}
+
+:deep(.q-table th:nth-child(2),
+      .q-table td:nth-child(2)) {
+  width: 9rem;
+  min-width: 6rem;
+  flex: 0 0 auto;
+}
+
+:deep(.q-table th:nth-child(3),
+      .q-table td:nth-child(3)) {
+  width: 1.5rem;
+  min-width: 1.5rem;
+  flex: 0 0 1.5rem;
+}
+
+:deep(.q-table th:nth-child(n+4),
+      .q-table td:nth-child(n+4)) {
+  min-width: 150px;
+  flex: 1 1 200px;
+}
+
+:deep(.q-table a) {
+  color: #1565c0;
+  text-decoration: none;
+}
+
+:deep(.q-table a:hover) {
+  text-decoration: underline;
+}
+
+/* ── Table wrapper with horizontal scroll protection ──────────────────── */
+:deep(.q-table__card) {
+  overflow-x: auto;
+  overflow-y: visible;
+  margin: 0;
+}
+
+:deep(.q-table__middle) {
+  overflow: visible;
+  max-width: 100%;
 }
 
 /* ── q-table brand styling ──────────────────────────────────────────── */

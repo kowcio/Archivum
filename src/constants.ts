@@ -133,6 +133,7 @@ export const BACKGROUND_MESSAGE_ACTIONS = {
   ON_TAB_ACTIVATED: 'onTabActivated',
   HAS_PLUGIN_GROUPS: 'hasPluginGroups',
   CLOSE_TAB: 'closeTab',
+  FOCUS_TAB: 'focusTab',
   BACKUP_TABS: 'backupTabs',
   RESTORE_TABS: 'restoreTabs',
 } as const
