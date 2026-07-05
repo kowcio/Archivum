@@ -22,7 +22,7 @@
     "test:playwright:firefox": "npm run build:test:firefox && npx playwright test -c playwright.config.ts --project firefox-mv3",
     "test:playwright:debug": "npm run build:test:chromium && npx playwright test -c playwright.config.ts --project chrome-mv3 --debug",
     "test:playwright:ui": "npm run build:test:chromium && npx playwright test -c playwright.config.ts --ui --project chrome-mv3",
-    "build": "npm run type-check && wxt build -b chrome --mv3 && wxt build -b firefox --mv3 && wxt build -b edge --mv3",
+    "build": "npm run type-check && cross-env DEV_FEATURES=false wxt build -b chrome --mv3 && cross-env DEV_FEATURES=false wxt build -b firefox --mv3 && cross-env DEV_FEATURES=false wxt build -b edge --mv3",
     "build:test:chromium": "cross-env DEV_FEATURES=true wxt build -b chrome --mv3",
     "build:test:firefox": "cross-env DEV_FEATURES=true wxt build -b firefox --mv3",
     "build:test": "cross-env DEV_FEATURES=true wxt build -b chrome --mv3 && cross-env DEV_FEATURES=true wxt build -b firefox --mv3",

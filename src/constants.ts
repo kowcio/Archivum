@@ -92,9 +92,12 @@ export const APP_DEFAULTS = {
  * Set to `true` for Playwright testing (dev features visible in production build).
  * Set to `false` for actual production release.
  * SINGLE PLACE TO CHANGE — tests vs production.
+ *
+ * ⭐ CRITICAL: Only check VITE_DEV_FEATURES (not import.meta.env.DEV)
+ * WHY: import.meta.env.DEV can be true even in production releases
+ * VITE_DEV_FEATURES is explicitly set in wxt.config.ts for release builds
  */
-export const isDevEnv = import.meta.env?.DEV === true || import.meta.env?.VITE_DEV_FEATURES === 'true'
-// export const isDevEnv = false
+export const isDevEnv = import.meta.env?.VITE_DEV_FEATURES === 'true'
 
 // ─── Environment banner ──────────────────────────────────────────────
 if (isDevEnv) {

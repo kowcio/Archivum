@@ -23,7 +23,7 @@ export default defineBackground({
     if (browser.alarms != null) {
       //alarms schedules - crons
       browser.alarms.create(APP_DEFAULTS.ALARM_UPDATE_TABS, { periodInMinutes: 60 * 24 })
-      browser.alarms.create(APP_DEFAULTS.ALARM_BACKUP_TABS, { periodInMinutes: 1 })
+      browser.alarms.create(APP_DEFAULTS.ALARM_BACKUP_TABS, { periodInMinutes: 60 })
       //alarms listeners
       browser.alarms.onAlarm.addListener((alarm) => {
         if (alarm.name === APP_DEFAULTS.ALARM_UPDATE_TABS) {
