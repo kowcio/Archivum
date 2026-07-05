@@ -8,7 +8,27 @@ stack: "WXT 0.20+ · Vue 3.5 · TypeScript 5.8 · Pinia 3 · Quasar 2 · Vitest 
 
 # Self improvvement instructions
 If You see that we are working on things for a longer time when You see a proper FIX that you should add to this instructions
-improve them. Add here instruction for the future that should be a self improvement. 
+improve them. Add here instruction for the future that should be a self improvement.
+
+## Dev Features Configuration (Vite + WXT)
+
+**Setup**: `DEV_FEATURES` environment variable controls dev mode visibility
+
+**Chain of responsibility**:
+1. **package.json** (dev commands): Set `cross-env DEV_FEATURES=true` for dev, `DEV_FEATURES=false` for production
+   - Dev: `npm run dev` → `DEV_FEATURES=true wxt ...`
+   - Build: `npm run build` → `DEV_FEATURES=false wxt ...`
+   - Test: `npm run build:test` → `DEV_FEATURES=true wxt ...`
+
+2. **wxt.config.ts** (line 143): Pass env var to Vite
+   - `'import.meta.env.VITE_DEV_FEATURES': JSON.stringify(process.env.DEV_FEATURES || 'false')`
+   - Reads `DEV_FEATURES` env var, assigns to `import.meta.env.VITE_DEV_FEATURES`
+
+3. **constants.ts** (line 100): Check in code
+   - `export const isDevEnv = import.meta.env?.VITE_DEV_FEATURES === 'true'`
+   - Use to gate dev components: `v-if="isDevEnv"`
+
+**Remember**: Use `DEV_FEATURES` (not `VITE_DEV_FEATURES`) in package.json commands! 
 
 ## Architecture
 

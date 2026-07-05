@@ -8,9 +8,21 @@
         <GroupUngroup rounded size="lg" class="q-mb-md"/>
 
         <q-btn
+          class="got-btn-ghost"
+          v-if="isDevEnv"
+          label="Manage archivum"
+          data-testid="popup-btn-open-option-page"
+          icon="dashboard_customize"
+          rounded
+          no-caps
+          size="md"
+          @click="openOptionsPageFull"
+        />
+
+        <q-btn
           v-if="isDevEnv"
           class="got-btn-ghost"
-          label="Manage archivum"
+          label="Manage archivum - browser"
           data-testid="popup-btn-plugin-browser-option"
           icon="settings"
           rounded
@@ -21,17 +33,6 @@
 
         <SortButton @error="(msg) => console.error(msg)" />
         <BackupRestoreButton />
-
-        <q-btn
-          class="got-btn-ghost"
-          label="Open settings"
-          data-testid="popup-btn-open-option-page"
-          icon="dashboard_customize"
-          rounded
-          no-caps
-          size="md"
-          @click="openOptionsPageFull"
-        />
 
 
       </div>

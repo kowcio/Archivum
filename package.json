@@ -7,9 +7,9 @@
     "node": ">=24"
   },
   "scripts": {
-    "dev": "cross-env CHROME_PATH=$HOME/.cache/ms-playwright/chromium-1223/chrome-linux64/chrome wxt -b chromium --mv3",
-    "dev:firefox": "wxt -b firefox --mv3",
-    "dev:edge": "wxt -b edge --mv3",
+    "dev": "cross-env CHROME_PATH=$HOME/.cache/ms-playwright/chromium-1223/chrome-linux64/chrome DEV_FEATURES=true wxt -b chromium --mv3",
+    "dev:firefox": "cross-env DEV_FEATURES=true wxt -b firefox --mv3",
+    "dev:edge": "cross-env DEV_FEATURES=true wxt -b edge --mv3",
     "install:chromium": "wxt prepare && npx playwright install chromium",
     "type-check": "vue-tsc --build --force",
     "lint": "eslint . --fix",
