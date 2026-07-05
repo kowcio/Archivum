@@ -1,37 +1,37 @@
 {
-  "files": [],
-  "references": [
-    {
-      "path": "./tsconfig.node.json"
-    },
-    {
-      "path": "./tsconfig.app.json"
-    },
-    {
-      "path": "./tsconfig.vitest.json"
-    },
-    {
-      "path": "./tsconfig.playwright.json"
-    }
-  ],
   "compilerOptions": {
-    // Module settings - Common for all sub-configs
-    "target": "ESNext",
-    "module": "ESNext",
-    "moduleResolution": "Bundler",
-
+    // Module settings
+    "target": "ES2022",
+    "module": "preserve",
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "allowImportingTsExtensions": true,
     // Emit settings
     "noEmit": true,
-
     // Interop and compatibility
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
-
     // Type checking - Strict mode for quality
     "strict": true,
     "skipLibCheck": true,
-
     // Global types
-    "types": ["node"]
-  }
+    "types": ["node"],
+    // Path aliases
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./src/*"],
+      "wxt/*": ["./.wxt/*"]
+    }
+  },
+  "include": [
+    "src/**/*",
+    "wxt.config.ts",
+    ".wxt/wxt.d.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    ".output",
+    "test"
+  ]
 }

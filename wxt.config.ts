@@ -26,11 +26,12 @@ export default defineConfig({
       'build:manifestGenerated': (wxt, manifest) => {
         const isFirefox = wxt.config.browser === 'firefox';
 
-        if (manifest.background?.scripts && Array.isArray(manifest.background.scripts)) {
+        const bg = manifest.background as any;
+        if (bg?.scripts && Array.isArray(bg.scripts)) {
           // CHROME/EDGE: Add service_worker (MV3 standard, scripts will be ignored)
           // Firefox will ignore service_worker and use scripts[] instead
           if (!isFirefox) {
-            manifest.background.service_worker = manifest.background.scripts[0];
+            bg.service_worker = bg.scripts[0];
           }
           // FIREFOX: Keep scripts ONLY (no service_worker to avoid "BACKGROUND_SERVICE_WORKER_IGNORED" warning)
           // Firefox will use scripts[] for service worker compatibility
