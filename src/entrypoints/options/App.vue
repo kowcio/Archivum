@@ -76,7 +76,7 @@
                 v-for="col in props.cols"
                 :key="col.name"
                 :props="props"
-                :style="col.name === 'lastAccess' ? props.row.rowStyle : undefined"
+                :style="[col.style, col.name === 'lastAccess' ? props.row.rowStyle : undefined]"
               >
                 <template v-if="col.name === 'actions'">
                   <div class="btn-group">
@@ -147,26 +147,31 @@ const columns: {
   field: string;
   align: 'left' | 'right';
   sortable?: boolean;
-  sort?: (a: any, b: any) => number
+  sort?: (a: any, b: any) => number;
+  style?: string;
 }[] = [
   {
     name: 'ordinal',
     label: '#',
     field: 'ordinal',
     align: 'left',
+    sortable: true,
+    sort: (a, b) => a - b,
+    style: 'width: 6%'
   },
-  {name: 'actions', label: 'Actions', field: 'actions', align: 'left'},
-  {name: 'thumbnail', label: 'Icon', field: 'thumbnail', align: 'left'},
-  {name: 'domain', label: 'Domain', field: 'domain', align: 'left', sortable: true},
-  {name: 'title', label: 'Title', field: 'title', align: 'left', sortable: true},
-  {name: 'url', label: 'URL', field: 'url', align: 'left', sortable: true},
+  {name: 'actions', label: 'Actions', field: 'actions', align: 'left', style: 'width: 10%'},
+  {name: 'thumbnail', label: 'Icon', field: 'thumbnail', align: 'left', style: 'width: 5%'},
+  {name: 'domain', label: 'Domain', field: 'domain', align: 'left', sortable: true, style: 'width: 20%'},
+  {name: 'title', label: 'Title', field: 'title', align: 'left', sortable: true, style: 'width: 32%'},
+  {name: 'url', label: 'URL', field: 'url', align: 'left', sortable: true, style: 'width: 20%'},
   {
     name: 'lastAccess',
     label: 'Days old',
     field: 'lastAccessDays',
     align: 'left',
     sortable: true,
-    sort: (a, b) => a - b
+    sort: (a, b) => a - b,
+    // style: 'width: 20%'
   },
 ]
 
@@ -391,32 +396,16 @@ onMounted(() => {
 }
 
 /* ── Specific column widths ──────────────────────────────────────────── */
-:deep(.q-table th:nth-child(1),
-      .q-table td:nth-child(1)) {
-  width: 2.5rem;
-  min-width: 2.5rem;
-  flex: 0 0 2.5rem;
-}
+/* Column widths are now defined in columns array with style property */
+/* CSS below handles only responsive behavior and text wrapping */
 
-:deep(.q-table th:nth-child(2),
-      .q-table td:nth-child(2)) {
-  width: 84px;
-  min-width: 84px;
-  flex: 0 0 84px;
-  padding: 8px 4px;
-}
-
-:deep(.q-table th:nth-child(3),
-      .q-table td:nth-child(3)) {
-  width: 1.5rem;
-  min-width: 1.5rem;
-  flex: 0 0 1.5rem;
-}
-
-:deep(.q-table th:nth-child(n+4),
-      .q-table td:nth-child(n+4)) {
-  min-width: 150px;
-  flex: 1 1 200px;
+:deep(.q-table th,
+      .q-table td) {
+  word-break: break-word;
+  overflow-wrap: break-word;
+  max-width: 0;
+  padding: 8px 12px;
+  line-height: 1.4;
 }
 
 :deep(.q-table a) {

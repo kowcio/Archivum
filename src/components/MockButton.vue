@@ -48,21 +48,19 @@ async function createMockWithPreset(): Promise<void> {
       action: BACKGROUND_MESSAGE_ACTIONS.CREATE_MOCK_TABS,
     })
 
-    if (resp?.error) {
-      console.error('[MockButton] Failed to create mock tabs:', resp.error)
-      return
-    }
+     if (resp?.error) {
+       console.error('[MockButton] Failed to create mock tabs:', resp.error)
+       return
+     }
 
-    const tabs = resp?.tabs ?? []
-    if (tabs.length === 0) {
-      console.warn('[MockButton] No tabs returned from CREATE_MOCK_TABS')
-      return
-    }
+     const tabs = resp?.tabs ?? []
+     if (tabs.length === 0) {
+       return
+     }
 
-    console.log(`[MockButton] ✅ Created ${tabs.length} mock tabs with backdated timestamps`)
-    emit('mock-created')
-  } catch (err) {
-    console.error('[MockButton] Error:', err)
+     emit('mock-created')
+   } catch (err) {
+     console.error('[MockButton] Error:', err)
   } finally {
     loading.value = false
   }

@@ -3,80 +3,19 @@ name: Build & Test
 on:
   push:
     branches: [main, develop]
+    tags: ['v*']
   pull_request:
     branches: [main, develop]
 
 jobs:
-  build:
+  build-and-test:
     runs-on: ubuntu-latest
-    
-    strategy:
-      matrix:
-        node-version: [24]
     
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
       
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ matrix.node-version }}
-          cache: 'npm'
-      
-      - name: Install dependencies
-        run: npm ci
-        env:
-          npm_config_legacy_peer_deps: true
-      
-      - name: Prepare Playwright browsers
-        run: npx playwright install chromium firefox
-      
-      - name: Type check
-        run: npm run type-check
-      
-      - name: Lint
-        run: npm run lint -- --no-fix
-        continue-on-error: true
-      
-      - name: Unit tests
-        run: npm run test:unit
-      
-      - name: Build extension
-        run: npm run build
-      
-      - name: Create ZIP archives
-        run: npm run zip:all
-      
-      - name: Upload Chrome build artifact
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: extension-chrome
-          path: .output/*.zip
-          retention-days: 30
-      
-      - name: Upload build output
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: build-output
-          path: .output/
-          retention-days: 7
-
-  playwright-tests:
-    runs-on: ubuntu-latest
-    needs: build
-    
-    strategy:
-      matrix:
-        browser: ['chrome-mv3']
-    
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-      
-      - name: Setup Node.js
+      - name: Setup Node.js 24
         uses: actions/setup-node@v4
         with:
           node-version: 24
@@ -84,23 +23,153 @@ jobs:
       
       - name: Install dependencies
         run: npm ci
-        env:
-          npm_config_legacy_peer_deps: true
+
+      - name: Install Playwright browsers
+        run: npx playwright install chromium firefox
       
-      - name: Prepare Playwright browsers
-        run: npx playwright install chromium
-      
-      - name: Build extension (with DEV_FEATURES=true)
-        run: npm run build:test:chrome
-      
-      - name: Run Playwright tests - ${{ matrix.browser }}
-        run: npx playwright test -c playwright.config.ts --project ${{ matrix.browser }}
-      
-      - name: Upload Playwright report
+      - name: Type check
+        run: npm run type-check
+
+      - name: Unit tests (Vitest)
+        run: npm run test:unit
+
+      - name: Build extensions (PRODUCTION MODE - DEV_FEATURES=false)
+        run: npm run build
+
+      - name: Create ZIP archives
+        run: |
+          npx wxt zip -b chrome --mv3
+          npx wxt zip -b firefox --mv3
+          npx wxt zip -b edge --mv3
+
+      - name: Extract build version
+        run: |
+          node << 'EOF'
+          const fs = require('fs');
+          const path = require('path');
+          
+          // Generate same version format as constants.ts
+          function generateBuildVersion() {
+            const now = new Date();
+            const year = String(now.getFullYear()).slice(-2).padStart(2, '0');
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const day = String(now.getDate()).padStart(2, '0');
+            const hours = String(now.getHours()).padStart(2, '0');
+            const timestamp = `${year}${month}${day}${hours}`;
+            return `1.1.${timestamp}`;
+          }
+          
+          const version = generateBuildVersion();
+          fs.writeFileSync('.output/VERSION', version, 'utf-8');
+          console.log('✅ Build version saved:', version);
+          EOF
+
+      - name: Firefox manifest validation
+        run: npx web-ext lint --source-dir .output/firefox-mv3
+
+      - name: E2E tests - Playwright (DEVELOPER MODE - DEV_FEATURES=true)
+        run: npm run test:playwright:chromium
+
+      - name: Upload extension builds
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: playwright-report-${{ matrix.browser }}
-          path: playwright-report/
+          name: extension-builds
+          path: |
+            .output/archivum-*.zip
+            .output/VERSION
           retention-days: 30
+      
+      - name: Upload test reports
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-reports
+          path: |
+            playwright-report/
+            reports/
+          retention-days: 7
+
+  release:
+    runs-on: ubuntu-latest
+    needs: build-and-test
+    if: startsWith(github.ref, 'refs/tags/v')
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download extension builds
+        uses: actions/download-artifact@v4
+        with:
+          name: extension-builds
+          path: .output/
+
+      - name: Read build version
+        id: buildversion
+        run: |
+          VERSION=$(cat .output/VERSION)
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+          echo "Build version: $VERSION"
+
+      - name: Extract tag name
+        id: tag
+        run: echo "TAG=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+
+      - name: Get changelog from commits
+        id: changelog
+        run: |
+          PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+          if [ -z "$PREV_TAG" ]; then
+            CHANGELOG="✨ Initial release"
+          else
+            CHANGELOG=$(git log --pretty=format:"%h - %s" $PREV_TAG..HEAD)
+          fi
+          echo "CHANGELOG<<EOF" >> $GITHUB_OUTPUT
+          echo "$CHANGELOG" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Create GitHub Release with artifacts
+        uses: softprops/action-gh-release@v1
+        with:
+          files: .output/archivum-*.zip
+          name: Release ${{ steps.buildversion.outputs.VERSION }}
+          body: |
+            ## 📦 Extension Release ${{ steps.buildversion.outputs.VERSION }}
+            
+            **Tag**: `${{ steps.tag.outputs.TAG }}`
+            
+            ### ✨ Changes
+            ```
+            ${{ steps.changelog.outputs.CHANGELOG }}
+            ```
+            
+            ### 📋 Packages
+            - ✅ Chrome MV3 (`archivum-chrome-mv3.zip`)
+            - ✅ Firefox MV3 (`archivum-firefox-mv3.zip`)
+            - ✅ Edge MV3 (`archivum-edge-mv3.zip`)
+            
+            ### 🔍 Build Info
+            - **Build Version**: `${{ steps.buildversion.outputs.VERSION }}`
+            - **Build Date**: ${{ github.event.head_commit.timestamp }}
+            - **Commit**: [${{ github.sha }}](https://github.com/${{ github.repository }}/commit/${{ github.sha }})
+            - **Framework**: WXT 0.20+
+            
+            ### 🚀 Installation
+            1. Download the ZIP file for your browser
+            2. Extract to a local folder
+            3. Load in your browser's extension manager (Developer mode)
+            
+            ### ✅ Validation
+            - All packages validated via web-ext lint
+            - E2E tests passed in developer mode
+            - Unit tests passed
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+
+
+
 

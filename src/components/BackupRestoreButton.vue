@@ -135,18 +135,16 @@ async function confirmRestore(): Promise<void> {
     }) as any
     if (!response?.success) {
       statusMessage.value = '❌ Restore failed'
-    } else {
-      // ✅ FIX: Multiple waits to ensure storage persistence
-      // Before: emit immediately → table refreshes before overrides saved → shows 0 days ❌
-      // After: wait 1000ms for storage sync + background processing ✅
-      console.log('[BackupRestore] Waiting for restore to complete and storage sync...')
-      await new Promise(r => setTimeout(r, 1000))  // ← LONGER WAIT
-      console.log('[BackupRestore] ✅ Restore + storage sync complete')
+     } else {
+       // ✅ FIX: Multiple waits to ensure storage persistence
+       // Before: emit immediately → table refreshes before overrides saved → shows 0 days ❌
+       // After: wait 1000ms for storage sync + background processing ✅
+       await new Promise(r => setTimeout(r, 1000))  // ← LONGER WAIT
 
-      // ✅ FIX: Emit 'restored' event after successful restore + storage sync
-      // Before: No event → App.vue doesn't know restore completed → table stays old ❌
-      // Now: Parent catches @restored event → calls refreshTabs() → table refreshes ✅
-      emit('restored')
+       // ✅ FIX: Emit 'restored' event after successful restore + storage sync
+       // Before: No event → App.vue doesn't know restore completed → table stays old ❌
+       // Now: Parent catches @restored event → calls refreshTabs() → table refreshes ✅
+       emit('restored')
     }
   } catch (err) {
     console.error('[BackupRestore]', err)
