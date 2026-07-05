@@ -16,30 +16,24 @@ export default defineConfig({
       firefoxDataCollection: true,
     },
 
-    // ✅ FIX #2: Firefox MV3 Compatibility Hook
-    // PROBLEM: Firefox MV3 is transitional - it needs BOTH background.scripts (Firefox) AND background.service_worker (MV3)
-    // SOLUTION: Use build hook to add service_worker while keeping scripts array
-    // WHY: Chrome/Edge use service_worker only, but Firefox requires scripts as fallback for compatibility
+    // ✅ FIX #2: Firefox MV3 Compatibility Hook (BROWSER-SPECIFIC)
+    // PROBLEM: Firefox MV3 uses scripts[], Chrome/Edge use service_worker
+    // SOLUTION: Add service_worker ONLY for Chrome/Edge (not Firefox to avoid warnings)
+    // WHY: Firefox ignores service_worker and uses scripts → warns about ignored property
+    //      Chrome/Edge need service_worker for MV3, and ignore scripts if service_worker exists
     // Reference: https://mzl.la/firefox-mv3-migration
     hooks: {
-      'build:manifestGenerated': (_wxt, manifest) => {
-        // Check if background was generated with scripts array (WXT's default for Firefox)
+      'build:manifestGenerated': (wxt, manifest) => {
+        const isFirefox = wxt.config.browser === 'firefox';
+
         if (manifest.background?.scripts && Array.isArray(manifest.background.scripts)) {
-          // STEP 1: Add service_worker pointing to first script (MV3 standard)
-          manifest.background.service_worker = manifest.background.scripts[0];
-
-          // STEP 2: Keep scripts array (Firefox fallback - DO NOT DELETE!)
-          // Without scripts[], Firefox MV3 throws: "Unsupported /background/service_worker without /background/scripts fallback"
-          // With both properties, Firefox properly loads the service worker via backward compatibility
-
-          // RESULT: Final manifest has:
-          // {
-          //   "background": {
-          //     "type": "module",
-          //     "scripts": ["background.js"],           ← Firefox uses this as fallback
-          //     "service_worker": "background.js"      ← MV3 standard
-          //   }
-          // }
+          // CHROME/EDGE: Add service_worker (MV3 standard, scripts will be ignored)
+          // Firefox will ignore service_worker and use scripts[] instead
+          if (!isFirefox) {
+            manifest.background.service_worker = manifest.background.scripts[0];
+          }
+          // FIREFOX: Keep scripts ONLY (no service_worker to avoid "BACKGROUND_SERVICE_WORKER_IGNORED" warning)
+          // Firefox will use scripts[] for service worker compatibility
         }
       },
     },
@@ -78,10 +72,10 @@ export default defineConfig({
         gecko: {
           // Firefox add-on ID (must match what's registered on addons.mozilla.org)
           id: 'archivum@kowalskipiotr.pl',
-          // UPDATED: 109.0 → 140.0
-          // WHY: tabGroups permission requires Firefox 139+, but data_collection_permissions requires 140+
-          // This prevents NOTICE warnings from web-ext lint about unsupported properties
-          strict_min_version: '140.0',
+          // UPDATED: 139.0 → 142.0
+          // WHY: tabGroups requires 139+, data_collection_permissions requires 140+ (desktop) and 142+ (Android)
+          // This prevents WARNING from web-ext lint about Android unsupported version
+          strict_min_version: '142.0',
           // ⭐ CRITICAL: data_collection_permissions MUST be inside gecko block
           // NOT at root level! Mozilla expects it here specifically.
           // 'none' = No data collection required to use extension
