@@ -51,8 +51,6 @@
           class="bg-grey-1 q-pa-md accent-border"
           row-key="rowKey"
           flat
-          bordered
-          dense
           striped
           wrap-cells
           virtual-scroll
@@ -157,13 +155,13 @@ const columns: {
     align: 'left',
     sortable: true,
     sort: (a, b) => a - b,
-    style: 'width: 6%'
+    style: 'width: 25px'
   },
-  {name: 'actions', label: 'Actions', field: 'actions', align: 'left', style: 'width: 10%'},
+  {name: 'actions', label: 'Actions', field: 'actions', align: 'left', style: 'width: 15%'},
   {name: 'thumbnail', label: 'Icon', field: 'thumbnail', align: 'left', style: 'width: 5%'},
-  {name: 'domain', label: 'Domain', field: 'domain', align: 'left', sortable: true, style: 'width: 20%'},
-  {name: 'title', label: 'Title', field: 'title', align: 'left', sortable: true, style: 'width: 32%'},
-  {name: 'url', label: 'URL', field: 'url', align: 'left', sortable: true, style: 'width: 20%'},
+  {name: 'domain', label: 'Domain', field: 'domain', align: 'left', sortable: true, style: 'width: 18%'},
+  {name: 'title', label: 'Title', field: 'title', align: 'left', sortable: true},
+  {name: 'url', label: 'URL', field: 'url', align: 'left', sortable: true},
   {
     name: 'lastAccess',
     label: 'Days old',
@@ -171,7 +169,7 @@ const columns: {
     align: 'left',
     sortable: true,
     sort: (a, b) => a - b,
-    // style: 'width: 20%'
+    style: 'width: 8%'
   },
 ]
 
@@ -352,29 +350,38 @@ onMounted(() => {
 .btn-group {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.25rem;
   width: fit-content;
 }
 
 .btn-action {
-  padding: 3px 6px;
-  font-size: 0.7rem;
-  border: 1px solid #633722;
+  font-size: 0.68rem;
+  border: 1px solid #d4a574;
   border-radius: 3px;
-  background: #f5f5f5;
+  background: linear-gradient(135deg, #fafafa 0%, #f5f5f5 100%);
   cursor: pointer;
-  white-space: nowrap;
-  width: 70px;
+  white-space: normal;
+  width: 56px;
   text-align: center;
-  transition: background 0.2s ease;
+  transition: all 0.12s ease;
+  font-weight: 500;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  line-height: 1.2;
 }
 
+
 .btn-action:hover:not(:disabled) {
-  background: #e0e0e0;
+  background: linear-gradient(135deg, #ffd083 0%, #ffca5d 100%);
+  box-shadow: 0 2px 6px rgba(212, 122, 42, 0.25);
+  border-color: #c4945f;
+}
+
+.btn-action:active:not(:disabled) {
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
 }
 
 .btn-action:disabled {
-  opacity: 0.5;
+  opacity: 0.35;
   cursor: not-allowed;
 }
 
@@ -382,17 +389,32 @@ onMounted(() => {
   color: #1565c0;
 }
 
+.btn-focus-tab:hover:not(:disabled) {
+  color: #0d3fa6;
+}
+
 .btn-close-tab {
   color: #d47a2a;
+}
+
+.btn-close-tab:hover:not(:disabled) {
+  background: linear-gradient(135deg, #ffebee 0%, #ffcdd2 100%) !important;
+  color: #c62828;
+  border-color: #c62828 !important;
 }
 
 /* ── Table Cell Text Wrapping (prevent overflow) ──────────────────────── */
 :deep(.q-table td) {
   word-break: break-word;
   overflow-wrap: break-word;
-  max-width: 0;
-  padding: 8px 12px;
-  line-height: 1.4;
+  word-wrap: break-word;
+  padding: 5px 10px;
+  line-height: 1.3;
+  transition: background-color 0.12s ease;
+  border-top: none !important;
+  border-bottom: none !important;
+  min-width: 0;
+  max-width: 100%;
 }
 
 /* ── Specific column widths ──────────────────────────────────────────── */
@@ -403,14 +425,23 @@ onMounted(() => {
       .q-table td) {
   word-break: break-word;
   overflow-wrap: break-word;
-  max-width: 0;
-  padding: 8px 12px;
-  line-height: 1.4;
+  word-wrap: break-word;
+  padding: 5px 10px;
+  line-height: 1.3;
+  border: none !important;
+  min-width: 0;
+}
+
+/* ── Last column (Days old) - rounded background ──────────────────────── */
+:deep(.q-table tbody tr td:last-child) {
+  border-radius: 6px;
+  margin-right: 2px;
 }
 
 :deep(.q-table a) {
   color: #1565c0;
   text-decoration: none;
+  word-break: break-word;
 }
 
 :deep(.q-table a:hover) {
@@ -433,14 +464,32 @@ onMounted(() => {
 :deep(.q-table th .q-table__sort-icon) {
   color: rgba(255, 255, 255, 0.7);
 }
+
+:deep(.q-table thead tr th) {
+  background: transparent;
+  border: none !important;
+  font-weight: 600;
+  padding: 8px 10px;
+  color: #5a4a1a;
+}
+
+:deep(.q-table tbody tr) {
+  height: auto;
+  transition: background-color 0.12s ease;
+  border-top: none !important;
+  border-bottom: none !important;
+}
+
 :deep(.q-table tbody tr:nth-child(even) td) {
   background: rgba(255, 208, 131, 0.08);
 }
+
 :deep(.q-table--striped tbody tr:nth-child(odd) td) {
-  background: rgba(255, 208, 131, 0.03);
+  background: transparent;
 }
+
 :deep(.q-table tbody tr:hover td) {
-  background: rgba(255, 208, 131, 0.15) !important;
+  background: rgba(255, 138, 0, 0.15) !important;
 }
 
 </style>
