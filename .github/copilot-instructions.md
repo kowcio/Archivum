@@ -255,23 +255,59 @@ See `test/playwright/README_SERVICE_WORKER_DEBUG.md` for full debugging guide.
 If You see that we are working on things for a longer time when You see a proper FIX that you should add to this instructions
 improve them. Add here instruction for the future that should be a reference to well established problems.
 
-## Playwright POM: Sort Groups by Visual Index
-When getting groups in tests via `getAllGroups()`, groups must be sorted by their **visual index** (left-to-right position).
-Chrome's `tabGroups.query()` does NOT guarantee left-to-right order. Always sort results by `group.index` to ensure 
-tests receive groups in the correct left-to-right sequence (oldest→youngest age groups).
+// Check visual indices BEFORE sorting:
+console.log('Unsorted groups by index:')
+groups.forEach(g => console.log(`  "${g.title}" index=${g.index}`))
+// Might print: "Week+" index=0, "Eat that frog!" index=3, "Month+" index=1 (scrambled!)
 
-**Why**: Tests compare group titles by array index expecting oldest-left, youngest-right. Without sorting, groups come 
-back in arbitrary order, causing title mismatch errors like `expected "Eat that frog!" got "Week+ (3)"`.
+// After sorting:
+const sorted = [...groups].sort((a, b) => (a.index ?? -1) - (b.index ?? -1))
+console.log('Sorted groups by index:')
+sorted.forEach(g => console.log(`  "${g.title}" index=${g.index}`))
+// Prints: "Eat that frog!" index=1, "Month+" index=3, "Week+" index=5 (correct order!)
+```
 
-**Solution in OptionsPage.ts**:
+## Why Groups Must Be Sorted
+
+**Chrome API Design**: `browser.tabGroups.query()` returns groups in **arbitrary order** (NOT guaranteed by API documentation). Only the `.index` property indicates visual left-to-right position. 
+
+| Query Type | Guaranteed Order? | Example |
+|---|---|---|
+| `browser.tabs.query()` | ✅ YES | Returns `[Tab(idx=0), Tab(idx=1), Tab(idx=2)]` |
+| `browser.tabGroups.query()` | ❌ **NO** | Might return `[Group(idx=4), Group(idx=0), Group(idx=2)]` |
+
+Always sort groups immediately after querying: `sortGroupsByIndex(unsortedGroups)`. See `docs/TABGROUPS_QUERY_ORDER.md` for details.
+
+## Tab vs Group Index Relationship
+
 ```typescript
-// Before: groups unsorted
-const groups = await chrome.tabGroups.query({ windowId: currentWindow.id });
-return groupDetails; // ❌ Arbitrary order
+// Example: 14 tabs total, 3 groups
+const tabs = await browser.tabs.query({ currentWindow: true })
+// Already in visual order by tab index: 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13
 
-// After: groups sorted by index
-const groupDetails = [...groups...];
-groupDetails.sort((a, b) => (a.index ?? -1) - (b.index ?? -1));
-return groupDetails; // ✅ Oldest-left to youngest-right
+// Visual distribution:
+// [Tab 0] [Tab 1] [Tab 2]  [Tab 3] [Tab 4]  [Tab 5] [Tab 6] [Tab 7] [Tab 8] [Ungrouped]
+// └─ Group A ─┘            └─ Group B ─┘    └─ Group C ─┘
+// Group.index=0              Group.index=3    Group.index=5
+
+const unsortedGroups = await browser.tabGroups.query({})
+// Might return: [Group B (idx=3), Group C (idx=5), Group A (idx=0)]  ❌ Wrong order!
+
+const sortedGroups = sortGroupsByIndex(unsortedGroups)
+// Returns: [Group A (idx=0), Group B (idx=3), Group C (idx=5)]  ✅ Correct order!
+```
+
+## Testing Assertions
+
+```typescript
+const groups = await options.getAllGroups() // Already sorted ✅
+expect(groups.length).toBe(5)
+
+// groups[0] = leftmost group (oldest, highest index value)
+// groups[4] = rightmost group (youngest, lowest index value among age groups)
+// + ungrouped fresh tabs (rightmost)
+
+expect(groups[0].title).toContain('Eat that frog!')  // Oldest left
+expect(groups[4].title).toContain('Week+')           // Youngest before fresh
 ```
 
