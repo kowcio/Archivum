@@ -157,8 +157,8 @@ const columns: {
     sort: (a, b) => a - b,
     style: 'width: 25px'
   },
-  {name: 'actions', label: 'Actions', field: 'actions', align: 'left', style: 'width: 15%'},
-  {name: 'thumbnail', label: 'Icon', field: 'thumbnail', align: 'left', style: 'width: 5%'},
+  {name: 'actions', label: 'Actions', field: 'actions', align: 'left', style: 'width: 90px'},
+  {name: 'thumbnail', label: 'Icon', field: 'thumbnail', align: 'left', style: 'width: 45px'},
   {name: 'domain', label: 'Domain', field: 'domain', align: 'left', sortable: true, style: 'width: 18%'},
   {name: 'title', label: 'Title', field: 'title', align: 'left', sortable: true},
   {name: 'url', label: 'URL', field: 'url', align: 'left', sortable: true},
@@ -408,7 +408,7 @@ onMounted(() => {
   word-break: break-word;
   overflow-wrap: break-word;
   word-wrap: break-word;
-  padding: 5px 10px;
+  padding: 4px 10px;
   line-height: 1.3;
   transition: background-color 0.12s ease;
   border-top: none !important;
