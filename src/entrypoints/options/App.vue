@@ -77,7 +77,7 @@
                 :style="[col.style, col.name === 'lastAccess' ? props.row.rowStyle : undefined]"
               >
                 <template v-if="col.name === 'actions'">
-                  <div class="btn-group">
+                  <div class="btn-group ">
                       <button class="btn-action btn-focus-tab" @click="focusTab(props.row.id)"
                               :disabled="!props.row.id" title="Focus tab (bring to foreground)">
                         👁️ Focus
@@ -356,12 +356,12 @@ onMounted(() => {
 
 .btn-action {
   font-size: 0.68rem;
+  padding: 5px 10px 5px 8px;
   border: 1px solid #d4a574;
   border-radius: 3px;
   background: linear-gradient(135deg, #fafafa 0%, #f5f5f5 100%);
   cursor: pointer;
   white-space: normal;
-  width: 56px;
   text-align: center;
   transition: all 0.12s ease;
   font-weight: 500;
