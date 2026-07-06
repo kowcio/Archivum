@@ -74,7 +74,7 @@
                 v-for="col in props.cols"
                 :key="col.name"
                 :props="props"
-                :style="[col.style, col.name === 'lastAccess' ? props.row.rowStyle : undefined]"
+                :style="col.style"
               >
                 <template v-if="col.name === 'actions'">
                   <div class="btn-group ">
@@ -96,7 +96,7 @@
                   </div>
                 </template>
                 <template v-else-if="col.name === 'lastAccess'">
-                  {{ props.row.lastAccessDays ?? '—' }}
+                  <span :style="props.row.rowStyle">{{ props.row.lastAccessDays ?? '—' }}</span>
                 </template>
                 <template v-else-if="col.name === 'title'">
                   <span>{{ truncate(props.row.title, 50) }}</span>
@@ -432,10 +432,10 @@ onMounted(() => {
   min-width: 0;
 }
 
-/* ── Last column (Days old) - rounded background ──────────────────────── */
+/* ── Last column (Days old) - badge styling on span element ──────────────── */
 :deep(.q-table tbody tr td:last-child) {
-  border-radius: 6px;
-  margin-right: 2px;
+  padding: 4px 8px;
+  text-align: center;
 }
 
 :deep(.q-table a) {
