@@ -207,14 +207,18 @@ export class OptionsPage {
         const groupDetails = [];
         for (const group of groups) {
           const tabs = await chrome.tabs.query({ groupId: group.id });
-          console.log(`[getAllGroups] Group ${group.id}: "${group.title}" → ${tabs.length} tabs`);
+          console.log(`[getAllGroups] Group ${group.id}: "${group.title}" → ${tabs.length} tabs (index: ${group.index})`);
           groupDetails.push({
             id: group.id,
             title: group.title,
             tabCount: tabs.length,
+            index: group.index ?? -1,
           });
         }
-        return groupDetails;
+        // Sort by visual position (index) — left to right (oldest to youngest)
+        groupDetails.sort((a, b) => (a.index ?? -1) - (b.index ?? -1));
+        console.log('[getAllGroups] Sorted groups:', groupDetails.map(g => `"${g.title}"`).join(' → '));
+        return groupDetails.map(g => ({ id: g.id, title: g.title, tabCount: g.tabCount }));
       } catch (err) {
         console.error('[getAllGroups] Error:', err);
         return [];

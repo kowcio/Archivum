@@ -250,3 +250,28 @@ See `test/playwright/README_SERVICE_WORKER_DEBUG.md` for full debugging guide.
 | Vitest | `/websites/main_vitest_dev` | Mocking, timers, assertions |
 | Playwright | `/microsoft/playwright` | E2E, persistent context, extension loading |
 | VueUse | `/vueuse/vueuse` | Composables, `useAsyncState` |
+
+# Self improvment instructions
+If You see that we are working on things for a longer time when You see a proper FIX that you should add to this instructions
+improve them. Add here instruction for the future that should be a reference to well established problems.
+
+## Playwright POM: Sort Groups by Visual Index
+When getting groups in tests via `getAllGroups()`, groups must be sorted by their **visual index** (left-to-right position).
+Chrome's `tabGroups.query()` does NOT guarantee left-to-right order. Always sort results by `group.index` to ensure 
+tests receive groups in the correct left-to-right sequence (oldest→youngest age groups).
+
+**Why**: Tests compare group titles by array index expecting oldest-left, youngest-right. Without sorting, groups come 
+back in arbitrary order, causing title mismatch errors like `expected "Eat that frog!" got "Week+ (3)"`.
+
+**Solution in OptionsPage.ts**:
+```typescript
+// Before: groups unsorted
+const groups = await chrome.tabGroups.query({ windowId: currentWindow.id });
+return groupDetails; // ❌ Arbitrary order
+
+// After: groups sorted by index
+const groupDetails = [...groups...];
+groupDetails.sort((a, b) => (a.index ?? -1) - (b.index ?? -1));
+return groupDetails; // ✅ Oldest-left to youngest-right
+```
+
