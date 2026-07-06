@@ -8,7 +8,7 @@
         <GroupUngroup rounded size="lg" class="q-mb-md"/>
 
         <q-btn
-          class="got-btn-ghost"
+          class="got-btn-primary"
           label="Manage archivum"
           data-testid="popup-btn-open-option-page"
           icon="dashboard_customize"
