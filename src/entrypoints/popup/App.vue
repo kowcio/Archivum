@@ -9,7 +9,6 @@
 
         <q-btn
           class="got-btn-ghost"
-          v-if="isDevEnv"
           label="Manage archivum"
           data-testid="popup-btn-open-option-page"
           icon="dashboard_customize"
