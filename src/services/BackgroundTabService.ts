@@ -173,7 +173,8 @@ export class BackgroundTabService {
             await (browser.tabGroups as any).update(groupId, {
               title: `${level.label} (${tabIds.length})`,
               color: level.color,
-              collapsed: true
+              collapsed: true,
+              index:groupsCreated
             })
             groupsCreated++
           } catch (err) {

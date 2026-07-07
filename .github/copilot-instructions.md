@@ -311,3 +311,66 @@ expect(groups[0].title).toContain('Eat that frog!')  // Oldest left
 expect(groups[4].title).toContain('Week+')           // Youngest before fresh
 ```
 
+## 🎯 Critical: TabGroups Index System
+
+### ⚠️ **Tab Group is NOT a separate tab — it's a CONTAINER for tabs**
+
+- A group does NOT occupy its own tab slot
+- **Group.index** = visual position of the **leftmost tab** in that group
+- Tabs maintain their own indices (0, 1, 2, 3...) within the window
+- Groups occupy "slots" at their starting indices (0, 3, 5, ...) — NOT continuous
+
+```
+Visual layout in browser:
+[Tab0] [Tab1] [Tab2] | [Tab3] [Tab4] | [Tab5] [Tab6] [Tab7] | [Tab8-ungrouped]
+└─ Group A ─────────┘ └─ Group B ──┘ └─ Group C ──────────┘ (3 groups)
+  Group.index=0      Group.index=3    Group.index=5        Fresh ungrouped
+
+Indices:
+- Tabs: CONTINUOUS — 0, 1, 2, 3, 4, 5, 6, 7, 8
+- Groups: SPARSE — 0, 3, 5 (only group starting positions)
+```
+
+### GroupTabsByAge(): Order Guarantee (THRESHOLDS)
+
+**Input**: APP_DEFAULTS.THRESHOLDS.presets (5 levels)
+
+```typescript
+presets: [
+  {index: 1, key: 'WEEK', label: 'Week+', days: 7},          // Youngest (rightmost)
+  {index: 2, key: 'WEEKS_2', label: '2 Weeks+', days: 14},
+  {index: 3, key: 'MONTH', label: 'Month+', days: 28},
+  {index: 4, key: 'QUARTERS', label: 'Quarter+', days: 90},
+  {index: 5, key: 'YEARS', label: 'Eat that frog!', days: 365}, // Oldest (leftmost)
+]
+```
+
+**Flow** (BackgroundTabService.groupTabsByAge):
+
+1. Get `activeLevels = thresholds.active()` (first N levels, e.g., 5)
+2. **Reverse loop** (`i = activeLevels.length - 1` down to `0`):
+   - **i=4**: Eat that frog! (index: 0) — leftmost ✅
+   - **i=3**: Quarter+ (index: 1)
+   - **i=2**: Month+ (index: 2)
+   - **i=1**: 2 Weeks+ (index: 3)
+   - **i=0**: Week+ (index: 4) — rightmost ✅
+3. Fresh tabs → rightmost (ungrouped)
+4. Return `groupsCreated` (5 or fewer if some levels are empty)
+
+**Guarantee**: Groups always created in OLDEST→YOUNGEST order (left-to-right), using `groupsCreated++` as index.
+
+### Query Groups: ALWAYS SORT by Index
+
+```typescript
+// ❌ WRONG
+const groups = await browser.tabGroups.query({ windowId })
+// Might return: [Group(idx=4), Group(idx=0), Group(idx=2)] — RANDOM ORDER!
+
+// ✅ RIGHT
+const groups = await browser.tabGroups.query({ windowId })
+const sorted = groups.sort((a, b) => (a.index ?? -1) - (b.index ?? -1))
+// Returns: [Group(idx=0), Group(idx=2), Group(idx=4)] — GUARANTEED ORDER!
+```
+
+**Use in tests**: `OptionsPage.getAllGroups()` already sorts internally — safe to use.
+

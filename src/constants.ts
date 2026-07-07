@@ -60,6 +60,7 @@ export enum ThresholdLabel {
 
 /** Single threshold level configuration: key + label + days + color name. */
 export type ThresholdLevel = {
+  index:number
   key: string
   label: string
   days: number
@@ -94,11 +95,11 @@ export const APP_DEFAULTS = {
     // Colors reference ThemeColor enum:
     // - Chrome/Firefox tab groups API uses color names directly
     presets: [
-      {key: ThresholdKey.WEEK, label: ThresholdLabel.WEEK, days: 7, color: ThemeColor.Green},
-      {key: ThresholdKey.WEEKS_2, label: ThresholdLabel.WEEKS_2, days: 14, color: ThemeColor.Blue},
-      {key: ThresholdKey.MONTH, label: ThresholdLabel.MONTH, days: 28, color: ThemeColor.Orange},
-      {key: ThresholdKey.QUARTERS, label: ThresholdLabel.QUARTERS, days: 90, color: ThemeColor.Red},
-      {key: ThresholdKey.YEARS, label: ThresholdLabel.YEARS, days: 365, color: ThemeColor.Pink},
+      {index: 1, key: ThresholdKey.WEEK, label: ThresholdLabel.WEEK, days: 7, color: ThemeColor.Green},
+      {index: 2, key: ThresholdKey.WEEKS_2, label: ThresholdLabel.WEEKS_2, days: 14, color: ThemeColor.Blue},
+      {index: 3, key: ThresholdKey.MONTH, label: ThresholdLabel.MONTH, days: 28, color: ThemeColor.Orange},
+      {index: 4, key: ThresholdKey.QUARTERS, label: ThresholdLabel.QUARTERS, days: 90, color: ThemeColor.Red},
+      {index: 5, key: ThresholdKey.YEARS, label: ThresholdLabel.YEARS, days: 365, color: ThemeColor.Pink},
     ] as const satisfies readonly ThresholdLevel[],
   },
 }

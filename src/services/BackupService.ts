@@ -7,7 +7,10 @@ export interface Backup {
   // Before: tabs without groupId → couldn't map tabs back to groups during restore
   // Now: Each tab knows its original groupId → can recreate group structure
   tabs: Array<{ id?: number; title?: string; url: string; groupId?: number; lastAccessed?: number }>
-  groups: Array<{ oldId: number; title: string; color?: string }>
+  // ✅ NEW: Added index to preserve visual group positions
+  // Before: Restored groups appeared in random order ❌
+  // Now: Each group stores its original index → restored groups appear in exact same positions ✅
+  groups: Array<{ oldId: number; title: string; color?: string; index?: number }>
   createdAt: number
 }
 
@@ -55,12 +58,18 @@ export class BackupService {
         groupId: t.groupId,
         lastAccessed: t.lastAccessed
       })),
-      // Also get group metadata (title, color) separately via tabGroups API
-      groups: groups?.map((g: any) => ({
-        oldId: g.id,
-        title: g.title,
-        color: g.color,
-      })) || [],
+      // ✅ NEW: Capture group index for position restoration
+      // index = visual position of group in window (0 = leftmost, 1 = next, etc.)
+      // This preserves exact group positions when user has rearranged them
+      // Groups stored by visual order (sorted by index) for consistent restoration
+      groups: groups
+        ?.sort((a: any, b: any) => (a.index ?? -1) - (b.index ?? -1))
+        ?.map((g: any) => ({
+          oldId: g.id,
+          title: g.title,
+          color: g.color,
+          index: g.index,
+        })) || [],
       createdAt: Date.now(),
     }
 
@@ -132,9 +141,17 @@ export class BackupService {
             const tabIds = tabsForGroup.map(t => t.tabId)
             // Recreate group with NEW ID (group IDs are ephemeral)
             const groupId = await (browser.tabs as any).group({ tabIds })
-            // Apply original metadata to new group
-            await (browser.tabGroups as any).update(groupId, { title: group.title, color: group.color, collapsed: true })
-            console.log(`[BackupService] ✅ Created group "${group.title}" with newId=${groupId}`)
+            // ✅ NEW: Restore with original index for exact position preservation
+            // Before: Restored groups appeared in random order ❌
+            // Now: Each group restored at its original index position ✅
+            // group.index is set during backup, preserved here for consistency
+            await (browser.tabGroups as any).update(groupId, {
+              title: group.title,
+              color: group.color,
+              collapsed: true,
+              index: group.index ?? -1,
+            })
+            console.log(`[BackupService] ✅ Created group "${group.title}" with newId=${groupId}, index=${group.index}`)
           }
         }
       } else {
