@@ -161,6 +161,11 @@ export class BackgroundTabService {
 
         // Create groups from oldest→youngest (left→right).
         // After reorder, Month+ tabs are at lowest indexes, so Month+ group appears leftmost.
+        // NOTE: We don't set 'index' here because:
+        //   - tabGroups.update() does NOT support 'index' (only: collapsed, color, title)
+        //   - tabGroups.move() is for moving groups between windows, not positioning within same window
+        //   - Groups are created in FORWARD loop order, so they naturally appear left-to-right
+        //   - Tabs were already reordered (line 156) to ensure correct visual order
         let groupsCreated = 0
         for (let i = activeLevels.length - 1; i >= 0; i--) {
           const level = activeLevels[i]
@@ -174,7 +179,6 @@ export class BackgroundTabService {
               title: `${level.label} (${tabIds.length})`,
               color: level.color,
               collapsed: true,
-              index:groupsCreated
             })
             groupsCreated++
           } catch (err) {
