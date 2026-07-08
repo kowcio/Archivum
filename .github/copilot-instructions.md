@@ -255,6 +255,10 @@ See `test/playwright/README_SERVICE_WORKER_DEBUG.md` for full debugging guide.
 If You see that we are working on things for a longer time when You see a proper FIX that you should add to this instructions
 improve them. Add here instruction for the future that should be a reference to well established problems.
 
+### 🎯 Surgical Code Edits (Token Economy)
+
+**WRONG** ❌ - Replace entire function (100+ lines changed):
+
 // Check visual indices BEFORE sorting:
 console.log('Unsorted groups by index:')
 groups.forEach(g => console.log(`  "${g.title}" index=${g.index}`))

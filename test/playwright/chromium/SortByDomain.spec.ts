@@ -91,6 +91,7 @@ test.describe("Sort by Domain Button", () => {
 
     console.log(`✅ All ungrouped tabs are sorted correctly`);
 
-    await options.close();
+    // Don't close page here - let afterAll() handle cleanup
+    // This prevents: "Target page, context or browser has been closed"
   });
 });
