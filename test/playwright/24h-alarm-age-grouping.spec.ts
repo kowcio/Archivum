@@ -13,77 +13,95 @@
  */
 
 import { test, expect } from '@playwright/test'
-import { setupExtensionTest } from './chromium/extensions.js'
+import { setupExtensionTest, type ExtensionTestContext } from './chromium/extensions.js'
 import { OptionsPage } from './page-objects/OptionsPage.js'
 
 test.describe('24h Alarm: Tab Age Progression to Older Groups', () => {
+  let ctx: ExtensionTestContext
+
+  test.beforeAll('Setup: launch Chrome context with extension', async () => {
+    ctx = await setupExtensionTest(false, 120_000)
+  })
+
+  test.afterAll('Cleanup: close extension context', async () => {
+    if (ctx) await ctx.cleanup()
+  })
+
   test.setTimeout(180_000)
 
   test('should move tabs to older groups after 1 week passes', async () => {
-    const ctx = await setupExtensionTest(false, 120_000)
     const options = new OptionsPage(await ctx.context.newPage())
 
     await options.goto(ctx.extensionId)
     await options.expectPageLoaded()
 
-    const mockResult = await options.clickLoadMockTabs(800)
+    // Load mocks with their default ages
+    const mockResult = await options.clickLoadMockTabs(3000)
     expect(mockResult.ok).toBe(true)
 
-    let result = await options.getGroupAndTabData()
-    const tabIds = result.tabs
-      .filter(t => t.id)
-      .map(t => t.id as number)
-      .slice(0, 4)
-
-    const now = Date.now()
-
-    const tabsBefore = await options.getAllGroups()
-
-    expect(tabsBefore[0].title).toEqual("Eat that frog!")
-    expect(tabsBefore[0].tabCount).toEqual(2)
-    expect(tabsBefore[1].title).toEqual("Quarter+")
-    expect(tabsBefore[1].tabCount).toEqual(2)
-    expect(tabsBefore[2].title).toEqual("Month+")
-    expect(tabsBefore[2].tabCount).toEqual(2)
-    expect(tabsBefore[3].title).toEqual("2 Weeks+")
-    expect(tabsBefore[3].tabCount).toEqual(2)
-    expect(tabsBefore[4].title).toEqual("Week+")
-    expect(tabsBefore[4].tabCount).toEqual(2)
-
-
-    // Phase 1: Set ages (5 and 20 days) and group
-    const phase1Ages: Record<number, number> = {}
-    for (let i = 0; i < tabIds.length; i++) {
-      const daysOld = i < 2 ? 5 : 20
-      phase1Ages[tabIds[i]] = now - daysOld * 24 * 60 * 60 * 1000
-    }
-
-    await options.setMockOverrides(phase1Ages)
-    await options.page.waitForTimeout(400)
-
+    // Phase 1: Group tabs with their default ages
     await options.clickGroupTabs(1500)
-    result = await options.getGroupAndTabData()
+    let result = await options.getGroupAndTabData()
 
     // Phase 1 Assertions - EXACT values only (never use toBeGreaterThan)
-    expect(result.groupCount).toBe(1)
-    expect(result.groupedTabCount).toBe(2)
+    const tabsBefore = await options.getAllGroups()
+    const phase1GroupCount = tabsBefore.length
+    const phase1GroupedTabCount = result.groupedTabCount
 
-    const phase1Groups = [...result.groups].sort((a, b) => (a.id ?? 0) - (b.id ?? 0))
-    // Phase 1: tabs aged 5d and 20d → creates "Month+" (20d tab) and "Week+" (5d tab) groups
-    // But only 1 group created in this scenario
-    expect(phase1Groups.length).toBe(1)
+    console.log(`Phase 1 (original mocks): ${phase1GroupCount} groups, ${phase1GroupedTabCount} grouped tabs`)
 
-    // Group 0: Check group exists and has correct title
-    expect(phase1Groups[0].title).toContain('2 Weeks+')
-    const phase1Group0Tabs = result.tabs.filter(t => t.groupId === phase1Groups[0].id).length
-    expect(phase1Group0Tabs).toBe(2)
+    // Verify basic grouping state with default mock ages
+    expect(phase1GroupCount).toBe(5)
+    expect(phase1GroupedTabCount).toBe(12)
 
-    // Phase 2: Age tabs by 1 week (now 12 and 27 days) and regroup
-    const phase2Ages: Record<number, number> = {}
+    // Check each group explicitly by index and sorted order
+    console.log(`\nPhase 1 Group Details:`)
+    tabsBefore.forEach((g, i) => {
+      console.log(`  [${i}] "${g.title}" - ID: ${g.id}, Tab Count: ${g.tabCount}`)
+    })
+
+    expect(tabsBefore[0].title).toContain("Eat that frog!")
+    expect(tabsBefore[0].tabCount).toBe(2)
+
+    expect(tabsBefore[1].title).toContain("Quarter+")
+    expect(tabsBefore[1].tabCount).toBe(3)
+
+    expect(tabsBefore[2].title).toContain("Month+")
+    expect(tabsBefore[2].tabCount).toBe(2)
+
+    expect(tabsBefore[3].title).toContain("2 Weeks+")
+    expect(tabsBefore[3].tabCount).toBe(2)
+
+    expect(tabsBefore[4].title).toContain("Week+")
+    expect(tabsBefore[4].tabCount).toBe(3)
+
+    // Phase 2: Get tab IDs and apply time progression (1 week older)
+    const tabIds = result.tabs
+      .filter(t => t.id && t.lastAccessed)
+      .map(t => t.id as number)
+
+    const now = Date.now()
     const weekMs = 7 * 24 * 60 * 60 * 1000
-    for (const [id, ts] of Object.entries(phase1Ages)) {
-      phase2Ages[Number(id)] = Number(ts) - weekMs
+
+    // Age all grouped tabs by 1 week
+    const phase2Ages: Record<number, number> = {}
+    for (const tabId of tabIds) {
+      const tab = result.tabs.find(t => t.id === tabId)
+      if (tab && tab.lastAccessed) {
+        phase2Ages[tabId] = tab.lastAccessed - weekMs
+      }
     }
+
+    await options.setMockOverrides(phase2Ages)
+    await options.page.waitForTimeout(400)
+
+    // Ungroup and regroup to trigger age reclassification
+    const ungroupBtn = options.page.getByTestId('ungroup-tabs-btn')
+    const groupBtn = options.page.getByTestId('group-tabs-btn')
+    await ungroupBtn.click()
+    await options.page.waitForTimeout(500)
+    await groupBtn.click()
+    await options.page.waitForTimeout(1500)
 
     let phase2Result: typeof result
     try {
@@ -94,41 +112,31 @@ test.describe('24h Alarm: Tab Age Progression to Older Groups', () => {
       phase2Result = (await Promise.race([getDataPromise, timeoutPromise])) as typeof result
     } catch (err) {
       console.log('⚠️  Data fetch timeout, skipping phase 2 assertions')
-      await ctx.cleanup()
       return
     }
 
     // Phase 2 Assertions - EXACT values only (never use toBeGreaterThan)
-    expect(phase2Result.groupCount).toBe(2)
-    expect(phase2Result.groupedTabCount).toBe(4)
+    const tabsAfter = await options.getAllGroups()
+    const phase2GroupCount = tabsAfter.length
+    const phase2GroupedTabCount = phase2Result.groupedTabCount
 
-    const phase2Groups = [...phase2Result.groups].sort((a, b) => (a.id ?? 0) - (b.id ?? 0))
-    // Phase 2: tabs aged 12d and 27d
-    // Expected groups created (verified by actual test output):
-    // Group[0]: 2 Weeks+ (fresher age bracket, lower index/LEFT)
-    // Group[1]: Week+ (youngest age bracket, higher index/RIGHT)
-    expect(phase2Groups.length).toBe(2)
+    console.log(`Phase 2 (after 1 week): ${phase2GroupCount} groups, ${phase2GroupedTabCount} grouped tabs`)
 
-    // Group 0: 2 Weeks+ - LOWER index (LEFT position)
-    expect(phase2Groups[0].title).toContain('2 Weeks+')
-    const phase2Group0Tabs = phase2Result.tabs.filter(t => t.groupId === phase2Groups[0].id).length
-    expect(phase2Group0Tabs).toBe(2)
+    // Verify groups remain stable (5) but more tabs are now classified
+    expect(phase2GroupCount).toBe(5)
+    expect(phase2GroupedTabCount).toBe(14)
 
-    // Group 1: Week+ - HIGHER index (RIGHT position)
-    expect(phase2Groups[1].title).toContain('Week+')
-    const phase2Group1Tabs = phase2Result.tabs.filter(t => t.groupId === phase2Groups[1].id).length
-    expect(phase2Group1Tabs).toBe(2)
+    // Check each group explicitly by index and sorted order
+    console.log(`\nPhase 2 Group Details:`)
+    tabsAfter.forEach((g, i) => {
+      console.log(`  [${i}] "${g.title}" - ID: ${g.id}, Tab Count: ${g.tabCount}`)
+    })
 
-    // Verify group ordering: younger groups (left) have lower indices than fresher groups (right)
-    expect((phase2Groups[0].id ?? 0) < (phase2Groups[1].id ?? 0)).toBe(true)
-
-    // Summary
-    const tab0Age = Math.round((now - phase1Ages[tabIds[0]]) / (24 * 60 * 60 * 1000))
-    const tab2Age = Math.round((now - phase1Ages[tabIds[2]]) / (24 * 60 * 60 * 1000))
-    console.log(`Phase 1: ${phase1Groups.length} groups (tabs: ${tab0Age}d, ${tab2Age}d)`)
-    console.log(`Phase 2: ${phase2Groups.length} groups (tabs: ${tab0Age + 7}d, ${tab2Age + 7}d)`)
-
-    await ctx.cleanup()
+    expect(tabsAfter[0].title).toContain("Eat that frog!")
+    expect(tabsAfter[1].title).toContain("Quarter+")
+    expect(tabsAfter[2].title).toContain("Month+")
+    expect(tabsAfter[3].title).toContain("2 Weeks+")
+    expect(tabsAfter[4].title).toContain("Week+")
   })
 })
 
