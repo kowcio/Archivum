@@ -18,9 +18,19 @@ import { OptionsPage } from './page-objects/OptionsPage.js'
 
 test.describe('24h Alarm: Tab Age Progression to Older Groups', () => {
   let ctx: ExtensionTestContext
+  let options: OptionsPage
 
   test.beforeAll('Setup: launch Chrome context with extension', async () => {
     ctx = await setupExtensionTest(false, 120_000)
+    options = new OptionsPage(await ctx.context.newPage())
+
+    await options.goto(ctx.extensionId)
+    await options.expectPageLoaded()
+
+    // Load mocks with their default ages
+    const mockResult = await options.clickLoadMockTabs(3000)
+    expect(mockResult.ok).toBe(true)
+
   })
 
   test.afterAll('Cleanup: close extension context', async () => {
@@ -30,14 +40,6 @@ test.describe('24h Alarm: Tab Age Progression to Older Groups', () => {
   test.setTimeout(180_000)
 
   test('should move tabs to older groups after 1 week passes', async () => {
-    const options = new OptionsPage(await ctx.context.newPage())
-
-    await options.goto(ctx.extensionId)
-    await options.expectPageLoaded()
-
-    // Load mocks with their default ages
-    const mockResult = await options.clickLoadMockTabs(3000)
-    expect(mockResult.ok).toBe(true)
 
     // Phase 1: Group tabs with their default ages
     await options.clickGroupTabs(1500)
@@ -48,17 +50,19 @@ test.describe('24h Alarm: Tab Age Progression to Older Groups', () => {
     const phase1GroupCount = tabsBefore.length
     const phase1GroupedTabCount = result.groupedTabCount
 
-    console.log(`Phase 1 (original mocks): ${phase1GroupCount} groups, ${phase1GroupedTabCount} grouped tabs`)
+    console.log(`Phase 1 (original mocks): ${phase1GroupCount} groups, grouped = ${result.groupedTabCount}  ungrouped = ${result.ungroupedTabCount} of all tabs`)
 
     // Verify basic grouping state with default mock ages
     expect(phase1GroupCount).toBe(5)
     expect(phase1GroupedTabCount).toBe(12)
 
-    // Check each group explicitly by index and sorted order
-    console.log(`\nPhase 1 Group Details:`)
-    tabsBefore.forEach((g, i) => {
-      console.log(`  [${i}] "${g.title}" - ID: ${g.id}, Tab Count: ${g.tabCount}`)
-    })
+    // Verify groups are returned in visual order (getAllGroups() sorts by browser visual index)
+    console.log(`\nPhase 1 Visual Order Verification (Oldest→Left to Youngest→Right):`)
+     const expectedOrder = ["Eat that frog!", "Quarter+", "Month+", "2 Weeks+", "Week+"]
+
+     // Find the "Week+" group and log its index in the sorted groups array
+     const weekGroupIndex = tabsBefore.findIndex(g => g.title.includes("Week+"))
+     console.log("Week+ group index:", weekGroupIndex)
 
     expect(tabsBefore[0].title).toContain("Eat that frog!")
     expect(tabsBefore[0].tabCount).toBe(2)
@@ -132,11 +136,28 @@ test.describe('24h Alarm: Tab Age Progression to Older Groups', () => {
       console.log(`  [${i}] "${g.title}" - ID: ${g.id}, Tab Count: ${g.tabCount}`)
     })
 
+    // Verify groups are returned in visual order (getAllGroups() sorts by browser visual index)
+    console.log(`\nPhase 2 Visual Order Verification (Oldest→Left to Youngest→Right):`)
+    const expectedOrder2 = ["Eat that frog!", "Quarter+", "Month+", "2 Weeks+", "Week+"]
+    tabsAfter.forEach((g, i) => {
+      const position = i === 0 ? 'Leftmost (Oldest)' : i === tabsAfter.length - 1 ? 'Rightmost (Youngest)' : 'Middle'
+      console.log(`  Position ${i} [${position}]: "${g.title}" ✓ matches expected "${expectedOrder2[i]}"`)
+    })
+
     expect(tabsAfter[0].title).toContain("Eat that frog!")
+    expect(tabsAfter[0].tabCount).toBe(2)
+
     expect(tabsAfter[1].title).toContain("Quarter+")
+    expect(tabsAfter[1].tabCount).toBe(3)
+
     expect(tabsAfter[2].title).toContain("Month+")
+    expect(tabsAfter[2].tabCount).toBe(3)
+
     expect(tabsAfter[3].title).toContain("2 Weeks+")
+    expect(tabsAfter[3].tabCount).toBe(4)
+
     expect(tabsAfter[4].title).toContain("Week+")
+    expect(tabsAfter[4].tabCount).toBe(2)
   })
 })
 
