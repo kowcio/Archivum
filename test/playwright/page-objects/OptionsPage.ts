@@ -96,6 +96,25 @@ export class OptionsPage {
      await this.page.waitForTimeout(waitMs);
    }
 
+
+  /**
+   * Open a random tab from www.example.com/[0-9A-Z], optionally in a group at specified index.
+   * @returns generated alphanumeric ID (single char: 0-9 or A-Z)
+   */
+  async openRandomTabInGroup(newTabGroup: boolean = false, index?: number): Promise<string> {
+    return this.page.evaluate(
+      ({ newTabGroup, index }) => {
+        return new Promise<string>((resolve) => {
+          chrome.runtime.sendMessage(
+            { action: 'openRandomTabInGroup', newTabGroup, index },
+            (response: any) => resolve(response?.result || 'UNKNOWN')
+          );
+        });
+      },
+      { newTabGroup, index }
+    );
+  }
+
    /**
     * Group Tabs by Domain via background message (no UI button).
     * Uses chrome.runtime.sendMessage to trigger sortTabsByDomain.
@@ -487,8 +506,8 @@ export class OptionsPage {
      * Prints each tab: index, id, groupId, title, url
      */
     async getGroupAndTabData(): Promise<{
-     groupCount: number;
-     groups: Array<{ id: number; title: string }>;
+     // groupCount: number;
+     groups: Array<{ id: number; title: string; index: number }>;
      groupedTabCount: number;
      ungroupedTabCount: number;
      tabs: Array<{
@@ -498,7 +517,8 @@ export class OptionsPage {
        active?: boolean;
        lastAccessed?: number;
        groupId?: number;
-       index?: number;
+       windowIndex?: number;
+       positionInGroup?: number | null;
      }>;
      }> {
       return await this.page.evaluate(function() {
@@ -513,8 +533,11 @@ export class OptionsPage {
           return Promise.all([
             (chrome.tabGroups as any).query({ windowId: (chrome.windows as any).WINDOW_ID_CURRENT }),
             (chrome.tabs as any).query({ currentWindow: true })
-          ]).then(([groups, tabs]) => {
-            // Apply mock overrides to tabs
+           ]).then(([groups, tabs]) => {
+             // Sort groups by index (left-to-right)
+             const sortedGroups = [...groups].sort((a: any, b: any) => (a.index ?? -1) - (b.index ?? -1))
+
+             // Apply mock overrides to tabs
             for (const tab of tabs) {
               if (tab.id != null) {
                 const numericOverride = (mockOverrides as Record<number, number>)[tab.id]
@@ -526,23 +549,46 @@ export class OptionsPage {
               }
             }
 
+            // Calculate group index from first tab's index in each group (workaround for API issue)
+            const groupIndexMap = new Map<number, number>()
+            for (const group of sortedGroups) {
+              const groupTabs = tabs.filter((t: any) => t.groupId === group.id)
+              if (groupTabs.length > 0) {
+                const firstTabIndex = groupTabs[0].index
+                groupIndexMap.set(group.id, firstTabIndex)
+              }
+            }
+
+            // Build final groups with calculated indices
+            const groupsWithIndices = sortedGroups.map((g: any) => ({
+              id: g.id,
+              title: g.title,
+              index: groupIndexMap.get(g.id) ?? g.index ?? -1
+            }))
+
+            // Sort groups by calculated index (left-to-right)
+            groupsWithIndices.sort((a: any, b: any) => a.index - b.index)
+
             return {
-              groupCount: groups.length,
-              groups: groups.map((g: any) => ({
-                id: g.id,
-                title: g.title
-              })),
+              groupCount: groupsWithIndices.length,
+              groups: groupsWithIndices,
               groupedTabCount: tabs.filter((t: any) => t.groupId != null && t.groupId !== -1).length,
               ungroupedTabCount: tabs.filter((t: any) => t.groupId == null || t.groupId === -1).length,
-              tabs: tabs.map((t: any) => ({
-                id: t.id,
-                url: t.url,
-                title: t.title,
-                active: t.active,
-                lastAccessed: t.lastAccessed,
-                groupId: t.groupId,
-                index: t.index
-              }))
+              tabs: tabs.map((t: any) => {
+                const positionInGroup = t.groupId && t.groupId !== -1
+                  ? tabs.filter((tab: any) => tab.groupId === t.groupId && tab.index < t.index).length + 1
+                  : null
+                return {
+                  id: t.id,
+                  url: t.url,
+                  title: t.title,
+                  active: t.active,
+                  lastAccessed: t.lastAccessed,
+                  groupId: t.groupId,
+                  windowIndex: t.index,
+                  positionInGroup
+                }
+              })
             }
           })
         })

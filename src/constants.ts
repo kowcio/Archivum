@@ -151,6 +151,7 @@ export const BACKGROUND_MESSAGE_ACTIONS = {
   FOCUS_TAB: 'focusTab',
   BACKUP_TABS: 'backupTabs',
   RESTORE_TABS: 'restoreTabs',
+  OPEN_RANDOM_TAB_IN_GROUP: 'openRandomTabInGroup',
 } as const
 
 /**
