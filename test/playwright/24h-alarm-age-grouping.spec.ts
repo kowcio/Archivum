@@ -146,18 +146,17 @@ test.describe('24h Alarm: Tab Age Progression to Older Groups', () => {
 
     expect(tabsAfter[0].title).toContain("Eat that frog!")
     expect(tabsAfter[0].tabCount).toBe(2)
-
     expect(tabsAfter[1].title).toContain("Quarter+")
     expect(tabsAfter[1].tabCount).toBe(3)
-
     expect(tabsAfter[2].title).toContain("Month+")
     expect(tabsAfter[2].tabCount).toBe(3)
-
     expect(tabsAfter[3].title).toContain("2 Weeks+")
     expect(tabsAfter[3].tabCount).toBe(4)
-
     expect(tabsAfter[4].title).toContain("Week+")
     expect(tabsAfter[4].tabCount).toBe(2)
+
+
+
   })
 })
 
