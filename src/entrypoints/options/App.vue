@@ -59,8 +59,8 @@
                 v-model="selectedAgeGroup"
                 :options="ageGroupOptions"
                 option-value="value"
-                data-testid="age-group-filter"
                 option-label="label"
+                data-testid="age-group-filter"
                 emit-value
                 map-options
                 clearable
@@ -68,7 +68,11 @@
                 dense
                 label="Filter by age"
                 class="q-mr-md col-5"
-              />
+              >
+                <template v-slot:option="{ opt }">
+                  <div :class="`age-filter-${opt.color}`">{{ opt.label }}</div>
+                </template>
+              </q-select>
               <q-input
                 class="col-6"
                 data-testid="search-filter"
@@ -210,18 +214,24 @@ const tabRows = computed(() => {
 
 /** Available age group options for filter dropdown */
 const ageGroupOptions = computed(() => {
-  const options: Array<{ label: string; value: number }> = [
-    { label: 'Fresh', value: 0 }
+  const thresholds = appStore.thresholds.value
+  const options: Array<{ label: string; value: number; color?: string }> = [
+    { label: 'Fresh', value: 0, color: 'grey' }
   ]
 
-  // Add threshold levels
-  const active = appStore.thresholds.value.active()
+  // Add threshold levels with their colors
+  const active = thresholds.active()
   active.forEach((level, idx) => {
-    options.push({ label: level.label, value: idx + 1 })
+    options.push({
+      label: level.label,
+      value: idx + 1,
+      color: (level.color as string) || 'grey'
+    })
   })
 
   return options
 })
+
 
 
 function truncate(text: string, max: number): string {
@@ -382,6 +392,21 @@ onMounted(() => {
 .filter-controls :deep(.q-field) {
   min-width: 125px;
 }
+
+/* Age filter background colors based on threshold */
+[class^="age-filter-"] {
+  padding: 8px 12px;
+}
+
+.age-filter-green { background: rgba(88, 138, 102, 0.15); }
+.age-filter-blue { background: rgba(56, 103, 164, 0.15); }
+.age-filter-orange { background: rgba(212, 122, 42, 0.15); }
+.age-filter-red { background: rgba(184, 90, 74, 0.15); }
+.age-filter-pink { background: rgba(181, 96, 115, 0.15); }
+.age-filter-purple { background: rgba(125, 83, 148, 0.15); }
+.age-filter-yellow { background: rgba(212, 168, 75, 0.15); }
+.age-filter-cyan { background: rgba(93, 154, 168, 0.15); }
+.age-filter-grey { background: rgba(138, 138, 138, 0.15); }
 
 
 /* ── Button Group Layout (Focus + Close buttons) ──────────────────────── */
