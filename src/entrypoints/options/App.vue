@@ -68,6 +68,7 @@
                 dense
                 label="Filter by age"
                 class="col-5"
+                :class="`age-filter-${selectedAgeGroupColor}`"
               >
                 <template v-slot:option="{ itemProps, opt }">
                   <q-item v-bind="itemProps" :class="`age-filter-${opt.color}`">
@@ -183,7 +184,7 @@ const columns: {
   {name: 'url', label: 'URL', field: 'url', align: 'left', sortable: true},
   {
     name: 'lastAccess',
-    label: 'Days old',
+    label: 'Age',
     field: 'lastAccessDays',
     align: 'left',
     sortable: true,
@@ -218,7 +219,7 @@ const tabRows = computed(() => {
 const ageGroupOptions = computed(() => {
   const thresholds = appStore.thresholds.value
   const options: Array<{ label: string; value: number; color?: string }> = [
-    { label: 'Fresh', value: 0, color: 'grey' }
+    { label: 'Fresh', value: 0, color: 'white' }
   ]
 
   // Add threshold levels with their colors
@@ -227,11 +228,18 @@ const ageGroupOptions = computed(() => {
     options.push({
       label: level.label,
       value: idx + 1,
-      color: (level.color as string) || 'grey'
+      color: (level.color as string) || 'white'
     })
   })
 
   return options
+})
+
+/** Get the color of the currently selected age group */
+const selectedAgeGroupColor = computed(() => {
+  if (selectedAgeGroup.value === null) return 'white'
+  const selected = ageGroupOptions.value.find(opt => opt.value === selectedAgeGroup.value)
+  return selected?.color || 'white'
 })
 
 
