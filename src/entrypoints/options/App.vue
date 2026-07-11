@@ -164,7 +164,7 @@ const columns: {
     align: 'left',
     sortable: true,
     sort: (a, b) => a - b,
-    style: 'width: 8%'
+    style: 'width: 60px'
   },
 ]
 
