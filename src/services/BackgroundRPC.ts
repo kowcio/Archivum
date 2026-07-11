@@ -12,6 +12,7 @@
 import type { Browser } from 'wxt/browser'
 import { BackgroundTabService } from '@/services/BackgroundTabService'
 import { BackupService, type Backup } from '@/services/BackupService'
+import { mockOverrides } from '@/store/appStore'
 
 /**
  * ⚠️ DEVELOPERS: This object MUST have async methods (even if they don't need to be)
@@ -36,6 +37,8 @@ export const backgroundRPC = {
 
   // ── Mock tabs (dev/testing) ──────────────────────────────────────────────
   createMockTabs: (): Promise<Browser.tabs.Tab[]> => BackgroundTabService.createMockTabs(),
+  setMockOverrides: (overrides: Record<number, number>): Promise<void> => mockOverrides.setValue(overrides),
+  getMockOverrides: (): Promise<Record<number, number>> => mockOverrides.getValue(),
 
   // ── Backup & restore ─────────────────────────────────────────────────
   backupTabs: (): Promise<Backup> => BackupService.backupTabs(),
