@@ -54,15 +54,31 @@
           :pagination="{ sortBy: 'ordinal', descending: false }"
         >
           <template #top-right>
-            <q-input
-              v-model="filter"
-              placeholder="Search..."
-              dense
-              outlined
-              clearable
-              class="q-ml-sm"
-              style="min-width: 200px"
-            />
+            <div class="filter-controls row">
+              <q-select
+                v-model="selectedAgeGroup"
+                :options="ageGroupOptions"
+                option-value="value"
+                data-testid="age-group-filter"
+                option-label="label"
+                emit-value
+                map-options
+                clearable
+                outlined
+                dense
+                label="Filter by age"
+                class="q-mr-md col-5"
+              />
+              <q-input
+                class="col-6"
+                data-testid="search-filter"
+                v-model="filter"
+                placeholder="Search..."
+                dense
+                outlined
+                clearable
+              />
+            </div>
           </template>
           <template #body="props">
             <q-tr :props="props">
@@ -91,15 +107,15 @@
                     <span v-else>—</span>
                   </div>
                 </template>
-                <template v-else-if="col.name === 'lastAccess'">
-                  <span :style="props.row.rowStyle">{{ props.row.lastAccessDays ?? '—' }}</span>
-                </template>
                 <template v-else-if="col.name === 'title'">
                   <span>{{ truncate(props.row.title, 50) }}</span>
                 </template>
                 <template v-else-if="col.name === 'url'">
                   <a :href="props.row.url" target="_blank"
                      rel="noreferrer">{{ truncate(props.row.url, 50) }}</a>
+                </template>
+                <template v-else-if="col.name === 'lastAccess'">
+                  <span :style="props.row.rowStyle">{{ props.row.lastAccessDays ?? '—' }}</span>
                 </template>
                 <template v-else>
                   {{ props.row[col.field] ?? '—' }}
@@ -129,10 +145,10 @@ import CloseAllTabsButton from '@/components/CloseAllTabsButton.vue'
 import RefreshButton from '@/components/RefreshButton.vue'
 import SortButton from '@/components/SortButton.vue'
 import BackupRestoreButton from "@/components/BackupRestoreButton.vue";
-import TimerAndCurrentState from "@/components/TimerAndCurrentState.vue";
 
 const appStore = useAppStore()
 const filter = ref('')
+const selectedAgeGroup = ref<number | null>(null) // null = show all, 0 = Fresh, 1+ = threshold level
 const error = ref<string | null>(null)
 const tabs = ref<any[]>([])
 
@@ -172,15 +188,39 @@ const columns: {
 
 const tabRows = computed(() => {
   const rows = TabRow.fromTabs(tabs.value, appStore.thresholds.value)
-  return rows.map((row: any, i: number) => {
+  let filtered = rows.map((row: any, i: number) => {
     const days = row.lastAccessDays ?? 0
     const c = AgeClassification.fromDays(days, appStore.thresholds.value)
     return {
       ...row,
-      ordinal: i + 1,
+      ordinal: i + 1, // Original position index (before filtering)
       rowStyle: c.inlineStyle,
+      ageGroupIndex: c.index, // 0=Fresh, 1+=level index
+      ageGroupLabel: c.label, // "Fresh", "Week+", "Month+", etc.
     }
   })
+
+  // Filter by age group if selected
+  if (selectedAgeGroup.value !== null) {
+    filtered = filtered.filter(row => row.ageGroupIndex === selectedAgeGroup.value)
+  }
+
+  return filtered
+})
+
+/** Available age group options for filter dropdown */
+const ageGroupOptions = computed(() => {
+  const options: Array<{ label: string; value: number }> = [
+    { label: 'Fresh', value: 0 }
+  ]
+
+  // Add threshold levels
+  const active = appStore.thresholds.value.active()
+  active.forEach((level, idx) => {
+    options.push({ label: level.label, value: idx + 1 })
+  })
+
+  return options
 })
 
 
@@ -335,13 +375,14 @@ onMounted(() => {
   color: var(--got-brand-dark);
 }
 
-.favicon-wrapper {
-  display: inline-flex;
-  align-items: center;
-  width: 22px;
-  height: 22px;
-  flex-shrink: 0;
+
+
+/* ── Filter Controls (Age Group + Search) ──────────────────────────── */
+
+.filter-controls :deep(.q-field) {
+  min-width: 125px;
 }
+
 
 /* ── Button Group Layout (Focus + Close buttons) ──────────────────────── */
 .btn-group {
