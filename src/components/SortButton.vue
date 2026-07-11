@@ -16,8 +16,12 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
-import { browser } from 'wxt/browser'
-import { BACKGROUND_MESSAGE_ACTIONS } from '@/constants'
+import { createProxyService } from '@webext-core/proxy-service'
+import type { BackgroundRPC } from '@/services/BackgroundRPC'
+
+// ⚠️ DEVELOPERS: createProxyService() returns type-safe proxy to background service worker
+// Replaces browser.runtime.sendMessage() with method calls - no string keys needed ✅
+const background = createProxyService<BackgroundRPC>('background')
 
 const emit = defineEmits<{
   (e: 'sorted', tabsCount: number): void
@@ -29,17 +33,11 @@ const loading = ref(false)
 async function handleSort(): Promise<void> {
   loading.value = true
   try {
-    // Call background service to sort ungrouped tabs by domain
-    const resp: any = await browser.runtime.sendMessage({
-      action: BACKGROUND_MESSAGE_ACTIONS.SORT_TABS_BY_DOMAIN
-    })
-    if (resp?.error) {
-      emit('error', `[SORT_BY_DOMAIN] ${resp.error}`)
-      return
-    }
-
-    // Emit the number of sorted tabs
-    emit('sorted', resp?.groupsCreated ?? 0)
+    // ⚠️ DEVELOPERS: Type-safe call to background service
+    // TypeScript knows sortGroupsByDomain returns Promise<number> ✅
+    // NO MORE 'as any' casting ❌
+    const sortedCount = await background.sortGroupsByDomain()
+    emit('sorted', sortedCount)
   } catch (err) {
     emit('error', `[SORT_BY_DOMAIN_ERROR] ${err instanceof Error ? err.message : 'Failed to sort tabs'}`)
   } finally {

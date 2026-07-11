@@ -138,10 +138,10 @@
 
 <script setup lang="ts">
 import {computed, onMounted, ref} from 'vue'
-import {browser} from 'wxt/browser'
-import {BACKGROUND_MESSAGE_ACTIONS, isDevEnv} from '@/constants'
+import {isDevEnv} from '@/constants'
 import {useAppStore} from '@/store/appStore.ts'
 import { mockOverrides } from '@/store/appStore'
+import { createProxyService } from '@webext-core/proxy-service'
 import {TabRow} from '@/entrypoints/options/models/TabRow.ts'
 import {AgeClassification} from '@/models/AgeClassification.ts'
 import Thresholds from '../../components/Thresholds.vue'
@@ -151,7 +151,12 @@ import MockButton from '@/components/MockButton.vue'
 import CloseAllTabsButton from '@/components/CloseAllTabsButton.vue'
 import RefreshButton from '@/components/RefreshButton.vue'
 import SortButton from '@/components/SortButton.vue'
-import BackupRestoreButton from "@/components/BackupRestoreButton.vue";
+import BackupRestoreButton from "@/components/BackupRestoreButton.vue"
+import type { BackgroundRPC } from '@/services/BackgroundRPC'
+
+// ⚠️ DEVELOPERS: createProxyService() returns type-safe proxy to background service worker
+// Replaces browser.runtime.sendMessage() with method calls - no string keys needed ✅
+const background = createProxyService<BackgroundRPC>('background')
 
 const appStore = useAppStore()
 const filter = ref('')
@@ -289,14 +294,10 @@ async function applyMockOverridesToTabs(): Promise<void> {
 async function refreshTabs(): Promise<void> {
   error.value = null
   try {
-    const resp: any = await browser.runtime.sendMessage({
-      action: BACKGROUND_MESSAGE_ACTIONS.GET_TABS
-    })
-    if (resp?.error) {
-      error.value = `[GET_TABS] ${resp.error}`
-      return
-    }
-    tabs.value = resp?.tabs ?? []
+    // ⚠️ DEVELOPERS: Type-safe call to background service
+    // TypeScript knows getTabs returns Promise<Browser.tabs.Tab[]> ✅
+    const tabs_data = await background.getTabs()
+    tabs.value = tabs_data
     console.log(`[App] Got ${tabs.value.length} tabs from background`)
 
     // ✅ NEW: Small delay to let storage settle, then apply mock overrides
@@ -319,12 +320,11 @@ function onRefreshTabs(newTabs: any[]): void {
 async function closeTab(tabId: number | null): Promise<void> {
   if (tabId == null) return
   try {
-    const resp: any = await browser.runtime.sendMessage({
-      action: BACKGROUND_MESSAGE_ACTIONS.CLOSE_TAB,
-      tabId
-    })
-    if (resp?.error) {
-      error.value = `[CLOSE_TAB] Tab#${tabId}: ${resp.error}`
+    // ⚠️ DEVELOPERS: Type-safe call to background service
+    // TypeScript knows closeTab returns Promise<string | null> ✅
+    const errorMsg = await background.closeTab(tabId)
+    if (errorMsg) {
+      error.value = `[CLOSE_TAB] Tab#${tabId}: ${errorMsg}`
       return
     }
     tabs.value = tabs.value.filter((t: any) => t.id !== tabId)
@@ -336,12 +336,11 @@ async function closeTab(tabId: number | null): Promise<void> {
 async function focusTab(tabId: number | null): Promise<void> {
   if (tabId == null) return
   try {
-    const resp: any = await browser.runtime.sendMessage({
-      action: BACKGROUND_MESSAGE_ACTIONS.FOCUS_TAB,
-      tabId
-    })
-    if (resp?.error) {
-      error.value = `[FOCUS_TAB] Tab#${tabId}: ${resp.error}`
+    // ⚠️ DEVELOPERS: Type-safe call to background service
+    // TypeScript knows focusTab returns Promise<string | null> ✅
+    const errorMsg = await background.focusTab(tabId)
+    if (errorMsg) {
+      error.value = `[FOCUS_TAB] Tab#${tabId}: ${errorMsg}`
       return
     }
     // Success - tab is now focused, close the options page so user can investigate

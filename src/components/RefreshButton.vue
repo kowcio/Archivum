@@ -12,8 +12,12 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
-import { browser } from 'wxt/browser'
-import { BACKGROUND_MESSAGE_ACTIONS } from '@/constants'
+import { createProxyService } from '@webext-core/proxy-service'
+import type { BackgroundRPC } from '@/services/BackgroundRPC'
+
+// ⚠️ DEVELOPERS: createProxyService() returns type-safe proxy to background service worker
+// Replaces browser.runtime.sendMessage() with method calls - no string keys needed ✅
+const background = createProxyService<BackgroundRPC>('background')
 
 const emit = defineEmits<{
   (e: 'refresh', tabs: any[]): void
@@ -25,14 +29,10 @@ const loading = ref(false)
 async function handleRefresh(): Promise<void> {
   loading.value = true
   try {
-    const resp: any = await browser.runtime.sendMessage({
-      action: BACKGROUND_MESSAGE_ACTIONS.GET_TABS
-    })
-    if (resp?.error) {
-      emit('error', `[GET_TABS] ${resp.error}`)
-      return
-    }
-    emit('refresh', resp?.tabs ?? [])
+    // ⚠️ DEVELOPERS: Type-safe call to background service
+    // TypeScript knows getTabs returns Promise<Browser.tabs.Tab[]> ✅
+    const tabs = await background.getTabs()
+    emit('refresh', tabs)
   } catch (err) {
     emit('error', `[GET_TABS_ERROR] ${err instanceof Error ? err.message : 'Failed to load tabs'}`)
   } finally {

@@ -1,18 +1,26 @@
 import { defineBackground } from 'wxt/utils/define-background'
+import { registerService } from '@webext-core/proxy-service'
 import { ExtensionCleanupService } from '@/services/ExtensionCleanupService'
 import { BackgroundTabService } from '@/services/BackgroundTabService'
 import { BackupService } from '@/services/BackupService'
-import { APP_DEFAULTS, BACKGROUND_MESSAGE_ACTIONS } from '@/constants'
+import { APP_DEFAULTS } from '@/constants'
 import { browser } from 'wxt/browser'
 import { mockOverrides } from '@/store/appStore'
+import { backgroundRPC } from '@/services/BackgroundRPC'
 
-
-export { BACKGROUND_MESSAGE_ACTIONS }
+// ⚠️ DEVELOPERS: Type-safe RPC is now the single source of truth for all background ↔ UI communication
+// NO MORE manual message routing with if-else chains ✅
+// Components use: const bg = createProxyService<BackgroundRPC>('background') for full type safety
 
 export default defineBackground({
   type: 'module',
 
   main() {
+    // ⚠️ CRITICAL: Register ALL background service methods here (one time only)
+    // Before: 200+ lines of if-else message handlers ❌
+    // After: One registration call ✅
+    registerService('background', backgroundRPC)
+
     // 🧹 Lifecycle
     ExtensionCleanupService.registerLifecycleListeners()
 
@@ -46,131 +54,57 @@ export default defineBackground({
     }
 
 
-    /**
-     * Messages from  UI to handel browser API directly by the worker.
-     */
-    // 💬 Messages from UI (popup, options)
+    // ⚠️ DEVELOPERS: Manual message routing removed — see BackgroundRPC.ts for all RPC methods
+    // ALL background ↔ UI communication now goes through createProxyService() above ✅
+    // Benefits:
+    // - No more manual if-else chains
+    // - Full type safety in components
+    // - Auto error propagation
+    // - Refactor-safe (rename-safe across codebase)
+
+    // 🧪 Test helpers: Legacy message handlers for mock overrides (kept for backward compat)
+    // TODO: Migrate these to BackgroundRPC once tests are updated
     browser.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       if (typeof message !== 'object' || !message.action) return
       const { action } = message as { action: string }
 
-      if (action === BACKGROUND_MESSAGE_ACTIONS.GROUP_TABS_BY_AGE) {
-        BackgroundTabService.groupTabsByAge()
-          .then((count) => sendResponse({ groupsCreated: count, error: null }))
-          .catch((err: any) => sendResponse({ groupsCreated: 0, error: String(err) }))
+      // 🧪 Test helper: Create mock tabs (legacy - use RPC in production)
+      if (action === 'createMockTabs') {
+        BackgroundTabService.createMockTabs()
+          .then((tabs) => sendResponse({ error: null, tabs }))
+          .catch((err: any) => sendResponse({ error: String(err), tabs: [] }))
         return true
       }
 
-      if (action === BACKGROUND_MESSAGE_ACTIONS.SORT_TABS_BY_DOMAIN) {
-        BackgroundTabService.sortGroupsByDomain()
-          .then((count) => sendResponse({ groupsCreated: count, error: null }))
-          .catch((err: any) => sendResponse({ groupsCreated: 0, error: String(err) }))
+      // 🧪 Test helper: Set mock overrides for created tabs
+      if (message.action === 'setMockOverrides') {
+        const { overrides } = message as { action: string; overrides: Record<number, number> }
+        mockOverrides.setValue(overrides)
+          .then(() => {
+            console.log('[background] Mock overrides set:', Object.keys(overrides).length, 'tabs')
+            sendResponse({ error: null })
+          })
+          .catch((err: any) => {
+            console.error('[background] Failed to set mock overrides:', err)
+            sendResponse({ error: String(err) })
+          })
         return true
       }
 
-      if (action === BACKGROUND_MESSAGE_ACTIONS.UNGROUP_ALL_TABS) {
-        BackgroundTabService.ungroupAllTabs()
-          .then(() => sendResponse({ error: null }))
-          .catch((err: any) => sendResponse({ error: String(err) }))
+      // 🧪 Test helper: Get mock overrides (for inspection in tests)
+      if (message.action === 'getMockOverrides') {
+        mockOverrides.getValue()
+          .then((overrides) => {
+            console.log('[background] Returning mock overrides:', Object.keys(overrides).length, 'tabs')
+            sendResponse({ overrides, error: null })
+          })
+          .catch((err: any) => {
+            console.error('[background] Failed to get mock overrides:', err)
+            sendResponse({ overrides: {}, error: String(err) })
+          })
         return true
       }
-
-       if (action === BACKGROUND_MESSAGE_ACTIONS.CREATE_MOCK_TABS) {
-         BackgroundTabService.createMockTabs()
-           .then((tabs) => sendResponse({ error: null, tabs }))
-           .catch((err: any) => sendResponse({ error: String(err), tabs: [] }))
-         return true
-       }
-
-       if (action === BACKGROUND_MESSAGE_ACTIONS.GET_TABS) {
-         BackgroundTabService.getTabs()
-           .then((tabs) => sendResponse({ error: null, tabs }))
-           .catch((err: any) => sendResponse({ error: String(err), tabs: [] }))
-         return true
-       }
-
-        if (action === BACKGROUND_MESSAGE_ACTIONS.ON_TAB_ACTIVATED) {
-          const { tabId } = message as { action: string; tabId: number }
-          BackgroundTabService.onTabActivated(tabId)
-            .then(() => sendResponse({ error: null }))
-            .catch((err: any) => sendResponse({ error: String(err) }))
-          return true
-        }
-
-        if (action === BACKGROUND_MESSAGE_ACTIONS.HAS_PLUGIN_GROUPS) {
-          BackgroundTabService.hasPluginGroups()
-            .then((has) => sendResponse({ hasPluginGroups: has, error: null }))
-            .catch((err: any) => sendResponse({ hasPluginGroups: false, error: String(err) }))
-          return true
-        }
-
-          if (action === BACKGROUND_MESSAGE_ACTIONS.CLOSE_TAB) {
-            const { tabId } = message as { action: string; tabId: number }
-            BackgroundTabService.closeTab(tabId)
-              .then((error) => sendResponse({ error }))
-              .catch((err: any) => sendResponse({ error: String(err) }))
-            return true
-          }
-
-          if (action === BACKGROUND_MESSAGE_ACTIONS.FOCUS_TAB) {
-            const { tabId } = message as { action: string; tabId: number }
-            BackgroundTabService.focusTab(tabId)
-              .then((error) => sendResponse({ error }))
-              .catch((err: any) => sendResponse({ error: String(err) }))
-            return true
-          }
-
-         if (action === BACKGROUND_MESSAGE_ACTIONS.BACKUP_TABS) {
-           BackupService.backupTabs()
-             .then((backup) => sendResponse({ success: true, count: backup.count }))
-             .catch((err: any) => sendResponse({ success: false, count: 0, error: String(err) }))
-           return true
-         }
-
-         if (action === BACKGROUND_MESSAGE_ACTIONS.RESTORE_TABS) {
-           BackupService.restoreTabs()
-             .then(() => sendResponse({ success: true }))
-             .catch((err: any) => sendResponse({ success: false, error: String(err) }))
-           return true
-         }
-
-        // 🧪 Test helper: Set mock overrides for created tabs
-        if (action === 'setMockOverrides') {
-         const { overrides } = message as { action: string; overrides: Record<number, number> }
-         mockOverrides.setValue(overrides)
-           .then(() => {
-             console.log('[background] Mock overrides set:', Object.keys(overrides).length, 'tabs')
-             sendResponse({ error: null })
-           })
-           .catch((err: any) => {
-             console.error('[background] Failed to set mock overrides:', err)
-             sendResponse({ error: String(err) })
-           })
-         return true
-       }
-
-        // 🧪 Test helper: Get mock overrides (for inspection in tests)
-        if (action === 'getMockOverrides') {
-          mockOverrides.getValue()
-            .then((overrides) => {
-              console.log('[background] Returning mock overrides:', Object.keys(overrides).length, 'tabs')
-              sendResponse({ overrides, error: null })
-            })
-            .catch((err: any) => {
-              console.error('[background] Failed to get mock overrides:', err)
-              sendResponse({ overrides: {}, error: String(err) })
-            })
-          return true
-        }
-
-        if (action === BACKGROUND_MESSAGE_ACTIONS.OPEN_RANDOM_TAB_IN_GROUP) {
-          const { newTabGroup, index } = message as { action: string; newTabGroup: boolean; index?: number }
-          BackgroundTabService.openRandomTabInGroup(newTabGroup, index)
-            .then((result: string) => sendResponse({ result }))
-            .catch(() => sendResponse({ result: 'UNKNOWN' }))
-          return true
-        }
-       })
+    })
 
     console.log('[background] ✅ Ready')
   },

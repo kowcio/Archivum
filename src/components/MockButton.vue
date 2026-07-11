@@ -14,9 +14,13 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { browser } from 'wxt/browser'
-import { BACKGROUND_MESSAGE_ACTIONS } from '@/constants'
+import { createProxyService } from '@webext-core/proxy-service'
+import type { BackgroundRPC } from '@/services/BackgroundRPC'
 import { MOCK_TABS } from '@/utils/mockTabData'
+
+// ⚠️ DEVELOPERS: createProxyService() returns type-safe proxy to background service worker
+// Replaces browser.runtime.sendMessage() with method calls - no string keys needed ✅
+const background = createProxyService<BackgroundRPC>('background')
 
 const emit = defineEmits<{
   /**
@@ -44,23 +48,17 @@ const mocksCount = ref(MOCK_TABS.length)
 async function createMockWithPreset(): Promise<void> {
   loading.value = true
   try {
-    const resp: any = await browser.runtime.sendMessage({
-      action: BACKGROUND_MESSAGE_ACTIONS.CREATE_MOCK_TABS,
-    })
+    // ⚠️ DEVELOPERS: Type-safe call to background service
+    // TypeScript knows createMockTabs returns Promise<Browser.tabs.Tab[]> ✅
+    const tabs = await background.createMockTabs()
 
-     if (resp?.error) {
-       console.error('[MockButton] Failed to create mock tabs:', resp.error)
-       return
-     }
+    if (tabs.length === 0) {
+      return
+    }
 
-     const tabs = resp?.tabs ?? []
-     if (tabs.length === 0) {
-       return
-     }
-
-     emit('mock-created')
-   } catch (err) {
-     console.error('[MockButton] Error:', err)
+    emit('mock-created')
+  } catch (err) {
+    console.error('[MockButton] Error:', err)
   } finally {
     loading.value = false
   }

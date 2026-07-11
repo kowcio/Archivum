@@ -51,6 +51,46 @@ Only: implement code changes, fix bugs, run tests. If creating docs is needed, a
 
 **Note**: IntelliJ may show TS2304 error despite fix being correct. This is IDE cache issue. npm run type-check passes ✅. Use File → Invalidate Caches → Restart IntelliJ to clear IDE cache.
 
+### Pattern 5: @webext-core/proxy-service RPC Type-Safety Gotchas
+⚠️ **CRITICAL**: Always use `registerService()` in background, `createProxyService()` in UI.
+
+**RPC Methods MUST be async** — Even if they don't need to be:
+```typescript
+❌ WRONG: getTabs: () => Browser.tabs.Tab[]  // NOT callable from UI — silently fails
+✅ RIGHT: getTabs: (): Promise<Browser.tabs.Tab[]> => BackgroundTabService.getTabs()
+```
+**Why**: `@webext-core/proxy-service` requires all methods to return `Promise<T>`. Without async, the proxy doesn't register the method.
+
+**Same service key on both sides**:
+```typescript
+// background.ts
+registerService('background', backgroundRPC)
+
+// components/*.vue
+const bg = createProxyService<typeof backgroundRPC>('background')
+// Key 'background' MUST match ✅
+```
+
+**No manual message routing** — Replace old `BACKGROUND_MESSAGE_ACTIONS` if-else chains:
+```typescript
+❌ OLD (200+ lines):
+browser.runtime.onMessage.addListener((msg) => {
+  if (msg.action === BACKGROUND_MESSAGE_ACTIONS.GROUP_TABS_BY_AGE) {
+    BackgroundTabService.groupTabsByAge().then(...)
+  }
+})
+
+✅ NEW (1 line):
+registerService('background', backgroundRPC)  // All 12+ methods auto-registered
+```
+
+**createProxyService() returns immediately** (not a Promise):
+```typescript
+// This is SYNC, not async:
+const bg = createProxyService<BackgroundRPC>('background')  // ✅ Use immediately
+const tabs = await bg.getTabs()  // Then call async methods on it
+```
+
 ---
 
 ## Why Groups Must Be Sorted
@@ -89,6 +129,11 @@ Indices:        0             3            5
 **Production** (7 kept): `vue`, `pinia`, `quasar`, `@quasar/extras`, `@vueuse/core`, `dayjs`, `webextension-polyfill`
 
 **Dev** (28 kept): WXT, Testing (vitest+happy-dom), Build, Linting, Type-checking
+
+**RPC Communication** (3 new): `@webext-core/proxy-service` (v2.0.1) + transitive deps
+- Type-safe background ↔ UI messaging across extension contexts
+- Replace 200+ lines of manual message routing with 1 registration call
+- Full TypeScript inference — no `as any` casting
 
 ---
 

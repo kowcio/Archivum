@@ -84,10 +84,15 @@
 
 <script setup lang="ts">
 import {computed, ref, onMounted, watch} from 'vue'
-import {browser} from 'wxt/browser'
+import { createProxyService } from '@webext-core/proxy-service'
 import {useAppStore} from '@/store/appStore.ts'
 import {AppThresholds} from '@/models/AppThresholds'
-import {BACKGROUND_MESSAGE_ACTIONS, APP_DEFAULTS, isDevEnv} from '@/constants'
+import {APP_DEFAULTS, isDevEnv} from '@/constants'
+import type { BackgroundRPC } from '@/services/BackgroundRPC'
+
+// ⚠️ DEVELOPERS: createProxyService() returns type-safe proxy to background service worker
+// Replaces browser.runtime.sendMessage() with method calls - no string keys needed ✅
+const background = createProxyService<BackgroundRPC>('background')
 
 const appStore = useAppStore()
 const emit = defineEmits<{ apply: [] }>()
@@ -152,9 +157,9 @@ async function handleApply(): Promise<void> {
 
     localThresholds.value = AppThresholds.fromObject(appStore.thresholds.value.toJSON())
 
-    await browser.runtime.sendMessage({
-      action: BACKGROUND_MESSAGE_ACTIONS.GROUP_TABS_BY_AGE,
-    })
+    // ⚠️ DEVELOPERS: Type-safe call to background service
+    // TypeScript knows groupTabsByAge returns Promise<number> ✅
+    await background.groupTabsByAge()
     emit('apply')
   } catch (err: any) {
     const errorMsg = err instanceof Error ? err.message : String(err)
@@ -172,9 +177,9 @@ async function handleReset(): Promise<void> {
   localThresholds.value = AppThresholds.fromObject(appStore.thresholds.value.toJSON())
 
 // Regroup with defaults and refresh table
-  await browser.runtime.sendMessage({
-    action: BACKGROUND_MESSAGE_ACTIONS.GROUP_TABS_BY_AGE,
-  })
+  // ⚠️ DEVELOPERS: Type-safe call to background service
+  // TypeScript knows groupTabsByAge returns Promise<number> ✅
+  await background.groupTabsByAge()
   emit('apply')
 }
 

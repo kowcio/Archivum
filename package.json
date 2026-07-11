@@ -37,6 +37,7 @@
   "dependencies": {
     "@quasar/extras": "1.17.0",
     "@vueuse/core": "^13.5.0",
+    "@webext-core/proxy-service": "^2.0.1",
     "dayjs": "^1.11.20",
     "pinia": "^3.0.4",
     "quasar": "^2.19.3",
@@ -58,8 +59,8 @@
     "@vue/eslint-config-typescript": "^14.5.1",
     "@vue/test-utils": "^2.4.6",
     "@vue/tsconfig": "^0.7.0",
-    "@wxt-dev/module-vue": "^1.0.3",
     "@wxt-dev/auto-icons": "^1.1.1",
+    "@wxt-dev/module-vue": "^1.0.3",
     "cross-env": "^10.1.0",
     "eslint": "^9.39.2",
     "eslint-plugin-vue": "^10.6.2",
