@@ -1,13 +1,13 @@
 <template>
   <div class="app-options-wrapper row">
-    <AppTitle />
+    <AppTitle/>
 
     <div class="content-wrapper row col-12">
       <!-- Single column grid with natural-width buttons -->
       <div class="btn-grid col-10">
 
         <q-btn
-          class="got-btn-primary "
+          class="got-btn-primary q-mb-md "
           label="Manage archivum"
           data-testid="popup-btn-open-option-page"
           icon="dashboard_customize"
@@ -29,12 +29,13 @@
           @click="openOptionsPage"
         />
 
-        <SortButton @error="(msg) => console.error(msg)" />
+        <SortButton @error="(msg) => console.error(msg)"/>
 
         <GroupUngroup rounded size="lg" class=""/>
 
-        <BackupRestoreButton class="q-mt-md"/>
-
+        <div class="q-mt-md">
+          <BackupRestoreButton/>
+        </div>
 
       </div>
     </div>
@@ -54,10 +55,10 @@ function openOptionsPage(): void {
 }
 
 async function openOptionsPageFull(): Promise<void> {
-   const url = (browser.runtime as any).getURL('/options.html')
-   await browser.tabs.create({ url })
-   window.close()
- }
+  const url = (browser.runtime as any).getURL('/options.html')
+  await browser.tabs.create({url})
+  window.close()
+}
 </script>
 
 <style scoped>
@@ -68,10 +69,12 @@ async function openOptionsPageFull(): Promise<void> {
   background: linear-gradient(180deg, rgba(255, 109, 0, 0.04) 0%, rgba(21, 101, 192, 0.04) 100%);
   min-height: 100vh;
 }
+
 .content-wrapper {
   flex: 1;
   padding: 0.75rem;
 }
+
 .btn-grid {
   display: grid;
   grid-template-columns: 1fr;
@@ -80,12 +83,14 @@ async function openOptionsPageFull(): Promise<void> {
   margin: 0 auto;
   width: 100%;
 }
+
 .btn-grid > div {
   width: 100%;
   display: flex;
   flex-direction: column;
   gap: inherit;
 }
+
 .btn-grid > div .q-btn {
   width: 100%;
 }
