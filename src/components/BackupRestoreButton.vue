@@ -14,7 +14,7 @@
     />
 
     <!-- Section 2: Delete/Clear Backup Button (with date) -->
-    <div v-if="hasBackup" class="backup-delete-control">
+    <div v-if="hasBackup" class="backup-delete-control col-12">
       <q-btn
         class="got-btn-ghost q-px-md backup-delete-main"
         :label="statusMessage"
@@ -24,7 +24,7 @@
       >
         <q-btn
           data-testid="clear-backup-btn"
-          class="got-btn-ghost q-ml-sm backup-delete-icon"
+          class="got-btn-ghost q-ml-sm "
           icon="delete"
           dense
           flat
@@ -55,6 +55,13 @@
       :loading="isLoading"
       @click="showRestoreDialog = true"
     />
+
+
+    <div data-testid="backup-restore-timer" class="">
+
+    </div>
+
+
   </div>
 
 
@@ -181,7 +188,6 @@ async function handleClearBackup(): Promise<void> {
 .backup-delete-control {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
 }
 
 .backup-delete-main {
