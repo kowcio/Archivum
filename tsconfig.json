@@ -15,7 +15,7 @@
     "strict": true,
     "skipLibCheck": true,
     // Global types
-    "types": ["node"],
+    "types": ["node", "chrome"],
     // Path aliases
     "baseUrl": ".",
     "paths": {
