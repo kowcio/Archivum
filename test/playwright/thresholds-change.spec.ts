@@ -42,14 +42,14 @@ test.describe('Threshold Change: Store → Options Auto-Update', () => {
     const newGroup1 = await options.openRandomTabInGroup(true, 2)
     const newGroup2 = await options.openRandomTabInGroup(true, -1)
 
-    // 5. Group tabs with default thresholds (5 active levels)
-    await options.clickGroupTabs(2000)
-    let result = await options.getGroupAndTabData()
-    // Note: The actual group order may vary because random groups may be interspersed
-    // Just verify we have all expected groups present
-    const groupTitles = result.groups.map(g => g.title)
+     // 5. Group tabs with default thresholds (5 active levels)
+     await options.clickGroupTabs(2000)
+     let result = await options.getGroupAndTabData()
+     // Note: The actual group order may vary because random groups may be interspersed
+     // Just verify we have all expected groups present
+     const groupTitles = result.groupsOrderedByIndex.map(g => g.title)
 
-    expect(result.groups.length).toBe(7) // 5 age-based + 2 random groups ✅
+     expect(result.groupsOrderedByIndex.length).toBe(7) // 5 age-based + 2 random groups ✅
 
     // result.gr
     // Verify age-based groups exist
@@ -76,14 +76,14 @@ test.describe('Threshold Change: Store → Options Auto-Update', () => {
       expect(tab.groupId).toBe(-1)
     })
 
-    // 7. Change to 3 levels (was 5, so Apply button appears) and verify
-    await options.changeThresholdLevels(3, 3000)
-    result = await options.getGroupAndTabData()
+     // 7. Change to 3 levels (was 5, so Apply button appears) and verify
+     await options.changeThresholdLevels(3, 3000)
+     result = await options.getGroupAndTabData()
 
-    // 5 groups: 3 age-based + 2 random groups
-    expect(result.groups.length).toBe(5)
+     // 5 groups: 3 age-based + 2 random groups
+     expect(result.groupsOrderedByIndex.length).toBe(5)
 
-    const groupTitles3 = result.groups.map(g => g.title)
+     const groupTitles3 = result.groupsOrderedByIndex.map(g => g.title)
     expect(groupTitles3.some(t => t.includes('Month+'))).toBe(true)
     expect(groupTitles3.some(t => t.includes('2 Weeks+'))).toBe(true)
     expect(groupTitles3.some(t => t.includes('Week+'))).toBe(true)
@@ -98,14 +98,14 @@ test.describe('Threshold Change: Store → Options Auto-Update', () => {
     expect(groupedTabs.length).not.toBe(0)
     expect(ungroupedTabs.length).not.toBe(0)
 
-    // 9. Change to 1 level and verify
-    await options.changeThresholdLevels(1, 3000)
-    result = await options.getGroupAndTabData()
+     // 9. Change to 1 level and verify
+     await options.changeThresholdLevels(1, 3000)
+     result = await options.getGroupAndTabData()
 
-    // 3 groups: 1 age-based + 2 random groups
-    expect(result.groups.length).toBe(3)
+     // 3 groups: 1 age-based + 2 random groups
+     expect(result.groupsOrderedByIndex.length).toBe(3)
 
-    const groupTitles1 = result.groups.map(g => g.title)
+     const groupTitles1 = result.groupsOrderedByIndex.map(g => g.title)
     expect(groupTitles1.some(t => t.includes('Week+'))).toBe(true)
     // Random groups still exist
     expect(groupTitles1.some(t => t.includes(newGroup1) && t.includes('randomGroup'))).toBe(true)

@@ -5,10 +5,9 @@
     <div class="content-wrapper row col-12">
       <!-- Single column grid with natural-width buttons -->
       <div class="btn-grid col-10">
-        <GroupUngroup rounded size="lg" class="q-mb-md"/>
 
         <q-btn
-          class="got-btn-primary"
+          class="got-btn-primary "
           label="Manage archivum"
           data-testid="popup-btn-open-option-page"
           icon="dashboard_customize"
@@ -31,7 +30,10 @@
         />
 
         <SortButton @error="(msg) => console.error(msg)" />
-        <BackupRestoreButton />
+
+        <GroupUngroup rounded size="lg" class=""/>
+
+        <BackupRestoreButton class="q-mt-md"/>
 
 
       </div>

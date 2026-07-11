@@ -46,24 +46,24 @@ test.describe('groupTabsByAge E2E', () => {
        await options.clickGroupTabs(2000)
 
        // Get all tabs and groups
-       const result = await options.getGroupAndTabData()
+        const result = await options.getGroupAndTabData()
 
-      // Verify: 5 groups created (one per active threshold level — default is 5)
-      expect(result.groupCount).toBe(5)
-      expect(result.groups.length).toBe(5)
+       // Verify: 5 groups created (one per active threshold level — default is 5)
+       expect(result.groupCount).toBe(5)
+       expect(result.groupsOrderedByIndex.length).toBe(5)
 
-      // Verify: Each group has id and title (oldest → youngest, left → right)
-      expect(result.groups[0].title).toContain("Eat that frog!")
-      expect(result.groups[1].title).toContain("Quarter+")
-      expect(result.groups[2].title).toContain("Month+")
-      expect(result.groups[3].title).toContain("2 Weeks+")
-      expect(result.groups[4].title).toContain("Week+")
+       // Verify: Each group has id and title (oldest → youngest, left → right)
+       expect(result.groupsOrderedByIndex[0].title).toContain("Eat that frog!")
+       expect(result.groupsOrderedByIndex[1].title).toContain("Quarter+")
+       expect(result.groupsOrderedByIndex[2].title).toContain("Month+")
+       expect(result.groupsOrderedByIndex[3].title).toContain("2 Weeks+")
+       expect(result.groupsOrderedByIndex[4].title).toContain("Week+")
 
-      // Verify each group has valid id and title
-      for ( let i = 0 ; i < result.groups.length ; i++ ) {
-        expect(result.tabs[i].groupId).not.toBe(-1)
-        expect(result.tabs[i].groupId).not.toBeUndefined()
-      }
+       // Verify each group has valid id and title
+       for ( let i = 0 ; i < result.groupsOrderedByIndex.length ; i++ ) {
+         expect(result.tabs[i].groupId).not.toBe(-1)
+         expect(result.tabs[i].groupId).not.toBeUndefined()
+       }
 
       // Verify: Grouped tabs are first, ungrouped tabs at end
       const groupedTabs = result.tabs.filter(t => t.groupId != null && t.groupId !== -1)

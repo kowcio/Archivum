@@ -17,6 +17,7 @@
 import { expect, type Locator, type Page } from '@playwright/test';
 import {BACKGROUND_MESSAGE_ACTIONS} from "../../../src/constants";
 
+// `chrome` is globally available in page.evaluate() context (no import needed)
 // Import constants using relative path (not bundled through Vite like app code)
 const MOCK_TABS_ACTION = 'createMockTabs';
 const ON_TAB_ACTIVATED_ACTION = 'onTabActivated';
@@ -98,23 +99,24 @@ export class OptionsPage {
    }
 
 
-  /**
-   * Open a random tab from www.example.com/[0-9A-Z], optionally in a group at specified index.
-   * @returns generated alphanumeric ID (single char: 0-9 or A-Z)
-   */
-  async openRandomTabInGroup(newTabGroup: boolean = false, index?: number): Promise<string> {
-    return this.page.evaluate(
-      ({ newTabGroup, index }) => {
-        return new Promise<string>((resolve) => {
-          chrome.runtime.sendMessage(
-            { action: BACKGROUND_MESSAGE_ACTIONS.OPEN_RANDOM_TAB_IN_GROUP, newTabGroup, index },
-            (response: any) => resolve(response?.result || 'UNKNOWN')
-          );
-        });
-      },
-      { newTabGroup, index }
-    );
-  }
+   /**
+    * Open a random tab from www.example.com/[0-9A-Z], optionally in a group at specified index.
+    * @returns generated alphanumeric ID (single char: 0-9 or A-Z)
+    */
+   async openRandomTabInGroup(newTabGroup: boolean = false, index?: number): Promise<string> {
+     const action = BACKGROUND_MESSAGE_ACTIONS.OPEN_RANDOM_TAB_IN_GROUP;
+     return this.page.evaluate(
+       ({ newTabGroup, index, action }) => {
+         return new Promise<string>((resolve) => {
+           chrome.runtime.sendMessage(
+             { action, newTabGroup, index },
+             (response: any) => resolve(response?.result || 'UNKNOWN')
+           );
+         });
+       },
+       { newTabGroup, index, action }
+     );
+   }
 
    /**
     * Group Tabs by Domain via background message (no UI button).
@@ -472,22 +474,22 @@ export class OptionsPage {
      * Applies mock overrides to lastAccessed timestamps if they exist.
      * Prints each tab: index, id, groupId, title, url
      */
-    async getGroupAndTabData(): Promise<{
-     // groupCount: number;
-     groups: Array<{ id: number; title: string; index: number }>;
-     groupedTabCount: number;
-     ungroupedTabCount: number;
-     tabs: Array<{
-       id?: number;
-       url?: string;
-       title?: string;
-       active?: boolean;
-       lastAccessed?: number;
-       groupId?: number;
-       windowIndex?: number;
-       positionInGroup?: number | null;
-     }>;
-     }> {
+     async getGroupAndTabData(): Promise<{
+      groupCount: number;
+      groupsOrderedByIndex: Array<{ id: number; title: string; index: number }>;
+      groupedTabCount: number;
+      ungroupedTabCount: number;
+      tabs: Array<{
+        id?: number;
+        url?: string;
+        title?: string;
+        active?: boolean;
+        lastAccessed?: number;
+        groupId?: number;
+        windowIndex?: number;
+        positionInGroup?: number | null;
+      }>;
+      }> {
       return await this.page.evaluate(function() {
         // Fetch mock overrides
         const mockOverridesPromise = new Promise<Record<number, number>>((resolve) => {
