@@ -118,27 +118,6 @@ export class OptionsPage {
      );
    }
 
-   /**
-    * Group Tabs by Domain via background message (no UI button).
-    * Uses chrome.runtime.sendMessage to trigger sortTabsByDomain.
-    * Optional: pass timeout override (default 1500ms).
-    */
-   async clicksortTabsByDomain(waitMs: number = 1500): Promise<{ groupsCreated: number; error: string | null }> {
-     const result = await this.page.evaluate(() => {
-       return new Promise<{ groupsCreated: number; error: string | null }>((resolve) => {
-         try {
-           chrome.runtime.sendMessage({ action: 'sortTabsByDomain' }, (r: any) => {
-             resolve({ groupsCreated: r?.groupsCreated ?? 0, error: r?.error ?? null });
-           });
-         } catch (e: unknown) {
-           resolve({ groupsCreated: 0, error: String(e) });
-         }
-       });
-     });
-     await this.page.waitForTimeout(waitMs);
-     return result;
-   }
-
   /**
    * Click "Ungroup All Tabs" button and wait for ungrouping to complete.
    * Optional: pass timeout override (default 1000ms).
