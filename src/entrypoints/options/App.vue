@@ -42,6 +42,7 @@
           data-testid="table-open-tabs"
           :columns="columns"
           :rows="tabRows"
+          :filter="filter"
           class="bg-grey-1 q-pa-md accent-border"
           row-key="rowKey"
           flat
@@ -128,6 +129,7 @@ import CloseAllTabsButton from '@/components/CloseAllTabsButton.vue'
 import RefreshButton from '@/components/RefreshButton.vue'
 import SortButton from '@/components/SortButton.vue'
 import BackupRestoreButton from "@/components/BackupRestoreButton.vue";
+import TimerAndCurrentState from "@/components/TimerAndCurrentState.vue";
 
 const appStore = useAppStore()
 const filter = ref('')
