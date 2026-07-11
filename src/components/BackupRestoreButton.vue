@@ -14,25 +14,35 @@
     />
 
     <!-- Section 2: Delete/Clear Backup Button (with date) -->
-    <q-btn
-      v-show="hasBackup"
-      class="got-btn-grey-info"
-      :label="statusMessage"
-      data-testid="clear-backup-btn"
-      icon="delete"
-      rounded
-      no-caps
-      size="md"
-      :loading="isLoading"
-      @click="handleClearBackup"
-    >
-      <q-tooltip class="bg-dark text-white">
-        Remove the archived tabs
-      </q-tooltip>
-    </q-btn>
+    <div v-if="hasBackup" class="backup-delete-row">
+      <div class="backup-delete-control">
+        <q-btn
+          class="got-btn-ghost q-px-md backup-delete-main"
+          :label="statusMessage"
+          dense
+          no-caps
+          :loading="isLoading"
+        >
+        <q-btn
+          data-testid="clear-backup-btn"
+          class="got-btn-ghost q-ml-sm backup-delete-icon"
+          icon="delete"
+          dense
+          flat
+          color="negative"
+          :loading="isLoading"
+          @click.stop.prevent="handleClearBackup"
+        >
+          <q-tooltip class="bg-dark text-white">
+            Remove the archived tabs
+          </q-tooltip>
+        </q-btn>
+        </q-btn>
+      </div>
+    </div>
 
     <!-- Fallback text when no backup -->
-    <span v-if="!hasBackup" class="text-caption text-grey">Nothing archived yet</span>
+    <span v-else class="text-caption text-grey">Nothing archived yet</span>
 
     <!-- Section 3: Restore Button -->
     <q-btn
@@ -166,5 +176,39 @@ async function handleClearBackup(): Promise<void> {
 <style scoped>
 .backup-sections {
   display: contents;  /* Let parent handle layout */
+}
+
+.backup-delete-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.backup-delete-main {
+  cursor: default !important;
+}
+
+.backup-delete-icon {
+  cursor: pointer !important;
+}
+
+.backup-delete-control :deep(.q-btn) {
+  color: #d32f2f;
+}
+
+.backup-delete-control :deep(.q-btn .q-icon) {
+  color: #d32f2f;
+}
+
+.got-btn-ghost {
+  color: #d32f2f;
+}
+
+.got-btn-ghost .q-icon {
+  color: #d32f2f;
+}
+
+.got-btn-ghost q-tooltip {
+  color: #d32f2f;
 }
 </style>
