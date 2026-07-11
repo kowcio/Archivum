@@ -42,14 +42,14 @@
           data-testid="table-open-tabs"
           :columns="columns"
           :rows="tabRows"
-          :filter="filter"
           class="bg-grey-1 q-pa-md accent-border"
           row-key="rowKey"
           flat
           striped
           wrap-cells
           virtual-scroll
-          :rows-per-page-options="[0]"
+          sort-icon="arrow_upward"
+         :rows-per-page-options="[0]"
           :pagination="{ sortBy: 'ordinal', descending: false }"
         >
           <template #top-right>
@@ -457,7 +457,8 @@ onMounted(() => {
 
 /* ── q-table brand styling ──────────────────────────────────────────── */
 :deep(.q-table th .q-table__sort-icon) {
-  color: rgba(255, 255, 255, 0.7);
+  color: #5a4a1a;
+  opacity: 1;
 }
 
 :deep(.q-table thead tr th) {
