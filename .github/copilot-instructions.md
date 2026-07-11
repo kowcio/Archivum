@@ -30,6 +30,27 @@ Only: implement code changes, fix bugs, run tests. If creating docs is needed, a
 **Dev/Test**: Only in test/ → KEEP as devDep  
 **Config**: Marked clearly → KEEP but document purpose
 
+### Pattern 4: Chrome Global in page.evaluate() Context
+❌ WRONG: `import chrome from "chrome";` (no such package exists)  
+✅ RIGHT: `/// <reference types="chrome" />` in test globals  
+**Why**: In `page.evaluate()`, chrome API is globally available. Add type reference to globals.d.ts:
+```typescript
+// test/playwright/globals.d.ts
+/// <reference types="chrome" />
+// `chrome` is globally available in page.evaluate() context (no import needed)
+```
+
+**TypeScript Config Updates**:
+- Add `"chrome"` to `"types"` array in ALL tsconfig files:
+  - `tsconfig.json` 
+  - `tsconfig.app.json`
+  - `tsconfig.node.json`
+  - `tsconfig.playwright.json`
+  - `tsconfig.vitest.json`
+- Add `/// <reference types="chrome" />` to `env.d.ts`
+
+**Note**: IntelliJ may show TS2304 error despite fix being correct. This is IDE cache issue. npm run type-check passes ✅. Use File → Invalidate Caches → Restart IntelliJ to clear IDE cache.
+
 ---
 
 ## Why Groups Must Be Sorted
