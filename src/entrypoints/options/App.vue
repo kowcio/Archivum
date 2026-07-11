@@ -54,7 +54,7 @@
           :pagination="{ sortBy: 'ordinal', descending: false }"
         >
           <template #top-right>
-            <div class="filter-controls row">
+            <div class="filter-controls row q-gutter-md">
               <q-select
                 v-model="selectedAgeGroup"
                 :options="ageGroupOptions"
@@ -67,20 +67,22 @@
                 outlined
                 dense
                 label="Filter by age"
-                class="q-mr-md col-5"
+                class="col-5"
               >
-                <template v-slot:option="{ opt }">
-                  <div :class="`age-filter-${opt.color}`">{{ opt.label }}</div>
+                <template v-slot:option="{ itemProps, opt }">
+                  <q-item v-bind="itemProps" :class="`age-filter-${opt.color}`">
+                    <q-item-section>{{ opt.label }}</q-item-section>
+                  </q-item>
                 </template>
               </q-select>
               <q-input
-                class="col-6"
                 data-testid="search-filter"
                 v-model="filter"
                 placeholder="Search..."
                 dense
                 outlined
                 clearable
+                class="col-5"
               />
             </div>
           </template>
@@ -390,23 +392,25 @@ onMounted(() => {
 /* ── Filter Controls (Age Group + Search) ──────────────────────────── */
 
 .filter-controls :deep(.q-field) {
-  min-width: 125px;
+  min-width: 150px;
 }
 
 /* Age filter background colors based on threshold */
 [class^="age-filter-"] {
   padding: 8px 12px;
+  display: flex;
+  width: 100%;
 }
 
-.age-filter-green { background: rgba(88, 138, 102, 0.15); }
-.age-filter-blue { background: rgba(56, 103, 164, 0.15); }
-.age-filter-orange { background: rgba(212, 122, 42, 0.15); }
-.age-filter-red { background: rgba(184, 90, 74, 0.15); }
-.age-filter-pink { background: rgba(181, 96, 115, 0.15); }
-.age-filter-purple { background: rgba(125, 83, 148, 0.15); }
-.age-filter-yellow { background: rgba(212, 168, 75, 0.15); }
-.age-filter-cyan { background: rgba(93, 154, 168, 0.15); }
-.age-filter-grey { background: rgba(138, 138, 138, 0.15); }
+.age-filter-green { background: rgba(88, 138, 102, 0.35); }
+.age-filter-blue { background: rgba(56, 103, 164, 0.35); }
+.age-filter-orange { background: rgba(212, 122, 42, 0.35); }
+.age-filter-red { background: rgba(184, 90, 74, 0.35); }
+.age-filter-pink { background: rgba(181, 96, 115, 0.35); }
+.age-filter-purple { background: rgba(125, 83, 148, 0.35); }
+.age-filter-yellow { background: rgba(212, 168, 75, 0.35); }
+.age-filter-cyan { background: rgba(93, 154, 168, 0.35); }
+.age-filter-grey { background: rgba(138, 138, 138, 0.35); }
 
 
 /* ── Button Group Layout (Focus + Close buttons) ──────────────────────── */
