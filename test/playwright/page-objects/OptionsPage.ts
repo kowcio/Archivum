@@ -15,6 +15,7 @@
  */
 
 import { expect, type Locator, type Page } from '@playwright/test';
+import {BACKGROUND_MESSAGE_ACTIONS} from "../../../src/constants";
 
 // Import constants using relative path (not bundled through Vite like app code)
 const MOCK_TABS_ACTION = 'createMockTabs';
@@ -106,7 +107,7 @@ export class OptionsPage {
       ({ newTabGroup, index }) => {
         return new Promise<string>((resolve) => {
           chrome.runtime.sendMessage(
-            { action: 'openRandomTabInGroup', newTabGroup, index },
+            { action: BACKGROUND_MESSAGE_ACTIONS.OPEN_RANDOM_TAB_IN_GROUP, newTabGroup, index },
             (response: any) => resolve(response?.result || 'UNKNOWN')
           );
         });
@@ -134,15 +135,6 @@ export class OptionsPage {
      });
      await this.page.waitForTimeout(waitMs);
      return result;
-   }
-
-   /**
-    * Click "Ungroup All Tabs" button and wait for ungrouping to complete.
-    * Optional: pass timeout override (default 1000ms).
-    */
-   async clickUngroupTabs(waitMs: number = 1000): Promise<void> {
-     await this.ungroupTabsBtn.click();
-     await this.page.waitForTimeout(waitMs);
    }
 
   /**
@@ -277,37 +269,12 @@ export class OptionsPage {
   }
 
   /**
-   * Verify first table row is visible.
-   * Uses global Playwright timeout (15000ms from config).
-   */
-  async expectFirstRowVisible(): Promise<void> {
-    await expect(this.openTabsTable.locator('tr').first()).toBeVisible();
-  }
-
-  /**
-   * Verify Group button is visible (no groups exist).
-   * Uses global Playwright timeout (15000ms from config).
-   */
-  async expectGroupButtonVisible(): Promise<void> {
-    await expect(this.groupTabsBtn).toBeVisible();
-  }
-
-  /**
    * Verify Ungroup button is visible (groups exist).
    * Uses global Playwright timeout (15000ms from config).
    */
   async expectUngroupButtonVisible(): Promise<void> {
     await expect(this.ungroupTabsBtn).toBeVisible();
   }
-
-  /**
-   * Verify Ungroup button is NOT visible (no groups exist).
-   * Uses global Playwright timeout (15000ms from config).
-   */
-  async expectUngroupButtonHidden(): Promise<void> {
-    await expect(this.ungroupTabsBtn).not.toBeVisible();
-  }
-
 
   /**
    * Verify config section is visible.
@@ -571,7 +538,7 @@ export class OptionsPage {
 
             return {
               groupCount: groupsWithIndices.length,
-              groups: groupsWithIndices,
+              groupsOrderedByIndex: groupsWithIndices,
               groupedTabCount: tabs.filter((t: any) => t.groupId != null && t.groupId !== -1).length,
               ungroupedTabCount: tabs.filter((t: any) => t.groupId == null || t.groupId === -1).length,
               tabs: tabs.map((t: any) => {

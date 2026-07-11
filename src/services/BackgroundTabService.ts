@@ -526,7 +526,7 @@ export class BackgroundTabService {
      * @param index - Optional position index for the tab (default: rightmost)
      * @returns generated alphanumeric ID (4 random chars: 0-9 or A-Z)
      */
-    static async openRandomTabInGroup(newTabGroup: boolean, index?: number): Promise<string> {
+    static async openRandomTabInGroup(newTabGroup: boolean = false, index: number = 0): Promise<string> {
       const chars = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ'
       const generatedTabId = Array.from({ length: 4 }, () =>
         chars[Math.floor(Math.random() * chars.length)]).join('')
@@ -534,27 +534,15 @@ export class BackgroundTabService {
       try {
         const url = `https://www.example.com/${generatedTabId}`
         const tab = await browser.tabs.create({ url, active: false })
-        if (!tab.id) return generatedTabId
 
-        if (index != null) {
-          await browser.tabs.move(tab.id, { index }).catch(() => {})
-        }
-
-        if (newTabGroup && browser.tabGroups != null) {
-          try {
-            const char2 = chars[Math.floor(Math.random() * chars.length)]
-            const groupName = `${generatedTabId}_randomGroup`
-            const groupId = await (browser.tabs as any).group({ tabIds: [tab.id] })
-            await (browser.tabGroups as any).update(groupId, { title: groupName })
-            if (index != null) {
-              await browser.tabs.move(tab.id, { index }).catch(() => {})
-            }
-          } catch {
-            // Grouping failed but tab exists
-          }
+        await browser.tabs.move(tab.id!, { index }).catch(() => {throw new Error('Failed to move tab')})
+        if (newTabGroup) {
+          const groupId = await (browser.tabs as any).group({tabIds: [tab.id]})
+          await (browser.tabGroups as any).update(groupId, {title: `${generatedTabId}_randomGroup`})
         }
       } catch {
-        // Ignore errors
+        throw new Error('Failed to create tab group')
+
       }
 
       return generatedTabId

@@ -10,14 +10,13 @@ const date = `${new Date().toISOString().replace(/[-:T]/g, '').slice(0, 12)}`;
 function generateBuildVersion(): string {
   const now = new Date();
 
-  const year = String(now.getFullYear()).slice(-2);
+  const year = String(now.getFullYear());
   const month = String(now.getMonth() + 1).padStart(2, '0');
   const day = String(now.getDate()).padStart(2, '0');
   const hours = String(now.getHours()).padStart(2, '0');
+  const minutes = String(now.getMinutes()).padStart(2, '0');
 
-  const timestamp = `${year}${month}${day}${hours}`;
-
-  return `1.1.${timestamp}`;
+  return `1.${day}${month}${year}.${hours}${minutes}`;
 }
 
 const packageVersion = generateBuildVersion()
