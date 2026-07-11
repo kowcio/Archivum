@@ -23,6 +23,7 @@ import { mockOverrides } from '@/store/appStore'
 export const backgroundRPC = {
   // ── Tab grouping & organization ──────────────────────────────────────────
   groupTabsByAge: (): Promise<number> => BackgroundTabService.groupTabsByAge(),
+  updateTabByAge: (): Promise<string> => BackgroundTabService.updateTabByAge(),
   ungroupAllTabs: (): Promise<void> => BackgroundTabService.ungroupAllTabs(),
   hasPluginGroups: (): Promise<boolean> => BackgroundTabService.hasPluginGroups(),
   sortGroupsByDomain: (): Promise<number> => BackgroundTabService.sortGroupsByDomain(),

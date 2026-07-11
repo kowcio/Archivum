@@ -196,7 +196,20 @@ export class BackgroundTabService {
      }
    }
 
-   static async ungroupAllTabs(): Promise<void> {
+  /**
+   * Update tabs if they should be moved to a different threshold level. i.ex
+   * fresh -> Week+
+   * Week+ -> 2 Weeks+
+   * end etc. <updates based on alarm periodically moving tabs to groups.
+   */
+  static async updateTabByAge(): Promise<string> {
+
+
+    return "true"
+  }
+
+
+  static async ungroupAllTabs(): Promise<void> {
      try {
        if (browser.tabGroups == null) return
        const groups = await (browser.tabGroups as any).query({ windowId: browser.windows.WINDOW_ID_CURRENT })
