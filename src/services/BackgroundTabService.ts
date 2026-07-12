@@ -34,6 +34,63 @@ export class BackgroundTabService {
     return APP_DEFAULTS.THRESHOLDS.presets.map(p => p.label)
   }
 
+  /**
+   * Query ONLY plugin-created groups from current window.
+   * Returns groups sorted by visual position (index).
+   *
+   * Returns:
+   * - Empty array if tabGroups API not available
+   * - Only groups with titles starting with threshold labels (user groups excluded)
+   * - Sorted by index (leftmost to rightmost)
+   *
+   * This centralizes group querying to reduce workload — only one query per operation.
+   * Replaces 6+ duplicated query patterns across the plugin.
+   */
+  static async getGroups(): Promise<Array<{ id: number; title: string; index?: number; color?: string; collapsed?: boolean }>> {
+    try {
+      if (browser.tabGroups == null) return []
+
+      const allGroups = await (browser.tabGroups as any).query({ windowId: (browser.windows as any).WINDOW_ID_CURRENT })
+      const pluginTitles = this.getPluginGroupTitles()
+
+      // Filter: keep only plugin-created groups
+      // ✅ Simplified: check if title STARTS WITH any threshold label
+      // This avoids fragile regex and handles edge cases (empty groups, malformed titles)
+      const pluginGroups = allGroups.filter((group: any) =>
+        pluginTitles.some(title => group.title.startsWith(title))
+      )
+
+      // Sort by index (left to right): 0 = leftmost, 3 = next, 5 = rightmost, etc.
+      return pluginGroups.sort((a: any, b: any) => (a.index ?? -1) - (b.index ?? -1))
+    } catch (err) {
+      console.warn('[BackgroundTabService] ⚠️ Failed to query plugin groups:', err)
+      return []
+    }
+  }
+
+  /**
+   * Build label → groupId map for quick group lookups.
+   * Used by updateTabByAge() to determine target group for each tab.
+   *
+   * Example: { "Week+": 5, "Month+": 8, "2 Weeks+": 6 }
+   * ✅ Simplified: find matching threshold label instead of parsing regex
+   */
+  private static async getPluginGroupMap(): Promise<Map<string, number>> {
+    const groups = await this.getGroups()
+    const map = new Map<string, number>()
+    const pluginTitles = this.getPluginGroupTitles()
+
+    for (const group of groups) {
+      // ✅ Find which threshold label this group starts with
+      const matchingLabel = pluginTitles.find(title => group.title.startsWith(title))
+      if (matchingLabel) {
+        map.set(matchingLabel, group.id)
+      }
+    }
+
+    return map
+  }
+
   static async getThresholds(): Promise<AppThresholds> {
     return await getStorageThresholds()
   }
@@ -217,14 +274,9 @@ export class BackgroundTabService {
        const thresholds = await this.getThresholds()
        const activeLevels = thresholds.active()
 
-       // Build label → groupId map for quick lookup
-       const groups = await (browser.tabGroups as any).query({ windowId: (browser.windows as any).WINDOW_ID_CURRENT })
-       const groupByLabel = new Map<string, number>()
-       for (const group of groups) {
-         const match = group.title.match(/^(.+?)\s*\(\d+\)$/)
-         const label = match ? match[1] : group.title
-         groupByLabel.set(label, group.id)
-       }
+       // ✅ Use centralized getPluginGroupMap() instead of manual query + filtering
+       const groupByLabel = await this.getPluginGroupMap()
+       const groups = await this.getGroups()
 
        let tabsMoved = 0
 
@@ -291,7 +343,8 @@ export class BackgroundTabService {
   static async ungroupAllTabs(): Promise<void> {
      try {
        if (browser.tabGroups == null) return
-       const groups = await (browser.tabGroups as any).query({ windowId: browser.windows.WINDOW_ID_CURRENT })
+       // ✅ Use centralized getGroups() - only plugin groups, not user groups
+       const groups = await this.getGroups()
        for (const group of groups) {
          const ids = (await browser.tabs.query({ groupId: group.id }))
            .map(t => t.id).filter((id): id is number => id != null)
@@ -386,23 +439,12 @@ export class BackgroundTabService {
     static async getTabs(): Promise<Browser.tabs.Tab[]> {
       const allTabs = await browser.tabs.query({ currentWindow: true })
 
-      // Filter: keep only plugin-managed tabs
-      const pluginTitles = this.getPluginGroupTitles()
       let filteredTabs: Browser.tabs.Tab[] = []
 
       if (browser.tabGroups != null) {
-        // Get all groups to identify plugin groups
-        const groups = await (browser.tabGroups as any).query({ windowId: (browser.windows as any).WINDOW_ID_CURRENT })
-        const pluginGroupIds = new Set<number>()
-
-        // Identify plugin group IDs
-        for (const group of groups) {
-          const match = group.title.match(/^(.+?)\s*\(\d+\)$/)
-          const label = match ? match[1] : group.title
-          if (pluginTitles.includes(label)) {
-            pluginGroupIds.add(group.id)
-          }
-        }
+        // ✅ Use centralized getGroups() - only plugin groups, not user groups
+        const groups = await this.getGroups()
+        const pluginGroupIds = new Set<number>(groups.map(g => g.id))
 
         // Keep ungrouped + plugin-grouped tabs
         filteredTabs = allTabs.filter(t => {
@@ -517,12 +559,9 @@ export class BackgroundTabService {
      try {
        if (browser.tabGroups == null) return false // Firefox has no groups
 
-       const groups = await (browser.tabGroups as any).query({ windowId: (browser.windows as any).WINDOW_ID_CURRENT })
-       const pluginTitles = this.getPluginGroupTitles()
-
-       return groups.some((group: any) =>
-         pluginTitles.some(title => group.title.startsWith(title))
-       )
+       // ✅ Use centralized getGroups() - returns only plugin groups
+       const groups = await this.getGroups()
+       return groups.length > 0
      } catch {
        return false
      }
@@ -759,9 +798,10 @@ export class BackgroundTabService {
           }
         }
 
-        // Chrome/Edge: query groups and tabs
-        const groups = await (browser.tabGroups as any).query({ windowId: (browser.windows as any).WINDOW_ID_CURRENT })
-        const allTabs = await this.getTabs()
+         // Chrome/Edge: query groups and tabs
+         // ✅ Use centralized getGroups() - only plugin groups
+         const groups = await this.getGroups()
+         const allTabs = await this.getTabs()
 
         // Apply mock overrides to tabs
         for (const tab of allTabs) {
