@@ -7,8 +7,28 @@ stack: "WXT 0.20+ · Vue 3.5 · TypeScript 5.8 · Pinia 3 · Quasar 2 · Vitest 
 
 ## ⚠️ IMPORTANT: Documentation Policy
 
-**NEVER create documentation, summaries, or reports without explicit user request.**  
-Only: implement code changes, fix bugs, run tests. If creating docs is needed, ask first.
+**NEVER create documentation, summaries, or reports WITHOUT EXPLICIT USER REQUEST.**
+
+This includes:
+- ❌ README updates or summaries
+- ❌ Architecture diagrams or explanations  
+- ❌ Refactor summaries or "what changed" docs
+- ❌ Test reports or analysis
+- ❌ New .md files in docs/ or root
+
+**ONLY when user explicitly says**: "document this", "create a guide", "add to docs", "explain in markdown", etc.
+
+**What you CAN do without asking:**
+- ✅ Implement code changes
+- ✅ Fix bugs and run tests
+- ✅ Update code files
+- ✅ Make architectural improvements
+
+**When docs ARE requested:**
+- Place them in `docs/` folder
+- Update/consolidate existing docs (don't create new files unnecessarily)
+- Consider existing documentation and merge if appropriate
+- Ensure consistency with project style
 
 ---
 

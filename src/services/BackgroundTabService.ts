@@ -38,51 +38,55 @@ export class BackgroundTabService {
     return await getStorageThresholds()
   }
 
-    /**
-     * Applies mock lastAccessed overrides to raw tabs (debug).
-     * When a mock override exists for a tabId, it replaces tab.lastAccessed.
-     * Overrides persist so tab ages stay correct across page refreshes.
-     *
-     * OPTIMIZATION: Early return if no overrides, lazy load only if needed.
-     * Avoids storage reads in production environments (no mock data).
-     */
-     private static async applyMockOverrides(tabs: { id?: number; lastAccessed?: number }[]): Promise<void> {
+     /**
+      * Applies mock lastAccessed overrides to raw tabs (debug/testing only).
+      *
+      * Called by: getTabs() when mocks are detected in storage
+      *
+      * When a mock override exists for a tabId, it replaces tab.lastAccessed in-memory.
+      * The real browser tab is never modified — only the in-memory object used by grouping logic.
+      *
+      * Overrides persist in storage so tab ages stay consistent across page refreshes.
+      *
+      * OPTIMIZATION: Only called if overrides storage has entries (zero overhead in production).
+      */
+      private static async applyMockOverrides(tabs: { id?: number; lastAccessed?: number }[]): Promise<void> {
+        try {
+          const overrides = await mockOverrides.getValue()
+
+          // This method is only called if overrides exist, but double-check for safety
+          if (!overrides || Object.keys(overrides).length === 0) {
+            return
+          }
+
+          for (const tab of tabs) {
+            if (tab.id != null) {
+              const numericOverride = (overrides as Record<number, number>)[tab.id]
+              const stringOverride = (overrides as Record<string, number>)[String(tab.id)]
+              const override = numericOverride ?? stringOverride
+              if (override != null) {
+                tab.lastAccessed = override  // ← Mutates in-memory tab object
+              }
+            }
+          }
+         } catch (err) {
+           console.warn('[BackgroundTabService] ⚠️ Failed to apply mock overrides:', err)
+         }
+      }
+
+       static async groupTabsByAge(): Promise<number> {
        try {
-         const overrides = await mockOverrides.getValue()
-         const ids = Object.keys(overrides)
-
-         if (ids.length === 0) {
-           return
+         const hasTabGroups = browser.tabGroups != null
+         if (!hasTabGroups) {
+           return 0
          }
 
-         for (const tab of tabs) {
-           if (tab.id != null) {
-             const numericOverride = (overrides as Record<number, number>)[tab.id]
-             const stringOverride = (overrides as Record<string, number>)[String(tab.id)]
-             const override = numericOverride ?? stringOverride
-             if (override != null) {
-               tab.lastAccessed = override
-             }
-           }
-         }
-        } catch (err) {
-          console.warn('[BackgroundTabService] ⚠️ Failed to read mock overrides:', err)
-        }
-     }
+        // ✅ getTabs() automatically applies mock overrides
+        const rawTabs = await this.getTabs()
+        const thresholds = await this.getThresholds()
+        const appState = await appStateStorage.getValue()
+        const sortByDomainInGroups = appState?.sortSettings?.sortByDomainInGroups ?? true
 
-      static async groupTabsByAge(): Promise<number> {
-      try {
-        const hasTabGroups = browser.tabGroups != null
-        if (!hasTabGroups) {
-          return 0
-        }
-
-       const rawTabs = await browser.tabs.query({ currentWindow: true })
-       const thresholds = await this.getThresholds()
-       const appState = await appStateStorage.getValue()
-       const sortByDomainInGroups = appState?.sortSettings?.sortByDomainInGroups ?? true
-
-       await this.applyMockOverrides(rawTabs)
 
        const rows = TabRow.fromTabs(rawTabs, thresholds)
        const activeLevels = thresholds.active()
@@ -273,16 +277,40 @@ export class BackgroundTabService {
       console.warn(`[BackgroundTabService] ⚠️ Tab#${tabId} still grouped after ${RETRIES} retries`)
     }
 
-   /**
-    * Queries tabs from current window.
-    * Applies mock overrides if they exist (for debug/testing).
-    * UI displays tabs with mocked lastAccessed when in debug mode.
-    */
-   static async getTabs(): Promise<Browser.tabs.Tab[]> {
-     const tabs = await browser.tabs.query({ currentWindow: true })
-     await this.applyMockOverrides(tabs)
-     return tabs
-   }
+    /**
+     * Queries tabs from current window.
+     *
+     * 🧠 AUTO-DETECT MOCKS: If mock overrides are set in storage, applies them automatically.
+     * This creates a clean separation:
+     * • Production (no mocks set) → returns real lastAccessed
+     * • Testing (mocks set) → applies mocks without special handling
+     *
+     * Flow:
+     * 1. Query real tabs from browser
+     * 2. Check if mockOverrides storage has ANY entries
+     * 3. If yes: apply overrides by matching tab IDs
+     * 4. If no: return tabs unchanged (production mode)
+     *
+     * Used by: groupTabsByAge(), sortGroupsByDomain(), createMockTabs(), UI components
+     */
+    static async getTabs(): Promise<Browser.tabs.Tab[]> {
+      const tabs = await browser.tabs.query({ currentWindow: true })
+
+      try {
+        // Check if ANY mocks are set in storage
+        const overrides = await mockOverrides.getValue()
+
+        // If mocks exist, apply them to matching tab IDs
+        if (overrides && Object.keys(overrides).length > 0) {
+          await this.applyMockOverrides(tabs)
+        }
+      } catch (err) {
+        // Storage read error, continue with real tabs
+        console.warn('[BackgroundTabService.getTabs] ⚠️ Failed to read mock overrides:', err)
+      }
+
+      return tabs
+    }
 
    /**
     * Creates mock tabs using realistic data from mockTabData.ts.
@@ -335,14 +363,11 @@ export class BackgroundTabService {
         console.error(`[BackgroundTabService] ❌ Failed to set overrides:`, err)
       }
 
-      // Extra delay to ensure storage is persisted/synchronized (WXT MV3 constraint)
-      await new Promise(r => setTimeout(r, 1000))
+       // Extra delay to ensure storage is persisted/synchronized (WXT MV3 constraint)
+       await new Promise(r => setTimeout(r, 1000))
 
-      // Re-query tabs to get full tab objects
-      const allTabs = await browser.tabs.query({ currentWindow: true })
-
-
-     return allTabs
+       // ✅ getTabs() automatically applies mock overrides to all tabs
+       return await this.getTabs()
    }
 
    /**
@@ -479,11 +504,12 @@ export class BackgroundTabService {
     * Strips `www.` and protocol before sorting, e.g. `https://www.EXAMPLE.com/path` sorts as `example.com`.
     * Ungrouped and grouped tabs are both reordered — existing groups are preserved.
     */
-   static async sortGroupsByDomain(): Promise<number> {
-     console.log('[BackgroundTabService] sortGroupsByDomain...')
-     try {
-       const tabs = await browser.tabs.query({ currentWindow: true })
-       if (tabs.length === 0) return 0
+    static async sortGroupsByDomain(): Promise<number> {
+      console.log('[BackgroundTabService] sortGroupsByDomain...')
+      try {
+        // ✅ getTabs() automatically applies mock overrides
+        const tabs = await this.getTabs()
+        if (tabs.length === 0) return 0
 
        // Separate grouped and ungrouped tabs
        const groupedTabs = tabs.filter(t => t.groupId != null && t.groupId !== -1)
