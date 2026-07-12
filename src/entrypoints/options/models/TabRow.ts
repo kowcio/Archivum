@@ -1,4 +1,3 @@
-import type {Tabs} from 'webextension-polyfill';
 import dayjs from 'dayjs';
 import { AppThresholds, DEFAULT_THRESHOLDS } from '@/models/AppThresholds.ts'
 
@@ -21,7 +20,7 @@ export class TabRow {
   readonly lastAccessHours: number | undefined;
   readonly lastAccessClass: string;
 
-  constructor(tab: Tabs.Tab, thresholds: AppThresholds = DEFAULT_THRESHOLDS) {
+  constructor(tab: any, thresholds: AppThresholds = DEFAULT_THRESHOLDS) {
     // Basic fields
     this.id = tab.id ?? null;
     this.openerTabId = tab.openerTabId ?? null;
@@ -112,7 +111,7 @@ export class TabRow {
   /**
    * Static factory method to create multiple TabRows from array of Tabs.Tab
    */
-  static fromTabs(tabs: Tabs.Tab[], thresholds: AppThresholds = DEFAULT_THRESHOLDS): TabRow[] {
+  static fromTabs(tabs: any, thresholds: AppThresholds = DEFAULT_THRESHOLDS): TabRow[] {
     if (!Array.isArray(tabs)) return []
     return tabs.map((tab) => new TabRow(tab, thresholds))
   }

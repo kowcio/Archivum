@@ -1,5 +1,4 @@
 /// <reference types="vite/client" />
-/// <reference types="webextension-polyfill" />
 /// <reference types="chrome" />
 
 // Custom env variables - Vite doesn't provide types for custom VITE_* variables

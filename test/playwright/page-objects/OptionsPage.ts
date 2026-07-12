@@ -15,10 +15,9 @@
  */
 
 import { expect, type Locator, type Page } from '@playwright/test';
-import { TestHelper } from '../../services/TestHelper'
+import { BACKGROUND_MESSAGE_ACTIONS } from '../../../src/constants'
 
 // `chrome` is globally available in page.evaluate() context (no import needed)
-// TestHelper = direct access to test methods (no message passing needed)
 
 export class OptionsPage {
   private readonly groupTabsBtn: Locator;
@@ -98,11 +97,30 @@ export class OptionsPage {
 
 
     /**
-     * Open a random tab from www.example.com/[0-9A-Z], optionally in a group at specified index.
+     * Open a random tab from www.example.com/[0-9A-Z], optionally in a group at specified index via RPC messaging.
      * @returns generated alphanumeric ID (single char: 0-9 or A-Z)
      */
     async openRandomTabInGroup(newTabGroup: boolean = false, index?: number): Promise<string> {
-      return TestHelper.openRandomTabInGroup(newTabGroup, index)
+      return await this.page.evaluate(async (nGroup: boolean, idx?: number) => {
+        return new Promise<string>((resolve, reject) => {
+          chrome.runtime.sendMessage(
+            {
+              type: 'proxy-service.background',
+              data: { path: ['openRandomTabInGroup'], args: [nGroup, idx] },
+              timestamp: Date.now()
+            },
+            (response: any) => {
+              if (chrome.runtime.lastError) {
+                reject(new Error(chrome.runtime.lastError.message))
+              } else if (response?.err) {
+                reject(new Error(response.err.message || 'RPC failed'))
+              } else {
+                resolve(response?.res || '')
+              }
+            }
+          )
+        })
+      }, newTabGroup, index)
     }
 
   /**
@@ -115,35 +133,76 @@ export class OptionsPage {
 
   }
 
-   /**
-    * Set mock overrides for created tabs (backdated ages).
-    * Call this AFTER creating mock tabs to set their lastAccessed timestamps.
-    * @param overrides - Map of tabId → lastAccessed timestamp (ms since epoch)
-    */
-   async setMockOverrides(overrides: Record<number, number>): Promise<void> {
-     try {
-       await TestHelper.setMockOverrides(overrides)
-       // Extra wait to ensure storage is persisted
-       await this.page.waitForTimeout(500)
-     } catch (err) {
-       throw new Error(`Failed to set mock overrides: ${err}`)
-     }
-   }
+    /**
+     * Set mock overrides for created tabs (backdated ages) via RPC messaging.
+     * Call this AFTER creating mock tabs to set their lastAccessed timestamps.
+     * @param overrides - Map of tabId → lastAccessed timestamp (ms since epoch)
+     */
+    async setMockOverrides(overrides: Record<number, number>): Promise<void> {
+      try {
+        // Call setMockOverrides RPC through direct messaging
+        await this.page.evaluate(async (ov: Record<number, number>) => {
+          return new Promise<void>((resolve, reject) => {
+            chrome.runtime.sendMessage(
+              {
+                type: 'proxy-service.background',
+                data: { path: ['setMockOverrides'], args: [ov] },
+                timestamp: Date.now()
+              },
+              (response: any) => {
+                if (chrome.runtime.lastError) {
+                  reject(new Error(chrome.runtime.lastError.message))
+                } else if (response?.err) {
+                  reject(new Error(response.err.message || 'RPC failed'))
+                } else {
+                  resolve()
+                }
+              }
+            )
+          })
+        }, overrides)
+        // Extra wait to ensure storage is persisted
+        await this.page.waitForTimeout(500)
+      } catch (err) {
+        throw new Error(`Failed to set mock overrides: ${err}`)
+      }
+    }
 
-   /**
-    * Create mock tabs via direct TestHelper call (no message passing).
-    * Returns response from test helper.
-    * Includes wait time for tabs to load with URLs.
-    */
-   async clickLoadMockTabs(waitMs: number = 500): Promise<{ ok: boolean; count: number; error: string | null }> {
-     try {
-       const tabs = await TestHelper.createMockTabs()
-       await this.page.waitForTimeout(waitMs)
-       return { ok: true, count: tabs.length, error: null }
-     } catch (err: unknown) {
-       return { ok: false, count: 0, error: String(err) }
-     }
-   }
+    /**
+     * Create mock tabs via RPC message call within browser context.
+     * Avoids any Node.js module loading errors.
+     * Returns response from background service.
+     * Includes wait time for tabs to load with URLs.
+     */
+    async clickLoadMockTabs(waitMs: number = 500): Promise<{ ok: boolean; count: number; error: string | null }> {
+      try {
+        // Call createMockTabs RPC through direct messaging
+        const tabs = await this.page.evaluate(async () => {
+          return new Promise<any[]>((resolve, reject) => {
+            chrome.runtime.sendMessage(
+              {
+                type: 'proxy-service.background',
+                data: { path: ['createMockTabs'], args: [] },
+                timestamp: Date.now()
+              },
+              (response: any) => {
+                if (chrome.runtime.lastError) {
+                  reject(new Error(chrome.runtime.lastError.message))
+                } else if (response?.err) {
+                  reject(new Error(response.err.message || 'RPC failed'))
+                } else {
+                  resolve(response?.res || [])
+                }
+              }
+            )
+          })
+        })
+        await this.page.waitForTimeout(waitMs)
+        return { ok: true, count: Array.isArray(tabs) ? tabs.length : 0, error: null }
+      } catch (err: unknown) {
+        return { ok: false, count: 0, error: String(err) }
+      }
+    }
 
   /**
    * Click "Close All Tabs" button.
@@ -167,20 +226,21 @@ export class OptionsPage {
         console.log('[getAllGroups] Found', groups.length, 'groups');
 
         const groupDetails = [];
-        for (const group of groups) {
-          const tabs = await chrome.tabs.query({ groupId: group.id });
-          console.log(`[getAllGroups] Group ${group.id}: "${group.title}" → ${tabs.length} tabs (index: ${group.index})`);
-          groupDetails.push({
-            id: group.id,
-            title: group.title,
-            tabCount: tabs.length,
-            index: group.index ?? -1,
-          });
-        }
-        // Sort by visual position (index) — left to right (oldest to youngest)
-        groupDetails.sort((a, b) => (a.index ?? -1) - (b.index ?? -1));
-        console.log('[getAllGroups] Sorted groups:', groupDetails.map(g => `"${g.title}"`).join(' → '));
-        return groupDetails.map(g => ({ id: g.id, title: g.title, tabCount: g.tabCount }));
+         for (const group of groups) {
+           const tabs = await chrome.tabs.query({ groupId: group.id });
+           const groupTitle = group.title ?? `Group ${group.id}`;  // ← Default to Group ID if undefined
+           console.log(`[getAllGroups] Group ${group.id}: "${groupTitle}" → ${tabs.length} tabs (index: ${group.index})`);
+           groupDetails.push({
+             id: group.id,
+             title: groupTitle,
+             tabCount: tabs.length,
+             index: group.index ?? -1,
+           });
+         }
+         // Sort by visual position (index) — left to right (oldest to youngest)
+         groupDetails.sort((a, b) => (a.index ?? -1) - (b.index ?? -1));
+         console.log('[getAllGroups] Sorted groups:', groupDetails.map(g => `"${g.title}"`).join(' → '));
+         return groupDetails.map(g => ({ id: g.id, title: g.title, tabCount: g.tabCount }));
       } catch (err) {
         console.error('[getAllGroups] Error:', err);
         return [];
@@ -395,7 +455,7 @@ export class OptionsPage {
       return new Promise<void>((resolve) => {
         chrome.runtime.sendMessage({ action: actionName, tabId: id }, () => resolve());
       });
-    }, { id: tabId, actionName: ON_TAB_ACTIVATED_ACTION });
+    }, { id: tabId, actionName: BACKGROUND_MESSAGE_ACTIONS.ON_TAB_ACTIVATED });
   }
 
   /**
@@ -439,8 +499,27 @@ export class OptionsPage {
          positionInGroup?: number | null;
        }>;
        }> {
-       // 🧪 Fetch mock overrides directly (no message passing)
-       const mockOverrides = await TestHelper.getMockOverrides()
+       // Fetch mock overrides via RPC messaging
+       const mockOverrides = await this.page.evaluate(async () => {
+         return new Promise<Record<number, number>>((resolve, reject) => {
+           chrome.runtime.sendMessage(
+             {
+               type: 'proxy-service.background',
+               data: { path: ['getMockOverrides'], args: [] },
+               timestamp: Date.now()
+             },
+             (response: any) => {
+               if (chrome.runtime.lastError) {
+                 reject(new Error(chrome.runtime.lastError.message))
+               } else if (response?.err) {
+                 reject(new Error(response.err.message || 'RPC failed'))
+               } else {
+                 resolve(response?.res || {})
+               }
+             }
+           )
+         })
+       })
 
        return await this.page.evaluate(function(mockOverridesParam: Record<number, number>) {
          return Promise.all([
