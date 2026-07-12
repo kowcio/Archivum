@@ -230,51 +230,66 @@ export class BackgroundTabService {
    }
 
     static async onTabActivated(tabId: number): Promise<void> {
-      // 🎯 Filter: Only modify tabs IN plugin-created groups
-      const inPluginGroup = await this.isInPluginGroup(tabId)
-      if (!inPluginGroup) {
-        return
-      }
-
-      // 📝 Get current tab + group info (guaranteed to exist after isInPluginGroup check)
-      const tab = await browser.tabs.get(tabId)
-      const groupId = tab.groupId as number
-      const groupTitle = (await browser.tabGroups.get(groupId)).title
-
-      // 🧩 Ungroup the tab, then move to rightmost — with retry
-      const RETRIES = 3
-      for (let attempt = 0; attempt < RETRIES; attempt++) {
-        try {
-          await (browser.tabs as any).ungroup([tabId])
-          await browser.tabs.move(tabId, { index: -1 })
-        } catch (err) {
-          // "Tabs cannot be edited right now" — Chrome is busy, retry
-          if (attempt < RETRIES - 1) {
-            await new Promise(r => setTimeout(r, 100 * (attempt + 1)))
-            continue
-          }
-          throw err
-        }
-
-        // Verify ungrouped
-        const tabAfter = await browser.tabs.get(tabId)
-        if (tabAfter.groupId === -1 || tabAfter.groupId == null) {
-          // 📊 Update group title with new count
-          const groupTabs = await browser.tabs.query({ groupId })
-          const labelPrefix = groupTitle!.match(/^(.+?)\s*\(\d+\)$/)?.[1] || groupTitle
-          await (browser.tabGroups as any).update(groupId, {
-            title: `${labelPrefix} (${groupTabs.length})`
-          })
+      try {
+        // 🎯 Filter: Only modify tabs IN plugin-created groups
+        const inPluginGroup = await this.isInPluginGroup(tabId)
+        if (!inPluginGroup) {
           return
         }
 
-        // Retry with backoff
-        if (attempt < RETRIES - 1) {
-          await new Promise(r => setTimeout(r, 100 * (attempt + 1)))
-        }
-      }
+        // 📝 Get current tab + group info (guaranteed to exist after isInPluginGroup check)
+        const tab = await browser.tabs.get(tabId)
+        const groupId = tab.groupId as number
 
-      console.warn(`[BackgroundTabService] ⚠️ Tab#${tabId} still grouped after ${RETRIES} retries`)
+        let groupTitle: string | undefined
+        try {
+          groupTitle = (await (browser.tabGroups as any).get(groupId)).title
+        } catch {
+          // Group no longer exists (race condition), just return
+          return
+        }
+
+        // 🧩 Ungroup the tab, then move to rightmost — with retry
+        const RETRIES = 3
+        for (let attempt = 0; attempt < RETRIES; attempt++) {
+          try {
+            await (browser.tabs as any).ungroup([tabId])
+            await browser.tabs.move(tabId, { index: -1 })
+          } catch (err) {
+            // "Tabs cannot be edited right now" — Chrome is busy, retry
+            if (attempt < RETRIES - 1) {
+              await new Promise(r => setTimeout(r, 100 * (attempt + 1)))
+              continue
+            }
+            throw err
+          }
+
+          // Verify ungrouped
+          const tabAfter = await browser.tabs.get(tabId)
+          if (tabAfter.groupId === -1 || tabAfter.groupId == null) {
+            // 📊 Update group title with new count
+            const groupTabs = await browser.tabs.query({ groupId })
+            const labelPrefix = groupTitle!.match(/^(.+?)\s*\(\d+\)$/)?.[1] || groupTitle
+            try {
+              await (browser.tabGroups as any).update(groupId, {
+                title: `${labelPrefix} (${groupTabs.length})`
+              })
+            } catch {
+              // Group might have been auto-removed, ignore error
+            }
+            return
+          }
+
+          // Retry with backoff
+          if (attempt < RETRIES - 1) {
+            await new Promise(r => setTimeout(r, 100 * (attempt + 1)))
+          }
+        }
+
+        console.warn(`[BackgroundTabService] ⚠️ Tab#${tabId} still grouped after ${RETRIES} retries`)
+      } catch (err) {
+        console.error('[BackgroundTabService] ❌ onTabActivated error:', err)
+      }
     }
 
     /**

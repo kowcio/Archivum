@@ -101,12 +101,12 @@ export class OptionsPage {
      * @returns generated alphanumeric ID (single char: 0-9 or A-Z)
      */
     async openRandomTabInGroup(newTabGroup: boolean = false, index?: number): Promise<string> {
-      return await this.page.evaluate(async (nGroup: boolean, idx?: number) => {
+      return await this.page.evaluate(async (params: { nGroup: boolean; idx?: number }) => {
         return new Promise<string>((resolve, reject) => {
           chrome.runtime.sendMessage(
             {
               type: 'proxy-service.background',
-              data: { path: ['openRandomTabInGroup'], args: [nGroup, idx] },
+              data: { path: ['openRandomTabInGroup'], args: [params.nGroup, params.idx] },
               timestamp: Date.now()
             },
             (response: any) => {
@@ -120,7 +120,7 @@ export class OptionsPage {
             }
           )
         })
-      }, newTabGroup, index)
+      }, { nGroup: newTabGroup, idx: index })
     }
 
   /**
@@ -446,17 +446,32 @@ export class OptionsPage {
     expect(count).toBe(expectedCount);
   }
 
-  /**
-   * Simulate tab activation via message to background service worker.
-   * This triggers: ungroup + move to rightmost position.
-   */
-  async activateTab(tabId: number): Promise<void> {
-    await this.page.evaluate(({ id, actionName }: { id: number; actionName: string }) => {
-      return new Promise<void>((resolve) => {
-        chrome.runtime.sendMessage({ action: actionName, tabId: id }, () => resolve());
-      });
-    }, { id: tabId, actionName: BACKGROUND_MESSAGE_ACTIONS.ON_TAB_ACTIVATED });
-  }
+   /**
+    * Simulate tab activation via RPC message to background service worker.
+    * This triggers: ungroup + move to rightmost position.
+    */
+   async activateTab(tabId: number): Promise<void> {
+     await this.page.evaluate(async (id: number) => {
+       return new Promise<void>((resolve, reject) => {
+         chrome.runtime.sendMessage(
+           {
+             type: 'proxy-service.background',
+             data: { path: ['onTabActivated'], args: [id] },
+             timestamp: Date.now()
+           },
+           (response: any) => {
+             if (chrome.runtime.lastError) {
+               reject(new Error(chrome.runtime.lastError.message))
+             } else if (response?.err) {
+               reject(new Error(response.err.message || 'RPC failed'))
+             } else {
+               resolve()
+             }
+           }
+         )
+       })
+     }, tabId)
+   }
 
   /**
    * Wait for a specific tab to be ungrouped and moved to rightmost.
