@@ -43,7 +43,24 @@ export class AgeClassification {
     get inlineStyle(): Record<string, string> {
         const hex = THEME_COLOR_HEX[this.colorName]
         if (!hex) return {}
-        return { backgroundColor: hex }
+        // Convert hex to rgba with 30% opacity for faded look
+        const rgba = this.hexToRgba(hex, 0.3)
+        return {
+            backgroundColor: rgba,
+            display: 'inline-block',
+            padding: '4px 10px',
+            borderRadius: '4px',
+            textAlign: 'center',
+            minWidth: '40px',
+        }
+    }
+
+    /** Helper: Convert hex color to rgba with alpha */
+    private hexToRgba(hex: string, alpha: number): string {
+        const r = parseInt(hex.slice(1, 3), 16)
+        const g = parseInt(hex.slice(3, 5), 16)
+        const b = parseInt(hex.slice(5, 7), 16)
+        return `rgba(${r}, ${g}, ${b}, ${alpha})`
     }
 
     get isFresh(): boolean  { return this.index === 0 }

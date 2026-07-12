@@ -57,10 +57,10 @@ test.describe('onTabActivated — last tab removes group', () => {
 
       await options.page.waitForTimeout(500)
 
-      // Verify: Group exists before activation
-      const before = await options.getGroupAndTabData()
-      expect(before.groupCount).toBe(1)
-      expect(before.groups[0].id).toBe(groupId)
+       // Verify: Group exists before activation
+       const before = await options.getGroupAndTabData()
+       expect(before.groupCount).toBe(1)
+       expect(before.groupsOrderedByIndex[0].id).toBe(groupId)
 
       // Activate the only tab in the group
       await options.activateTab(tab.id)

@@ -22,7 +22,7 @@ export default defineConfig({
   test: {
     environment: 'happy-dom',
     include: ['test/unit/**/*.spec.{js,ts,vue}'],
-    exclude: ['**/node_modules/**', '.output/**', 'reports/**'],
+     exclude: ['**/node_modules/**', '.output/**', 'reports/**', 'test/playwright/**'],
     globals: true,
     coverage: {
       provider: 'v8',

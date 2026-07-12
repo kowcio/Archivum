@@ -36,8 +36,8 @@ type Props = {
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  groupLabel: 'Archive by Age',
-  ungroupLabel: 'Clear Archive',
+  groupLabel: 'Group by age',
+  ungroupLabel: 'Ungroup',
   groupIcon: 'folder',
   ungroupIcon: 'unfold_more',
   size: 'lg',

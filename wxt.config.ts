@@ -5,19 +5,26 @@ import {resolve} from 'path'
 // See https://wxt.dev/api/config.html
 const date = `${new Date().toISOString().replace(/[-:T]/g, '').slice(0, 12)}`;
 
-// Generate unified version: 1.1.YYMMDDhh (Firefox-compatible: max 9 digits per number)
-// Example: 1.1.26070515 = 1 . 1 . YY(26)MM(07)DD(05)HH(15)
+// Generate unified version: 1.YY.MMDD.HHMM (Firefox-compatible: max 9 digits per number, NO leading zeros)
+// Example: 1.26.711.920 = 1 . YY(26) . MMDD(0711→711) . HHMM(0920→920)
+// ⚠️ CRITICAL: Firefox rejects leading zeros! Use Number() to strip them.
+// Reference: https://mzl.la/3h3mCRu
 function generateBuildVersion(): string {
   const now = new Date();
 
   const year = String(now.getFullYear()).slice(-2);
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  const day = String(now.getDate()).padStart(2, '0');
-  const hours = String(now.getHours()).padStart(2, '0');
+  const month = String(now.getMonth() + 1);
+  const day = String(now.getDate());
+  const hours = String(now.getHours());
+  const minutes = String(now.getMinutes());
 
-  const timestamp = `${year}${month}${day}${hours}`;
+  // Convert to numbers to strip leading zeros
+  // ✅ padStart creates: 0711 → Number() converts to → 711 (no leading zero)
+  // ✅ padStart creates: 0920 → Number() converts to → 920 (no leading zero)
+  const monthDay = Number(`${month.padStart(2, '0')}${day.padStart(2, '0')}`);
+  const hourMin = Number(`${hours.padStart(2, '0')}${minutes.padStart(2, '0')}`);
 
-  return `1.1.${timestamp}`;
+  return `1.${year}.${monthDay}.${hourMin}`;
 }
 
 const packageVersion = generateBuildVersion()

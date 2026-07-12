@@ -161,6 +161,11 @@ export class BackgroundTabService {
 
         // Create groups from oldest→youngest (left→right).
         // After reorder, Month+ tabs are at lowest indexes, so Month+ group appears leftmost.
+        // NOTE: We don't set 'index' here because:
+        //   - tabGroups.update() does NOT support 'index' (only: collapsed, color, title)
+        //   - tabGroups.move() is for moving groups between windows, not positioning within same window
+        //   - Groups are created in FORWARD loop order, so they naturally appear left-to-right
+        //   - Tabs were already reordered (line 156) to ensure correct visual order
         let groupsCreated = 0
         for (let i = activeLevels.length - 1; i >= 0; i--) {
           const level = activeLevels[i]
@@ -173,7 +178,7 @@ export class BackgroundTabService {
             await (browser.tabGroups as any).update(groupId, {
               title: `${level.label} (${tabIds.length})`,
               color: level.color,
-              collapsed: true
+              collapsed: true,
             })
             groupsCreated++
           } catch (err) {
@@ -507,12 +512,40 @@ export class BackgroundTabService {
          console.log(`[BackgroundTabService] ✅ Moved ${ungroupedIds.length} ungrouped tabs starting at index ${startIndex}`)
        }
 
-       console.log(`[BackgroundTabService] ✅ Sorted ${ungroupedIds.length} ungrouped tabs by domain then lastAccessed`)
-       return ungroupedIds.length
-     } catch (err) {
-       console.error('[BackgroundTabService] ❌', err)
-       return 0
-     }
-   }
+        console.log(`[BackgroundTabService] ✅ Sorted ${ungroupedIds.length} ungrouped tabs by domain then lastAccessed`)
+        return ungroupedIds.length
+      } catch (err) {
+        console.error('[BackgroundTabService] ❌', err)
+        return 0
+      }
+    }
+
+    /**
+     * Open a random tab from www.example.com/[0-9A-Z], optionally in a group.
+     * @param newTabGroup - If true, creates a random group for the tab
+     * @param index - Optional position index for the tab (default: rightmost)
+     * @returns generated alphanumeric ID (4 random chars: 0-9 or A-Z)
+     */
+    static async openRandomTabInGroup(newTabGroup: boolean = false, index: number = 0): Promise<string> {
+      const chars = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+      const generatedTabId = Array.from({ length: 4 }, () =>
+        chars[Math.floor(Math.random() * chars.length)]).join('')
+
+      try {
+        const url = `https://www.example.com/${generatedTabId}`
+        const tab = await browser.tabs.create({ url, active: false })
+
+        await browser.tabs.move(tab.id!, { index }).catch(() => {throw new Error('Failed to move tab')})
+        if (newTabGroup) {
+          const groupId = await (browser.tabs as any).group({tabIds: [tab.id]})
+          await (browser.tabGroups as any).update(groupId, {title: `${generatedTabId}_randomGroup`})
+        }
+      } catch {
+        throw new Error('Failed to create tab group')
+
+      }
+
+      return generatedTabId
+    }
 
 }

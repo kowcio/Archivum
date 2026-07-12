@@ -14,25 +14,33 @@
     />
 
     <!-- Section 2: Delete/Clear Backup Button (with date) -->
-    <q-btn
-      v-show="hasBackup"
-      class="got-btn-grey-info"
-      :label="statusMessage"
-      data-testid="clear-backup-btn"
-      icon="delete"
-      rounded
-      no-caps
-      size="md"
-      :loading="isLoading"
-      @click="handleClearBackup"
-    >
-      <q-tooltip class="bg-dark text-white">
-        Remove the archived tabs
-      </q-tooltip>
-    </q-btn>
+    <div v-if="hasBackup" class="backup-delete-control col-12">
+      <q-btn
+        class="got-btn-ghost q-px-md backup-delete-main"
+        :label="statusMessage"
+        dense
+        no-caps
+        :loading="isLoading"
+      >
+        <q-btn
+          data-testid="clear-backup-btn"
+          class="got-btn-ghost q-ml-sm "
+          icon="delete"
+          dense
+          flat
+          color="negative"
+          :loading="isLoading"
+          @click.stop.prevent="handleClearBackup"
+        >
+          <q-tooltip class="bg-dark text-white">
+            Remove the archived tabs
+          </q-tooltip>
+        </q-btn>
+      </q-btn>
+    </div>
 
     <!-- Fallback text when no backup -->
-    <span v-if="!hasBackup" class="text-caption text-grey">Nothing archived yet</span>
+    <span v-else class="text-caption text-grey">Nothing archived yet</span>
 
     <!-- Section 3: Restore Button -->
     <q-btn
@@ -47,6 +55,13 @@
       :loading="isLoading"
       @click="showRestoreDialog = true"
     />
+
+
+    <div data-testid="backup-restore-timer" class="">
+
+    </div>
+
+
   </div>
 
 
@@ -55,8 +70,8 @@
     <q-card style="min-width: 400px">
       <q-card-section class="row items-center q-pb-none">
         <div class="text-h6">⚠️ Restore Tabs</div>
-        <q-space />
-        <q-btn icon="close" flat round dense @click="showRestoreDialog = false" />
+        <q-space/>
+        <q-btn icon="close" flat round dense @click="showRestoreDialog = false"/>
       </q-card-section>
 
       <q-card-section>
@@ -65,19 +80,21 @@
       </q-card-section>
 
       <q-card-actions align="right">
-        <q-btn flat label="Cancel" color="primary" @click="showRestoreDialog = false" data-testid="restore-cancel" />
-        <q-btn unelevated label="Restore" color="primary" :loading="isLoading" @click="confirmRestore" data-testid="restore-confirm" />
+        <q-btn flat label="Cancel" color="primary" @click="showRestoreDialog = false"
+               data-testid="restore-cancel"/>
+        <q-btn unelevated label="Restore" color="primary" :loading="isLoading"
+               @click="confirmRestore" data-testid="restore-confirm"/>
       </q-card-actions>
     </q-card>
   </q-dialog>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
-import { browser } from 'wxt/browser'
-import type { Browser } from 'wxt/browser'
+import {ref, onMounted} from 'vue'
+import {browser} from 'wxt/browser'
+import type {Browser} from 'wxt/browser'
 import dayjs from 'dayjs'
-import { BACKGROUND_MESSAGE_ACTIONS } from '@/constants'
+import {BACKGROUND_MESSAGE_ACTIONS} from '@/constants'
 
 type Backup = { tabs: Browser.tabs.Tab[]; groups: any[]; createdAt: number; count: number }
 
@@ -135,16 +152,16 @@ async function confirmRestore(): Promise<void> {
     }) as any
     if (!response?.success) {
       statusMessage.value = '❌ Restore failed'
-     } else {
-       // ✅ FIX: Multiple waits to ensure storage persistence
-       // Before: emit immediately → table refreshes before overrides saved → shows 0 days ❌
-       // After: wait 1000ms for storage sync + background processing ✅
-       await new Promise(r => setTimeout(r, 1000))  // ← LONGER WAIT
+    } else {
+      // ✅ FIX: Multiple waits to ensure storage persistence
+      // Before: emit immediately → table refreshes before overrides saved → shows 0 days ❌
+      // After: wait 1000ms for storage sync + background processing ✅
+      await new Promise(r => setTimeout(r, 1000))  // ← LONGER WAIT
 
-       // ✅ FIX: Emit 'restored' event after successful restore + storage sync
-       // Before: No event → App.vue doesn't know restore completed → table stays old ❌
-       // Now: Parent catches @restored event → calls refreshTabs() → table refreshes ✅
-       emit('restored')
+      // ✅ FIX: Emit 'restored' event after successful restore + storage sync
+      // Before: No event → App.vue doesn't know restore completed → table stays old ❌
+      // Now: Parent catches @restored event → calls refreshTabs() → table refreshes ✅
+      emit('restored')
     }
   } catch (err) {
     console.error('[BackupRestore]', err)
@@ -165,6 +182,39 @@ async function handleClearBackup(): Promise<void> {
 
 <style scoped>
 .backup-sections {
-  display: contents;  /* Let parent handle layout */
+  display: contents; /* Let parent handle layout */
+}
+
+.backup-delete-control {
+  display: inline-flex;
+  align-items: center;
+}
+
+.backup-delete-main {
+  cursor: default !important;
+}
+
+.backup-delete-icon {
+  cursor: pointer !important;
+}
+
+.backup-delete-control :deep(.q-btn) {
+  color: #d32f2f;
+}
+
+.backup-delete-control :deep(.q-btn .q-icon) {
+  color: #d32f2f;
+}
+
+.got-btn-ghost {
+  color: #d32f2f;
+}
+
+.got-btn-ghost .q-icon {
+  color: #d32f2f;
+}
+
+.got-btn-ghost q-tooltip {
+  color: #d32f2f;
 }
 </style>

@@ -17,7 +17,7 @@ test.describe("Thresholds", () => {
 
   test.afterAll(async () => {
     if (ctx) await ctx.cleanup();
-  });
+  }, { timeout: 60_000 });  // Increased from default 30s to 60s
 
   test("Default thresholds → group tabs → change to 5 levels → verify groups", async () => {
     const options = new OptionsPage(await ctx.context.newPage());

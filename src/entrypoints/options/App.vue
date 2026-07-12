@@ -16,13 +16,8 @@
           @success="refreshTabs"
           @error="(msg) => error = msg"
         />
-        <div class="row col-12 ">
-        <!-- ✅ FIX: Listen to @restored event and refresh table -->
-        <!-- Before: No listener → table never refreshes after restore ❌ -->
-        <!-- Now: @restored triggers refreshTabs() → table updates with new tabs ✅ -->
         <div class="col-12 row items-center q-pa-md bg-grey-1 rounded-borders accent-border" style="gap: 0.75rem">
           <BackupRestoreButton @restored="refreshTabs" />
-        </div>
         </div>
       </div>
 
@@ -51,24 +46,46 @@
           class="bg-grey-1 q-pa-md accent-border"
           row-key="rowKey"
           flat
-          bordered
-          dense
           striped
           wrap-cells
           virtual-scroll
-          :rows-per-page-options="[0]"
+          sort-icon="arrow_upward"
+         :rows-per-page-options="[0]"
           :pagination="{ sortBy: 'ordinal', descending: false }"
         >
           <template #top-right>
-            <q-input
-              v-model="filter"
-              placeholder="Search..."
-              dense
-              outlined
-              clearable
-              class="q-ml-sm"
-              style="min-width: 200px"
-            />
+            <div class="filter-controls row q-gutter-md">
+              <q-select
+                v-model="selectedAgeGroup"
+                :options="ageGroupOptions"
+                option-value="value"
+                option-label="label"
+                data-testid="age-group-filter"
+                emit-value
+                map-options
+                clearable
+                outlined
+                dense
+                label="Filter by age"
+                class="col-5"
+                :class="`age-filter-${selectedAgeGroupColor}`"
+              >
+                <template v-slot:option="{ itemProps, opt }">
+                  <q-item v-bind="itemProps" :class="`age-filter-${opt.color}`">
+                    <q-item-section>{{ opt.label }}</q-item-section>
+                  </q-item>
+                </template>
+              </q-select>
+              <q-input
+                data-testid="search-filter"
+                v-model="filter"
+                placeholder="Search..."
+                dense
+                outlined
+                clearable
+                class="col-5"
+              />
+            </div>
           </template>
           <template #body="props">
             <q-tr :props="props">
@@ -76,10 +93,10 @@
                 v-for="col in props.cols"
                 :key="col.name"
                 :props="props"
-                :style="[col.style, col.name === 'lastAccess' ? props.row.rowStyle : undefined]"
+                :style="col.style"
               >
                 <template v-if="col.name === 'actions'">
-                  <div class="btn-group">
+                  <div class="btn-group ">
                       <button class="btn-action btn-focus-tab" @click="focusTab(props.row.id)"
                               :disabled="!props.row.id" title="Focus tab (bring to foreground)">
                         👁️ Focus
@@ -97,15 +114,15 @@
                     <span v-else>—</span>
                   </div>
                 </template>
-                <template v-else-if="col.name === 'lastAccess'">
-                  {{ props.row.lastAccessDays ?? '—' }}
-                </template>
                 <template v-else-if="col.name === 'title'">
                   <span>{{ truncate(props.row.title, 50) }}</span>
                 </template>
                 <template v-else-if="col.name === 'url'">
                   <a :href="props.row.url" target="_blank"
                      rel="noreferrer">{{ truncate(props.row.url, 50) }}</a>
+                </template>
+                <template v-else-if="col.name === 'lastAccess'">
+                  <span :style="props.row.rowStyle">{{ props.row.lastAccessDays ?? '—' }}</span>
                 </template>
                 <template v-else>
                   {{ props.row[col.field] ?? '—' }}
@@ -138,6 +155,7 @@ import BackupRestoreButton from "@/components/BackupRestoreButton.vue";
 
 const appStore = useAppStore()
 const filter = ref('')
+const selectedAgeGroup = ref<number | null>(null) // null = show all, 0 = Fresh, 1+ = threshold level
 const error = ref<string | null>(null)
 const tabs = ref<any[]>([])
 
@@ -157,36 +175,73 @@ const columns: {
     align: 'left',
     sortable: true,
     sort: (a, b) => a - b,
-    style: 'width: 6%'
+    style: 'width: 25px'
   },
-  {name: 'actions', label: 'Actions', field: 'actions', align: 'left', style: 'width: 10%'},
-  {name: 'thumbnail', label: 'Icon', field: 'thumbnail', align: 'left', style: 'width: 5%'},
-  {name: 'domain', label: 'Domain', field: 'domain', align: 'left', sortable: true, style: 'width: 20%'},
-  {name: 'title', label: 'Title', field: 'title', align: 'left', sortable: true, style: 'width: 32%'},
-  {name: 'url', label: 'URL', field: 'url', align: 'left', sortable: true, style: 'width: 20%'},
+  {name: 'actions', label: 'Actions', field: 'actions', align: 'left', style: 'width: 90px'},
+  {name: 'thumbnail', label: 'Icon', field: 'thumbnail', align: 'left', style: 'width: 45px'},
+  {name: 'domain', label: 'Domain', field: 'domain', align: 'left', sortable: true, style: 'width: 18%'},
+  {name: 'title', label: 'Title', field: 'title', align: 'left', sortable: true},
+  {name: 'url', label: 'URL', field: 'url', align: 'left', sortable: true},
   {
     name: 'lastAccess',
-    label: 'Days old',
+    label: 'Age',
     field: 'lastAccessDays',
     align: 'left',
     sortable: true,
     sort: (a, b) => a - b,
-    // style: 'width: 20%'
+    style: 'width: 60px'
   },
 ]
 
 const tabRows = computed(() => {
   const rows = TabRow.fromTabs(tabs.value, appStore.thresholds.value)
-  return rows.map((row: any, i: number) => {
+  let filtered = rows.map((row: any, i: number) => {
     const days = row.lastAccessDays ?? 0
     const c = AgeClassification.fromDays(days, appStore.thresholds.value)
     return {
       ...row,
-      ordinal: i + 1,
+      ordinal: i + 1, // Original position index (before filtering)
       rowStyle: c.inlineStyle,
+      ageGroupIndex: c.index, // 0=Fresh, 1+=level index
+      ageGroupLabel: c.label, // "Fresh", "Week+", "Month+", etc.
     }
   })
+
+  // Filter by age group if selected
+  if (selectedAgeGroup.value !== null) {
+    filtered = filtered.filter(row => row.ageGroupIndex === selectedAgeGroup.value)
+  }
+
+  return filtered
 })
+
+/** Available age group options for filter dropdown */
+const ageGroupOptions = computed(() => {
+  const thresholds = appStore.thresholds.value
+  const options: Array<{ label: string; value: number; color?: string }> = [
+    { label: 'Fresh', value: 0, color: 'white' }
+  ]
+
+  // Add threshold levels with their colors
+  const active = thresholds.active()
+  active.forEach((level, idx) => {
+    options.push({
+      label: level.label,
+      value: idx + 1,
+      color: (level.color as string) || 'white'
+    })
+  })
+
+  return options
+})
+
+/** Get the color of the currently selected age group */
+const selectedAgeGroupColor = computed(() => {
+  if (selectedAgeGroup.value === null) return 'white'
+  const selected = ageGroupOptions.value.find(opt => opt.value === selectedAgeGroup.value)
+  return selected?.color || 'white'
+})
+
 
 
 function truncate(text: string, max: number): string {
@@ -340,41 +395,68 @@ onMounted(() => {
   color: var(--got-brand-dark);
 }
 
-.favicon-wrapper {
-  display: inline-flex;
-  align-items: center;
-  width: 22px;
-  height: 22px;
-  flex-shrink: 0;
+
+
+/* ── Filter Controls (Age Group + Search) ──────────────────────────── */
+
+.filter-controls :deep(.q-field) {
+  min-width: 150px;
 }
+
+/* Age filter background colors based on threshold */
+[class^="age-filter-"] {
+  padding: 8px 12px;
+  display: flex;
+  width: 100%;
+}
+
+.age-filter-green { background: rgba(88, 138, 102, 0.35); }
+.age-filter-blue { background: rgba(56, 103, 164, 0.35); }
+.age-filter-orange { background: rgba(212, 122, 42, 0.35); }
+.age-filter-red { background: rgba(184, 90, 74, 0.35); }
+.age-filter-pink { background: rgba(181, 96, 115, 0.35); }
+.age-filter-purple { background: rgba(125, 83, 148, 0.35); }
+.age-filter-yellow { background: rgba(212, 168, 75, 0.35); }
+.age-filter-cyan { background: rgba(93, 154, 168, 0.35); }
+.age-filter-grey { background: rgba(138, 138, 138, 0.35); }
+
 
 /* ── Button Group Layout (Focus + Close buttons) ──────────────────────── */
 .btn-group {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.25rem;
   width: fit-content;
 }
 
 .btn-action {
-  padding: 3px 6px;
-  font-size: 0.7rem;
-  border: 1px solid #633722;
+  font-size: 0.68rem;
+  padding: 5px 10px 5px 8px;
+  border: 1px solid #d4a574;
   border-radius: 3px;
-  background: #f5f5f5;
+  background: linear-gradient(135deg, #fafafa 0%, #f5f5f5 100%);
   cursor: pointer;
-  white-space: nowrap;
-  width: 70px;
+  white-space: normal;
   text-align: center;
-  transition: background 0.2s ease;
+  transition: all 0.12s ease;
+  font-weight: 500;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  line-height: 1.2;
 }
 
+
 .btn-action:hover:not(:disabled) {
-  background: #e0e0e0;
+  background: linear-gradient(135deg, #ffd083 0%, #ffca5d 100%);
+  box-shadow: 0 2px 6px rgba(212, 122, 42, 0.25);
+  border-color: #c4945f;
+}
+
+.btn-action:active:not(:disabled) {
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
 }
 
 .btn-action:disabled {
-  opacity: 0.5;
+  opacity: 0.35;
   cursor: not-allowed;
 }
 
@@ -382,17 +464,32 @@ onMounted(() => {
   color: #1565c0;
 }
 
+.btn-focus-tab:hover:not(:disabled) {
+  color: #0d3fa6;
+}
+
 .btn-close-tab {
   color: #d47a2a;
+}
+
+.btn-close-tab:hover:not(:disabled) {
+  background: linear-gradient(135deg, #ffebee 0%, #ffcdd2 100%) !important;
+  color: #c62828;
+  border-color: #c62828 !important;
 }
 
 /* ── Table Cell Text Wrapping (prevent overflow) ──────────────────────── */
 :deep(.q-table td) {
   word-break: break-word;
   overflow-wrap: break-word;
-  max-width: 0;
-  padding: 8px 12px;
-  line-height: 1.4;
+  word-wrap: break-word;
+  padding: 4px 10px;
+  line-height: 1.3;
+  transition: background-color 0.12s ease;
+  border-top: none !important;
+  border-bottom: none !important;
+  min-width: 0;
+  max-width: 100%;
 }
 
 /* ── Specific column widths ──────────────────────────────────────────── */
@@ -403,14 +500,23 @@ onMounted(() => {
       .q-table td) {
   word-break: break-word;
   overflow-wrap: break-word;
-  max-width: 0;
-  padding: 8px 12px;
-  line-height: 1.4;
+  word-wrap: break-word;
+  padding: 5px 10px;
+  line-height: 1.3;
+  border: none !important;
+  min-width: 0;
+}
+
+/* ── Last column (Days old) - badge styling on span element ──────────────── */
+:deep(.q-table tbody tr td:last-child) {
+  padding: 4px 8px;
+  text-align: center;
 }
 
 :deep(.q-table a) {
   color: #1565c0;
   text-decoration: none;
+  word-break: break-word;
 }
 
 :deep(.q-table a:hover) {
@@ -431,16 +537,35 @@ onMounted(() => {
 
 /* ── q-table brand styling ──────────────────────────────────────────── */
 :deep(.q-table th .q-table__sort-icon) {
-  color: rgba(255, 255, 255, 0.7);
+  color: #5a4a1a;
+  opacity: 1;
 }
+
+:deep(.q-table thead tr th) {
+  background: transparent;
+  border: none !important;
+  font-weight: 600;
+  padding: 8px 10px;
+  color: #5a4a1a;
+}
+
+:deep(.q-table tbody tr) {
+  height: auto;
+  transition: background-color 0.12s ease;
+  border-top: none !important;
+  border-bottom: none !important;
+}
+
 :deep(.q-table tbody tr:nth-child(even) td) {
   background: rgba(255, 208, 131, 0.08);
 }
+
 :deep(.q-table--striped tbody tr:nth-child(odd) td) {
-  background: rgba(255, 208, 131, 0.03);
+  background: transparent;
 }
+
 :deep(.q-table tbody tr:hover td) {
-  background: rgba(255, 208, 131, 0.15) !important;
+  background: rgba(255, 138, 0, 0.15) !important;
 }
 
 </style>

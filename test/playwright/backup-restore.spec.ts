@@ -25,13 +25,11 @@ test.describe('Backup & Restore', () => {
 
     // Group tabs by age
     await options.clickGroupTabs(2000)
-    const groupsBefore = await options.getGroupCount()
-    await options.getAllGroups().then(groups => {
-      console.log("BEFORE ")
-      groups.forEach(group => {
-        console.log(group)
-      })
-    })
+    const groupsBeforeDetails = await options.getAllGroups()
+    const groupsBeforeCount = groupsBeforeDetails.length
+    console.log("[TEST] Groups BEFORE:", groupsBeforeCount)
+    groupsBeforeDetails.forEach(g => console.log(`  - "${g.title}" (${g.tabCount} tabs)`))
+
     // Backup
     await options.clickBackupTabs()
     await options.page.waitForTimeout(500)
@@ -43,17 +41,14 @@ test.describe('Backup & Restore', () => {
     // Restore
     await options.clickRestoreTabs()
     await options.confirmRestore()
-    await options.page.waitForTimeout(2000)
+    await options.page.waitForTimeout(3000)  // Increased from 2000 to 3000ms for restoration to complete
 
     // Verify groups restored — fetch from scratch (exact count)
-    const groupDetailsAfter = await options.getAllGroups()
-    await options.getAllGroups().then(groups => {
-      console.log("AFTER ")
-      groups.forEach(group => {
-        console.log(group)
-      })
-    })
-    expect(groupDetailsAfter.length).toBe(groupsBefore)
+    const groupsAfterDetails = await options.getAllGroups()
+    const groupsAfterCount = groupsAfterDetails.length
+    console.log("[TEST] Groups AFTER:", groupsAfterCount)
+    groupsAfterDetails.forEach(g => console.log(`  - "${g.title}" (${g.tabCount} tabs)`))
+    expect(groupsAfterCount).toBe(groupsBeforeCount)
 
     // Cleanup
     await ctx.cleanup()

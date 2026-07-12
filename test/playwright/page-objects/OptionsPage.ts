@@ -15,7 +15,9 @@
  */
 
 import { expect, type Locator, type Page } from '@playwright/test';
+import {BACKGROUND_MESSAGE_ACTIONS} from "../../../src/constants";
 
+// `chrome` is globally available in page.evaluate() context (no import needed)
 // Import constants using relative path (not bundled through Vite like app code)
 const MOCK_TABS_ACTION = 'createMockTabs';
 const ON_TAB_ACTIVATED_ACTION = 'onTabActivated';
@@ -96,34 +98,24 @@ export class OptionsPage {
      await this.page.waitForTimeout(waitMs);
    }
 
-   /**
-    * Group Tabs by Domain via background message (no UI button).
-    * Uses chrome.runtime.sendMessage to trigger sortTabsByDomain.
-    * Optional: pass timeout override (default 1500ms).
-    */
-   async clicksortTabsByDomain(waitMs: number = 1500): Promise<{ groupsCreated: number; error: string | null }> {
-     const result = await this.page.evaluate(() => {
-       return new Promise<{ groupsCreated: number; error: string | null }>((resolve) => {
-         try {
-           chrome.runtime.sendMessage({ action: 'sortTabsByDomain' }, (r: any) => {
-             resolve({ groupsCreated: r?.groupsCreated ?? 0, error: r?.error ?? null });
-           });
-         } catch (e: unknown) {
-           resolve({ groupsCreated: 0, error: String(e) });
-         }
-       });
-     });
-     await this.page.waitForTimeout(waitMs);
-     return result;
-   }
 
    /**
-    * Click "Ungroup All Tabs" button and wait for ungrouping to complete.
-    * Optional: pass timeout override (default 1000ms).
+    * Open a random tab from www.example.com/[0-9A-Z], optionally in a group at specified index.
+    * @returns generated alphanumeric ID (single char: 0-9 or A-Z)
     */
-   async clickUngroupTabs(waitMs: number = 1000): Promise<void> {
-     await this.ungroupTabsBtn.click();
-     await this.page.waitForTimeout(waitMs);
+   async openRandomTabInGroup(newTabGroup: boolean = false, index?: number): Promise<string> {
+     const action = BACKGROUND_MESSAGE_ACTIONS.OPEN_RANDOM_TAB_IN_GROUP;
+     return this.page.evaluate(
+       ({ newTabGroup, index, action }) => {
+         return new Promise<string>((resolve) => {
+           chrome.runtime.sendMessage(
+             { action, newTabGroup, index },
+             (response: any) => resolve(response?.result || 'UNKNOWN')
+           );
+         });
+       },
+       { newTabGroup, index, action }
+     );
    }
 
   /**
@@ -207,14 +199,18 @@ export class OptionsPage {
         const groupDetails = [];
         for (const group of groups) {
           const tabs = await chrome.tabs.query({ groupId: group.id });
-          console.log(`[getAllGroups] Group ${group.id}: "${group.title}" → ${tabs.length} tabs`);
+          console.log(`[getAllGroups] Group ${group.id}: "${group.title}" → ${tabs.length} tabs (index: ${group.index})`);
           groupDetails.push({
             id: group.id,
             title: group.title,
             tabCount: tabs.length,
+            index: group.index ?? -1,
           });
         }
-        return groupDetails;
+        // Sort by visual position (index) — left to right (oldest to youngest)
+        groupDetails.sort((a, b) => (a.index ?? -1) - (b.index ?? -1));
+        console.log('[getAllGroups] Sorted groups:', groupDetails.map(g => `"${g.title}"`).join(' → '));
+        return groupDetails.map(g => ({ id: g.id, title: g.title, tabCount: g.tabCount }));
       } catch (err) {
         console.error('[getAllGroups] Error:', err);
         return [];
@@ -254,37 +250,12 @@ export class OptionsPage {
   }
 
   /**
-   * Verify first table row is visible.
-   * Uses global Playwright timeout (15000ms from config).
-   */
-  async expectFirstRowVisible(): Promise<void> {
-    await expect(this.openTabsTable.locator('tr').first()).toBeVisible();
-  }
-
-  /**
-   * Verify Group button is visible (no groups exist).
-   * Uses global Playwright timeout (15000ms from config).
-   */
-  async expectGroupButtonVisible(): Promise<void> {
-    await expect(this.groupTabsBtn).toBeVisible();
-  }
-
-  /**
    * Verify Ungroup button is visible (groups exist).
    * Uses global Playwright timeout (15000ms from config).
    */
   async expectUngroupButtonVisible(): Promise<void> {
     await expect(this.ungroupTabsBtn).toBeVisible();
   }
-
-  /**
-   * Verify Ungroup button is NOT visible (no groups exist).
-   * Uses global Playwright timeout (15000ms from config).
-   */
-  async expectUngroupButtonHidden(): Promise<void> {
-    await expect(this.ungroupTabsBtn).not.toBeVisible();
-  }
-
 
   /**
    * Verify config section is visible.
@@ -482,21 +453,22 @@ export class OptionsPage {
      * Applies mock overrides to lastAccessed timestamps if they exist.
      * Prints each tab: index, id, groupId, title, url
      */
-    async getGroupAndTabData(): Promise<{
-     groupCount: number;
-     groups: Array<{ id: number; title: string }>;
-     groupedTabCount: number;
-     ungroupedTabCount: number;
-     tabs: Array<{
-       id?: number;
-       url?: string;
-       title?: string;
-       active?: boolean;
-       lastAccessed?: number;
-       groupId?: number;
-       index?: number;
-     }>;
-     }> {
+     async getGroupAndTabData(): Promise<{
+      groupCount: number;
+      groupsOrderedByIndex: Array<{ id: number; title: string; index: number }>;
+      groupedTabCount: number;
+      ungroupedTabCount: number;
+      tabs: Array<{
+        id?: number;
+        url?: string;
+        title?: string;
+        active?: boolean;
+        lastAccessed?: number;
+        groupId?: number;
+        windowIndex?: number;
+        positionInGroup?: number | null;
+      }>;
+      }> {
       return await this.page.evaluate(function() {
         // Fetch mock overrides
         const mockOverridesPromise = new Promise<Record<number, number>>((resolve) => {
@@ -509,8 +481,11 @@ export class OptionsPage {
           return Promise.all([
             (chrome.tabGroups as any).query({ windowId: (chrome.windows as any).WINDOW_ID_CURRENT }),
             (chrome.tabs as any).query({ currentWindow: true })
-          ]).then(([groups, tabs]) => {
-            // Apply mock overrides to tabs
+           ]).then(([groups, tabs]) => {
+             // Sort groups by index (left-to-right)
+             const sortedGroups = [...groups].sort((a: any, b: any) => (a.index ?? -1) - (b.index ?? -1))
+
+             // Apply mock overrides to tabs
             for (const tab of tabs) {
               if (tab.id != null) {
                 const numericOverride = (mockOverrides as Record<number, number>)[tab.id]
@@ -522,23 +497,46 @@ export class OptionsPage {
               }
             }
 
+            // Calculate group index from first tab's index in each group (workaround for API issue)
+            const groupIndexMap = new Map<number, number>()
+            for (const group of sortedGroups) {
+              const groupTabs = tabs.filter((t: any) => t.groupId === group.id)
+              if (groupTabs.length > 0) {
+                const firstTabIndex = groupTabs[0].index
+                groupIndexMap.set(group.id, firstTabIndex)
+              }
+            }
+
+            // Build final groups with calculated indices
+            const groupsWithIndices = sortedGroups.map((g: any) => ({
+              id: g.id,
+              title: g.title,
+              index: groupIndexMap.get(g.id) ?? g.index ?? -1
+            }))
+
+            // Sort groups by calculated index (left-to-right)
+            groupsWithIndices.sort((a: any, b: any) => a.index - b.index)
+
             return {
-              groupCount: groups.length,
-              groups: groups.map((g: any) => ({
-                id: g.id,
-                title: g.title
-              })),
+              groupCount: groupsWithIndices.length,
+              groupsOrderedByIndex: groupsWithIndices,
               groupedTabCount: tabs.filter((t: any) => t.groupId != null && t.groupId !== -1).length,
               ungroupedTabCount: tabs.filter((t: any) => t.groupId == null || t.groupId === -1).length,
-              tabs: tabs.map((t: any) => ({
-                id: t.id,
-                url: t.url,
-                title: t.title,
-                active: t.active,
-                lastAccessed: t.lastAccessed,
-                groupId: t.groupId,
-                index: t.index
-              }))
+              tabs: tabs.map((t: any) => {
+                const positionInGroup = t.groupId && t.groupId !== -1
+                  ? tabs.filter((tab: any) => tab.groupId === t.groupId && tab.index < t.index).length + 1
+                  : null
+                return {
+                  id: t.id,
+                  url: t.url,
+                  title: t.title,
+                  active: t.active,
+                  lastAccessed: t.lastAccessed,
+                  groupId: t.groupId,
+                  windowIndex: t.index,
+                  positionInGroup
+                }
+              })
             }
           })
         })
