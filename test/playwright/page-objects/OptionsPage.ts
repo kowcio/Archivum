@@ -497,6 +497,8 @@ export class OptionsPage {
       * Returns group count, group details, and tab counts (grouped vs ungrouped).
       * Applies mock overrides to lastAccessed timestamps if they exist.
       * Prints each tab: index, id, groupId, title, url
+      *
+      * Now uses RPC to BackgroundTabService.getGroupAndTabData() for type-safe access.
       */
       async getGroupAndTabData(): Promise<{
        groupCount: number;
@@ -514,91 +516,37 @@ export class OptionsPage {
          positionInGroup?: number | null;
        }>;
        }> {
-       // Fetch mock overrides via RPC messaging
-       const mockOverrides = await this.page.evaluate(async () => {
-         return new Promise<Record<number, number>>((resolve, reject) => {
-           chrome.runtime.sendMessage(
-             {
-               type: 'proxy-service.background',
-               data: { path: ['getMockOverrides'], args: [] },
-               timestamp: Date.now()
-             },
-             (response: any) => {
-               if (chrome.runtime.lastError) {
-                 reject(new Error(chrome.runtime.lastError.message))
-               } else if (response?.err) {
-                 reject(new Error(response.err.message || 'RPC failed'))
-               } else {
-                 resolve(response?.res || {})
+       try {
+         return await this.page.evaluate(async () => {
+           return new Promise<any>((resolve, reject) => {
+             chrome.runtime.sendMessage(
+               {
+                 type: 'proxy-service.background',
+                 data: { path: ['getGroupAndTabData'], args: [] },
+                 timestamp: Date.now()
+               },
+               (response: any) => {
+                 if (chrome.runtime.lastError) {
+                   reject(new Error(chrome.runtime.lastError.message))
+                 } else if (response?.err) {
+                   reject(new Error(response.err.message || 'RPC failed'))
+                 } else {
+                   resolve(response?.res || {})
+                 }
                }
-             }
-           )
-         })
-       })
-
-       return await this.page.evaluate(function(mockOverridesParam: Record<number, number>) {
-         return Promise.all([
-           (chrome.tabGroups as any).query({ windowId: (chrome.windows as any).WINDOW_ID_CURRENT }),
-           (chrome.tabs as any).query({ currentWindow: true })
-          ]).then(([groups, tabs]) => {
-             // Sort groups by index (left-to-right)
-             const sortedGroups = [...groups].sort((a: any, b: any) => (a.index ?? -1) - (b.index ?? -1))
-
-             // Apply mock overrides to tabs
-            for (const tab of tabs) {
-              if (tab.id != null) {
-                const numericOverride = (mockOverridesParam as Record<number, number>)[tab.id]
-                const stringOverride = (mockOverridesParam as Record<string, number>)[String(tab.id)]
-                const override = numericOverride ?? stringOverride
-                if (override != null) {
-                  tab.lastAccessed = override
-                }
-              }
-            }
-
-            // Calculate group index from first tab's index in each group (workaround for API issue)
-            const groupIndexMap = new Map<number, number>()
-            for (const group of sortedGroups) {
-              const groupTabs = tabs.filter((t: any) => t.groupId === group.id)
-              if (groupTabs.length > 0) {
-                const firstTabIndex = groupTabs[0].index
-                groupIndexMap.set(group.id, firstTabIndex)
-              }
-            }
-
-            // Build final groups with calculated indices
-            const groupsWithIndices = sortedGroups.map((g: any) => ({
-              id: g.id,
-              title: g.title,
-              index: groupIndexMap.get(g.id) ?? g.index ?? -1
-            }))
-
-            // Sort groups by calculated index (left-to-right)
-            groupsWithIndices.sort((a: any, b: any) => a.index - b.index)
-
-            return {
-              groupCount: groupsWithIndices.length,
-              groupsOrderedByIndex: groupsWithIndices,
-              groupedTabCount: tabs.filter((t: any) => t.groupId != null && t.groupId !== -1).length,
-              ungroupedTabCount: tabs.filter((t: any) => t.groupId == null || t.groupId === -1).length,
-              tabs: tabs.map((t: any) => {
-                const positionInGroup = t.groupId && t.groupId !== -1
-                  ? tabs.filter((tab: any) => tab.groupId === t.groupId && tab.index < t.index).length + 1
-                  : null
-                return {
-                  id: t.id,
-                  url: t.url,
-                  title: t.title,
-                  active: t.active,
-                  lastAccessed: t.lastAccessed,
-                  groupId: t.groupId,
-                  windowIndex: t.index,
-                  positionInGroup
-                }
-              })
-            }
+             )
            })
-       }, mockOverrides)
+         })
+       } catch (err) {
+         console.error('[OptionsPage] getGroupAndTabData error:', err)
+         return {
+           groupCount: 0,
+           groupsOrderedByIndex: [],
+           groupedTabCount: 0,
+           ungroupedTabCount: 0,
+           tabs: [],
+         }
+       }
       }
 
   /**

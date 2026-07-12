@@ -14,6 +14,11 @@
     <q-tooltip v-if="!isGrouped && !hasStaleTabsToGroup" class="bg-dark">
       Nothing to archive, all tabs are less than {{ minThresholdDays }} days of age.
     </q-tooltip>
+    <q-tooltip v-if="hasStaleTabsToGroup" class="bg-dark text-subtitle2" v-html="
+      `Group all ungrouped tabs older than ${minThresholdDays} days into age-based groups.
+      <br/> Existing tabs will be left intact !`
+    " />
+
   </q-btn>
 </template>
 

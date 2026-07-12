@@ -26,7 +26,7 @@ import { mockOverrides } from '@/store/appStore'
 export const backgroundRPC = {
   // ── Tab grouping & organization ──────────────────────────────────────────
   groupTabsByAge: (): Promise<number> => BackgroundTabService.groupTabsByAge(),
-  updateTabByAge: (): Promise<string> => BackgroundTabService.updateTabByAge(),
+  updateTabByAge: (): Promise<number> => BackgroundTabService.updateTabByAge(),
   ungroupAllTabs: (): Promise<void> => BackgroundTabService.ungroupAllTabs(),
   hasPluginGroups: (): Promise<boolean> => BackgroundTabService.hasPluginGroups(),
   sortGroupsByDomain: (): Promise<number> => BackgroundTabService.sortGroupsByDomain(),
@@ -38,6 +38,27 @@ export const backgroundRPC = {
    closeTab: (tabId: number): Promise<string | null> => BackgroundTabService.closeTab(tabId),
    focusTab: (tabId: number): Promise<string | null> => BackgroundTabService.focusTab(tabId),
    onTabActivated: (tabId: number): Promise<void> => BackgroundTabService.onTabActivated(tabId),
+
+   /**
+    * Get all groups and tabs data (replaces OptionsPage.getGroupAndTabData).
+    * Returns sorted groups, tab counts, and complete tab list with mock overrides applied.
+    */
+   getGroupAndTabData: (): Promise<{
+     groupCount: number;
+     groupsOrderedByIndex: Array<{ id: number; title: string; index: number }>;
+     groupedTabCount: number;
+     ungroupedTabCount: number;
+     tabs: Array<{
+       id?: number;
+       url?: string;
+       title?: string;
+       active?: boolean;
+       lastAccessed?: number;
+       groupId?: number;
+       windowIndex?: number;
+       positionInGroup?: number | null;
+     }>;
+   }> => BackgroundTabService.getGroupAndTabData(),
 
    // 🧪 DEV/TEST ONLY: Mock tabs & age overrides (MockButton.vue + Playwright tests)
    createMockTabs: (): Promise<Browser.tabs.Tab[]> => BackgroundTabService.createMockTabs(),
