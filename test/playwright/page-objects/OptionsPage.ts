@@ -15,12 +15,10 @@
  */
 
 import { expect, type Locator, type Page } from '@playwright/test';
-import {BACKGROUND_MESSAGE_ACTIONS} from "../../../src/constants";
+import { TestHelper } from '../../services/TestHelper'
 
 // `chrome` is globally available in page.evaluate() context (no import needed)
-// Import constants using relative path (not bundled through Vite like app code)
-const MOCK_TABS_ACTION = 'createMockTabs';
-const ON_TAB_ACTIVATED_ACTION = 'onTabActivated';
+// TestHelper = direct access to test methods (no message passing needed)
 
 export class OptionsPage {
   private readonly groupTabsBtn: Locator;
@@ -99,24 +97,13 @@ export class OptionsPage {
    }
 
 
-   /**
-    * Open a random tab from www.example.com/[0-9A-Z], optionally in a group at specified index.
-    * @returns generated alphanumeric ID (single char: 0-9 or A-Z)
-    */
-   async openRandomTabInGroup(newTabGroup: boolean = false, index?: number): Promise<string> {
-     const action = BACKGROUND_MESSAGE_ACTIONS.OPEN_RANDOM_TAB_IN_GROUP;
-     return this.page.evaluate(
-       ({ newTabGroup, index, action }) => {
-         return new Promise<string>((resolve) => {
-           chrome.runtime.sendMessage(
-             { action, newTabGroup, index },
-             (response: any) => resolve(response?.result || 'UNKNOWN')
-           );
-         });
-       },
-       { newTabGroup, index, action }
-     );
-   }
+    /**
+     * Open a random tab from www.example.com/[0-9A-Z], optionally in a group at specified index.
+     * @returns generated alphanumeric ID (single char: 0-9 or A-Z)
+     */
+    async openRandomTabInGroup(newTabGroup: boolean = false, index?: number): Promise<string> {
+      return TestHelper.openRandomTabInGroup(newTabGroup, index)
+    }
 
   /**
    * Click "Ungroup All Tabs" button and wait for ungrouping to complete.
@@ -128,52 +115,35 @@ export class OptionsPage {
 
   }
 
-  /**
-   * Set mock overrides for created tabs (backdated ages).
-   * Call this AFTER creating mock tabs to set their lastAccessed timestamps.
-   * @param overrides - Map of tabId → lastAccessed timestamp (ms since epoch)
-   */
-  async setMockOverrides(overrides: Record<number, number>): Promise<void> {
-    const result = await this.page.evaluate((data: Record<string, number>) => {
-      return new Promise<{ error: string | null }>((resolve) => {
-        chrome.runtime.sendMessage(
-          { action: 'setMockOverrides', overrides: data },
-          (response: any) => {
-            resolve(response || { error: 'No response' });
-          }
-        );
-      });
-    }, overrides);
+   /**
+    * Set mock overrides for created tabs (backdated ages).
+    * Call this AFTER creating mock tabs to set their lastAccessed timestamps.
+    * @param overrides - Map of tabId → lastAccessed timestamp (ms since epoch)
+    */
+   async setMockOverrides(overrides: Record<number, number>): Promise<void> {
+     try {
+       await TestHelper.setMockOverrides(overrides)
+       // Extra wait to ensure storage is persisted
+       await this.page.waitForTimeout(500)
+     } catch (err) {
+       throw new Error(`Failed to set mock overrides: ${err}`)
+     }
+   }
 
-    if (result.error) {
-      throw new Error(`Failed to set mock overrides: ${result.error}`);
-    }
-
-    // Extra wait to ensure storage is persisted
-    await this.page.waitForTimeout(500);
-  }
-
-  /**
-   * Click "Load/Create Mock Tabs" button.
-   * Returns response from background service worker.
-   * Includes wait time for tabs to load with URLs.
-   */
-  async clickLoadMockTabs(waitMs: number = 500): Promise<{ ok: boolean; count: number; error: string | null }> {
-    const result = await this.page.evaluate((actionName: string) => {
-      return new Promise<{ ok: boolean; count: number; error: string | null }>((resolve) => {
-        try {
-          chrome.runtime.sendMessage({ action: actionName }, (r: any) => {
-            resolve({ ok: true, count: r?.tabs?.length ?? 0, error: r?.error ?? null });
-          });
-        } catch (e: unknown) {
-          resolve({ ok: false, count: 0, error: String(e) });
-        }
-      });
-    }, MOCK_TABS_ACTION);
-    // Wait for tabs to load with URLs
-    await this.page.waitForTimeout(waitMs);
-    return result as { ok: boolean; count: number; error: string | null };
-  }
+   /**
+    * Create mock tabs via direct TestHelper call (no message passing).
+    * Returns response from test helper.
+    * Includes wait time for tabs to load with URLs.
+    */
+   async clickLoadMockTabs(waitMs: number = 500): Promise<{ ok: boolean; count: number; error: string | null }> {
+     try {
+       const tabs = await TestHelper.createMockTabs()
+       await this.page.waitForTimeout(waitMs)
+       return { ok: true, count: tabs.length, error: null }
+     } catch (err: unknown) {
+       return { ok: false, count: 0, error: String(err) }
+     }
+   }
 
   /**
    * Click "Close All Tabs" button.
@@ -447,49 +417,44 @@ export class OptionsPage {
     );
    }
 
-    /**
-     * Get all groups and tabs data.
-     * Returns group count, group details, and tab counts (grouped vs ungrouped).
-     * Applies mock overrides to lastAccessed timestamps if they exist.
-     * Prints each tab: index, id, groupId, title, url
-     */
-     async getGroupAndTabData(): Promise<{
-      groupCount: number;
-      groupsOrderedByIndex: Array<{ id: number; title: string; index: number }>;
-      groupedTabCount: number;
-      ungroupedTabCount: number;
-      tabs: Array<{
-        id?: number;
-        url?: string;
-        title?: string;
-        active?: boolean;
-        lastAccessed?: number;
-        groupId?: number;
-        windowIndex?: number;
-        positionInGroup?: number | null;
-      }>;
-      }> {
-      return await this.page.evaluate(function() {
-        // Fetch mock overrides
-        const mockOverridesPromise = new Promise<Record<number, number>>((resolve) => {
-          (chrome.runtime as any).sendMessage({ action: 'getMockOverrides' }, (response: any) => {
-            resolve(response?.overrides || {});
-          });
-        });
+     /**
+      * Get all groups and tabs data.
+      * Returns group count, group details, and tab counts (grouped vs ungrouped).
+      * Applies mock overrides to lastAccessed timestamps if they exist.
+      * Prints each tab: index, id, groupId, title, url
+      */
+      async getGroupAndTabData(): Promise<{
+       groupCount: number;
+       groupsOrderedByIndex: Array<{ id: number; title: string; index: number }>;
+       groupedTabCount: number;
+       ungroupedTabCount: number;
+       tabs: Array<{
+         id?: number;
+         url?: string;
+         title?: string;
+         active?: boolean;
+         lastAccessed?: number;
+         groupId?: number;
+         windowIndex?: number;
+         positionInGroup?: number | null;
+       }>;
+       }> {
+       // 🧪 Fetch mock overrides directly (no message passing)
+       const mockOverrides = await TestHelper.getMockOverrides()
 
-        return mockOverridesPromise.then((mockOverrides) => {
-          return Promise.all([
-            (chrome.tabGroups as any).query({ windowId: (chrome.windows as any).WINDOW_ID_CURRENT }),
-            (chrome.tabs as any).query({ currentWindow: true })
-           ]).then(([groups, tabs]) => {
+       return await this.page.evaluate(function(mockOverridesParam: Record<number, number>) {
+         return Promise.all([
+           (chrome.tabGroups as any).query({ windowId: (chrome.windows as any).WINDOW_ID_CURRENT }),
+           (chrome.tabs as any).query({ currentWindow: true })
+          ]).then(([groups, tabs]) => {
              // Sort groups by index (left-to-right)
              const sortedGroups = [...groups].sort((a: any, b: any) => (a.index ?? -1) - (b.index ?? -1))
 
              // Apply mock overrides to tabs
             for (const tab of tabs) {
               if (tab.id != null) {
-                const numericOverride = (mockOverrides as Record<number, number>)[tab.id]
-                const stringOverride = (mockOverrides as Record<string, number>)[String(tab.id)]
+                const numericOverride = (mockOverridesParam as Record<number, number>)[tab.id]
+                const stringOverride = (mockOverridesParam as Record<string, number>)[String(tab.id)]
                 const override = numericOverride ?? stringOverride
                 if (override != null) {
                   tab.lastAccessed = override
@@ -538,10 +503,9 @@ export class OptionsPage {
                 }
               })
             }
-          })
-        })
-      })
-     }
+           })
+       }, mockOverrides)
+      }
 
   /**
    * Click "Backup Tabs" button to save current tabs.

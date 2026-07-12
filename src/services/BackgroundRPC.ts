@@ -3,10 +3,13 @@
  * Changes to this file are automatically reflected in:
  * - background.ts (registration)
  * - All Vue components (type-safe calls)
- * - Playwright tests (test helper calls)
  *
  * TYPE-SAFE MESSAGING: useProxy<typeof backgroundRPC>('background') in any UI context
  * NO MORE browser.runtime.sendMessage() with 'as any' casting ✅
+ *
+ * 🧪 DEV-ONLY METHODS: createMockTabs, setMockOverrides, getMockOverrides
+ * These are test helpers for MockButton.vue (dev-only UI) and Playwright tests.
+ * They will be present in code but only callable in DEV builds.
  */
 
 import type { Browser } from 'wxt/browser'
@@ -30,20 +33,20 @@ export const backgroundRPC = {
   openRandomTabInGroup: (newTabGroup: boolean, index?: number): Promise<string> =>
     BackgroundTabService.openRandomTabInGroup(newTabGroup, index),
 
-  // ── Tab queries & updates ────────────────────────────────────────────────
-  getTabs: (): Promise<Browser.tabs.Tab[]> => BackgroundTabService.getTabs(),
-  closeTab: (tabId: number): Promise<string | null> => BackgroundTabService.closeTab(tabId),
-  focusTab: (tabId: number): Promise<string | null> => BackgroundTabService.focusTab(tabId),
-  onTabActivated: (tabId: number): Promise<void> => BackgroundTabService.onTabActivated(tabId),
+   // ── Tab queries & updates ────────────────────────────────────────────────
+   getTabs: (): Promise<Browser.tabs.Tab[]> => BackgroundTabService.getTabs(),
+   closeTab: (tabId: number): Promise<string | null> => BackgroundTabService.closeTab(tabId),
+   focusTab: (tabId: number): Promise<string | null> => BackgroundTabService.focusTab(tabId),
+   onTabActivated: (tabId: number): Promise<void> => BackgroundTabService.onTabActivated(tabId),
 
-  // ── Mock tabs (dev/testing) ──────────────────────────────────────────────
-  createMockTabs: (): Promise<Browser.tabs.Tab[]> => BackgroundTabService.createMockTabs(),
-  setMockOverrides: (overrides: Record<number, number>): Promise<void> => mockOverrides.setValue(overrides),
-  getMockOverrides: (): Promise<Record<number, number>> => mockOverrides.getValue(),
+   // 🧪 DEV/TEST ONLY: Mock tabs & age overrides (MockButton.vue + Playwright tests)
+   createMockTabs: (): Promise<Browser.tabs.Tab[]> => BackgroundTabService.createMockTabs(),
+   setMockOverrides: (overrides: Record<number, number>): Promise<void> => mockOverrides.setValue(overrides),
+   getMockOverrides: (): Promise<Record<number, number>> => mockOverrides.getValue(),
 
-  // ── Backup & restore ─────────────────────────────────────────────────
-  backupTabs: (): Promise<Backup> => BackupService.backupTabs(),
-  restoreTabs: (): Promise<void> => BackupService.restoreTabs(),
+   // ── Backup & restore ─────────────────────────────────────────────────
+   backupTabs: (): Promise<Backup> => BackupService.backupTabs(),
+   restoreTabs: (): Promise<void> => BackupService.restoreTabs(),
 } as const
 
 // ⚠️ DEVELOPERS: Type assertion for useProxy<typeof backgroundRPC>
