@@ -1,5 +1,6 @@
 import { browser } from 'wxt/browser'
 import { mockOverrides } from '@/store/appStore'
+import {BackgroundTabService} from "@/services/BackgroundTabService.ts";
 
 export interface Backup {
   count: number
@@ -18,7 +19,7 @@ export class BackupService {
   static readonly BACKUP_KEY = 'archivum:tab_backup'
 
   static async backupTabs(): Promise<Backup> {
-    const tabs = await browser.tabs.query({ currentWindow: true })
+    const tabs = await BackgroundTabService.getTabs()
 
     // ✅ NEW: Apply mock overrides BEFORE backup so we capture real ages
     // When testing with mocks: backup should have 7d, 14d, etc. not current timestamps
