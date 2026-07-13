@@ -16,6 +16,7 @@ import type { Browser } from 'wxt/browser'
 import { BackgroundTabService } from '@/services/BackgroundTabService'
 import { BackupService, type Backup } from '@/services/BackupService'
 import { mockOverrides } from '@/store/appStore'
+import { addTimeOffset } from '@/utils/testTime'
 
 /**
  * ⚠️ DEVELOPERS: This object MUST have async methods (even if they don't need to be)
@@ -60,10 +61,16 @@ export const backgroundRPC = {
      }>;
    }> => BackgroundTabService.getGroupAndTabData(),
 
-   // 🧪 DEV/TEST ONLY: Mock tabs & age overrides (MockButton.vue + Playwright tests)
-   createMockTabs: (): Promise<Browser.tabs.Tab[]> => BackgroundTabService.createMockTabs(),
-   setMockOverrides: (overrides: Record<number, number>): Promise<void> => mockOverrides.setValue(overrides),
-   getMockOverrides: (): Promise<Record<number, number>> => mockOverrides.getValue(),
+    // 🧪 DEV/TEST ONLY: Mock tabs & age overrides (MockButton.vue + Playwright tests)
+    createMockTabs: (): Promise<Browser.tabs.Tab[]> => BackgroundTabService.createMockTabs(),
+    setMockOverrides: (overrides: Record<number, number>): Promise<void> => mockOverrides.setValue(overrides),
+    getMockOverrides: (): Promise<Record<number, number>> => mockOverrides.getValue(),
+
+    // 🧪 DEV-ONLY: Test alarm triggering (warp time simulation)
+    testTriggerAlarm24h: (): Promise<number> => BackgroundTabService.testTriggerAlarm24h(),
+
+    // 🧪 DEV-ONLY: Warp time forward by milliseconds (for testing aging behavior)
+    addTimeWarp: (ms: number): Promise<number> => addTimeOffset(ms),
 
    // ── Backup & restore ─────────────────────────────────────────────────
    backupTabs: (): Promise<Backup> => BackupService.backupTabs(),

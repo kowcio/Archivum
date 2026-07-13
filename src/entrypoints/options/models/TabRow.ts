@@ -5,6 +5,8 @@ import { AppThresholds, DEFAULT_THRESHOLDS } from '@/models/AppThresholds.ts'
  * Model representing a tab row in the table
  * All calculated fields are derived in the constructor.
  * Note: Uses active thresholds (only the first N levels enabled by THRESHOLDS.activeLevels).
+ *
+ * 🧪 DEV: Pass currentTime parameter to use fake/warped time for testing.
  */
 export class TabRow {
   readonly ordinal?: number;
@@ -20,7 +22,12 @@ export class TabRow {
   readonly lastAccessHours: number | undefined;
   readonly lastAccessClass: string;
 
-  constructor(tab: any, thresholds: AppThresholds = DEFAULT_THRESHOLDS) {
+  /**
+   * @param tab - Browser tab object
+   * @param thresholds - Age threshold configuration
+   * @param currentTime - 🧪 DEV-ONLY: Override current time for testing (defaults to Date.now())
+   */
+  constructor(tab: any, thresholds: AppThresholds = DEFAULT_THRESHOLDS, currentTime?: number) {
     // Basic fields
     this.id = tab.id ?? null;
     this.openerTabId = tab.openerTabId ?? null;
@@ -41,7 +48,8 @@ export class TabRow {
      this.lastAccess = tab.lastAccessed;
 
      if (tab.lastAccessed && tab.lastAccessed > 0) {
-       const now = dayjs();
+       // ✅ Use fake time if provided (for testing), otherwise real time
+       const now = dayjs(currentTime ?? Date.now());
        // Handle both milliseconds (large numbers) and seconds (small numbers)
        const lastTimestamp = tab.lastAccessed > 1e10 ? tab.lastAccessed : tab.lastAccessed * 1000;
        const last = dayjs(lastTimestamp);
@@ -107,12 +115,15 @@ export class TabRow {
     return lastIndex !== -1 ? text.slice(0, lastIndex).trim() : text
   }
 
-
   /**
    * Static factory method to create multiple TabRows from array of Tabs.Tab
+   *
+   * @param tabs - Array of browser tabs
+   * @param thresholds - Age threshold configuration
+   * @param currentTime - 🧪 DEV-ONLY: Override current time for all rows
    */
-  static fromTabs(tabs: any, thresholds: AppThresholds = DEFAULT_THRESHOLDS): TabRow[] {
+  static fromTabs(tabs: any, thresholds: AppThresholds = DEFAULT_THRESHOLDS, currentTime?: number): TabRow[] {
     if (!Array.isArray(tabs)) return []
-    return tabs.map((tab) => new TabRow(tab, thresholds))
+    return tabs.map((tab) => new TabRow(tab, thresholds, currentTime))
   }
 }

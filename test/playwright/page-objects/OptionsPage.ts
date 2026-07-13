@@ -90,10 +90,20 @@ export class OptionsPage {
     * Click "Group Tabs by Age" button and wait for grouping to complete.
     * Optional: pass timeout override (default 1200ms).
     */
-   async clickGroupTabs(waitMs: number = 1200): Promise<void> {
-     await this.groupTabsBtn.click();
-     await this.page.waitForTimeout(waitMs);
-   }
+    async clickGroupTabs(waitMs: number = 1200): Promise<void> {
+      await this.groupTabsBtn.click();
+      await this.page.waitForTimeout(waitMs);
+    }
+
+   /**
+    * Click "Warp +4h" test alarm button to trigger grouping with time advancement.
+    * Optional: pass timeout override (default 2000ms for grouping to complete).
+    */
+    async clickTestAlarmButton(waitMs: number = 2000): Promise<void> {
+      const alarmBtn = this.page.getByTestId('test-alarm-btn');
+      await alarmBtn.click();
+      await this.page.waitForTimeout(waitMs);
+    }
 
 
     /**

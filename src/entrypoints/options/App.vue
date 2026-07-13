@@ -11,6 +11,11 @@
 
         <!-- Dev Buttons -->
         <MockButton @mock-created="refreshTabs" v-if="isDevEnv"/>
+        <TestAlarmButton
+          v-if="isDevEnv"
+          @success="onAlarmTriggered"
+          @error="(msg) => error = msg"
+        />
         <CloseAllTabsButton
           v-if="isDevEnv"
           @success="refreshTabs"
@@ -144,10 +149,12 @@ import { mockOverrides } from '@/store/appStore'
 import { createProxyService } from '@webext-core/proxy-service'
 import {TabRow} from '@/entrypoints/options/models/TabRow.ts'
 import {AgeClassification} from '@/models/AgeClassification.ts'
+import { getCurrentTime } from '@/utils/testTime'
 import Thresholds from '../../components/Thresholds.vue'
 import AppTitle from '@/components/Title.vue'
 import GroupUngroup from '@/components/GroupUngroup.vue'
 import MockButton from '@/components/MockButton.vue'
+import TestAlarmButton from '@/components/TestAlarmButton.vue'
 import CloseAllTabsButton from '@/components/CloseAllTabsButton.vue'
 import RefreshButton from '@/components/RefreshButton.vue'
 import SortButton from '@/components/SortButton.vue'
@@ -163,6 +170,7 @@ const filter = ref('')
 const selectedAgeGroup = ref<number | null>(null) // null = show all, 0 = Fresh, 1+ = threshold level
 const error = ref<string | null>(null)
 const tabs = ref<any[]>([])
+const currentTime = ref<number>(Date.now()) // ✅ For fake time display in dev mode
 
 const columns: {
   name: string;
@@ -199,7 +207,8 @@ const columns: {
 ]
 
 const tabRows = computed(() => {
-  const rows = TabRow.fromTabs(tabs.value, appStore.thresholds.value)
+  // ✅ Pass currentTime (fake time in dev mode) to make tabs age correctly
+  const rows = TabRow.fromTabs(tabs.value, appStore.thresholds.value, currentTime.value)
   let filtered = rows.map((row: any, i: number) => {
     const days = row.lastAccessDays ?? 0
     const c = AgeClassification.fromDays(days, appStore.thresholds.value)
@@ -294,11 +303,15 @@ async function applyMockOverridesToTabs(): Promise<void> {
 async function refreshTabs(): Promise<void> {
   error.value = null
   try {
+    // ✅ Get current fake time (for testing with warped time)
+    const now = await getCurrentTime()
+    currentTime.value = now
+
     // ⚠️ DEVELOPERS: Type-safe call to background service
     // TypeScript knows getTabs returns Promise<Browser.tabs.Tab[]> ✅
     const tabs_data = await background.getTabs()
     tabs.value = tabs_data
-    console.log(`[App] Got ${tabs.value.length} tabs from background`)
+    console.log(`[App] Got ${tabs.value.length} tabs from background (fake time: ${now})`)
 
     // ✅ NEW: Small delay to let storage settle, then apply mock overrides
     // This ensures mockOverrides storage has synced and is ready to read
@@ -315,6 +328,12 @@ async function refreshTabs(): Promise<void> {
 /** Called by RefreshButton component — receives tabs from its internal sendMessage */
 function onRefreshTabs(newTabs: any[]): void {
   tabs.value = newTabs
+}
+
+/** Called by TestAlarmButton component — alarm triggered successfully */
+function onAlarmTriggered(groupsCreated: number): void {
+  console.log(`[App] ✅ 24h alarm triggered: ${groupsCreated} groups created`)
+  refreshTabs()
 }
 
 async function closeTab(tabId: number | null): Promise<void> {

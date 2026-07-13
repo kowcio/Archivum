@@ -24,6 +24,7 @@ import { browser } from 'wxt/browser'
 import type { Browser } from 'wxt/browser'
 import { MOCK_TABS } from '@/utils/mockTabData'
 import { APP_DEFAULTS } from '@/constants'
+import { getCurrentTime, addTimeOffset } from '@/utils/testTime'
 
 export class BackgroundTabService {
   /**
@@ -144,11 +145,14 @@ export class BackgroundTabService {
         const appState = await appStateStorage.getValue()
         const sortByDomainInGroups = appState?.sortSettings?.sortByDomainInGroups ?? true
 
+        // ✅ Get fake time for testing (DEV-ONLY) - tabs will appear older if time is warped
+        const currentTime = await getCurrentTime()
 
-       const rows = TabRow.fromTabs(rawTabs, thresholds)
-       const activeLevels = thresholds.active()
-       const levelTabIds: number[][] = Array.from({ length: activeLevels.length }, () => [])
-       const freshTabIds: number[] = []
+        // Pass currentTime to make tabs appear older when time is warped
+        const rows = TabRow.fromTabs(rawTabs, thresholds, currentTime)
+        const activeLevels = thresholds.active()
+        const levelTabIds: number[][] = Array.from({ length: activeLevels.length }, () => [])
+        const freshTabIds: number[] = []
 
        // Build age map for sorting tabs within each level
        const ageMap = new Map<number, number>()
@@ -472,7 +476,7 @@ export class BackgroundTabService {
       return filteredTabs
     }
 
-   /**
+    /**
     * Creates mock tabs using realistic data from mockTabData.ts.
     * Automatically sets mock overrides for each tab based on daysAgo to enable grouping.
     *
@@ -485,7 +489,8 @@ export class BackgroundTabService {
     static async createMockTabs(): Promise<Browser.tabs.Tab[]> {
       const tabIds: number[] = []
       const DAY_MS = 86400000 // 24 hours in milliseconds
-      const now = Date.now()
+      // ✅ Use fake time if warped, otherwise real time
+      const now = await getCurrentTime()
 
       // Create tabs using realistic mock data
       for (let i = 0; i < MOCK_TABS.length; i++) {
@@ -867,5 +872,25 @@ export class BackgroundTabService {
         }
       }
     }
+
+  /**
+   * 🧪 DEV-ONLY: Manually trigger the 24h alarm to test groupTabsByAge() behavior.
+   * Simulates: browser.alarms fires after 24 hours.
+   *
+   * Returns: count of groups created after grouping
+   *
+   * Used by: Dev UI button "Test 24h Alarm" in Options Page (dev mode only)
+   */
+  static async testTriggerAlarm24h(): Promise<number> {
+    console.log('[BackgroundTabService] 🧪 DEV: Manually triggering 24h alarm...')
+    try {
+      const result = await this.groupTabsByAge()
+      console.log(`[BackgroundTabService] 🧪 DEV: Alarm triggered → ${result} groups created`)
+      return result
+    } catch (err) {
+      console.error('[BackgroundTabService] ❌ DEV: Failed to trigger alarm:', err)
+      throw err
+    }
+  }
 
 }
