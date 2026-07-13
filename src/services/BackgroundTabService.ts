@@ -16,15 +16,15 @@
  *   UI message → groupTabsByAge() / ungroupAllTabs()
  */
 
-import { TabRow } from '@/entrypoints/options/models/TabRow.ts'
-import { AgeClassification } from '@/models/AgeClassification.ts'
-import { getStorageThresholds, mockOverrides, appStateStorage } from '@/store/appStore.ts'
-import { AppThresholds } from '@/models/AppThresholds'
-import { browser } from 'wxt/browser'
-import type { Browser } from 'wxt/browser'
-import { MOCK_TABS } from '@/utils/mockTabData'
-import { APP_DEFAULTS } from '@/constants'
-import { getCurrentTime, addTimeOffset } from '@/utils/testTime'
+import {TabRow} from '@/entrypoints/options/models/TabRow.ts'
+import {AgeClassification} from '@/models/AgeClassification.ts'
+import {appStateStorage, getStorageThresholds, mockOverrides} from '@/store/appStore.ts'
+import {AppThresholds} from '@/models/AppThresholds'
+import type {Browser} from 'wxt/browser'
+import {browser} from 'wxt/browser'
+import {MOCK_TABS} from '@/utils/mockTabData'
+import {APP_DEFAULTS} from '@/constants'
+import {getCurrentTime} from '@/utils/testTime'
 
 export class BackgroundTabService {
   /**
@@ -46,23 +46,24 @@ export class BackgroundTabService {
    *
    * This centralizes group querying to reduce workload — only one query per operation.
    * Replaces 6+ duplicated query patterns across the plugin.
+   * @ param getAll - true - return all groups, false (default) - return only the groups from the plugin
    */
-  static async getGroups(): Promise<Array<{ id: number; title: string; index?: number; color?: string; collapsed?: boolean }>> {
+  static async getGroups(getAll: boolean = false): Promise<Array<{ id: number; title: string; index?: number; color?: string; collapsed?: boolean }>> {
     try {
       if (browser.tabGroups == null) return []
 
-      const allGroups = await (browser.tabGroups as any).query({ windowId: (browser.windows as any).WINDOW_ID_CURRENT })
-      const pluginTitles = this.getPluginGroupTitles()
+      const allGroups = await (browser.tabGroups as any)
+        .query({ windowId: (browser.windows as any).WINDOW_ID_CURRENT })..sort((a: any, b: any) => (a.index ?? -1) - (b.index ?? -1))
+
+      //return all the groups i.ex to check logic in tests
+      if (getAll) return allGroups
 
       // Filter: keep only plugin-created groups
       // ✅ Simplified: check if title STARTS WITH any threshold label
       // This avoids fragile regex and handles edge cases (empty groups, malformed titles)
-      const pluginGroups = allGroups.filter((group: any) =>
-        pluginTitles.some(title => group.title.startsWith(title))
+      return allGroups.filter((group: any) =>
+        this.getPluginGroupTitles().some(title => group.title.startsWith(title))
       )
-
-      // Sort by index (left to right): 0 = leftmost, 3 = next, 5 = rightmost, etc.
-      return pluginGroups.sort((a: any, b: any) => (a.index ?? -1) - (b.index ?? -1))
     } catch (err) {
       console.warn('[BackgroundTabService] ⚠️ Failed to query plugin groups:', err)
       return []
