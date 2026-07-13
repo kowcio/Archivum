@@ -37,8 +37,12 @@ test.describe("Sort by Domain Button", () => {
 
     // Sort by domain
     await options.clickSortTabs(2000);  // Increased from 1500 to 2000ms
-    await options.page.waitForLoadState('networkidle');
-    await options.page.waitForTimeout(1000);
+    // Instead of networkidle (discouraged), wait for tabs table to update
+    await options.page.waitForFunction(() => {
+      const tableRows = document.querySelectorAll('[data-testid="table-open-tabs"] tr');
+      return tableRows.length > 1;  // At least header + 1 data row
+    }, { timeout: 5_000 });
+    await options.page.waitForTimeout(500);  // Brief pause for final render
 
     // Verify results
     const data = await options.getGroupAndTabData();

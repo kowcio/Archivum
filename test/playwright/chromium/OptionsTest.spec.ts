@@ -26,10 +26,7 @@ test.describe("Options Page Tests", () => {
 
   test("1a options page loads with all components", async () => {
     const options = new OptionsPage(await ctx.context.newPage());
-    await options.goto(ctx.extensionId);
-
-    // Wait for page to fully load and render all components
-    await options.page.waitForLoadState('networkidle');
+    await options.goto(ctx.extensionId);  // Already waits for Vue hydration
 
     // Verify core UI elements are present (table is more reliable than Quasar buttons)
     await options.expectTableVisible();
@@ -62,10 +59,9 @@ test.describe("Options Page Tests", () => {
 
   test("3a close all tabs — 2 tabs → mock 14 → close all → 1 tab", async () => {
     const options = new OptionsPage(await ctx.context.newPage());
-    await options.goto(ctx.extensionId);
+    await options.goto(ctx.extensionId);  // Already waits for hydration
 
-    // 1. Initial: Wait for page to fully load, then query tabs
-    await options.page.waitForLoadState('networkidle');
+    // 1. Initial: Query tabs (queryAllTabs handles waiting)
     let tabs1 = await options.queryAllTabs(true);  // Wait for tabs to load
     const initialCount = tabs1.length;
     console.log(`   → Initial tabs: ${initialCount}`);
@@ -77,9 +73,11 @@ test.describe("Options Page Tests", () => {
     const mock = await options.clickLoadMockTabs(2500);  // Increased from 1000 to 2500ms
     expect(mock.ok).toBe(true);
 
-    // Wait extra time for mock tabs to fully load
-    await options.page.waitForLoadState('networkidle');
-    await options.page.waitForTimeout(1000);
+    // Wait for mock tabs to fully load by checking table updates
+    await options.page.waitForFunction(() => {
+      const tableRows = document.querySelectorAll('[data-testid="table-open-tabs"] tr');
+      return tableRows.length > 1;  // At least header + data rows
+    }, { timeout: 5_000 });
 
     let tabs2 = await options.queryAllTabs(true);
     const expectedCount = initialCount + 14;
@@ -101,9 +99,13 @@ test.describe("Options Page Tests", () => {
       }
     }, ctx.extensionId);
 
-    // Wait for tabs to close
-    await options.page.waitForLoadState('networkidle');
-    await options.page.waitForTimeout(2000);
+    // Wait for tabs to close by checking browser tab count
+    const extensionId = ctx.extensionId;  // Capture in closure
+    await options.page.waitForFunction(async () => {
+      const tabs = await chrome.tabs.query({ currentWindow: true });
+      const userTabs = tabs.filter(t => !t.url?.startsWith(`chrome-extension://${extensionId}`));
+      return userTabs.length === 0;  // All user tabs closed
+    }, { timeout: 10_000 });
 
     let tabs3 = await options.queryAllTabs(true);
     tabs3.forEach(tab => console.log(`   → Remaining tab: ${tab.groupId} | ${tab.url}`));

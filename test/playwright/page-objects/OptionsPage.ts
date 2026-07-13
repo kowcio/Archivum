@@ -57,13 +57,20 @@ export class OptionsPage {
   /**
    * Navigate to Options page using extension ID.
    * waitUntil: domcontentloaded ensures DOM is ready.
+   *
+   * IMPORTANT: Using waitForFunction instead of networkidle (which is discouraged by Playwright)
+   * to wait for Vue hydration and specific elements to be ready.
    */
   async goto(extensionId: string): Promise<void> {
     await this.page.goto(`chrome-extension://${extensionId}/options.html`, {
       waitUntil: 'domcontentloaded',
     });
-    // Wait for Vue to hydrate and render dynamic elements
-    await this.page.waitForLoadState('networkidle');
+    // Wait for Vue to hydrate by checking for button element in DOM
+    // This is more reliable than networkidle which is discouraged for testing
+    await this.page.waitForFunction(() => {
+      const btn = document.querySelector('[data-testid="group-tabs-btn"]');
+      return btn !== null && window.getComputedStyle(btn).display !== 'none';
+    }, { timeout: 10_000 });
     await this.expectPageLoaded();
   }
 
@@ -86,11 +93,11 @@ export class OptionsPage {
     await expect(this.groupTabsBtn).toBeVisible();
   }
 
-   /**
-    * Click "Group Tabs by Age" button and wait for grouping to complete.
-    * Optional: pass timeout override (default 1200ms).
-    */
-    async clickGroupTabs(waitMs: number = 1200): Promise<void> {
+  /**
+   * Click "Group Tabs by Age" button and wait for grouping to complete.
+   * Optional: pass timeout override (default 1200ms).
+   */
+  async clickGroupTabs(waitMs: number = 1200): Promise<void> {
       await this.groupTabsBtn.click();
       await this.page.waitForTimeout(waitMs);
     }
