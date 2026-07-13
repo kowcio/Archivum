@@ -159,6 +159,7 @@ import CloseAllTabsButton from '@/components/CloseAllTabsButton.vue'
 import RefreshButton from '@/components/RefreshButton.vue'
 import SortButton from '@/components/SortButton.vue'
 import BackupRestoreButton from "@/components/BackupRestoreButton.vue"
+import AutoCloseToggle from '@/components/AutoCloseToggle.vue'
 import type { BackgroundRPC } from '@/services/BackgroundRPC'
 
 // ⚠️ DEVELOPERS: createProxyService() returns type-safe proxy to background service worker

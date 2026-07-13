@@ -39,6 +39,7 @@ export interface AppState {
   sortSettings?: {
     sortByDomainInGroups: boolean  // Sort tabs by domain within age groups (default: true)
   }
+  autoClose?: boolean  // Auto-close tabs in oldest group after 1 day (default: false)
 }
 
 /**

@@ -6,6 +6,7 @@ import { BackupService } from '@/services/BackupService'
 import { APP_DEFAULTS } from '@/constants'
 import { browser } from 'wxt/browser'
 import { backgroundRPC } from '@/services/BackgroundRPC'
+import { appStateStorage } from '@/store/appStore'
 
 // ⚠️ DEVELOPERS: Type-safe RPC is now the single source of truth for all background ↔ UI communication
 // NO MORE manual message routing with if-else chains ✅
@@ -31,13 +32,26 @@ export default defineBackground({
       //alarms schedules - crons
       browser.alarms.create(APP_DEFAULTS.ALARM_UPDATE_TABS, { periodInMinutes: 60 * 24 })
       browser.alarms.create(APP_DEFAULTS.ALARM_BACKUP_TABS, { periodInMinutes: 60 })
+      browser.alarms.create(APP_DEFAULTS.ALARM_AUTO_CLOSE_TABS, { periodInMinutes: 60 * 24 })
       //alarms listeners
-      browser.alarms.onAlarm.addListener((alarm) => {
+      browser.alarms.onAlarm.addListener(async (alarm) => {
         if (alarm.name === APP_DEFAULTS.ALARM_UPDATE_TABS) {
           BackgroundTabService.groupTabsByAge()
         }
         if (alarm.name === APP_DEFAULTS.ALARM_BACKUP_TABS) {
           BackupService.backupTabs()
+        }
+        if (alarm.name === APP_DEFAULTS.ALARM_AUTO_CLOSE_TABS) {
+          // Check if auto-close is enabled in settings
+          try {
+            const state = await appStateStorage.getValue()
+            if (state?.autoClose) {
+              const closed = await BackgroundTabService.closeOldestGroupTabs()
+              console.log(`[background] Auto-close alarm fired: ${closed} tabs closed`)
+            }
+          } catch (err) {
+            console.error('[background] Failed to check auto-close settings:', err)
+          }
         }
       })
     }

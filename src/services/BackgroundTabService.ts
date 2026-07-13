@@ -876,6 +876,61 @@ export class BackgroundTabService {
     }
 
   /**
+   * Auto-close all tabs in the oldest (leftmost) group.
+   * The oldest group is the one with the lowest index value.
+   *
+   * Returns:
+   * - Number of tabs closed
+   * - 0 if no groups exist or operation fails
+   *
+   * Used by: Auto-close timer (1 day after last close)
+   */
+  static async closeOldestGroupTabs(): Promise<number> {
+    try {
+      if (browser.tabGroups == null) {
+        console.log('[BackgroundTabService] ℹ️ No tabGroups API available (Firefox), skipping auto-close')
+        return 0
+      }
+
+      // Get all plugin-created groups, sorted by index
+      const groups = await this.getGroups()
+      if (groups.length === 0) {
+        console.log('[BackgroundTabService] ℹ️ No plugin groups found, skipping auto-close')
+        return 0
+      }
+
+      // Get the oldest group (first/leftmost = lowest index)
+      const oldestGroup = groups[0]
+      console.log(`[BackgroundTabService] 🗑️  Auto-closing oldest group: "${oldestGroup.title}" (ID: ${oldestGroup.id})`)
+
+      // Query all tabs in this group
+      const groupTabs = await browser.tabs.query({ groupId: oldestGroup.id })
+      if (groupTabs.length === 0) {
+        console.log(`[BackgroundTabService] ℹ️ Oldest group is empty, skipping close`)
+        return 0
+      }
+
+      // Close all tabs in the group
+      const tabIds = groupTabs.map(t => t.id).filter((id): id is number => id != null)
+      await browser.tabs.remove(tabIds)
+      console.log(`[BackgroundTabService] ✅ Auto-closed ${tabIds.length} tabs from oldest group`)
+
+      // The group will be automatically removed when last tab is closed
+      // But if any tabs remain (unlikely), try to remove the group itself
+      try {
+        await (browser.tabGroups as any).remove(oldestGroup.id)
+      } catch {
+        // Group might already be removed, that's ok
+      }
+
+      return tabIds.length
+    } catch (err) {
+      console.error('[BackgroundTabService] ❌ Failed to auto-close oldest group:', err)
+      return 0
+    }
+  }
+
+  /**
    * 🧪 DEV-ONLY: Manually trigger the 24h alarm to test groupTabsByAge() behavior.
    * Simulates: browser.alarms fires after 24 hours.
    *

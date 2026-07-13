@@ -33,12 +33,13 @@ export const backgroundRPC = {
   sortGroupsByDomain: (): Promise<number> => BackgroundTabService.sortGroupsByDomain(),
   openRandomTabInGroup: (newTabGroup: boolean, index?: number): Promise<string> =>
     BackgroundTabService.openRandomTabInGroup(newTabGroup, index),
+  closeOldestGroupTabs: (): Promise<number> => BackgroundTabService.closeOldestGroupTabs(),
 
-   // ── Tab queries & updates ────────────────────────────────────────────────
-   getTabs: (): Promise<Browser.tabs.Tab[]> => BackgroundTabService.getTabs(),
-   closeTab: (tabId: number): Promise<string | null> => BackgroundTabService.closeTab(tabId),
-   focusTab: (tabId: number): Promise<string | null> => BackgroundTabService.focusTab(tabId),
-   onTabActivated: (tabId: number): Promise<void> => BackgroundTabService.onTabActivated(tabId),
+  // ── Tab queries & updates ────────────────────────────────────────────────
+  getTabs: (): Promise<Browser.tabs.Tab[]> => BackgroundTabService.getTabs(),
+  closeTab: (tabId: number): Promise<string | null> => BackgroundTabService.closeTab(tabId),
+  focusTab: (tabId: number): Promise<string | null> => BackgroundTabService.focusTab(tabId),
+  onTabActivated: (tabId: number): Promise<void> => BackgroundTabService.onTabActivated(tabId),
 
    /**
     * Get all groups and tabs data (replaces OptionsPage.getGroupAndTabData).

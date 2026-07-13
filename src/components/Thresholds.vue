@@ -24,7 +24,7 @@
         />
       </div>
       <!-- Action buttons -->
-      <div class="col-auto" data-testid="threshold-button">
+      <div class="col-9" data-testid="threshold-button">
         <q-btn
           v-if="hasChanges && !appStore.loading.value"
           data-testid="threshold-apply"
@@ -44,6 +44,10 @@
           :disable="appStore.loading.value"
           @click="handleReset"
         />
+        <!-- Auto-close Settings -->
+        <div class="">
+          <AutoCloseToggle />
+        </div>
       </div>
       <div v-if="appStore.error.value" class="error-text row">{{ appStore.error.value }}</div>
     </div>
@@ -89,6 +93,7 @@ import {useAppStore} from '@/store/appStore.ts'
 import {AppThresholds} from '@/models/AppThresholds'
 import {APP_DEFAULTS, isDevEnv} from '@/constants'
 import type { BackgroundRPC } from '@/services/BackgroundRPC'
+import AutoCloseToggle from "@/components/AutoCloseToggle.vue";
 
 // ⚠️ DEVELOPERS: createProxyService() returns type-safe proxy to background service worker
 // Replaces browser.runtime.sendMessage() with method calls - no string keys needed ✅

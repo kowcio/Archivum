@@ -51,6 +51,7 @@ export const appStateStorage = storage.defineItem<AppState>('local:appState', {
     sortSettings: {
       sortByDomainInGroups: true,  // ON by default
     },
+    autoClose: false,  // OFF by default (opt-in)
   }),
 })
 
@@ -118,6 +119,7 @@ type UseAppStoreReturn = {
   configLastUpdated: Ref<number>
   loading: Ref<boolean>
   error: Ref<string | null>
+  autoClose: Ref<boolean>
 
   // Actions
   load(): Promise<void>
@@ -125,6 +127,7 @@ type UseAppStoreReturn = {
   setThresholds(patch: Record<number, Partial<{ days: number }>>): Promise<void>
   setActiveLevels(count: number): Promise<void>
   resetToDefaults(): Promise<void>
+  setAutoClose(enabled: boolean): Promise<void>
 }
 
 // ── Module-level singleton refs (shared across all useAppStore() callers) ──
@@ -132,6 +135,7 @@ const thresholds = ref<AppThresholds>(DEFAULT_THRESHOLDS)
 const configLastUpdated = ref<number>(Date.now())
 const loading = ref<boolean>(false)
 const error = ref<string | null>(null)
+const autoClose = ref<boolean>(false)
 let storageWatcherSetup = false
 
 /**
@@ -156,6 +160,7 @@ export function useAppStore(): UseAppStoreReturn {
         thresholds.value = new AppThresholds(levels, state.thresholds.activeLevels)
         configLastUpdated.value = state.configLastUpdated
       }
+      autoClose.value = state?.autoClose ?? false
     } catch (err) {
       error.value = `[LOAD_ERROR] ${err instanceof Error ? err.message : 'Failed to load'}`
       thresholds.value = DEFAULT_THRESHOLDS
@@ -177,6 +182,7 @@ export function useAppStore(): UseAppStoreReturn {
         thresholds: thresholdState,
         configLastUpdated: Date.now(),
         version: '1.0.0',
+        autoClose: autoClose.value,
       })
       configLastUpdated.value = Date.now()
     } catch (err: any) {
@@ -227,6 +233,18 @@ export function useAppStore(): UseAppStoreReturn {
     }
   }
 
+  async function setAutoClose(enabled: boolean): Promise<void> {
+    try {
+      autoClose.value = enabled
+      await save()
+    } catch (err: any) {
+      const msg = err instanceof Error ? err.message : String(err)
+      error.value = `[SET_AUTO_CLOSE_ERROR] ${msg}`
+      console.error('[appStore.setAutoClose]', error.value)
+      throw err
+    }
+  }
+
   function setupStorageWatcher(): void {
     if (storageWatcherSetup) return
     storageWatcherSetup = true
@@ -240,6 +258,7 @@ export function useAppStore(): UseAppStoreReturn {
         const updated = new AppThresholds(levels, newState.thresholds.activeLevels)
         thresholds.value = updated
         configLastUpdated.value = newState.configLastUpdated
+        autoClose.value = newState.autoClose ?? false
       } catch (err) {
         console.error('[appStore.watch]', err)
       }
@@ -256,11 +275,13 @@ export function useAppStore(): UseAppStoreReturn {
     configLastUpdated,
     loading,
     error,
+    autoClose,
     load,
     save,
     setThresholds,
     setActiveLevels,
     resetToDefaults,
+    setAutoClose,
   }
 }
 

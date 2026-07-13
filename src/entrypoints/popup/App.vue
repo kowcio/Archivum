@@ -31,6 +31,10 @@
 
         <SortButton @error="(msg) => console.error(msg)"/>
 
+        <div class="q-mt-md">
+          <AutoCloseToggle />
+        </div>
+
         <GroupUngroup rounded size="lg" class=""/>
 
         <div class="q-mt-md">
@@ -49,6 +53,7 @@ import AppTitle from '@/components/Title.vue'
 import GroupUngroup from "@/components/GroupUngroup.vue";
 import SortButton from '@/components/SortButton.vue';
 import BackupRestoreButton from "@/components/BackupRestoreButton.vue";
+import AutoCloseToggle from "@/components/AutoCloseToggle.vue";
 
 function openOptionsPage(): void {
   browser.runtime.openOptionsPage()
