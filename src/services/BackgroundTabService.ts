@@ -52,8 +52,9 @@ export class BackgroundTabService {
     try {
       if (browser.tabGroups == null) return []
 
-      const allGroups = await (browser.tabGroups as any)
-        .query({ windowId: (browser.windows as any).WINDOW_ID_CURRENT })..sort((a: any, b: any) => (a.index ?? -1) - (b.index ?? -1))
+       const allGroups = await (browser.tabGroups as any)
+         .query({ windowId: (browser.windows as any).WINDOW_ID_CURRENT })
+       allGroups.sort((a: any, b: any) => (a.index ?? -1) - (b.index ?? -1))
 
       //return all the groups i.ex to check logic in tests
       if (getAll) return allGroups
@@ -805,8 +806,8 @@ export class BackgroundTabService {
         }
 
          // Chrome/Edge: query groups and tabs
-         // ✅ Use centralized getGroups() - only plugin groups
-         const groups = await this.getGroups()
+         // ✅ Query ALL groups (plugin + user-created) for complete reporting
+         const groups = await this.getGroups(true)
          const allTabs = await this.getTabs()
 
         // Apply mock overrides to tabs
