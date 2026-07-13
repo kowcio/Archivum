@@ -6,13 +6,25 @@
  */
 
 import { test, expect } from '@playwright/test'
-import { setupExtensionTest } from './chromium/extensions.js'
-import { OptionsPage } from './page-objects/OptionsPage.js'
+import {ExtensionTestContext, setupExtensionTest} from "./chromium/extensions";
+import {OptionsPage} from "./page-objects/OptionsPage";
 
 test.describe('Backup & Restore', () => {
+
+  let ctx: ExtensionTestContext;
+  let options: OptionsPage;
+
+  test.beforeAll("Setup: launch Chrome context with extension", async () => {
+    ctx = await setupExtensionTest(false);
+    options = new OptionsPage(await ctx.context.newPage());
+
+  });
+
+  test.afterAll("Cleanup: close extension context", async () => {
+    if (ctx) await ctx.cleanup();
+  });
+
   test('Happy path: backup grouped tabs, close all, restore with groups intact', async () => {
-    const ctx = await setupExtensionTest(false, 60_000)
-    const options = new OptionsPage(await ctx.context.newPage())
 
     // Load options
     await options.goto(ctx.extensionId)
@@ -50,30 +62,6 @@ test.describe('Backup & Restore', () => {
     groupsAfterDetails.forEach(g => console.log(`  - "${g.title}" (${g.tabCount} tabs)`))
     expect(groupsAfterCount).toBe(groupsBeforeCount)
 
-    // Cleanup
-    await ctx.cleanup()
-  })
-
-  test('Delete backup after successful restore', async () => {
-    const ctx = await setupExtensionTest(false, 60_000)
-    const options = new OptionsPage(await ctx.context.newPage())
-
-    // Load options
-    await options.goto(ctx.extensionId)
-
-    // Create mock tabs
-    await options.clickCloseAllTabs()
-    await options.page.waitForTimeout(500)
-    await options.clickLoadMockTabs()
-    await options.page.waitForTimeout(1000)
-
-    // Group tabs by age
-    await options.clickGroupTabs(2000)
-
-    // Backup
-    await options.clickBackupTabs()
-    await options.page.waitForTimeout(500)
-
     // Verify backup exists (delete button should be visible)
     await options.expectDeleteBackupButtonVisible()
     await options.expectRestoreButtonVisible()
@@ -89,6 +77,9 @@ test.describe('Backup & Restore', () => {
     // Verify backup was actually removed from storage
     const backupData = await options.getBackupFromStorage()
     expect(backupData).toBeNull()
+
+    // Cleanup
+    await ctx.cleanup()
 
     // Cleanup
     await ctx.cleanup()
