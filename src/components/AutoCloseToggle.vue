@@ -1,34 +1,29 @@
 <template>
-  <div class="row items-center q-gutter-sm">
+  <div class="row items-center q-gutter-sm" data-testid="auto-close-toggle">
     <q-toggle
       :model-value="appStore.autoClose.value"
-      label="🔥 Burn Mode"
+      label="Auto close"
       size="sm"
-      data-testid="auto-close-toggle"
       @update:model-value="handleToggle"
     >
-
-    <q-icon name="info" color="primary" size="xs" class="cursor-pointer q-ml-xs" />
-      <q-tooltip class="text-caption">
+      <q-icon
+        :name="iconName"
+        :color="iconColor"
+        size="xs"
+        class="cursor-pointer q-ml-xs"
+      />
+      <q-tooltip
+        class="text-caption"
+        data-testid="auto-close-tooltip"
+      >
         <div class="q-mb-sm">
-          🔥 <strong>When enabled:</strong> Every 24 hours, all tabs in the oldest (leftmost) age group will be closed.
-        </div>
-        <div class="q-mb-sm">
-          ⚠️ <strong>. You can find them in your browser history somewhere.</strong> If You remember what was there.
+          {{ tooltipLine1 }}
         </div>
         <div>
-          💡 <strong>Tip:</strong> If you want to preserve a tab, simply click on it, it will move to the ungrouped part on the left.
+          {{ tooltipLine2 }}
         </div>
       </q-tooltip>
     </q-toggle>
-    <q-icon
-      v-if="showWarning"
-      name="warning"
-      color="negative"
-      size="xs"
-    >
-      <q-tooltip>This feature is destructive and permanent</q-tooltip>
-    </q-icon>
 
     <q-linear-progress
       v-if="appStore.loading.value"
@@ -98,7 +93,28 @@ const appStore = useAppStore()
 const showConfirmDialog = ref(false)
 const pendingValue = ref(false)
 
-const showWarning = computed(() => appStore.autoClose.value)
+// Computed properties for dynamic icon and tooltip
+const iconName = computed(() =>
+  appStore.autoClose.value ? 'local_fire_department' : 'shield_off'
+)
+
+const iconColor = computed(() =>
+  appStore.autoClose.value ? 'negative' : 'info'
+)
+
+const tooltipLine1 = computed(() => {
+  if (appStore.autoClose.value) {
+    return '🔥 Active: Oldest group tabs will auto-delete every 24 hours.'
+  }
+  return '🛡️ Inactive: Your tabs are safe. Enable to auto-delete oldest group after 24h.'
+})
+
+const tooltipLine2 = computed(() => {
+  if (appStore.autoClose.value) {
+    return '⚠️ Permanent deletion — tabs cannot be recovered.'
+  }
+  return '💡 Tip: Click a tab to move it to ungrouped section and preserve it.'
+})
 
 async function handleToggle(newValue: boolean): Promise<void> {
   if (newValue && !appStore.autoClose.value) {
