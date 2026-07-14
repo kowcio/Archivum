@@ -584,14 +584,14 @@ export class OptionsPage {
   }
 
   /**
-   * Get backed-up tabs from browser storage.
-   * @returns Array of backed-up tab URLs, or null if no backup exists
+   * Get backed-up data from browser storage (full backup object including groups).
+   * @returns Full backup object with tabs and groups, or null if no backup exists
    */
-  async getBackupFromStorage(): Promise<Array<{ url?: string; title?: string }> | null> {
+  async getBackupFromStorage(): Promise<{ tabs: any[]; groups: any[] } | null> {
     return this.page.evaluate(async () => {
       const data = await chrome.storage.local.get('archivum:tab_backup');
       const backup = data['archivum:tab_backup'] as any;
-      return backup?.tabs || null;
+      return backup || null;
     });
   }
 

@@ -86,10 +86,14 @@ export class BackupService {
       createdAt: Date.now(),
     };
 
-    console.log(
-      '[BackupService] Backup data - tabs with lastAccessed:',
-      backup.tabs.map((t) => ({ id: t.id, lastAccessed: t.lastAccessed }))
-    );
+     console.log(
+       '[BackupService] Backup data - tabs with lastAccessed:',
+       backup.tabs.map((t) => ({ id: t.id, lastAccessed: t.lastAccessed }))
+     );
+     console.log(
+       '[BackupService] Backup data - groups:',
+       backup.groups.map((g) => ({ oldId: g.oldId, title: g.title, collapsed: g.collapsed }))
+     );
     await browser.storage.local.set({ [this.BACKUP_KEY]: backup });
     return backup;
   }
@@ -168,42 +172,60 @@ export class BackupService {
 
     if (browser.tabGroups != null && backup.groups && backup.groups.length > 0) {
       console.log('[BackupService] tabGroups API available, recreating groups...');
+      console.log('[BackupService] Groups to restore (count=' + backup.groups.length + '):', backup.groups.map((g) => ({ oldId: g.oldId, title: g.title, collapsed: g.collapsed })));
+      console.log('[BackupService] restoredTabs available (count=' + restoredTabs.length + ')');
       for (const group of backup.groups) {
         // ✅ FIX: Filter tabs using groupId matching
         // Find all restored tabs where originalGroupId === group.oldId
         // This pairs up: restored tabs (with groupId=5) → old group (oldId=5) ✅
         // Also filter out ungrouped tabs (groupId=-1 or undefined)
-        const tabsForGroup = restoredTabs.filter(
-          (t) =>
-            t.originalGroupId === group.oldId &&
-            t.originalGroupId != null &&
-            t.originalGroupId !== -1
-        );
-        console.log(
-          `[BackupService] Group "${group.title}" (oldId=${group.oldId}): ${tabsForGroup.length} tabs found`
-        );
+         const tabsForGroup = restoredTabs.filter(
+           (t) =>
+             t.originalGroupId === group.oldId &&
+             t.originalGroupId != null &&
+             t.originalGroupId !== -1
+         );
+         console.log(
+           `[BackupService] Group "${group.title}" (oldId=${group.oldId}, collapsed=${group.collapsed}): ${tabsForGroup.length} tabs found`
+         );
         if (tabsForGroup.length > 0) {
           try {
-            const tabIds = tabsForGroup.map((t) => t.tabId);
-            // Recreate group with NEW ID (group IDs are ephemeral)
-            const groupId = await (browser.tabs as any).group({ tabIds });
-            // ✅ NEW: Restore with original index for exact position preservation
-            // Before: Restored groups appeared in random order ❌
-            // Now: Each group restored at its original index position ✅
-            // group.index is set during backup, preserved here for consistency
-             await (browser.tabGroups as any).update(groupId, {
-               title: group.title,
-               color: group.color,
-               collapsed: group.collapsed ?? true,
-               index: group.index ?? -1,
-             });
-            console.log(
-              `[BackupService] ✅ Created group "${group.title}" with newId=${groupId}, index=${group.index}`
-            );
-          } catch (err) {
-            console.error(`[BackupService] Failed to create/update group "${group.title}":`, err);
-            // Continue to next group instead of failing entire restore
-          }
+             const tabIds = tabsForGroup.map((t) => t.tabId);
+             // Recreate group with NEW ID (group IDs are ephemeral)
+             const groupId = await (browser.tabs as any).group({ tabIds });
+             console.log(`[BackupService] ✅ Created group with newId=${groupId} from tabs: ${tabIds.join(',')}`);
+
+              // ✅ NEW: Restore with original index for exact position preservation
+              const updatePayload = {
+                title: group.title || '',
+                color: group.color,
+                collapsed: group.collapsed ?? true,
+              };
+              console.log(`[BackupService] Updating group ${groupId} with:`, updatePayload);
+
+              // Try to update the group
+              try {
+                // Method 1: Try tabGroups.update()
+                const updateResult = await (browser.tabGroups as any).update(groupId, updatePayload);
+                console.log(`[BackupService] tabGroups.update() returned:`, updateResult);
+              } catch (updateErr) {
+                console.warn(`[BackupService] tabGroups.update() failed, trying moveProperties():`, updateErr);
+                // Fallback: maybe it's moveProperties() in newer API
+                try {
+                  const moveResult = await (browser.tabGroups as any).moveProperties(groupId, updatePayload);
+                  console.log(`[BackupService] tabGroups.moveProperties() returned:`, moveResult);
+                } catch (moveErr) {
+                  console.warn(`[BackupService] tabGroups.moveProperties() also failed:`, moveErr);
+                }
+              }
+             console.log(
+               `[BackupService] ✅ Created group "${group.title}" with newId=${groupId}`
+             );
+           } catch (err) {
+             console.error(`[BackupService] ❌ Failed to create/update group "${group.title}":`, err);
+             console.error(`[BackupService] Error stack:`, (err as Error).stack);
+             // Continue to next group instead of failing entire restore
+           }
         }
       }
     } else {

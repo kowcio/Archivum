@@ -46,14 +46,43 @@ test.describe('Backup & Restore', () => {
     await options.clickBackupTabs()
     await options.page.waitForTimeout(500)
 
+    // ✅ DEBUG: Check what was backed up
+    const backupData = await options.getBackupFromStorage()
+    console.log("[TEST] Backup - tabs count:", backupData?.tabs.length)
+    console.log("[TEST] Backup - sample tabs with groupId:")
+    backupData?.tabs.slice(0, 3).forEach((t: any, i: number) => {
+      console.log(`  [${i}] groupId=${t.groupId}, id=${t.id}, url=${t.url?.substring(0, 50)}`)
+    })
+    console.log("[TEST] Backup - groups details:")
+    backupData?.groups.forEach((g: any, i: number) => {
+      console.log(`  [${i}] title="${g.title}", collapsed=${g.collapsed}, index=${g.index}, oldId=${g.oldId}`)
+    })
+
     // Close all tabs
     await options.clickCloseAllTabs()
     await options.page.waitForTimeout(500)
 
     // Restore
     await options.clickRestoreTabs()
+    console.log("[TEST] Clicked 'Restore Tabs' button")
     await options.confirmRestore()
+    console.log("[TEST] Confirmed restore")
     await options.page.waitForTimeout(3000)  // Increased from 2000 to 3000ms for restoration to complete
+    console.log("[TEST] Wait completed, now querying groups...")
+
+    // ✅ DEBUG: Query group properties from Chrome API
+    const groupDetails = await options.page.evaluate(async () => {
+      const currentWindow = await (window as any).chrome.windows.getCurrent();
+      const groups = await (window as any).chrome.tabGroups.query({ windowId: currentWindow.id });
+      return groups.map((g: any) => ({
+        id: g.id,
+        title: g.title,
+        color: g.color,
+        collapsed: g.collapsed,
+      }));
+    });
+    console.log("[TEST] Groups from API (first group):", groupDetails[0]);
+
 
     // Verify groups restored — fetch from scratch (exact count)
     const groupsAfterDetails = await options.getAllGroups()
@@ -91,8 +120,8 @@ test.describe('Backup & Restore', () => {
     await options.expectRestoreButtonHidden()
 
     // Verify backup was actually removed from storage
-    const backupData = await options.getBackupFromStorage()
-    expect(backupData).toBeNull()
+    const backupAfterDelete = await options.getBackupFromStorage()
+    expect(backupAfterDelete).toBeNull()
 
     // Cleanup
     await ctx.cleanup()
