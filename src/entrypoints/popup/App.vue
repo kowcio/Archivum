@@ -73,13 +73,11 @@ async function openOptionsPageFull(): Promise<void> {
   flex-direction: column;
   background: linear-gradient(180deg, rgba(255, 109, 0, 0.04) 0%, rgba(21, 101, 192, 0.04) 100%);
   min-height: 100vh;
-  overflow: visible;
 }
 
 .content-wrapper {
   flex: 1;
   padding: 0.75rem;
-  overflow: visible;
 }
 
 .btn-grid {

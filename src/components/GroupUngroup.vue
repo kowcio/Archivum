@@ -8,6 +8,7 @@
       :loading="isLoading"
       :size="buttonSize"
       :class="btnClasses"
+      class="col-xs-12"
       :rounded="rounded"
       :disabled="!isGrouped && !hasStaleTabsToGroup"
       no-caps
