@@ -17,7 +17,7 @@ export interface Backup {
   // ✅ NEW: Added index to preserve visual group positions
   // Before: Restored groups appeared in random order ❌
   // Now: Each group stores its original index → restored groups appear in exact same positions ✅
-  groups: Array<{ oldId: number; title: string; color?: string; index?: number }>;
+  groups: Array<{ oldId: number; title: string; color?: string; index?: number; collapsed?: boolean }>;
   createdAt: number;
 }
 
@@ -73,15 +73,16 @@ export class BackupService {
       // index = visual position of group in window (0 = leftmost, 1 = next, etc.)
       // This preserves exact group positions when user has rearranged them
       // Groups stored by visual order (sorted by index) for consistent restoration
-      groups:
-        groups
-          ?.sort((a: any, b: any) => (a.index ?? -1) - (b.index ?? -1))
-          ?.map((g: any) => ({
-            oldId: g.id,
-            title: g.title,
-            color: g.color,
-            index: g.index,
-          })) || [],
+       groups:
+         groups
+           ?.sort((a: any, b: any) => (a.index ?? -1) - (b.index ?? -1))
+           ?.map((g: any) => ({
+             oldId: g.id,
+             title: g.title,
+             color: g.color,
+             index: g.index,
+             collapsed: g.collapsed,
+           })) || [],
       createdAt: Date.now(),
     };
 
@@ -190,12 +191,12 @@ export class BackupService {
             // Before: Restored groups appeared in random order ❌
             // Now: Each group restored at its original index position ✅
             // group.index is set during backup, preserved here for consistency
-            await (browser.tabGroups as any).update(groupId, {
-              title: group.title,
-              color: group.color,
-              collapsed: true,
-              index: group.index ?? -1,
-            });
+             await (browser.tabGroups as any).update(groupId, {
+               title: group.title,
+               color: group.color,
+               collapsed: group.collapsed ?? true,
+               index: group.index ?? -1,
+             });
             console.log(
               `[BackupService] ✅ Created group "${group.title}" with newId=${groupId}, index=${group.index}`
             );

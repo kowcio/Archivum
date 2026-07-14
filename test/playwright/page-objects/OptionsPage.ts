@@ -233,7 +233,7 @@ export class OptionsPage {
    * Get all tab groups with their titles and tab counts.
    * Returns array sorted by group position (left to right).
    */
-  async getAllGroups(): Promise<Array<{ id: number; title: string; tabCount: number }>> {
+  async getAllGroups(): Promise<Array<{ id: number; title: string; titleSet: boolean; collapsed: boolean; tabCount: number }>> {
     return this.page.evaluate(async () => {
       try {
         const currentWindow = await chrome.windows.getCurrent();
@@ -243,21 +243,24 @@ export class OptionsPage {
         console.log('[getAllGroups] Found', groups.length, 'groups');
 
         const groupDetails = [];
-         for (const group of groups) {
-           const tabs = await chrome.tabs.query({ groupId: group.id });
-           const groupTitle = group.title ?? `Group ${group.id}`;  // ← Default to Group ID if undefined
-           console.log(`[getAllGroups] Group ${group.id}: "${groupTitle}" → ${tabs.length} tabs (index: ${group.index})`);
-           groupDetails.push({
-             id: group.id,
-             title: groupTitle,
-             tabCount: tabs.length,
-             index: group.index ?? -1,
-           });
-         }
-         // Sort by visual position (index) — left to right (oldest to youngest)
-         groupDetails.sort((a, b) => (a.index ?? -1) - (b.index ?? -1));
-         console.log('[getAllGroups] Sorted groups:', groupDetails.map(g => `"${g.title}"`).join(' → '));
-         return groupDetails.map(g => ({ id: g.id, title: g.title, tabCount: g.tabCount }));
+        for (const group of groups) {
+          const tabs = await chrome.tabs.query({ groupId: group.id });
+          const titleSet = group.title != null && group.title !== '';
+          const groupTitle = group.title ?? `Group ${group.id}`;
+          console.log(`[getAllGroups] Group ${group.id}: "${groupTitle}" → ${tabs.length} tabs (titleSet: ${titleSet}, collapsed: ${group.collapsed})`);
+          groupDetails.push({
+            id: group.id,
+            title: groupTitle,
+            titleSet: titleSet,
+            collapsed: group.collapsed ?? false,
+            tabCount: tabs.length,
+            index: group.index ?? -1,
+          });
+        }
+        // Sort by visual position (index) — left to right (oldest to youngest)
+        groupDetails.sort((a, b) => (a.index ?? -1) - (b.index ?? -1));
+        console.log('[getAllGroups] Sorted groups:', groupDetails.map(g => `"${g.title}" (collapsed: ${g.collapsed}, titleSet: ${g.titleSet})`).join(' → '));
+        return groupDetails.map(g => ({ id: g.id, title: g.title, titleSet: g.titleSet, collapsed: g.collapsed, tabCount: g.tabCount }));
       } catch (err) {
         console.error('[getAllGroups] Error:', err);
         return [];
@@ -587,7 +590,7 @@ export class OptionsPage {
   async getBackupFromStorage(): Promise<Array<{ url?: string; title?: string }> | null> {
     return this.page.evaluate(async () => {
       const data = await chrome.storage.local.get('archivum:tab_backup');
-      const backup = data['archivum:tab_backup'];
+      const backup = data['archivum:tab_backup'] as any;
       return backup?.tabs || null;
     });
   }

@@ -59,8 +59,24 @@ test.describe('Backup & Restore', () => {
     const groupsAfterDetails = await options.getAllGroups()
     const groupsAfterCount = groupsAfterDetails.length
     console.log("[TEST] Groups AFTER:", groupsAfterCount)
-    groupsAfterDetails.forEach(g => console.log(`  - "${g.title}" (${g.tabCount} tabs)`))
+    groupsAfterDetails.forEach(g => console.log(`  - "${g.title}" (titleSet: ${g.titleSet}, collapsed: ${g.collapsed}, tabs: ${g.tabCount})`))
     expect(groupsAfterCount).toBe(groupsBeforeCount)
+
+    // ✅ Verify group names are preserved (not empty/default)
+    console.log("[TEST] Groups detailed:")
+    groupsAfterDetails.forEach(g => {
+      console.log(`  - "${g.title}" (titleSet: ${g.titleSet}, collapsed: ${g.collapsed}, tabs: ${g.tabCount})`)
+    })
+
+    // Verify that ALL groups have titles set (not just "Group {id}")
+    for (const group of groupsAfterDetails) {
+      expect(group.titleSet).toBe(true)
+      console.log(`[TEST] ✅ Group ${group.id} has title: "${group.title}"`)
+    }
+
+    // ✅ Verify collapsed state is preserved
+    const collapsedAfter = groupsAfterDetails.map(g => g.collapsed)
+    console.log("[TEST] Collapsed state - After restore:", collapsedAfter)
 
     // Verify backup exists (delete button should be visible)
     await options.expectDeleteBackupButtonVisible()
