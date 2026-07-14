@@ -55,7 +55,7 @@ export enum ThresholdLabel {
   WEEKS_2 = '2 Weeks+',
   MONTH = 'Month+',
   QUARTERS = 'Quarter+',
-  YEARS = 'Eat that frog!',
+  YEARS = 'Hell!',
 }
 
 /** Single threshold level configuration: key + label + days + color name. */
@@ -102,6 +102,31 @@ export const APP_DEFAULTS = {
       {key: ThresholdKey.QUARTERS, label: ThresholdLabel.QUARTERS, days: 90, color: ThemeColor.Red},
       {key: ThresholdKey.YEARS, label: ThresholdLabel.YEARS, days: 365, color: ThemeColor.Pink},
     ] as const satisfies readonly ThresholdLevel[],
+
+    // ─── Convenience Methods for Threshold Access ─────────────────────────────
+    getOldest(): ThresholdLevel {
+      return this.presets[this.presets.length - 1] as ThresholdLevel
+    },
+
+    getNewest(): ThresholdLevel {
+      return this.presets[0] as ThresholdLevel
+    },
+
+    getByKey(key: ThresholdKey): ThresholdLevel {
+      return this.presets.find((p: ThresholdLevel) => p.key === key)!
+    },
+
+    getByLabel(label: ThresholdLabel): ThresholdLevel {
+      return this.presets.find((p: ThresholdLevel) => p.label === label)!
+    },
+
+    getLabelByDays(days: number): string {
+      return this.presets.find((p: ThresholdLevel) => p.days === days)?.label!
+    },
+
+    getColorByDays(days: number): ThemeColor {
+      return this.presets.find((p: ThresholdLevel) => p.days === days)?.color!
+    },
   },
 }
 

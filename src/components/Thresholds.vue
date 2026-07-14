@@ -1,15 +1,18 @@
 <template>
-  <div class="row col-12 " data-testd="thresholds-view">
+  <div
+    class="row col-12"
+    data-testd="thresholds-view"
+  >
     <div
       class="col-12 row items-center q-pa-md bg-grey-1 rounded-borders"
       data-testid="thresholds-config"
       style="gap: 12px"
     >
-      <div class="info-box col-auto">
+      <div class="info-box col-3">
         <div class="label">Archivum levels :</div>
         <div class="value">{{ localThresholds.activeLevels }} / {{ maxLevels }}</div>
       </div>
-      <div class="col-2">
+      <div class="col-1">
         <q-input
           data-testid="thresholds-levels-input"
           :model-value="localThresholds.activeLevels"
@@ -23,12 +26,15 @@
           @update:model-value="(v) => handleChangeCount(Number(v))"
         />
       </div>
-      <!-- Action buttons -->
-      <div class="col-9" data-testid="threshold-button">
+      <div
+        class="col-7 row items-center"
+        data-testid="threshold-button"
+        style="gap: 8px"
+      >
         <q-btn
           v-if="hasChanges && !appStore.loading.value"
           data-testid="threshold-apply"
-          class="q-px-md q-mr-md got-btn-green"
+          class="q-px-md got-btn-green"
           icon="check"
           label="Apply"
           color="positive"
@@ -44,12 +50,15 @@
           :disable="appStore.loading.value"
           @click="handleReset"
         />
-        <!-- Auto-close Settings -->
-        <div class="">
-          <AutoCloseToggle />
-        </div>
+
+        <AutoCloseToggle />
       </div>
-      <div v-if="appStore.error.value" class="error-text row">{{ appStore.error.value }}</div>
+      <div
+        v-if="appStore.error.value"
+        class="error-text row"
+      >
+        {{ appStore.error.value }}
+      </div>
     </div>
 
     <div
@@ -66,8 +75,11 @@
           dense
         />
       </div>
-      <template v-for="(level, idx) in activeThresholds" :key="`threshold-${idx}`">
-        <div class="col-2  q-pa-xs">
+      <template
+        v-for="(level, idx) in activeThresholds"
+        :key="`threshold-${idx}`"
+      >
+        <div class="col-2 q-pa-xs">
           <q-input
             :label-color="level.color"
             :data-testid="`threshold-${idx}`"
@@ -75,7 +87,9 @@
             :label="level.label"
             type="number"
             :min="idx === 0 ? 0 : activeThresholds[idx - 1].days + 1"
-            :max="idx === activeThresholds.length - 1 ? undefined : activeThresholds[idx + 1].days - 1"
+            :max="
+              idx === activeThresholds.length - 1 ? undefined : activeThresholds[idx + 1].days - 1
+            "
             :disable="isThresholdEditingDisabled"
             dense
             @update:model-value="(v) => onChange(idx, Number(v))"
@@ -87,105 +101,107 @@
 </template>
 
 <script setup lang="ts">
-import {computed, ref, onMounted, watch} from 'vue'
-import { createProxyService } from '@webext-core/proxy-service'
-import {useAppStore} from '@/store/appStore.ts'
-import {AppThresholds} from '@/models/AppThresholds'
-import {APP_DEFAULTS, isDevEnv} from '@/constants'
-import type { BackgroundRPC } from '@/services/BackgroundRPC'
-import AutoCloseToggle from "@/components/AutoCloseToggle.vue";
+import { computed, ref, onMounted, watch } from 'vue';
+import { createProxyService } from '@webext-core/proxy-service';
+import { useAppStore } from '@/store/appStore.ts';
+import { AppThresholds } from '@/models/AppThresholds';
+import { APP_DEFAULTS, isDevEnv } from '@/constants';
+import type { BackgroundRPC } from '@/services/BackgroundRPC';
+import AutoCloseToggle from '@/components/AutoCloseToggle.vue';
 
 // ⚠️ DEVELOPERS: createProxyService() returns type-safe proxy to background service worker
 // Replaces browser.runtime.sendMessage() with method calls - no string keys needed ✅
-const background = createProxyService<BackgroundRPC>('background')
+const background = createProxyService<BackgroundRPC>('background');
 
-const appStore = useAppStore()
-const emit = defineEmits<{ apply: [] }>()
-const maxLevels = computed(() => APP_DEFAULTS.THRESHOLDS.presets.length)
-const isThresholdEditingDisabled = computed<boolean>(() => appStore.loading.value || !isDevEnv)
+const appStore = useAppStore();
+const emit = defineEmits<{ apply: [] }>();
+const maxLevels = computed(() => APP_DEFAULTS.THRESHOLDS.presets.length);
+const isThresholdEditingDisabled = computed<boolean>(() => appStore.loading.value || !isDevEnv);
 
 // Local state to track unsaved changes
 // Initialize after store is loaded to avoid false change detection
-const localThresholds = ref<AppThresholds>(AppThresholds.fromObject(appStore.thresholds.value.toJSON()))
+const localThresholds = ref<AppThresholds>(
+  AppThresholds.fromObject(appStore.thresholds.value.toJSON())
+);
 
-const activeThresholds = computed(() => localThresholds.value.active())
+const activeThresholds = computed(() => localThresholds.value.active());
 
 // Check if there are unsaved changes (only when store is loaded)
 const hasChanges = computed(() => {
-  if (appStore.loading.value) return false
+  if (appStore.loading.value) return false;
 
-// Check if activeLevels changed
+  // Check if activeLevels changed
   if (localThresholds.value.activeLevels !== appStore.thresholds.value.activeLevels) {
-    return true
+    return true;
   }
 
-// Check if any threshold days changed
+  // Check if any threshold days changed
   for (let i = 0; i < localThresholds.value.levels.length; i++) {
     if (localThresholds.value.levels[i].days !== appStore.thresholds.value.levels[i].days) {
-      return true
+      return true;
     }
   }
 
-  return false
-})
+  return false;
+});
 
 async function handleChangeCount(count: number): Promise<void> {
-  if (count > maxLevels.value || count < 1) return
-  localThresholds.value = localThresholds.value.withActiveLevels(count)
+  if (count > maxLevels.value || count < 1) return;
+  localThresholds.value = localThresholds.value.withActiveLevels(count);
 }
 
 async function onChange(levelIdx: number, value: number): Promise<void> {
-  if (!Number.isFinite(value) || value < 0) return
-  localThresholds.value = localThresholds.value.merge({[levelIdx]: {days: value}})
+  if (!Number.isFinite(value) || value < 0) return;
+  localThresholds.value = localThresholds.value.merge({ [levelIdx]: { days: value } });
 }
 
 // Apply changes and regroup tabs
 async function handleApply(): Promise<void> {
-  if (!hasChanges.value) return
+  if (!hasChanges.value) return;
 
   try {
-// Collect threshold changes
-    const changes: Record<number, Partial<{ days: number }>> = {}
+    // Collect threshold changes
+    const changes: Record<number, Partial<{ days: number }>> = {};
     for (let i = 0; i < localThresholds.value.levels.length; i++) {
       if (localThresholds.value.levels[i].days !== appStore.thresholds.value.levels[i].days) {
-        changes[i] = {days: localThresholds.value.levels[i].days}
+        changes[i] = { days: localThresholds.value.levels[i].days };
       }
     }
 
     if (Object.keys(changes).length > 0) {
-      await appStore.setThresholds(changes)
+      await appStore.setThresholds(changes);
     }
 
     if (localThresholds.value.activeLevels !== appStore.thresholds.value.activeLevels) {
-      await appStore.setActiveLevels(localThresholds.value.activeLevels)
+      await appStore.setActiveLevels(localThresholds.value.activeLevels);
     }
 
-    localThresholds.value = AppThresholds.fromObject(appStore.thresholds.value.toJSON())
+    localThresholds.value = AppThresholds.fromObject(appStore.thresholds.value.toJSON());
 
     // ⚠️ DEVELOPERS: Type-safe call to background service
     // TypeScript knows groupTabsByAge returns Promise<number> ✅
-    await background.groupTabsByAge()
-    emit('apply')
+    await background.groupTabsByAge();
+    emit('apply');
   } catch (err: any) {
-    const errorMsg = err instanceof Error ? err.message : String(err)
+    const errorMsg = err instanceof Error ? err.message : String(err);
     if (errorMsg.includes('DataCloneError') || errorMsg.includes('Proxy')) {
-      appStore.error.value = `[THRESHOLD_APPLY_PROXY_ERROR] Cannot serialize threshold data. Try refreshing the page.`
+      appStore.error.value = `[THRESHOLD_APPLY_PROXY_ERROR] Cannot serialize threshold data. Try refreshing the page.`;
     } else {
-      appStore.error.value = `[THRESHOLD_APPLY_ERROR] ${errorMsg}`
+      appStore.error.value = `[THRESHOLD_APPLY_ERROR] ${errorMsg}`;
     }
-    console.error('[Thresholds.handleApply]', appStore.error.value)
+    console.error('[Thresholds.handleApply]', appStore.error.value);
   }
 }
 
 async function handleReset(): Promise<void> {
-  await appStore.resetToDefaults()
-  localThresholds.value = AppThresholds.fromObject(appStore.thresholds.value.toJSON())
+  await appStore.resetToDefaults();
+  localThresholds.value = AppThresholds.fromObject(appStore.thresholds.value.toJSON());
 
-// Regroup with defaults and refresh table
+  // Regroup with defaults and refresh table
   // ⚠️ DEVELOPERS: Type-safe call to background service
   // TypeScript knows groupTabsByAge returns Promise<number> ✅
-  await background.groupTabsByAge()
-  emit('apply')
+  await background.groupTabsByAge();
+  emit('apply');
 }
 
 // Sync localThresholds when store changes (from another context)
@@ -194,11 +210,11 @@ onMounted(() => {
     () => appStore.thresholds.value.toJSON(),
     () => {
       if (!appStore.loading.value && !hasChanges.value) {
-        localThresholds.value = AppThresholds.fromObject(appStore.thresholds.value.toJSON())
+        localThresholds.value = AppThresholds.fromObject(appStore.thresholds.value.toJSON());
       }
     }
-  )
-})
+  );
+});
 </script>
 
 <style scoped>
@@ -230,5 +246,3 @@ onMounted(() => {
   width: 100%;
 }
 </style>
-
-

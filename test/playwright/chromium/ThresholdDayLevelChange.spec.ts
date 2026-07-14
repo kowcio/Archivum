@@ -66,7 +66,7 @@ test.describe('Threshold Day Levels', () => {
         //   Fresh (≤3):      1                            → 1 tab (+ 2 ext pages = 3 ungrouped)
         groups = await options.getAllGroups()
         expect(groups.length).toBe(5)
-        expect(groups[0].title).toContain('Eat that frog!')
+        expect(groups[0].title).toContain('Hell!')
         expect(groups[1].title).toContain('Quarter+')
         expect(groups[2].title).toContain('Month+')
         expect(groups[3].title).toContain('2 Weeks+')

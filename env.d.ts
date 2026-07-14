@@ -4,11 +4,10 @@
 // Custom env variables - Vite doesn't provide types for custom VITE_* variables
 declare global {
   interface ImportMeta {
-    env: ImportMetaEnv
+    env: ImportMetaEnv;
   }
 }
 
 interface ImportMetaEnv {
-  readonly VITE_DEV_FEATURES?: string
+  readonly VITE_DEV_FEATURES?: string;
 }
-

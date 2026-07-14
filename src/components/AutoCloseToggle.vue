@@ -1,48 +1,44 @@
 <template>
-  <div class="col-12 row items-start q-pa-md bg-grey-1 rounded-borders accent-border" style="gap: 1rem; flex-direction: column">
-    <!-- Header with toggle -->
-    <div class="row items-center" style="gap: 1rem; width: 100%">
-      <q-toggle
-        :model-value="appStore.autoClose.value"
-        label="Auto-close tabs in the oldest group after 1 day"
-        data-testid="auto-close-toggle"
-        @update:model-value="handleToggle"
-      />
-      <q-icon
-        v-if="showWarning"
-        name="warning"
-        color="negative"
-        size="sm"
-        class="q-ml-md"
-      >
-        <q-tooltip>This feature is destructive and permanent</q-tooltip>
-      </q-icon>
-    </div>
+  <div class="row items-center q-gutter-sm">
+    <q-toggle
+      :model-value="appStore.autoClose.value"
+      label="🔥 Burn Mode"
+      size="sm"
+      data-testid="auto-close-toggle"
+      @update:model-value="handleToggle"
+    >
 
-    <!-- Explanation -->
-    <div v-if="appStore.autoClose.value" class="col-12 text-caption text-grey-7">
-      <div class="q-mb-md">
-        🗑️ <strong>When enabled:</strong> Every 24 hours, all tabs in the oldest (leftmost) age group will be automatically closed permanently.
-        This is useful for keeping your browser clean without manual intervention.
-      </div>
-      <div class="q-mb-md">
-        ⚠️ <strong>Important:</strong> Closed tabs cannot be recovered. Make sure you've reviewed any important tabs before they reach the oldest group.
-      </div>
-      <div>
-        💡 <strong>Tip:</strong> If you want to preserve a tab, simply activate it (click on it) to move it to the newest group.
-      </div>
-    </div>
+    <q-icon name="info" color="primary" size="xs" class="cursor-pointer q-ml-xs" />
+      <q-tooltip class="text-caption">
+        <div class="q-mb-sm">
+          🔥 <strong>When enabled:</strong> Every 24 hours, all tabs in the oldest (leftmost) age group will be closed.
+        </div>
+        <div class="q-mb-sm">
+          ⚠️ <strong>. You can find them in your browser history somewhere.</strong> If You remember what was there.
+        </div>
+        <div>
+          💡 <strong>Tip:</strong> If you want to preserve a tab, simply click on it, it will move to the ungrouped part on the left.
+        </div>
+      </q-tooltip>
+    </q-toggle>
+    <q-icon
+      v-if="showWarning"
+      name="warning"
+      color="negative"
+      size="xs"
+    >
+      <q-tooltip>This feature is destructive and permanent</q-tooltip>
+    </q-icon>
 
-    <!-- Loading state -->
     <q-linear-progress
       v-if="appStore.loading.value"
       indeterminate
       color="primary"
-      class="col-12"
+      class="q-mt-xs"
+      style="height: 2px; width: 100%"
     />
 
-    <!-- Error display -->
-    <div v-if="appStore.error.value" class="col-12 text-negative text-caption">
+    <div v-if="appStore.error.value" class="text-negative text-caption q-mt-xs">
       {{ appStore.error.value }}
     </div>
   </div>
@@ -126,9 +122,7 @@ function cancelEnable(): void {
 </script>
 
 <style scoped>
-.q-icon {
-  font-size: 1.2rem;
-}
+/* Minimalist inline component - no extra styling needed */
 </style>
 
 

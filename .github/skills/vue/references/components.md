@@ -42,7 +42,7 @@ watch(count, (newVal) => { ... })        // ❌ Won't work
 **Non-destructured** only if props ONLY used in template:
 
 ```ts
-defineProps<{ count: number }>()
+defineProps<{ count: number }>();
 // Template: {{ count }}
 ```
 
@@ -61,13 +61,13 @@ Type-safe event definitions:
 
 ```ts
 const emit = defineEmits<{
-  update: [id: number, value: string] // multiple args
-  close: [] // no args
-}>()
+  update: [id: number, value: string]; // multiple args
+  close: []; // no args
+}>();
 
 // Usage
-emit('update', 123, 'new value')
-emit('close')
+emit('update', 123, 'new value');
+emit('close');
 ```
 
 **Template syntax:** kebab-case (`@update-item`) vs camelCase in script (`updateItem`)
@@ -84,9 +84,7 @@ emit('close')
     <template #header>
       <h2>Title</h2>
     </template>
-    <template #default>
-      Content
-    </template>
+    <template #default>Content</template>
   </Card>
 </template>
 ```
@@ -99,11 +97,11 @@ Replaces manual `modelValue` prop + `update:modelValue` emit.
 
 ```vue
 <script setup lang="ts">
-const title = defineModel<string>()
+const title = defineModel<string>();
 </script>
 
 <template>
-  <input v-model="title">
+  <input v-model="title" />
 </template>
 ```
 
@@ -117,11 +115,11 @@ const [title, modifiers] = defineModel<string>({
   get: (value) => value.trim(),
   set: (value) => {
     if (modifiers.capitalize) {
-      return value.charAt(0).toUpperCase() + value.slice(1)
+      return value.charAt(0).toUpperCase() + value.slice(1);
     }
-    return value
+    return value;
   },
-})
+});
 </script>
 ```
 
@@ -131,10 +129,10 @@ const [title, modifiers] = defineModel<string>({
 
 ```ts
 // ❌ Without required - emits twice (undefined then value)
-const model = defineModel<Item>()
+const model = defineModel<Item>();
 
 // ✅ With required - single emit
-const model = defineModel<Item>({ required: true })
+const model = defineModel<Item>({ required: true });
 ```
 
 Use `required: true` when the model should always have a value to avoid the double-emit issue during initialization.
@@ -145,8 +143,8 @@ Default assumes `modelValue` prop. For multiple bindings, use explicit names:
 
 ```vue
 <script setup lang="ts">
-const firstName = defineModel<string>('firstName')
-const age = defineModel<number>('age')
+const firstName = defineModel<string>('firstName');
+const age = defineModel<number>('age');
 </script>
 
 <!-- Usage -->
@@ -161,13 +159,13 @@ For typed, scoped template snippets within a component:
 
 ```vue
 <script setup lang="ts">
-import { createReusableTemplate } from '@vueuse/core'
+import { createReusableTemplate } from '@vueuse/core';
 
 const [DefineItem, UseItem] = createReusableTemplate<{
-  item: SearchItem
-  icon: string
-  color?: 'red' | 'green' | 'blue'
-}>()
+  item: SearchItem;
+  icon: string;
+  color?: 'red' | 'green' | 'blue';
+}>();
 </script>
 
 <template>
@@ -179,7 +177,12 @@ const [DefineItem, UseItem] = createReusableTemplate<{
   </DefineItem>
 
   <!-- Reuse multiple times -->
-  <UseItem v-for="item in items" :key="item.id" :item :icon="getIcon(item)" />
+  <UseItem
+    v-for="item in items"
+    :key="item.id"
+    :item
+    :icon="getIcon(item)"
+  />
 </template>
 ```
 
@@ -189,17 +192,17 @@ Use `useTemplateRef()` for type-safe template references with IDE support:
 
 ```vue
 <script setup lang="ts">
-import { useTemplateRef, onMounted } from 'vue'
+import { useTemplateRef, onMounted } from 'vue';
 
-const input = useTemplateRef<HTMLInputElement>('my-input')
+const input = useTemplateRef<HTMLInputElement>('my-input');
 
 onMounted(() => {
-  input.value?.focus()
-})
+  input.value?.focus();
+});
 </script>
 
 <template>
-  <input ref="my-input">
+  <input ref="my-input" />
 </template>
 ```
 
@@ -213,17 +216,21 @@ onMounted(() => {
 
 ```vue
 <script setup lang="ts">
-const items = ref(['a', 'b', 'c'])
-const itemRefs = useTemplateRef<HTMLElement>('item')
+const items = ref(['a', 'b', 'c']);
+const itemRefs = useTemplateRef<HTMLElement>('item');
 
 // Access refs after mount
 onMounted(() => {
-  console.log(itemRefs.value) // Array of elements
-})
+  console.log(itemRefs.value); // Array of elements
+});
 </script>
 
 <template>
-  <div v-for="item in items" :key="item" ref="item">
+  <div
+    v-for="item in items"
+    :key="item"
+    ref="item"
+  >
     {{ item }}
   </div>
 </template>
@@ -234,15 +241,15 @@ onMounted(() => {
 For generic components, use `ComponentExposed` from `vue-component-type-helpers`:
 
 ```ts
-import type { ComponentExposed } from 'vue-component-type-helpers'
-import MyGenericComponent from './MyGenericComponent.vue'
+import type { ComponentExposed } from 'vue-component-type-helpers';
+import MyGenericComponent from './MyGenericComponent.vue';
 
 // Get exposed methods/properties with correct generic types
-const compRef = useTemplateRef<ComponentExposed<typeof MyGenericComponent>>('comp')
+const compRef = useTemplateRef<ComponentExposed<typeof MyGenericComponent>>('comp');
 
 onMounted(() => {
-  compRef.value?.someExposedMethod() // Typed!
-})
+  compRef.value?.someExposedMethod(); // Typed!
+});
 ```
 
 Install: `pnpm add -D vue-component-type-helpers`
@@ -271,14 +278,14 @@ Install: `pnpm add -D vue-component-type-helpers`
 
 ```vue
 <script setup lang="ts">
-import { useId } from 'vue'
+import { useId } from 'vue';
 
-const id = useId() // Stable across server/client renders
+const id = useId(); // Stable across server/client renders
 </script>
 
 <template>
   <label :for="id">Name</label>
-  <input :id="id">
+  <input :id="id" />
 </template>
 ```
 
@@ -289,7 +296,10 @@ Teleport to elements rendered later in the same cycle:
 ```vue
 <template>
   <!-- This renders first -->
-  <Teleport defer to="#late-div">
+  <Teleport
+    defer
+    to="#late-div"
+  >
     <span>Deferred content</span>
   </Teleport>
 
@@ -306,18 +316,18 @@ Without `defer`, teleport to `#late-div` would fail since it doesn't exist yet.
 
 ```ts
 // ❌ Wrong
-const props = defineProps<{ count: number }>()
-const { count } = props // Loses reactivity
+const props = defineProps<{ count: number }>();
+const { count } = props; // Loses reactivity
 ```
 
 **Forgetting TypeScript types:**
 
 ```ts
 // ❌ Wrong
-const emit = defineEmits(['update'])
+const emit = defineEmits(['update']);
 
 // ✅ Correct
-const emit = defineEmits<{ update: [id: number] }>()
+const emit = defineEmits<{ update: [id: number] }>();
 ```
 
 **Components >300 lines:** Split into smaller components or extract logic to composables

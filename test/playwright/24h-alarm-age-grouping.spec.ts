@@ -58,13 +58,13 @@ test.describe('24h Alarm: Tab Age Progression to Older Groups', () => {
 
     // Verify groups are returned in visual order (getAllGroups() sorts by browser visual index)
     console.log(`\nPhase 1 Visual Order Verification (Oldest→Left to Youngest→Right):`)
-     const expectedOrder = ["Eat that frog!", "Quarter+", "Month+", "2 Weeks+", "Week+"]
+     const expectedOrder = ["Hell!", "Quarter+", "Month+", "2 Weeks+", "Week+"]
 
      // Find the "Week+" group and log its index in the sorted groups array
      const weekGroupIndex = tabsBefore.findIndex(g => g.title.includes("Week+"))
      console.log("Week+ group index:", weekGroupIndex)
 
-    expect(tabsBefore[0].title).toContain("Eat that frog!")
+    expect(tabsBefore[0].title).toContain("Hell!")
     expect(tabsBefore[0].tabCount).toBe(2)
 
     expect(tabsBefore[1].title).toContain("Quarter+")
@@ -138,13 +138,13 @@ test.describe('24h Alarm: Tab Age Progression to Older Groups', () => {
 
     // Verify groups are returned in visual order (getAllGroups() sorts by browser visual index)
     console.log(`\nPhase 2 Visual Order Verification (Oldest→Left to Youngest→Right):`)
-    const expectedOrder2 = ["Eat that frog!", "Quarter+", "Month+", "2 Weeks+", "Week+"]
+    const expectedOrder2 = ["Hell!", "Quarter+", "Month+", "2 Weeks+", "Week+"]
     tabsAfter.forEach((g, i) => {
       const position = i === 0 ? 'Leftmost (Oldest)' : i === tabsAfter.length - 1 ? 'Rightmost (Youngest)' : 'Middle'
       console.log(`  Position ${i} [${position}]: "${g.title}" ✓ matches expected "${expectedOrder2[i]}"`)
     })
 
-    expect(tabsAfter[0].title).toContain("Eat that frog!")
+    expect(tabsAfter[0].title).toContain("Hell!")
     expect(tabsAfter[0].tabCount).toBe(2)
     expect(tabsAfter[1].title).toContain("Quarter+")
     expect(tabsAfter[1].tabCount).toBe(3)

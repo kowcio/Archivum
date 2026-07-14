@@ -1,4 +1,4 @@
-import { type VueWrapper } from '@vue/test-utils'
+import { type VueWrapper } from '@vue/test-utils';
 
 /**
  * Page Object Model for Options App.vue.
@@ -9,64 +9,64 @@ export class OptionsPage {
 
   /** GroupUngroup button (label changes: Group by age / Ungroup) */
   get groupToggleBtn() {
-    return this.wrapper.find('[data-testid="group-tabs-btn"], [data-testid="ungroup-tabs-btn"]')
+    return this.wrapper.find('[data-testid="group-tabs-btn"], [data-testid="ungroup-tabs-btn"]');
   }
 
   get groupBtn() {
-    return this.wrapper.find('[data-testid="group-tabs-btn"]')
+    return this.wrapper.find('[data-testid="group-tabs-btn"]');
   }
 
   get ungroupBtn() {
-    return this.wrapper.find('[data-testid="ungroup-tabs-btn"]')
+    return this.wrapper.find('[data-testid="ungroup-tabs-btn"]');
   }
 
-   get mockTabsBtn() {
-     return this.wrapper.findAllComponents({ name: 'QBtn' }).find((w) =>
-       w.text().includes('Mock 10 tabs'),
-     )
-   }
+  get mockTabsBtn() {
+    return this.wrapper
+      .findAllComponents({ name: 'QBtn' })
+      .find((w) => w.text().includes('Mock 10 tabs'));
+  }
 
-   get loadTabsBtn() {
-     return this.wrapper.findAllComponents({ name: 'QBtn' }).find((w) =>
-       w.text().includes('Load current tabs'),
-     )
-   }
+  get loadTabsBtn() {
+    return this.wrapper
+      .findAllComponents({ name: 'QBtn' })
+      .find((w) => w.text().includes('Load current tabs'));
+  }
 
   get thresholdsConfig() {
-    return this.wrapper.find('[data-testid="thresholds-config"]')
+    return this.wrapper.find('[data-testid="thresholds-config"]');
   }
 
   get thresholdsReset() {
-    return this.wrapper.find('[data-testid="threshold-reset"]')
+    return this.wrapper.find('[data-testid="threshold-reset"]');
   }
 
   get ageCells() {
-    return this.wrapper.findAll('[data-testid^="cell-lastAccessAge-"]')
+    return this.wrapper.findAll('[data-testid^="cell-lastAccessAge-"]');
   }
 
   get errorText() {
-    return this.wrapper.find('.error-text')
+    return this.wrapper.find('.error-text');
   }
 
   async clickGroup(): Promise<void> {
-    await this.groupBtn.trigger('click')
+    await this.groupBtn.trigger('click');
   }
 
   async clickUngroup(): Promise<void> {
-    await this.ungroupBtn.trigger('click')
+    await this.ungroupBtn.trigger('click');
   }
 
-   async clickMockTabs(): Promise<void> {
-     const btn = this.mockTabsBtn
-     if (btn) await btn.trigger('click')
-   }
+  async clickMockTabs(): Promise<void> {
+    const btn = this.mockTabsBtn;
+    if (btn) await btn.trigger('click');
+  }
 
-   async clickLoadTabs(): Promise<void> {
-     const btn = this.loadTabsBtn
-     if (btn) await btn.trigger('click')
-   }
+  async clickLoadTabs(): Promise<void> {
+    const btn = this.loadTabsBtn;
+    if (btn) await btn.trigger('click');
+  }
 
   rowAgeTexts(): string[] {
-    return this.ageCells.map(c => c.text())
+    return this.ageCells.map((c) => c.text());
   }
 }

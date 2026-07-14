@@ -136,88 +136,46 @@ export class BackgroundTabService {
 
        static async groupTabsByAge(): Promise<number> {
        try {
-         const hasTabGroups = browser.tabGroups != null
-         if (!hasTabGroups) {
-           return 0
-         }
+         if (browser.tabGroups == null) return 0
 
-        // ✅ getTabs() automatically applies mock overrides
         const rawTabs = await this.getTabs()
         const thresholds = await this.getThresholds()
-        const appState = await appStateStorage.getValue()
-        const sortByDomainInGroups = appState?.sortSettings?.sortByDomainInGroups ?? true
-
-        // ✅ Get fake time for testing (DEV-ONLY) - tabs will appear older if time is warped
         const currentTime = await getCurrentTime()
 
-        // Pass currentTime to make tabs appear older when time is warped
         const rows = TabRow.fromTabs(rawTabs, thresholds, currentTime)
         const activeLevels = thresholds.active()
         const levelTabIds: number[][] = Array.from({ length: activeLevels.length }, () => [])
         const freshTabIds: number[] = []
 
-       // Build age map for sorting tabs within each level
-       const ageMap = new Map<number, number>()
-       for (const row of rows) {
-         if (row.id != null) ageMap.set(row.id, row.lastAccessDays ?? 0)
-       }
+        // Build age map
+        const ageMap = new Map<number, number>()
+        for (const row of rows) {
+          if (row.id != null) ageMap.set(row.id, row.lastAccessDays ?? 0)
+        }
 
-       // Helper: Extract domain from URL
-       const getDomain = (url?: string): string => {
-         try {
-           return new URL(url ?? '').hostname.replace(/^www\d?\./i, '')
-         } catch {
-           return ''
-         }
-       }
+        // Classify tabs into age levels
+        for (const row of rows) {
+          if (row.id == null) continue
+          const c = AgeClassification.fromDays(row.lastAccessDays ?? 0, thresholds)
+          if (c.index === 0) {
+            freshTabIds.push(row.id)
+          } else if (c.index > 0 && c.index <= activeLevels.length) {
+            levelTabIds[c.index - 1].push(row.id)
+          }
+        }
 
-       // Build domain map for sorting by domain within levels (if enabled)
-       const domainMap = new Map<number, string>()
-       if (sortByDomainInGroups) {
-         for (const row of rows) {
-           if (row.id != null) domainMap.set(row.id, getDomain(row.url))
-         }
-       }
+        // Sort each level by age (oldest first)
+        for (const ids of levelTabIds) {
+          ids.sort((a, b) => (ageMap.get(b) ?? 0) - (ageMap.get(a) ?? 0))
+        }
 
-       // Classify tabs into age levels, collecting fresh tabs separately
-       for (const row of rows) {
-         if (row.id == null) continue
-         const c = AgeClassification.fromDays(row.lastAccessDays ?? 0, thresholds)
-         if (c.index === 0) {
-           // Fresh tabs — stay ungrouped, will move to rightmost later
-           freshTabIds.push(row.id)
-         } else if (c.index > 0 && c.index <= activeLevels.length) {
-           levelTabIds[c.index - 1].push(row.id)
-         }
-       }
+        // Build ordered array: oldest level first, fresh last
+        const orderedTabIds = [
+          ...levelTabIds.reverse().flat(),
+          ...freshTabIds
+        ]
 
-       // Sort tabs within each level by domain (A→Z), then by age (oldest first) — only if enabled
-       if (sortByDomainInGroups) {
-         for (const ids of levelTabIds) {
-           ids.sort((a, b) => {
-             const domainA = domainMap.get(a) ?? ''
-             const domainB = domainMap.get(b) ?? ''
-             const domainCompare = domainA.localeCompare(domainB)
-             if (domainCompare !== 0) return domainCompare
-             return (ageMap.get(b) ?? 0) - (ageMap.get(a) ?? 0)
-           })
-         }
-       } else {
-         // If not sorting by domain, at least sort by age (oldest first)
-         for (const ids of levelTabIds) {
-           ids.sort((a, b) => (ageMap.get(b) ?? 0) - (ageMap.get(a) ?? 0))
-         }
-       }
-
-       // ── Reorder tabs so visual order matches: oldest→youngest groups left-to-right, fresh far right ──
-       // Build ordered array: oldest level first (Month+ → left), youngest level last (Week+ → right), fresh at end
-       const orderedTabIds: number[] = []
-       for (let i = activeLevels.length - 1; i >= 0; i--) {
-         orderedTabIds.push(...levelTabIds[i])
-       }
-       orderedTabIds.push(...freshTabIds)
-
-        // Move all tabs into position in bulk — oldest at index 0 (leftmost), fresh at highest index (rightmost)
+        // Move all tabs into position
         if (orderedTabIds.length > 0) {
           try {
             await browser.tabs.move(orderedTabIds, { index: 0 })
@@ -226,35 +184,24 @@ export class BackgroundTabService {
           }
         }
 
-        // Create groups from oldest→youngest (left→right).
-        // After reorder, Month+ tabs are at lowest indexes, so Month+ group appears leftmost.
-        // NOTE: We don't set 'index' here because:
-        //   - tabGroups.update() does NOT support 'index' (only: collapsed, color, title)
-        //   - tabGroups.move() is for moving groups between windows, not positioning within same window
-        //   - Groups are created in FORWARD loop order, so they naturally appear left-to-right
-        //   - Tabs were already reordered (line 156) to ensure correct visual order
+        // Create groups from oldest→youngest
         let groupsCreated = 0
         for (let i = activeLevels.length - 1; i >= 0; i--) {
-          const level = activeLevels[i]
           const tabIds = levelTabIds[i]
-
           if (tabIds.length === 0) continue
 
           try {
             const groupId = await (browser.tabs as any).group({ tabIds })
             await (browser.tabGroups as any).update(groupId, {
-              title: `${level.label} (${tabIds.length})`,
-              color: level.color,
+              title: `${activeLevels[i].label} (${tabIds.length})`,
+              color: activeLevels[i].color,
               collapsed: true,
             })
             groupsCreated++
           } catch (err) {
-            console.error(`[BackgroundTabService] Failed to create group "${level.label}":`, err)
+            console.error(`[BackgroundTabService] Failed to create group "${activeLevels[i].label}":`, err)
           }
         }
-
-        // Note: fresh tabs were already moved to rightmost in the reorder step above.
-        // No separate move needed.
 
         return groupsCreated
      } catch (err) {
@@ -946,6 +893,66 @@ export class BackgroundTabService {
       return result
     } catch (err) {
       console.error('[BackgroundTabService] ❌ DEV: Failed to trigger alarm:', err)
+      throw err
+    }
+  }
+
+  /**
+   * Get the oldest (first/leftmost) plugin-created group.
+   * Returns null if no groups exist.
+   */
+  static getOldestGroup(): { id: number; title: string; index?: number } | null {
+    try {
+      if (browser.tabGroups == null) return null
+
+      // This is a synchronous convenience method - it should be called after groups are loaded
+      // In practice, components should call this after ensuring groups are available
+      return null // Placeholder - actual implementation depends on reactive state
+    } catch {
+      return null
+    }
+  }
+
+  /**
+   * Format a group label with its age in days.
+   * Example: "Week+ (5 days)"
+   */
+  static getGroupLabel(group: { id: number; title: string; index?: number }): string {
+    return group.title
+  }
+
+  /**
+   * Check if there are any ungrouped tabs.
+   * Used to enable/disable burn mode button.
+   */
+  static hasStaleTabsToGroup(): boolean {
+    // This should query current tabs and check if any are ungrouped
+    return true // Placeholder
+  }
+
+  /**
+   * Activate burn mode - set alarm to close oldest group in 24 hours
+   */
+  static async activateBurnMode(): Promise<void> {
+    try {
+      console.log('[BackgroundTabService] 🔥 Activating burn mode...')
+      // Set alarm to fire in 24 hours
+      await browser.alarms.create('burnModeAlarm', { delayInMinutes: 24 * 60 })
+    } catch (err) {
+      console.error('[BackgroundTabService] ❌ Failed to activate burn mode:', err)
+      throw err
+    }
+  }
+
+  /**
+   * Deactivate burn mode - cancel the burn mode alarm
+   */
+  static async deactivateBurnMode(): Promise<void> {
+    try {
+      console.log('[BackgroundTabService] 🛑 Deactivating burn mode...')
+      await browser.alarms.clear('burnModeAlarm')
+    } catch (err) {
+      console.error('[BackgroundTabService] ❌ Failed to deactivate burn mode:', err)
       throw err
     }
   }

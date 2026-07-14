@@ -7,18 +7,18 @@
  * Quasar components registered globally same as AppBootstrapper does.
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { mount, flushPromises } from '@vue/test-utils'
-import { setActivePinia, createPinia } from 'pinia'
-import { Quasar, QTable, QTd, QTr, QBtn, QBtnGroup, QInput, QTooltip } from 'quasar'
-import { fakeBrowser } from 'wxt/testing/fake-browser'
-import App from '@/entrypoints/options/App.vue'
-import { OptionsPage } from '../../page-objects/OptionsPage'
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { mount, flushPromises } from '@vue/test-utils';
+import { setActivePinia, createPinia } from 'pinia';
+import { Quasar, QTable, QTd, QTr, QBtn, QBtnGroup, QInput, QTooltip } from 'quasar';
+import { fakeBrowser } from 'wxt/testing/fake-browser';
+import App from '@/entrypoints/options/App.vue';
+import { OptionsPage } from '../../page-objects/OptionsPage';
 
 beforeEach(() => {
-  fakeBrowser.reset()
-  setActivePinia(createPinia())
-})
+  fakeBrowser.reset();
+  setActivePinia(createPinia());
+});
 
 describe('Options App.vue', () => {
   function createPage() {
@@ -26,40 +26,43 @@ describe('Options App.vue', () => {
       global: {
         plugins: [
           createPinia(),
-          [Quasar, {
-            components: { QTable, QTd, QTr, QBtn, QBtnGroup, QInput, QTooltip },
-          }],
+          [
+            Quasar,
+            {
+              components: { QTable, QTd, QTr, QBtn, QBtnGroup, QInput, QTooltip },
+            },
+          ],
         ],
       },
-    })
-    return { wrapper, page: new OptionsPage(wrapper) }
+    });
+    return { wrapper, page: new OptionsPage(wrapper) };
   }
 
   it('renders group and ungroup buttons (initial: group visible, ungroup hidden)', async () => {
-    const { page } = createPage()
-    await flushPromises()
-    expect(page.groupBtn.exists()).toBe(true)
-    expect(page.ungroupBtn.exists()).toBe(false)
-  })
+    const { page } = createPage();
+    await flushPromises();
+    expect(page.groupBtn.exists()).toBe(true);
+    expect(page.ungroupBtn.exists()).toBe(false);
+  });
 
   it('renders thresholds config section', async () => {
-    const { page } = createPage()
-    await flushPromises()
-    expect(page.thresholdsConfig.exists()).toBe(true)
-  })
+    const { page } = createPage();
+    await flushPromises();
+    expect(page.thresholdsConfig.exists()).toBe(true);
+  });
 
   it('renders app title', async () => {
-    const { wrapper } = createPage()
-    await flushPromises()
+    const { wrapper } = createPage();
+    await flushPromises();
     // Title.vue renders inside a .got-title-bar div with "Archivum" text
-    expect(wrapper.text()).toContain('Archivum')
-    expect(wrapper.find('.got-title-bar').exists()).toBe(true)
-  })
+    expect(wrapper.text()).toContain('Archivum');
+    expect(wrapper.find('.got-title-bar').exists()).toBe(true);
+  });
 
   it('clicking group toggle sends groupTabsByAge message', async () => {
-    vi.spyOn(fakeBrowser.runtime, 'sendMessage')
-    const { page } = createPage()
-    await page.clickGroup()
-    expect(fakeBrowser.runtime.sendMessage).toHaveBeenCalled()
-  })
-})
+    vi.spyOn(fakeBrowser.runtime, 'sendMessage');
+    const { page } = createPage();
+    await page.clickGroup();
+    expect(fakeBrowser.runtime.sendMessage).toHaveBeenCalled();
+  });
+});

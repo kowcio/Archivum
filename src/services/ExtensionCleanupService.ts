@@ -5,37 +5,41 @@
  * - Ungroups all Chrome tab groups
  * - Clears config storage (thresholds)
  */
-import { browser } from 'wxt/browser'
+import { browser } from 'wxt/browser';
 
 export class ExtensionCleanupService {
-    static async performFullCleanup(): Promise<void> {
-        try {
-            if (browser.tabGroups != null) {
-                const allTabs = await browser.tabs.query({})
-                const ids = allTabs.map(t => t.id).filter((id): id is number => id != null)
-                if (ids.length) {
-                    await (browser.tabs as any).ungroup(ids)
-                }
-            }
-            await browser.storage.local.clear()
-        } catch (err) {
-            console.error('[ExtensionCleanupService] ❌', err)
+  static async performFullCleanup(): Promise<void> {
+    try {
+      if (browser.tabGroups != null) {
+        const allTabs = await browser.tabs.query({});
+        const ids = allTabs.map((t) => t.id).filter((id): id is number => id != null);
+        if (ids.length) {
+          await (browser.tabs as any).ungroup(ids);
         }
+      }
+      await browser.storage.local.clear();
+    } catch (err) {
+      console.error('[ExtensionCleanupService] ❌', err);
     }
+  }
 
-    static registerLifecycleListeners(): void {
-        const chrome = globalThis as unknown as {
-            chrome?: { runtime?: { onInstalled?: { addListener: (cb: (details: { reason: string }) => void) => void } } }
-        }
-        if (!chrome?.chrome?.runtime?.onInstalled?.addListener) return
+  static registerLifecycleListeners(): void {
+    const chrome = globalThis as unknown as {
+      chrome?: {
+        runtime?: {
+          onInstalled?: { addListener: (cb: (details: { reason: string }) => void) => void };
+        };
+      };
+    };
+    if (!chrome?.chrome?.runtime?.onInstalled?.addListener) return;
 
-        chrome.chrome.runtime.onInstalled.addListener((details) => {
-            if (details.reason === 'update') {
-                browser.storage.local.clear()
-            }
-        })
+    chrome.chrome.runtime.onInstalled.addListener((details) => {
+      if (details.reason === 'update') {
+        browser.storage.local.clear();
+      }
+    });
 
-        // Register uninstall URL if needed
-        // browser.runtime.setUninstallURL('https://example.com/uninstall')
-    }
+    // Register uninstall URL if needed
+    // browser.runtime.setUninstallURL('https://example.com/uninstall')
+  }
 }

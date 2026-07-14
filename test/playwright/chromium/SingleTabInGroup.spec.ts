@@ -67,7 +67,7 @@ test.describe("Options Page Tests", () => {
       const groupsAfterUngroup = await options.getAllGroups();
       const weekGroupUpdated = groupsAfterUngroup.find(g => g.id === weekGroupId);
       const expectedCount = weekGroupTabs.length - (i + 1);
-      
+
       if (expectedCount === 0) {
         // Chrome auto-removes empty groups
         expect(weekGroupUpdated).toBeUndefined();
@@ -93,7 +93,7 @@ test.describe("Options Page Tests", () => {
     expect(groupsAfter.some(g => g.title.startsWith('2 Weeks+'))).toBe(true);
     expect(groupsAfter.some(g => g.title.startsWith('Month+'))).toBe(true);
     expect(groupsAfter.some(g => g.title.startsWith('Quarter+'))).toBe(true);
-    expect(groupsAfter.some(g => g.title.startsWith('Eat that frog!'))).toBe(true);
+    expect(groupsAfter.some(g => g.title.startsWith('Hell!'))).toBe(true);
 
     await options.close();
   });

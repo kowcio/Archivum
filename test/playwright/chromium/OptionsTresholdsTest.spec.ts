@@ -34,7 +34,7 @@ test.describe("Thresholds", () => {
 
     let result = await options.getAllGroups();
     expect(result.length).toBe(5);
-    expect(result[0].title).toContain('Eat that frog!');
+    expect(result[0].title).toContain('Hell!');
     expect(result[1].title).toContain('Quarter+');
     expect(result[2].title).toContain('Month+');
     expect(result[3].title).toContain('2 Weeks+');

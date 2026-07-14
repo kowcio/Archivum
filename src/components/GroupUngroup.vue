@@ -1,25 +1,35 @@
 <template>
-  <q-btn
-    :data-testid="isGrouped ? 'ungroup-tabs-btn' : 'group-tabs-btn'"
-    :label="buttonLabel"
-    :icon="isGrouped ? ungroupIcon : groupIcon"
-    :loading="isLoading"
-    :size="buttonSize"
-    :class="btnClasses"
-    :rounded="rounded"
-    :disabled="!isGrouped && !hasStaleTabsToGroup"
-    no-caps
-    @click="handleToggle"
-  >
-    <q-tooltip v-if="!isGrouped && !hasStaleTabsToGroup" class="bg-dark">
+  <div class="row items-center">
+    <q-btn
+      ref="buttonRef"
+      :data-testid="isGrouped ? 'ungroup-tabs-btn' : 'group-tabs-btn'"
+      :label="buttonLabel"
+      :icon="isGrouped ? ungroupIcon : groupIcon"
+      :loading="isLoading"
+      :size="buttonSize"
+      :class="btnClasses"
+      :rounded="rounded"
+      :disabled="!isGrouped && !hasStaleTabsToGroup"
+      no-caps
+      @click="handleToggle"
+    />
+    <q-tooltip
+      :target="buttonRef?.$el"
+      class="bg-dark"
+      v-if="!isGrouped && !hasStaleTabsToGroup"
+    >
       Nothing to archive, all tabs are less than {{ minThresholdDays }} days of age.
     </q-tooltip>
-    <q-tooltip v-if="hasStaleTabsToGroup" class="bg-dark text-subtitle2" v-html="
-      `Group all ungrouped tabs older than ${minThresholdDays} days into age-based groups.
-      <br/> Existing tabs will be left intact !`
-    " />
-
-  </q-btn>
+    <q-tooltip
+      :target="buttonRef?.$el"
+      class="bg-dark text-subtitle2"
+      v-else-if="hasStaleTabsToGroup"
+      v-html="
+        `Group all ungrouped tabs older than ${minThresholdDays} days into age-based groups.
+        <br/> Existing tabs will be left intact !`
+      "
+    />
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -60,6 +70,7 @@ const appStore = useAppStore()
 const isGrouped = ref(false)
 const isLoading = ref(false)
 const allTabs = ref<any[]>([])
+const buttonRef = ref<any>(null)
 
 const minThresholdDays = computed(() => {
   const levels = appStore.thresholds.value?.active()

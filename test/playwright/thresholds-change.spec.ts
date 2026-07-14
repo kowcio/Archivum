@@ -53,7 +53,7 @@ test.describe('Threshold Change: Store → Options Auto-Update', () => {
 
     // result.gr
      // Verify age-based groups exist
-     expect(groupTitles.some(t => t.includes('Eat that frog!'))).toBe(true)
+     expect(groupTitles.some(t => t.includes('Hell!'))).toBe(true)
      expect(groupTitles.some(t => t.includes('Quarter+'))).toBe(true)
      expect(groupTitles.some(t => t.includes('Month+'))).toBe(true)
      expect(groupTitles.some(t => t.includes('2 Weeks+'))).toBe(true)
