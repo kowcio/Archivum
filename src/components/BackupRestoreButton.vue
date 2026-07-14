@@ -11,8 +11,11 @@
       size="md"
       :loading="isLoading"
       @click="handleBackup"
-    />
-
+    >
+      <q-tooltip>
+        This will backup all tabs and groups overwriting the previous save.
+      </q-tooltip>
+    </q-btn>
     <!-- Section 2: Delete/Clear Backup Button (with date) -->
     <div v-if="hasBackup" class="backup-delete-control col-12">
       <q-btn
@@ -54,7 +57,11 @@
       size="md"
       :loading="isLoading"
       @click="showRestoreDialog = true"
-    />
+    >
+      <q-tooltip>
+        This will restore all tabs and groups overwriting the current state.
+      </q-tooltip>
+    </q-btn>
 
 
     <div data-testid="backup-restore-timer" class="">
