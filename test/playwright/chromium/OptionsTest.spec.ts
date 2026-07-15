@@ -99,13 +99,12 @@ test.describe("Options Page Tests", () => {
       }
     }, ctx.extensionId);
 
-    // Wait for tabs to close by checking browser tab count
-    const extensionId = ctx.extensionId;  // Capture in closure
-    await options.page.waitForFunction(async () => {
-      const tabs = await chrome.tabs.query({ currentWindow: true });
-      const userTabs = tabs.filter(t => !t.url?.startsWith(`chrome-extension://${extensionId}`));
-      return userTabs.length === 0;  // All user tabs closed
-    }, { timeout: 10_000 });
+     // Wait for tabs to close by checking browser tab count
+     await options.page.waitForFunction(async (extId: string) => {
+       const tabs = await chrome.tabs.query({ currentWindow: true });
+       const userTabs = tabs.filter(t => !t.url?.startsWith(`chrome-extension://${extId}`));
+       return userTabs.length === 0;  // All user tabs closed
+     }, { timeout: 10_000 }, ctx.extensionId);
 
     let tabs3 = await options.queryAllTabs(true);
     tabs3.forEach(tab => console.log(`   → Remaining tab: ${tab.groupId} | ${tab.url}`));

@@ -48,28 +48,30 @@ export class BackgroundTabService {
    * Replaces 6+ duplicated query patterns across the plugin.
    * @ param getAll - true - return all groups, false (default) - return only the groups from the plugin
    */
-  static async getGroups(getAll: boolean = false): Promise<Array<{ id: number; title: string; index?: number; color?: string; collapsed?: boolean }>> {
-    try {
-      if (browser.tabGroups == null) return []
+   static async getGroups(getAll: boolean = false): Promise<Array<{ id: number; title: string; index?: number; color?: string; collapsed?: boolean }>> {
+     try {
+       if (browser.tabGroups == null) return []
 
-       const allGroups = await (browser.tabGroups as any)
-         .query({ windowId: (browser.windows as any).WINDOW_ID_CURRENT })
-       allGroups.sort((a: any, b: any) => (a.index ?? -1) - (b.index ?? -1))
+        const allGroups = await (browser.tabGroups as any)
+          .query({ windowId: (browser.windows as any).WINDOW_ID_CURRENT })
+        // ✅ Safety filter: remove groups without id (shouldn't happen but defensive)
+        const validGroups = allGroups.filter((g: any) => g.id != null)
+        validGroups.sort((a: any, b: any) => (a.index ?? -1) - (b.index ?? -1))
 
-      //return all the groups i.ex to check logic in tests
-      if (getAll) return allGroups
+       //return all the groups i.ex to check logic in tests
+       if (getAll) return validGroups
 
-      // Filter: keep only plugin-created groups
-      // ✅ Simplified: check if title STARTS WITH any threshold label
-      // This avoids fragile regex and handles edge cases (empty groups, malformed titles)
-      return allGroups.filter((group: any) =>
-        this.getPluginGroupTitles().some(title => group.title.startsWith(title))
-      )
-    } catch (err) {
-      console.warn('[BackgroundTabService] ⚠️ Failed to query plugin groups:', err)
-      return []
-    }
-  }
+       // Filter: keep only plugin-created groups
+       // ✅ Simplified: check if title STARTS WITH any threshold label
+       // This avoids fragile regex and handles edge cases (empty groups, malformed titles)
+       return validGroups.filter((group: any) =>
+         this.getPluginGroupTitles().some(title => group.title.startsWith(title))
+       )
+     } catch (err) {
+       console.warn('[BackgroundTabService] ⚠️ Failed to query plugin groups:', err)
+       return []
+     }
+   }
 
   /**
    * Build label → groupId map for quick group lookups.
@@ -78,21 +80,23 @@ export class BackgroundTabService {
    * Example: { "Week+": 5, "Month+": 8, "2 Weeks+": 6 }
    * ✅ Simplified: find matching threshold label instead of parsing regex
    */
-  private static async getPluginGroupMap(): Promise<Map<string, number>> {
-    const groups = await this.getGroups()
-    const map = new Map<string, number>()
-    const pluginTitles = this.getPluginGroupTitles()
+   private static async getPluginGroupMap(): Promise<Map<string, number>> {
+     const groups = await this.getGroups()
+     const map = new Map<string, number>()
+     const pluginTitles = this.getPluginGroupTitles()
 
-    for (const group of groups) {
-      // ✅ Find which threshold label this group starts with
-      const matchingLabel = pluginTitles.find(title => group.title.startsWith(title))
-      if (matchingLabel) {
-        map.set(matchingLabel, group.id)
-      }
-    }
+     for (const group of groups) {
+       // ✅ Safety check: group must have id
+       if (group.id == null) continue
+       // ✅ Find which threshold label this group starts with
+       const matchingLabel = pluginTitles.find(title => group.title.startsWith(title))
+       if (matchingLabel) {
+         map.set(matchingLabel, group.id)
+       }
+     }
 
-    return map
-  }
+     return map
+   }
 
   static async getThresholds(): Promise<AppThresholds> {
     return await getStorageThresholds()
@@ -389,25 +393,26 @@ export class BackgroundTabService {
      *
      * Used by: groupTabsByAge(), updateTabByAge(), sortGroupsByDomain(), createMockTabs()
      */
-    static async getTabs(): Promise<Browser.tabs.Tab[]> {
-      const allTabs = await browser.tabs.query({ currentWindow: true })
+     static async getTabs(): Promise<Browser.tabs.Tab[]> {
+       const allTabs = await browser.tabs.query({ currentWindow: true })
 
-      let filteredTabs: Browser.tabs.Tab[] = []
+       let filteredTabs: Browser.tabs.Tab[] = []
 
-      if (browser.tabGroups != null) {
-        // ✅ Use centralized getGroups() - only plugin groups, not user groups
-        const groups = await this.getGroups()
-        const pluginGroupIds = new Set<number>(groups.map(g => g.id))
+       if (browser.tabGroups != null) {
+         // ✅ Use centralized getGroups() - only plugin groups, not user groups
+         const groups = await this.getGroups()
+         // ✅ Safety: filter out groups without id (shouldn't happen, but defensive)
+         const pluginGroupIds = new Set<number>(groups.filter(g => g.id != null).map(g => g.id))
 
-        // Keep ungrouped + plugin-grouped tabs
-        filteredTabs = allTabs.filter(t => {
-          if (t.groupId == null || t.groupId === -1) return true // Ungrouped
-          return pluginGroupIds.has(t.groupId) // In plugin group
-        })
-      } else {
-        // Firefox: no groups, return all tabs
-        filteredTabs = allTabs
-      }
+         // Keep ungrouped + plugin-grouped tabs
+         filteredTabs = allTabs.filter(t => {
+           if (t.groupId == null || t.groupId === -1) return true // Ungrouped
+           return pluginGroupIds.has(t.groupId) // In plugin group
+         })
+       } else {
+         // Firefox: no groups, return all tabs
+         filteredTabs = allTabs
+       }
 
       try {
         // Check if ANY mocks are set in storage
@@ -685,14 +690,19 @@ export class BackgroundTabService {
         const url = `https://www.example.com/${generatedTabId}`
         const tab = await browser.tabs.create({ url, active: false })
 
-        await browser.tabs.move(tab.id!, { index }).catch(() => {throw new Error('Failed to move tab')})
+        // ✅ Safety check: tab.id must exist before using it
+        if (tab.id == null) {
+          throw new Error('Failed to create tab - no tab ID returned')
+        }
+
+        await browser.tabs.move(tab.id, { index }).catch(() => {throw new Error('Failed to move tab')})
         if (newTabGroup) {
           const groupId = await (browser.tabs as any).group({tabIds: [tab.id]})
           await (browser.tabGroups as any).update(groupId, {title: `${generatedTabId}_randomGroup`})
         }
-      } catch {
-        throw new Error('Failed to create tab group')
-
+      } catch (err) {
+        console.error('[BackgroundTabService] ❌ openRandomTabInGroup error:', err)
+        throw err
       }
 
       return generatedTabId
@@ -769,22 +779,24 @@ export class BackgroundTabService {
           }
         }
 
-        // Calculate group index from first tab's index in each group
-        const groupIndexMap = new Map<number, number>()
-        for (const group of groups) {
-          const groupTabs = allTabs.filter((t: any) => t.groupId === group.id)
-          if (groupTabs.length > 0) {
-            const firstTabIndex = groupTabs[0].index
-            groupIndexMap.set(group.id, firstTabIndex)
-          }
-        }
+         // Calculate group index from first tab's index in each group
+         const groupIndexMap = new Map<number, number>()
+         for (const group of groups) {
+           // ✅ Safety check: group must have id
+           if (group.id == null) continue
+           const groupTabs = allTabs.filter((t: any) => t.groupId === group.id)
+           if (groupTabs.length > 0) {
+             const firstTabIndex = groupTabs[0].index
+             groupIndexMap.set(group.id, firstTabIndex)
+           }
+         }
 
-        // Build final groups with calculated indices
-        const groupsWithIndices = groups.map((g: any) => ({
-          id: g.id,
-          title: g.title,
-          index: groupIndexMap.get(g.id) ?? g.index ?? -1,
-        }))
+         // Build final groups with calculated indices
+         const groupsWithIndices = groups.map((g: any) => ({
+           id: g.id,
+           title: g.title,
+           index: groupIndexMap.get(g.id) ?? g.index ?? -1,
+         }))
 
         // Sort groups by calculated index (left-to-right)
         groupsWithIndices.sort((a: any, b: any) => a.index - b.index)

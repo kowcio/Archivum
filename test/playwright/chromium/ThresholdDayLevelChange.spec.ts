@@ -34,48 +34,50 @@ test.describe('Threshold Day Levels', () => {
     await options.clickGroupTabs(2500)
     let groups = await options.getAllGroups()
 
-    // Default classification (14 mocks + 2 extension pages = 16 total):
-        //   Fresh (≤7):      1, 6 + 2 ext pages → 4 tabs
-        //   Week+ (7-14):    8, 8, 12          → 3 tabs
-        //   2 Weeks+ (14-28): 18, 25           → 2 tabs
-        //   Month+ (>28):    40, 60, 100, 101, 356, 366, 367 → 7 tabs (ext pages are fresh)
-        expect(groups.length).toBe(5)
-        // Groups ordered left-to-right: Month+ (oldest) → 2 Weeks+ → Week+ (youngest)
-        expect(groups[0].title).toContain(ThresholdLabel.YEARS)
-        expect(groups[1].title).toContain(ThresholdLabel.QUARTERS)
-        expect(groups[2].title).toContain(ThresholdLabel.MONTH)
-        expect(groups[3].title).toContain(ThresholdLabel.WEEKS_2)
-        expect(groups[4].title).toContain(ThresholdLabel.WEEK)
-        expect(groups[0].tabCount).toBe(2)
-        expect(groups[1].tabCount).toBe(3)
-        expect(groups[2].tabCount).toBe(2)
-        expect(groups[3].tabCount).toBe(2)
-        expect(groups[4].tabCount).toBe(3)
+     // Default classification (14 mocks + 2 extension pages = 16 total):
+         //   Fresh (≤7):      1, 6 + 2 ext pages → 4 tabs
+         //   Week+ (7-14):    8, 8, 12          → 3 tabs
+         //   2 Weeks+ (14-28): 18, 25           → 2 tabs
+         //   Month+ (28-90):  40, 60            → 2 tabs
+         //   Quarter+ (90-365): 100, 101, 356   → 3 tabs
+         //   Years (365+):    366, 367          → 2 tabs
+         expect(groups.length).toBe(5)
+         // Groups ordered left-to-right: Hell! (oldest) → ... → Week+ (youngest)
+          expect(groups[0].title).toContain(ThresholdLabel.YEARS)
+          expect(groups[1].title).toContain(ThresholdLabel.QUARTERS)
+          expect(groups[2].title).toContain(ThresholdLabel.MONTH)
+          expect(groups[3].title).toContain(ThresholdLabel.WEEKS_2)
+          expect(groups[4].title).toContain(ThresholdLabel.WEEK)
+          expect(groups[0].tabCount).toBe(2)
+          expect(groups[1].tabCount).toBe(3)
+          expect(groups[2].tabCount).toBe(2)
+          expect(groups[3].tabCount).toBe(2)
+          expect(groups[4].tabCount).toBe(3)
 
     // 3. Change Week+ threshold from 7→3 days.
     // This will shift tab 6 (daysAgo=6) from fresh into Week+ group.
         await options.changeThresholdDayValue(0, 3, 2000)
 
-        // 4. Verify group tab counts reflect new thresholds.
-        // After changing Week+ from 7→3, activeLevels still 5, so 5 groups remain:
-        //   Years (>365):    356, 366, 367                → 3 tabs
-        //   Quarter+ (90-365): 100, 101                   → 2 tabs
-        //   Month+ (28-90):  40, 60                       → 2 tabs
-        //   2 Weeks+ (14-28): 18, 25                      → 2 tabs
-        //   Week+ (3-14):    6, 8, 8, 12                  → 4 tabs (6 moves from fresh to week+)
-        //   Fresh (≤3):      1                            → 1 tab (+ 2 ext pages = 3 ungrouped)
-        groups = await options.getAllGroups()
-        expect(groups.length).toBe(5)
-        expect(groups[0].title).toContain('Hell!')
-        expect(groups[1].title).toContain('Quarter+')
-        expect(groups[2].title).toContain('Month+')
-        expect(groups[3].title).toContain('2 Weeks+')
-        expect(groups[4].title).toContain('Week+')
-        expect(groups[0].tabCount).toBe(2)
-        expect(groups[1].tabCount).toBe(3)
-        expect(groups[2].tabCount).toBe(2)
-        expect(groups[3].tabCount).toBe(2)
-        expect(groups[4].tabCount).toBe(4)
+         // 4. Verify group tab counts reflect new thresholds.
+         // After changing Week+ from 7→3 days, activeLevels still 5, so 5 groups remain:
+         //   Years (365+):    366, 367                     → 2 tabs
+         //   Quarter+ (90-365): 100, 101, 356              → 3 tabs
+         //   Month+ (28-90):  40, 60                       → 2 tabs
+         //   2 Weeks+ (14-28): 18, 25                      → 2 tabs
+         //   Week+ (3-14):    6, 8, 8, 12                  → 4 tabs (6 moves from fresh to week+)
+         //   Fresh (≤3):      1                            → 1 tab (+ 2 ext pages = 3 ungrouped)
+         groups = await options.getAllGroups()
+         expect(groups.length).toBe(5)
+         expect(groups[0].title).toContain('Hell!')
+         expect(groups[1].title).toContain('Quarter+')
+         expect(groups[2].title).toContain('Month+')
+         expect(groups[3].title).toContain('2 Weeks+')
+         expect(groups[4].title).toContain('Week+')
+         expect(groups[0].tabCount).toBe(2)
+         expect(groups[1].tabCount).toBe(2)
+         expect(groups[2].tabCount).toBe(2)
+         expect(groups[3].tabCount).toBe(2)
+         expect(groups[4].tabCount).toBe(4)
 
         // 5. Verify fresh (ungrouped) tabs: 3 total (1 fresh mock at ≤3 days + 2 extension pages)
             const ungroupedCount = await options.getUngroupedTabCount()

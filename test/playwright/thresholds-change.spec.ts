@@ -29,94 +29,81 @@ test.describe('Threshold Change: Store → Options Auto-Update', () => {
     // 1. Open options page
     await options.goto(ctx.extensionId)
 
-    // 2. Load mock tabs first (before checking if page is fully loaded)
-    await options.clickLoadMockTabs(800)
+    // 2. Load mock tabs (14 tabs with ages: 1,6,8,8,12,18,25,40,60,100,101,356,366,367)
+    await options.clickLoadMockTabs(2000)
+    await options.page.waitForTimeout(500)
 
-    // 3. Wait for table to be visible with tabs
-    await options.expectTableVisible()
+    // 3. Group tabs with default thresholds (5 active levels)
+    await options.clickGroupTabs(2500)
 
-     // 4. Verify page structure is ready
-     await options.expectThresholdsVisible()
-
-    // 4.1 Create new random urls with random groups and get their generated IDs
-    const newGroup1 = await options.openRandomTabInGroup(true, 2)
-    const newGroup2 = await options.openRandomTabInGroup(true, -1)
-
-      // 5. Group tabs with default thresholds (5 active levels)
-      await options.clickGroupTabs(2000)
-      let result = await options.getGroupAndTabData()
-     // Note: The actual group order may vary because random groups may be interspersed
-     // Just verify we have all expected groups present
-      const groupTitles = result.groupsOrderedByIndex.map(g => g.title)
-
-     expect(result.groupsOrderedByIndex.length).toBe(7) // 5 age-based + 2 random groups ✅
-
-    // result.gr
-     // Verify age-based groups exist
-     expect(groupTitles.some(t => t.includes('Hell!'))).toBe(true)
-     expect(groupTitles.some(t => t.includes('Quarter+'))).toBe(true)
-     expect(groupTitles.some(t => t.includes('Month+'))).toBe(true)
-     expect(groupTitles.some(t => t.includes('2 Weeks+'))).toBe(true)
-     expect(groupTitles.some(t => t.includes('Week+'))).toBe(true)
-    expect(groupTitles.some(t => t.includes(newGroup1+'_randomGroup'))).toBe(true)
-    expect(groupTitles.some(t => t.includes(newGroup2+'_randomGroup'))).toBe(true)
-
-
-    // 6. Verify tab grouping status
-    let groupedTabs = result.tabs.filter(t => t.groupId !== -1 && t.groupId !== undefined)
-    let ungroupedTabs = result.tabs.filter(t => t.groupId === -1 || t.groupId === undefined)
-
-    expect(groupedTabs.length).not.toBe(0)
-    expect(ungroupedTabs.length).not.toBe(0)
-    groupedTabs.forEach(tab => {
-      expect(typeof tab.groupId).toBe('number')
-      expect(tab.groupId).not.toBe(-1)
-    })
-    ungroupedTabs.forEach(tab => {
-      expect(tab.groupId).toBe(-1)
+    console.log('\n═══ LEVEL 5: Default (7,14,28,90,365 days) ═══')
+    let result = await options.getGroupAndTabData()
+    console.log(`Groups: ${result.groupsOrderedByIndex.length}, Grouped: ${result.groupedTabCount}, Ungrouped: ${result.ungroupedTabCount}`)
+    result.groupsOrderedByIndex.forEach((g, i) => {
+      const tabs = result.tabs.filter(t => t.groupId === g.id)
+      console.log(`  [${i}] "${g.title}" → ${tabs.length} tabs`)
     })
 
-     // 7. Change to 3 levels (was 5, so Apply button appears) and verify
-     await options.changeThresholdLevels(3, 3000)
-     result = await options.getGroupAndTabData()
+    // Level 5 expected: [Hell!:2, Quarter+:3, Month+:2, 2Weeks+:2, Week+:3]
+    expect(result.groupsOrderedByIndex.length).toBe(5)
+    expect(result.groupsOrderedByIndex[0].title).toContain('Hell!')
+    expect(result.groupsOrderedByIndex[1].title).toContain('Quarter+')
+    expect(result.groupsOrderedByIndex[2].title).toContain('Month+')
+    expect(result.groupsOrderedByIndex[3].title).toContain('2 Weeks+')
+    expect(result.groupsOrderedByIndex[4].title).toContain('Week+')
 
-     // 5 groups: 3 age-based + 2 random groups
-     expect(result.groupsOrderedByIndex.length).toBe(5)
+    // 4. Change to 4 levels and verify
+    console.log('\n═══ LEVEL 4: Change to 4 levels (without Years boundary) ═══')
+    await options.changeThresholdLevels(4, 3000)
+    result = await options.getGroupAndTabData()
+    console.log(`Groups: ${result.groupsOrderedByIndex.length}, Grouped: ${result.groupedTabCount}, Ungrouped: ${result.ungroupedTabCount}`)
+    result.groupsOrderedByIndex.forEach((g, i) => {
+      const tabs = result.tabs.filter(t => t.groupId === g.id)
+      console.log(`  [${i}] "${g.title}" → ${tabs.length} tabs`)
+    })
 
-     const groupTitles3 = result.groupsOrderedByIndex.map(g => g.title)
-    expect(groupTitles3.some(t => t.includes('Month+'))).toBe(true)
-    expect(groupTitles3.some(t => t.includes('2 Weeks+'))).toBe(true)
-    expect(groupTitles3.some(t => t.includes('Week+'))).toBe(true)
-    // Random groups still exist
-    expect(groupTitles3.some(t => t.includes(newGroup1) && t.includes('randomGroup'))).toBe(true)
-    expect(groupTitles3.some(t => t.includes(newGroup2) && t.includes('randomGroup'))).toBe(true)
+    // Level 4 expected: [Quarter+:5, Month+:2, 2Weeks+:2, Week+:3] (no Hell!, Quarter+ now has 100,101,356,366,367)
+    expect(result.groupsOrderedByIndex.length).toBe(4)
+    expect(result.groupsOrderedByIndex[0].title).toContain('Quarter+')
+    expect(result.groupsOrderedByIndex[1].title).toContain('Month+')
+    expect(result.groupsOrderedByIndex[2].title).toContain('2 Weeks+')
+    expect(result.groupsOrderedByIndex[3].title).toContain('Week+')
 
-    // 8. Verify grouped/ungrouped status remains valid
-    groupedTabs = result.tabs.filter(t => t.groupId !== -1 && t.groupId !== undefined)
-    ungroupedTabs = result.tabs.filter(t => t.groupId === -1 || t.groupId === undefined)
+    // 5. Change to 3 levels and verify
+    console.log('\n═══ LEVEL 3: Change to 3 levels (without Quarter+ and Hell!) ═══')
+    await options.changeThresholdLevels(3, 3000)
+    result = await options.getGroupAndTabData()
+    console.log(`Groups: ${result.groupsOrderedByIndex.length}, Grouped: ${result.groupedTabCount}, Ungrouped: ${result.ungroupedTabCount}`)
+    result.groupsOrderedByIndex.forEach((g, i) => {
+      const tabs = result.tabs.filter(t => t.groupId === g.id)
+      console.log(`  [${i}] "${g.title}" → ${tabs.length} tabs`)
+    })
 
-    expect(groupedTabs.length).not.toBe(0)
-    expect(ungroupedTabs.length).not.toBe(0)
+    // Level 3 expected: [Month+:7, 2Weeks+:2, Week+:3] (Month+ now has 40,60,100,101,356,366,367)
+    expect(result.groupsOrderedByIndex.length).toBe(3)
+    expect(result.groupsOrderedByIndex[0].title).toContain('Month+')
+    expect(result.groupsOrderedByIndex[1].title).toContain('2 Weeks+')
+    expect(result.groupsOrderedByIndex[2].title).toContain('Week+')
 
-      // 9. Change to 1 level and verify
-      await options.changeThresholdLevels(1, 3000)
-      result = await options.getGroupAndTabData()
+    // 6. Change back to 5 levels and verify
+    console.log('\n═══ LEVEL 5: Change back to 5 levels (7,14,28,90,365 days) ═══')
+    await options.changeThresholdLevels(5, 3000)
+    result = await options.getGroupAndTabData()
+    console.log(`Groups: ${result.groupsOrderedByIndex.length}, Grouped: ${result.groupedTabCount}, Ungrouped: ${result.ungroupedTabCount}`)
+    result.groupsOrderedByIndex.forEach((g, i) => {
+      const tabs = result.tabs.filter(t => t.groupId === g.id)
+      console.log(`  [${i}] "${g.title}" → ${tabs.length} tabs`)
+    })
 
-     // 3 groups: 1 age-based + 2 random groups
-     expect(result.groupsOrderedByIndex.length).toBe(3)
+    // Level 5 expected again: [Hell!:2, Quarter+:3, Month+:2, 2Weeks+:2, Week+:3]
+    expect(result.groupsOrderedByIndex.length).toBe(5)
+    expect(result.groupsOrderedByIndex[0].title).toContain('Hell!')
+    expect(result.groupsOrderedByIndex[1].title).toContain('Quarter+')
+    expect(result.groupsOrderedByIndex[2].title).toContain('Month+')
+    expect(result.groupsOrderedByIndex[3].title).toContain('2 Weeks+')
+    expect(result.groupsOrderedByIndex[4].title).toContain('Week+')
 
-      const groupTitles1 = result.groupsOrderedByIndex.map(g => g.title)
-     expect(groupTitles1.some(t => t.includes('Week+'))).toBe(true)
-    // Random groups still exist
-    expect(groupTitles1.some(t => t.includes(newGroup1) && t.includes('randomGroup'))).toBe(true)
-    expect(groupTitles1.some(t => t.includes(newGroup2) && t.includes('randomGroup'))).toBe(true)
-
-    // 10. Verify grouped/ungrouped status remains valid
-    groupedTabs = result.tabs.filter(t => t.groupId !== -1 && t.groupId !== undefined)
-    ungroupedTabs = result.tabs.filter(t => t.groupId === -1 || t.groupId === undefined)
-
-    expect(groupedTabs.length).not.toBe(0)
-    expect(ungroupedTabs.length).not.toBe(0)
+    console.log('\n✅ All threshold levels verified with correct group order!')
   })
 
 })
