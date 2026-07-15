@@ -111,6 +111,40 @@ const bg = createProxyService<BackgroundRPC>('background')  // ✅ Use immediate
 const tabs = await bg.getTabs()  // Then call async methods on it
 ```
 
+### Pattern 6: ⚠️ CRITICAL - Tab Group Ordering (CEMENTED IN STONE)
+
+**Groups are ordered OLDEST→YOUNGEST from LEFT→RIGHT by tab index (group.index)**
+
+```
+Order: [Hell!] → [Quarter+] → [Month+] → [2 Weeks+] → [Week+]
+Index: [0]     →   [1]     →   [2]   →    [3]      →  [4]
+Age:   365+    →  90-365   → 28-90  →  14-28 days → 7-14 days
+```
+
+**CRITICAL in ALL Playwright tests**:
+```typescript
+// ✅ CORRECT - groups ordered oldest to youngest
+const expectedOrder = ["Hell!", "Quarter+", "Month+", "2 Weeks+", "Week+"]
+expect(tabsBefore[0].title).toContain("Hell!")       // Leftmost (oldest)
+expect(tabsBefore[1].title).toContain("Quarter+")
+expect(tabsBefore[2].title).toContain("Month+")
+expect(tabsBefore[3].title).toContain("2 Weeks+")
+expect(tabsBefore[4].title).toContain("Week+")       // Rightmost (youngest)
+
+// ❌ WRONG - reversed order causes pipeline failures
+expect(tabsBefore[0].title).toContain("Week+")       // WRONG!
+expect(tabsBefore[4].title).toContain("Hell!")       // WRONG!
+```
+
+**Why**: `getAllGroups()` returns groups sorted by `group.index` (browser visual position left→right). Since groups are created with Hell! first (oldest), it gets the lowest index and appears first in the array.
+
+**Affected test files**:
+- `test/playwright/24h-alarm-age-grouping.spec.ts`
+- `test/playwright/thresholds-change.spec.ts`
+- `test/playwright/chromium/ThresholdDayLevelChange.spec.ts`
+
+**If tests fail**: Check group order assertions. ALL groups must follow oldest→youngest sequence. NO EXCEPTIONS.
+
 ---
 
 ## Why Groups Must Be Sorted

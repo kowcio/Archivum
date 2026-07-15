@@ -44,13 +44,13 @@ test.describe('Threshold Change: Store → Options Auto-Update', () => {
       console.log(`  [${i}] "${g.title}" → ${tabs.length} tabs`)
     })
 
-    // Level 5 expected: [Week+:3, 2Weeks+:2, Month+:2, Quarter+:3, Hell!:2] (ordered youngest→oldest left→right)
+    // Level 5 expected: [Hell!:3, Quarter+:3, Month+:2, 2Weeks+:2, Week+:3] (ordered oldest→youngest left→right)
     expect(result.groupsOrderedByIndex.length).toBe(5)
-    expect(result.groupsOrderedByIndex[0].title).toContain('Week+')
-    expect(result.groupsOrderedByIndex[1].title).toContain('2 Weeks+')
+    expect(result.groupsOrderedByIndex[0].title).toContain('Hell!')
+    expect(result.groupsOrderedByIndex[1].title).toContain('Quarter+')
     expect(result.groupsOrderedByIndex[2].title).toContain('Month+')
-    expect(result.groupsOrderedByIndex[3].title).toContain('Quarter+')
-    expect(result.groupsOrderedByIndex[4].title).toContain('Hell!')
+    expect(result.groupsOrderedByIndex[3].title).toContain('2 Weeks+')
+    expect(result.groupsOrderedByIndex[4].title).toContain('Week+')
 
     // 4. Change to 4 levels and verify
     console.log('\n═══ LEVEL 4: Change to 4 levels (without Years boundary) ═══')
@@ -62,12 +62,12 @@ test.describe('Threshold Change: Store → Options Auto-Update', () => {
       console.log(`  [${i}] "${g.title}" → ${tabs.length} tabs`)
     })
 
-    // Level 4 expected: [Week+:3, 2Weeks+:2, Month+:2, Quarter+:5] (no Hell!, ordered youngest→oldest)
+    // Level 4 expected: [Quarter+:3, Month+:2, 2Weeks+:2, Week+:3] (no Hell!, ordered oldest→youngest)
     expect(result.groupsOrderedByIndex.length).toBe(4)
-    expect(result.groupsOrderedByIndex[0].title).toContain('Week+')
-    expect(result.groupsOrderedByIndex[1].title).toContain('2 Weeks+')
-    expect(result.groupsOrderedByIndex[2].title).toContain('Month+')
-    expect(result.groupsOrderedByIndex[3].title).toContain('Quarter+')
+    expect(result.groupsOrderedByIndex[0].title).toContain('Quarter+')
+    expect(result.groupsOrderedByIndex[1].title).toContain('Month+')
+    expect(result.groupsOrderedByIndex[2].title).toContain('2 Weeks+')
+    expect(result.groupsOrderedByIndex[3].title).toContain('Week+')
 
     // 5. Change to 3 levels and verify
     console.log('\n═══ LEVEL 3: Change to 3 levels (without Quarter+ and Hell!) ═══')
@@ -79,11 +79,11 @@ test.describe('Threshold Change: Store → Options Auto-Update', () => {
       console.log(`  [${i}] "${g.title}" → ${tabs.length} tabs`)
     })
 
-    // Level 3 expected: [Week+:3, 2Weeks+:2, Month+:7] (no Quarter+, Hell!, ordered youngest→oldest)
+    // Level 3 expected: [Month+:7, 2Weeks+:2, Week+:3] (no Quarter+, Hell!, ordered oldest→youngest)
     expect(result.groupsOrderedByIndex.length).toBe(3)
-    expect(result.groupsOrderedByIndex[0].title).toContain('Week+')
+    expect(result.groupsOrderedByIndex[0].title).toContain('Month+')
     expect(result.groupsOrderedByIndex[1].title).toContain('2 Weeks+')
-    expect(result.groupsOrderedByIndex[2].title).toContain('Month+')
+    expect(result.groupsOrderedByIndex[2].title).toContain('Week+')
 
     // 6. Change back to 5 levels and verify
     console.log('\n═══ LEVEL 5: Change back to 5 levels (7,14,28,90,365 days) ═══')
@@ -95,13 +95,13 @@ test.describe('Threshold Change: Store → Options Auto-Update', () => {
       console.log(`  [${i}] "${g.title}" → ${tabs.length} tabs`)
     })
 
-    // Level 5 expected again: [Week+:3, 2Weeks+:2, Month+:2, Quarter+:3, Hell!:2] (ordered youngest→oldest)
+    // Level 5 expected again: [Hell!:3, Quarter+:3, Month+:2, 2Weeks+:2, Week+:3] (ordered oldest→youngest)
     expect(result.groupsOrderedByIndex.length).toBe(5)
-    expect(result.groupsOrderedByIndex[0].title).toContain('Week+')
-    expect(result.groupsOrderedByIndex[1].title).toContain('2 Weeks+')
+    expect(result.groupsOrderedByIndex[0].title).toContain('Hell!')
+    expect(result.groupsOrderedByIndex[1].title).toContain('Quarter+')
     expect(result.groupsOrderedByIndex[2].title).toContain('Month+')
-    expect(result.groupsOrderedByIndex[3].title).toContain('Quarter+')
-    expect(result.groupsOrderedByIndex[4].title).toContain('Hell!')
+    expect(result.groupsOrderedByIndex[3].title).toContain('2 Weeks+')
+    expect(result.groupsOrderedByIndex[4].title).toContain('Week+')
 
     console.log('\n✅ All threshold levels verified with correct group order!')
   })

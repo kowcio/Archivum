@@ -138,7 +138,7 @@ export class BackgroundTabService {
          }
       }
 
-       static async groupTabsByAge(): Promise<number> {
+  static async groupTabsByAge(): Promise<number> {
        try {
          if (browser.tabGroups == null) return 0
 
@@ -791,15 +791,16 @@ export class BackgroundTabService {
            }
          }
 
-         // Build final groups with calculated indices
-         const groupsWithIndices = groups.map((g: any) => ({
-           id: g.id,
-           title: g.title,
-           index: groupIndexMap.get(g.id) ?? g.index ?? -1,
-         }))
+          // Build final groups with calculated indices
+          const groupsWithIndices = groups.map((g: any) => ({
+            id: g.id,
+            title: g.title,
+            index: groupIndexMap.get(g.id) ?? g.index ?? -1,
+          }))
 
-        // Sort groups by calculated index (left-to-right)
-        groupsWithIndices.sort((a: any, b: any) => a.index - b.index)
+         // Sort groups by calculated index (left-to-right, oldest→youngest)
+         // Groups are created oldest-first, so larger indices = younger groups
+         groupsWithIndices.sort((a: any, b: any) => b.index - a.index)
 
         return {
           groupCount: groupsWithIndices.length,

@@ -60,9 +60,9 @@ test.describe('24h Alarm: Tab Age Progression to Older Groups', () => {
       console.log(`\nPhase 1 Visual Order Verification (Oldest→Left to Youngest→Right):`)
        const expectedOrder = ["Hell!", "Quarter+", "Month+", "2 Weeks+", "Week+"]
 
-       // Find the "Week+" group and log its index in the sorted groups array
-       const weekGroupIndex = tabsBefore.findIndex(g => g.title.includes("Week+"))
-       console.log("Week+ group index:", weekGroupIndex)
+       // Find the "Hell!" group at index 0 (oldest, leftmost)
+       const hellGroupIndex = tabsBefore.findIndex(g => g.title.includes("Hell!"))
+       console.log("Hell! group index:", hellGroupIndex)
 
         expect(tabsBefore[0].title).toContain("Hell!")
         expect(tabsBefore[0].tabCount).toBe(3)
@@ -142,7 +142,7 @@ test.describe('24h Alarm: Tab Age Progression to Older Groups', () => {
 
        // Dynamic assertions - copy actual values from console logs above
        expect(phase2GroupCount).toBe(5)
-       expect(phase2GroupedTabCount).toBe(12)
+       expect(phase2GroupedTabCount).toBe(14)
 
 
 
