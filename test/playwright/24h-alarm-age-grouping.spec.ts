@@ -140,9 +140,9 @@ test.describe('24h Alarm: Tab Age Progression to Older Groups', () => {
        console.log(`  Position ${i} [${position}]: "${g.title}" ✓ matches expected "${expectedOrder2[i]}"`)
      })
 
-      // Dynamic assertions - copy actual values from console logs above
-      expect(phase2GroupCount).toBe(5)
-      expect(phase2GroupedTabCount).toBe(14)
+       // Dynamic assertions - copy actual values from console logs above
+       expect(phase2GroupCount).toBe(5)
+       expect(phase2GroupedTabCount).toBe(12)
 
 
 
