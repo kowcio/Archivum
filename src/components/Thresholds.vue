@@ -104,7 +104,7 @@
 import { computed, ref, onMounted, watch } from 'vue';
 import { createProxyService } from '@webext-core/proxy-service';
 import { useAppStore } from '@/store/appStore.ts';
-import { AppThresholds } from '@/models/AppThresholds';
+import { AppThresholds, DEFAULT_THRESHOLDS } from '@/models/AppThresholds';
 import { APP_DEFAULTS, isDevEnv } from '@/constants';
 import type { BackgroundRPC } from '@/services/BackgroundRPC';
 import AutoCloseToggle from '@/components/AutoCloseToggle.vue';
@@ -119,10 +119,10 @@ const maxLevels = computed(() => APP_DEFAULTS.THRESHOLDS.presets.length);
 const isThresholdEditingDisabled = computed<boolean>(() => appStore.loading.value || !isDevEnv);
 
 // Local state to track unsaved changes
-// Initialize after store is loaded to avoid false change detection
-const localThresholds = ref<AppThresholds>(
-  AppThresholds.fromObject(appStore.thresholds.value.toJSON())
-);
+// ⚠️ CRITICAL: Must wait for appStore to load before initializing!
+// If we initialize here, appStore.thresholds is still DEFAULT (not loaded from storage yet)
+// appStore.load() runs in onMounted, so we delay initialization until store is ready
+const localThresholds = ref<AppThresholds>(DEFAULT_THRESHOLDS);
 
 const activeThresholds = computed(() => localThresholds.value.active());
 
@@ -205,15 +205,29 @@ async function handleReset(): Promise<void> {
 }
 
 // Sync localThresholds when store changes (from another context)
+// ⚠️ CRITICAL FIX: Initialize localThresholds AFTER store is loaded, not before!
 onMounted(() => {
+  // 1️⃣ Wait for store to load from storage
+  watch(
+    () => appStore.loading.value,
+    (isLoading) => {
+      if (!isLoading) {
+        // ✅ Store is now loaded → initialize localThresholds with real values
+        localThresholds.value = AppThresholds.fromObject(appStore.thresholds.value.toJSON())
+      }
+    },
+    { immediate: true } // Check immediately in case store is already loaded
+  )
+
+  // 2️⃣ Then watch for external changes (from other tabs/windows)
   watch(
     () => appStore.thresholds.value.toJSON(),
     () => {
       if (!appStore.loading.value && !hasChanges.value) {
-        localThresholds.value = AppThresholds.fromObject(appStore.thresholds.value.toJSON());
+        localThresholds.value = AppThresholds.fromObject(appStore.thresholds.value.toJSON())
       }
     }
-  );
+  )
 });
 </script>
 
