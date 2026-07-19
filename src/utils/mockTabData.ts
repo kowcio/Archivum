@@ -72,12 +72,12 @@ export const MOCK_TABS = [
     favIconUrl: '',
     daysAgo: 101,
   },
-  {
-    url: 'https://stackoverflow.com/questions/ask',
-    title: 'Ask a Question - Stack Overflow',
-    favIconUrl: '',
-    daysAgo: 356,
-  },
+   {
+     url: 'https://stackoverflow.com/questions/ask',
+     title: 'Ask a Question - Stack Overflow',
+     favIconUrl: '',
+     daysAgo: 366,
+   },
   {
     url: 'https://www.docker.com/',
     title: 'Docker: Accelerated Container Application Development',
@@ -90,12 +90,12 @@ export const MOCK_TABS = [
     favIconUrl: '',
     daysAgo: 367,
   },
-  {
-    url: 'https://vercel.com/',
-    title: 'Develop Preview Ship | Vercel',
-    favIconUrl: '',
-    daysAgo: 100,
-  },
+   {
+     url: 'https://vercel.com/',
+     title: 'Develop Preview Ship | Vercel',
+     favIconUrl: '',
+     daysAgo: 367,
+   },
   {
     url: 'https://aws.amazon.com/console/',
     title: 'AWS Management Console',

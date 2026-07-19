@@ -138,13 +138,17 @@ export class BackgroundTabService {
          }
       }
 
-  static async groupTabsByAge(): Promise<number> {
-       try {
-         if (browser.tabGroups == null) return 0
+   static async groupTabsByAge(): Promise<number> {
+        try {
+          if (browser.tabGroups == null) return 0
 
-        const rawTabs = await this.getTabs()
-        const thresholds = await this.getThresholds()
-        const currentTime = await getCurrentTime()
+         // 🧹 First, ungroup all existing plugin-created groups
+         // This ensures clean slate when thresholds change or re-grouping happens
+         await this.ungroupAllTabs()
+
+         const rawTabs = await this.getTabs()
+         const thresholds = await this.getThresholds()
+         const currentTime = await getCurrentTime()
 
         const rows = TabRow.fromTabs(rawTabs, thresholds, currentTime)
         const activeLevels = thresholds.active()
@@ -173,9 +177,16 @@ export class BackgroundTabService {
           ids.sort((a, b) => (ageMap.get(b) ?? 0) - (ageMap.get(a) ?? 0))
         }
 
-        // Build ordered array: oldest level first, fresh last
+        // Build ordered array by reversing the level-to-tabs mapping
+        // levelTabIds is ordered [Week+, 2Weeks+, Month+, Quarter+, Years]
+        // We need [Years, Quarter+, Month+, 2Weeks+, Week+]
+        const reversedTabIds: number[] = []
+        for (let i = levelTabIds.length - 1; i >= 0; i--) {
+          reversedTabIds.push(...levelTabIds[i])
+        }
+
         const orderedTabIds = [
-          ...levelTabIds.reverse().flat(),
+          ...reversedTabIds,
           ...freshTabIds
         ]
 
@@ -188,7 +199,7 @@ export class BackgroundTabService {
           }
         }
 
-        // Create groups from oldest→youngest
+        // Create groups from oldest→youngest by iterating activeLevels backwards
         let groupsCreated = 0
         for (let i = activeLevels.length - 1; i >= 0; i--) {
           const tabIds = levelTabIds[i]
@@ -779,28 +790,35 @@ export class BackgroundTabService {
           }
         }
 
-         // Calculate group index from first tab's index in each group
-         const groupIndexMap = new Map<number, number>()
-         for (const group of groups) {
-           // ✅ Safety check: group must have id
-           if (group.id == null) continue
-           const groupTabs = allTabs.filter((t: any) => t.groupId === group.id)
-           if (groupTabs.length > 0) {
-             const firstTabIndex = groupTabs[0].index
-             groupIndexMap.set(group.id, firstTabIndex)
-           }
-         }
+          // Calculate group index: use group.index if available, else use first tab's index
+          const groupIndexMap = new Map<number, number>()
+          for (const group of groups) {
+            // ✅ Safety check: group must have id
+            if (group.id == null) continue
 
-          // Build final groups with calculated indices
-          const groupsWithIndices = groups.map((g: any) => ({
-            id: g.id,
-            title: g.title,
-            index: groupIndexMap.get(g.id) ?? g.index ?? -1,
-          }))
+            // ✅ Prefer group.index from API, fallback to first tab's index if undefined
+            if (group.index != null) {
+              groupIndexMap.set(group.id, group.index)
+            } else {
+              const groupTabs = allTabs.filter((t: any) => t.groupId === group.id)
+              if (groupTabs.length > 0) {
+                groupIndexMap.set(group.id, groupTabs[0].index ?? -1)
+              } else {
+                groupIndexMap.set(group.id, -1)
+              }
+            }
+          }
+
+           // Build final groups with calculated indices
+           const groupsWithIndices = groups.map((g: any) => ({
+             id: g.id,
+             title: g.title,
+             index: groupIndexMap.get(g.id) ?? g.index ?? -1,
+           }))
 
          // Sort groups by calculated index (left-to-right, oldest→youngest)
-         // Groups are created oldest-first, so larger indices = younger groups
-         groupsWithIndices.sort((a: any, b: any) => b.index - a.index)
+         // Lower index = leftmost = oldest, higher index = rightmost = youngest
+         groupsWithIndices.sort((a: any, b: any) => (a.index ?? -1) - (b.index ?? -1))
 
         return {
           groupCount: groupsWithIndices.length,

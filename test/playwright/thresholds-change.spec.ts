@@ -44,7 +44,7 @@ test.describe('Threshold Change: Store → Options Auto-Update', () => {
       console.log(`  [${i}] "${g.title}" → ${tabs.length} tabs`)
     })
 
-    // Level 5 expected: [Hell!:3, Quarter+:3, Month+:2, 2Weeks+:2, Week+:3] (ordered oldest→youngest left→right)
+    // Level 5 expected: [Hell!:3, Quarter+:2, Month+:2, 2Weeks+:3, Week+:2] (ordered oldest→youngest left→right)
     expect(result.groupsOrderedByIndex.length).toBe(5)
     expect(result.groupsOrderedByIndex[0].title).toContain('Hell!')
     expect(result.groupsOrderedByIndex[1].title).toContain('Quarter+')

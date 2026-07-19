@@ -87,19 +87,19 @@ test.describe('TestAlarmButton: +4h Warp & Grouping', () => {
        expect(groupsBefore[4].title).toContain(ThresholdLabel.WEEK)
        console.log(`   ✓ groups[4]: "${groupsBefore[4].title}" contains "${ThresholdLabel.WEEK}"`)
 
-      console.log('\n   Verifying tab counts BEFORE warp...')
-      console.log(`   groups[0].tabCount: ${groupsBefore[0].tabCount}`)
-      console.log(`   groups[1].tabCount: ${groupsBefore[1].tabCount}`)
-      console.log(`   groups[2].tabCount: ${groupsBefore[2].tabCount}`)
-      console.log(`   groups[3].tabCount: ${groupsBefore[3].tabCount}`)
-      console.log(`   groups[4].tabCount: ${groupsBefore[4].tabCount}`)
+       console.log('\n   Verifying tab counts BEFORE warp...')
+       console.log(`   groups[0].tabCount: ${groupsBefore[0].tabCount}`)
+       console.log(`   groups[1].tabCount: ${groupsBefore[1].tabCount}`)
+       console.log(`   groups[2].tabCount: ${groupsBefore[2].tabCount}`)
+       console.log(`   groups[3].tabCount: ${groupsBefore[3].tabCount}`)
+       console.log(`   groups[4].tabCount: ${groupsBefore[4].tabCount}`)
 
-        // Add assertions for before warp
-        expect(groupsBefore[0].tabCount).toBe(3)
-        expect(groupsBefore[1].tabCount).toBe(2)
-        expect(groupsBefore[2].tabCount).toBe(2)
-        expect(groupsBefore[3].tabCount).toBe(3)
-        expect(groupsBefore[4].tabCount).toBe(2)
+         // Add assertions for before warp
+         expect(groupsBefore[0].tabCount).toBe(3)
+         expect(groupsBefore[1].tabCount).toBe(2)
+         expect(groupsBefore[2].tabCount).toBe(2)
+         expect(groupsBefore[3].tabCount).toBe(2)
+         expect(groupsBefore[4].tabCount).toBe(3)
       console.log(`   Total grouped before: ${groupsBefore.reduce((a, b) => a + b.tabCount, 0)}`)
     }
 
@@ -231,19 +231,29 @@ test.describe('TestAlarmButton: +4h Warp & Grouping', () => {
     const tabCountsChanged = groupsBefore.some((g, i) => g.tabCount !== groupsAfter[i]?.tabCount)
     console.log(`\n   ✓ Tab distribution changed after time warp: ${tabCountsChanged}`)
 
-     // Step 8: Verify group titles AFTER warp (only 3 groups remain after time warp)
+     // Step 8: Verify group titles AFTER warp (5 groups remain, groups ordered oldest→youngest left→right)
      console.log('\nStep 8: Verifying group titles AFTER warp...')
-     expect(groupsAfter[0].title).toContain(ThresholdLabel.MONTH)
-     console.log(`   ✓ groups[0]: "${groupsAfter[0].title}" contains "${ThresholdLabel.MONTH}"`)
+     expect(groupsAfter[0].title).toContain(ThresholdLabel.YEARS)
+     console.log(`   ✓ groups[0]: "${groupsAfter[0].title}" contains "${ThresholdLabel.YEARS}"`)
 
      if (groupsAfter.length > 1) {
-       expect(groupsAfter[1].title).toContain(ThresholdLabel.WEEKS_2)
-       console.log(`   ✓ groups[1]: "${groupsAfter[1].title}" contains "${ThresholdLabel.WEEKS_2}"`)
+       expect(groupsAfter[1].title).toContain(ThresholdLabel.QUARTERS)
+       console.log(`   ✓ groups[1]: "${groupsAfter[1].title}" contains "${ThresholdLabel.QUARTERS}"`)
      }
 
      if (groupsAfter.length > 2) {
-       expect(groupsAfter[2].title).toContain(ThresholdLabel.WEEK)
-       console.log(`   ✓ groups[2]: "${groupsAfter[2].title}" contains "${ThresholdLabel.WEEK}"`)
+       expect(groupsAfter[2].title).toContain(ThresholdLabel.MONTH)
+       console.log(`   ✓ groups[2]: "${groupsAfter[2].title}" contains "${ThresholdLabel.MONTH}"`)
+     }
+
+     if (groupsAfter.length > 3) {
+       expect(groupsAfter[3].title).toContain(ThresholdLabel.WEEKS_2)
+       console.log(`   ✓ groups[3]: "${groupsAfter[3].title}" contains "${ThresholdLabel.WEEKS_2}"`)
+     }
+
+     if (groupsAfter.length > 4) {
+       expect(groupsAfter[4].title).toContain(ThresholdLabel.WEEK)
+       console.log(`   ✓ groups[4]: "${groupsAfter[4].title}" contains "${ThresholdLabel.WEEK}"`)
      }
 
 
