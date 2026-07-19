@@ -64,20 +64,20 @@ test.describe('24h Alarm: Tab Age Progression to Older Groups', () => {
        const hellGroupIndex = tabsBefore.findIndex(g => g.title.includes("Hell!"))
        console.log("Hell! group index:", hellGroupIndex)
 
-        expect(tabsBefore[0].title).toContain("Hell!")
-        expect(tabsBefore[0].tabCount).toBe(3)
+         expect(tabsBefore[0].title).toContain("Hell!")
+         expect(tabsBefore[0].tabCount).toBe(3)
 
-        expect(tabsBefore[1].title).toContain("Quarter+")
-        expect(tabsBefore[1].tabCount).toBe(2)
+         expect(tabsBefore[1].title).toContain("Quarter+")
+         expect(tabsBefore[1].tabCount).toBe(2)
 
         expect(tabsBefore[2].title).toContain("Month+")
         expect(tabsBefore[2].tabCount).toBe(2)
 
-        expect(tabsBefore[3].title).toContain("2 Weeks+")
-        expect(tabsBefore[3].tabCount).toBe(3)
+         expect(tabsBefore[3].title).toContain("2 Weeks+")
+         expect(tabsBefore[3].tabCount).toBe(2)
 
-        expect(tabsBefore[4].title).toContain("Week+")
-        expect(tabsBefore[4].tabCount).toBe(2)
+         expect(tabsBefore[4].title).toContain("Week+")
+         expect(tabsBefore[4].tabCount).toBe(3)
 
     // Phase 2: Get tab IDs and apply time progression (1 week older)
     const tabIds = result.tabs

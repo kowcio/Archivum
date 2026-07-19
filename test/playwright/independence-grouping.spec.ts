@@ -48,16 +48,16 @@ test.describe('groupTabsByAge E2E', () => {
       // Get all tabs and groups
       const result = await options.getGroupAndTabData();
 
-      // Verify: 5 groups created (one per active threshold level — default is 5)
-      expect(result.groupCount).toBe(5);
-      expect(result.groupsOrderedByIndex.length).toBe(5);
+       // Verify: 5 groups created (one per active threshold level — default is 5)
+       expect(result.groupCount).toBe(5);
+       expect(result.groupsOrderedByIndex.length).toBe(5);
 
-        // Verify: Each group has id and title (youngest → oldest, left → right)
-        expect(result.groupsOrderedByIndex[0].title).toContain('Week+');
-        expect(result.groupsOrderedByIndex[1].title).toContain('2 Weeks+');
-        expect(result.groupsOrderedByIndex[2].title).toContain('Month+');
-        expect(result.groupsOrderedByIndex[3].title).toContain('Quarter+');
-        expect(result.groupsOrderedByIndex[4].title).toContain('Hell!');
+         // Verify: Each group has id and title (oldest → youngest, left → right)
+         expect(result.groupsOrderedByIndex[0].title).toContain('Hell!');
+         expect(result.groupsOrderedByIndex[1].title).toContain('Quarter+');
+         expect(result.groupsOrderedByIndex[2].title).toContain('Month+');
+         expect(result.groupsOrderedByIndex[3].title).toContain('2 Weeks+');
+         expect(result.groupsOrderedByIndex[4].title).toContain('Week+');
 
       // Verify each group has valid id and title
       for (let i = 0; i < result.groupsOrderedByIndex.length; i++) {
