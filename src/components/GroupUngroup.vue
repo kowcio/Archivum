@@ -1,29 +1,51 @@
 <template>
-  <q-btn
-    :data-testid="isGrouped ? 'ungroup-tabs-btn' : 'group-tabs-btn'"
-    :label="buttonLabel"
-    :icon="isGrouped ? ungroupIcon : groupIcon"
-    :loading="isLoading"
-    :size="buttonSize"
-    :class="btnClasses"
-    :rounded="rounded"
-    :disabled="!isGrouped && !hasStaleTabsToGroup"
-    no-caps
-    @click="handleToggle"
-  >
-    <q-tooltip v-if="!isGrouped && !hasStaleTabsToGroup" class="bg-dark">
+  <div class="row items-center">
+    <q-btn
+      ref="buttonRef"
+      :data-testid="isGrouped ? 'ungroup-tabs-btn' : 'group-tabs-btn'"
+      :label="buttonLabel"
+      :icon="isGrouped ? ungroupIcon : groupIcon"
+      :loading="isLoading"
+      :size="buttonSize"
+      :class="btnClasses"
+      class="col-xs-12"
+      :rounded="rounded"
+      :disabled="!isGrouped && !hasStaleTabsToGroup"
+      no-caps
+      @click="handleToggle"
+    />
+    <q-tooltip
+      :target="buttonRef?.$el"
+      class="bg-dark"
+      v-if="!isGrouped && !hasStaleTabsToGroup"
+    >
       Nothing to archive, all tabs are less than {{ minThresholdDays }} days of age.
     </q-tooltip>
-  </q-btn>
+    <q-tooltip
+      :target="buttonRef?.$el"
+      class="bg-dark text-subtitle2"
+      v-else-if="hasStaleTabsToGroup"
+      v-html="
+        `Group all ungrouped tabs older than ${minThresholdDays} days into age-based groups.
+        <br/> Existing tabs will be left intact !`
+      "
+    />
+  </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
+import { createProxyService } from '@webext-core/proxy-service'
 import { browser } from 'wxt/browser'
-import { BACKGROUND_MESSAGE_ACTIONS } from '@/constants'
 import { useAppStore } from '@/store/appStore'
 import { TabRow } from '@/entrypoints/options/models/TabRow.ts'
 import { mockOverrides } from '@/store/appStore'
+import type { BackgroundRPC } from '@/services/BackgroundRPC'
+
+// ⚠️ DEVELOPERS: createProxyService() returns a type-safe proxy object immediately (not a promise)
+// It looks like local methods but actually calls background service worker via messaging
+// DO NOT call browser.runtime.sendMessage() directly - use this proxy instead ✅
+const background = createProxyService<BackgroundRPC>('background')
 
 type Props = {
   groupLabel?: string
@@ -49,6 +71,7 @@ const appStore = useAppStore()
 const isGrouped = ref(false)
 const isLoading = ref(false)
 const allTabs = ref<any[]>([])
+const buttonRef = ref<any>(null)
 
 const minThresholdDays = computed(() => {
   const levels = appStore.thresholds.value?.active()
@@ -130,10 +153,10 @@ async function refreshAllTabs(): Promise<void> {
  */
 async function checkGroupState(): Promise<void> {
   try {
-    const response = await browser.runtime.sendMessage({
-      action: BACKGROUND_MESSAGE_ACTIONS.HAS_PLUGIN_GROUPS
-    }) as any
-    isGrouped.value = response?.hasPluginGroups ?? false
+    // ⚠️ DEVELOPERS: No manual message handling - proxy service handles everything
+    // Type-safe: TypeScript knows return type is boolean ✅
+    const hasPluginGroups = await background.hasPluginGroups()
+    isGrouped.value = hasPluginGroups
   } catch (e) {
     console.error('[GroupUngroup] checkGroupState failed:', e)
     isGrouped.value = false
@@ -160,10 +183,13 @@ onMounted(async () => {
 async function handleToggle(): Promise<void> {
   isLoading.value = true
   try {
-    const action = isGrouped.value
-      ? BACKGROUND_MESSAGE_ACTIONS.UNGROUP_ALL_TABS
-      : BACKGROUND_MESSAGE_ACTIONS.GROUP_TABS_BY_AGE
-    await browser.runtime.sendMessage({ action })
+    // ⚠️ DEVELOPERS: Type-safe proxy calls - no manual action strings needed
+    // If method signature changes, TypeScript catches it at compile time ✅
+    if (isGrouped.value) {
+      await background.ungroupAllTabs()
+    } else {
+      await background.groupTabsByAge()
+    }
     await new Promise(r => setTimeout(r, 150))
     await refreshAllTabs()
     await checkGroupState()

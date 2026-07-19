@@ -3,12 +3,14 @@
 ## 🔨 Build Commands
 
 ### Development
+
 ```bash
 npm run dev                    # Dev mode (Chrome with HMR)
 npm run dev:firefox          # Dev mode (Firefox)
 ```
 
 ### Production Builds
+
 ```bash
 npm run build                # Build both Chrome + Firefox
 npm run build:test:chrome    # Build Chrome with test features
@@ -16,6 +18,7 @@ npm run build:test:firefox   # Build Firefox with test features
 ```
 
 ### Packaging (Distribution)
+
 ```bash
 npm run zip                  # Chrome only (.zip)
 npm run zip:firefox          # Firefox only (.zip)
@@ -25,6 +28,7 @@ npm run release              # FULL: type-check → build → zip:all
 ```
 
 ### Testing
+
 ```bash
 npm run test:unit                    # Unit tests (Vitest)
 npm run test:playwright:chromium     # E2E tests (Chrome)
@@ -56,12 +60,14 @@ After `npm run release`:
 ## 🏪 Store Submission URLs
 
 ### Chrome Web Store
+
 - **URL:** https://chrome.google.com/webstore/devconsole
 - **File:** `archivum-1.0.0-chrome-*.zip`
 - **Time to approve:** 1-3 hours typically
 - **Auto-updates:** ✅ Yes
 
 ### Firefox Add-ons
+
 - **URL:** https://addons.mozilla.org/developers
 - **File:** `archivum-1.0.0-firefox-*.zip`
 - **Note:** Include `SOURCE_CODE_REVIEW.md` or build instructions
@@ -69,6 +75,7 @@ After `npm run release`:
 - **Auto-updates:** ✅ Yes
 
 ### Edge Add-ons
+
 - **URL:** https://partner.microsoft.com/dashboard
 - **File:** `archivum-1.0.0-edge-*.zip`
 - **Time to approve:** 3-7 days
@@ -105,17 +112,20 @@ unzip -t .output/archivum-1.0.0-edge-*.zip
 ## 🌐 Distribution Options
 
 ### Option 1: Official Stores (Maximum Reach)
+
 ```bash
 npm run release              # Build packages
 # Upload to Chrome + Firefox + Edge (see URLs above)
 # Wait 1-3 hours (Chrome) or 3-7 days (Firefox/Edge)
 # Publish ✅
 ```
+
 **Timeline:** 1-7 days
 **Reach:** Millions of users
 **Auto-update:** ✅ Built-in
 
 ### Option 2: Your Blog (Direct Control)
+
 ```bash
 # Enable self-hosting in wxt.config.ts
 # Uncomment: update_url: 'https://yourblog.pl/extensions/archivum/update.json'
@@ -125,11 +135,13 @@ npm run release              # Rebuild with update_url
 # Create update.json (template in docs/)
 # Share download link on blog
 ```
+
 **Timeline:** Immediate
 **Reach:** Your audience
 **Auto-update:** ✅ Via update.json
 
 ### Option 3: GitHub (Developer Community)
+
 ```bash
 git tag v1.0.0
 git push origin v1.0.0
@@ -137,11 +149,13 @@ git push origin v1.0.0
 # Attach .zip files
 # Add changelog
 ```
+
 **Timeline:** 5 minutes
 **Reach:** Developers
 **Auto-update:** ❌ Manual
 
 ### Option 4: Hybrid (RECOMMENDED)
+
 Do all three! See `LAUNCH_READY.md` for detailed strategy.
 
 ---
@@ -149,12 +163,14 @@ Do all three! See `LAUNCH_READY.md` for detailed strategy.
 ## 🔄 Update Workflow
 
 ### Official Stores
+
 1. Update version in `wxt.config.ts` + `package.json`
 2. `npm run release`
 3. Upload new ZIP to store
 4. Users get update automatically
 
 ### Self-Hosted
+
 1. Update version in `wxt.config.ts` + `package.json`
 2. `npm run release`
 3. Upload new .zip to yourblog.pl/extensions/archivum/
@@ -162,6 +178,7 @@ Do all three! See `LAUNCH_READY.md` for detailed strategy.
 5. Users get update automatically
 
 ### Schedule
+
 - **Chrome Web Store:** Updates within 24 hours typically
 - **Firefox Add-ons:** Updates within 1-3 days
 - **Edge Add-ons:** Updates within 1-3 days
@@ -203,6 +220,7 @@ npm run release
 ## 💡 Pro Tips
 
 **Tip 1: Test Locally First**
+
 ```bash
 # Extract and test zip before submitting
 unzip -d /tmp/test-extension .output/archivum-1.0.0-chrome-*.zip
@@ -211,11 +229,13 @@ unzip -d /tmp/test-extension .output/archivum-1.0.0-chrome-*.zip
 
 **Tip 2: Version Consistency**
 Keep these in sync:
+
 - `wxt.config.ts` → `manifest.version`
 - `package.json` → `version`
 - Git tag → `v1.0.0`
 
 **Tip 3: Changelog Management**
+
 ```bash
 # Before release, create CHANGELOG.md or update RELEASE_NOTES.md
 # Include:
@@ -226,6 +246,7 @@ Keep these in sync:
 ```
 
 **Tip 4: Backup Before Changes**
+
 ```bash
 git tag v1.0.0-release-backup
 # Then make changes for next version
@@ -236,6 +257,7 @@ git tag v1.0.0-release-backup
 ## 🆘 Troubleshooting
 
 **Build fails?**
+
 ```bash
 npm run type-check  # Check TS errors
 npm run lint        # Check linting
@@ -243,12 +265,14 @@ npm run build       # Try full build
 ```
 
 **ZIP is corrupt?**
+
 ```bash
 unzip -t .output/*.zip  # Test each zip
 npm run release         # Rebuild
 ```
 
 **Package.json conflicts?**
+
 ```bash
 rm -rf node_modules package-lock.json
 npm install
@@ -256,6 +280,7 @@ npm run release
 ```
 
 **Tests failing before release?**
+
 ```bash
 npm run test:unit
 npm run test:playwright:chromium
@@ -293,4 +318,3 @@ npm run release          # Creates .zip files in .output/
 ```
 
 **Done!** Your extension is ready to launch. 🚀
-

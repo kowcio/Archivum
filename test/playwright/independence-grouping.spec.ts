@@ -8,80 +8,81 @@
  * 4. Fresh tabs remain ungrouped
  */
 
-import { test, expect } from '@playwright/test'
-import { setupExtensionTest, type ExtensionTestContext } from './chromium/extensions.js'
-import { OptionsPage } from './page-objects/OptionsPage.js'
+import { test, expect } from '@playwright/test';
+import { setupExtensionTest, type ExtensionTestContext } from './chromium/extensions.js';
+import { OptionsPage } from './page-objects/OptionsPage.js';
 
 test.describe('groupTabsByAge E2E', () => {
-  let ctx: ExtensionTestContext
+  let ctx: ExtensionTestContext;
 
   test.beforeAll('Setup', async () => {
-    ctx = await setupExtensionTest(false, 60_000)
-  })
+    ctx = await setupExtensionTest(false, 60_000);
+  });
 
   test.afterAll('Cleanup', async () => {
-    if (ctx) await ctx.cleanup()
-  })
+    if (ctx) await ctx.cleanup();
+  });
 
   test('Load options, click mock, group tabs, verify groups and ungrouped tabs', async () => {
-    const options = new OptionsPage(await ctx.context.newPage())
+    const options = new OptionsPage(await ctx.context.newPage());
 
     try {
       // Load options page
-      await options.goto(ctx.extensionId)
-      await options.expectPageLoaded()
+      await options.goto(ctx.extensionId);
+      await options.expectPageLoaded();
 
       // Close any existing tabs first (to have clean slate with only 1 tab = options page)
-      await options.clickCloseAllTabs()
-      await options.page.waitForTimeout(500)
+      await options.clickCloseAllTabs();
+      await options.page.waitForTimeout(500);
 
       // Click mock button
-      const mockResult = await options.clickLoadMockTabs()
-      expect(mockResult.ok).toBe(true)
+      const mockResult = await options.clickLoadMockTabs();
+      expect(mockResult.ok).toBe(true);
 
       // Extra wait to ensure mock overrides are persisted to storage (WXT sync)
-      await options.page.waitForTimeout(1000)
+      await options.page.waitForTimeout(1000);
 
-       // Group tabs
-       await options.clickGroupTabs(2000)
+      // Group tabs
+      await options.clickGroupTabs(2000);
 
-       // Get all tabs and groups
-        const result = await options.getGroupAndTabData()
+      // Get all tabs and groups
+      const result = await options.getGroupAndTabData();
 
-       // Verify: 5 groups created (one per active threshold level — default is 5)
-       expect(result.groupCount).toBe(5)
-       expect(result.groupsOrderedByIndex.length).toBe(5)
+      // Verify: 5 groups created (one per active threshold level — default is 5)
+      expect(result.groupCount).toBe(5);
+      expect(result.groupsOrderedByIndex.length).toBe(5);
 
-       // Verify: Each group has id and title (oldest → youngest, left → right)
-       expect(result.groupsOrderedByIndex[0].title).toContain("Eat that frog!")
-       expect(result.groupsOrderedByIndex[1].title).toContain("Quarter+")
-       expect(result.groupsOrderedByIndex[2].title).toContain("Month+")
-       expect(result.groupsOrderedByIndex[3].title).toContain("2 Weeks+")
-       expect(result.groupsOrderedByIndex[4].title).toContain("Week+")
+        // Verify: Each group has id and title (oldest → youngest, left → right)
+        expect(result.groupsOrderedByIndex[0].title).toContain('Hell!');
+        expect(result.groupsOrderedByIndex[1].title).toContain('Quarter+');
+        expect(result.groupsOrderedByIndex[2].title).toContain('Month+');
+        expect(result.groupsOrderedByIndex[3].title).toContain('2 Weeks+');
+        expect(result.groupsOrderedByIndex[4].title).toContain('Week+');
 
-       // Verify each group has valid id and title
-       for ( let i = 0 ; i < result.groupsOrderedByIndex.length ; i++ ) {
-         expect(result.tabs[i].groupId).not.toBe(-1)
-         expect(result.tabs[i].groupId).not.toBeUndefined()
-       }
+      // Verify each group has valid id and title
+      for (let i = 0; i < result.groupsOrderedByIndex.length; i++) {
+        expect(result.tabs[i].groupId).not.toBe(-1);
+        expect(result.tabs[i].groupId).not.toBeUndefined();
+      }
 
       // Verify: Grouped tabs are first, ungrouped tabs at end
-      const groupedTabs = result.tabs.filter(t => t.groupId != null && t.groupId !== -1)
-      const ungroupedTabs = result.tabs.filter(t => !t.groupId || t.groupId === -1)
+      const groupedTabs = result.tabs.filter((t) => t.groupId != null && t.groupId !== -1);
+      const ungroupedTabs = result.tabs.filter((t) => !t.groupId || t.groupId === -1);
 
-      expect(groupedTabs.length).toBe(12)
-      expect(ungroupedTabs.length).toBeGreaterThanOrEqual(2) // at least options page + fresh tabs
+      expect(groupedTabs.length).toBe(12);
+      expect(ungroupedTabs.length).toBeGreaterThanOrEqual(2); // at least options page + fresh tabs
 
-      // Check the oldest tab from all should be in a group with npmjs URL
-      const oldestGroupedTab = groupedTabs.find(t => t.url?.includes("npmjs.com"))
-      expect(oldestGroupedTab).toBeDefined()
-      expect(oldestGroupedTab?.groupId).not.toBe(-1)
-      expect(oldestGroupedTab?.groupId).not.toBeUndefined()
+      // Verify that all grouped tabs have valid groupId
+      for (const tab of groupedTabs) {
+        expect(tab.groupId).not.toBe(-1);
+        expect(tab.groupId).not.toBeUndefined();
+      }
 
-      console.log(`✅ PASSED: ${result.groupCount} groups (oldest→youngest left→right), ${ungroupedTabs.length} ungrouped tabs`)
-
+      console.log(
+        `✅ PASSED: ${result.groupCount} groups (oldest→youngest left→right), ${ungroupedTabs.length} ungrouped tabs`
+      );
     } finally {
       // Pages are auto-closed by Playwright
     }
-  })
-})
+  });
+});

@@ -11,6 +11,11 @@
 
         <!-- Dev Buttons -->
         <MockButton @mock-created="refreshTabs" v-if="isDevEnv"/>
+        <TestAlarmButton
+          v-if="isDevEnv"
+          @success="onAlarmTriggered"
+          @error="(msg) => error = msg"
+        />
         <CloseAllTabsButton
           v-if="isDevEnv"
           @success="refreshTabs"
@@ -138,26 +143,35 @@
 
 <script setup lang="ts">
 import {computed, onMounted, ref} from 'vue'
-import {browser} from 'wxt/browser'
-import {BACKGROUND_MESSAGE_ACTIONS, isDevEnv} from '@/constants'
+import {isDevEnv} from '@/constants'
 import {useAppStore} from '@/store/appStore.ts'
 import { mockOverrides } from '@/store/appStore'
+import { createProxyService } from '@webext-core/proxy-service'
 import {TabRow} from '@/entrypoints/options/models/TabRow.ts'
 import {AgeClassification} from '@/models/AgeClassification.ts'
+import { getCurrentTime } from '@/utils/testTime'
 import Thresholds from '../../components/Thresholds.vue'
 import AppTitle from '@/components/Title.vue'
 import GroupUngroup from '@/components/GroupUngroup.vue'
 import MockButton from '@/components/MockButton.vue'
+import TestAlarmButton from '@/components/TestAlarmButton.vue'
 import CloseAllTabsButton from '@/components/CloseAllTabsButton.vue'
 import RefreshButton from '@/components/RefreshButton.vue'
 import SortButton from '@/components/SortButton.vue'
-import BackupRestoreButton from "@/components/BackupRestoreButton.vue";
+import BackupRestoreButton from "@/components/BackupRestoreButton.vue"
+import AutoCloseToggle from '@/components/AutoCloseToggle.vue'
+import type { BackgroundRPC } from '@/services/BackgroundRPC'
+
+// ⚠️ DEVELOPERS: createProxyService() returns type-safe proxy to background service worker
+// Replaces browser.runtime.sendMessage() with method calls - no string keys needed ✅
+const background = createProxyService<BackgroundRPC>('background')
 
 const appStore = useAppStore()
 const filter = ref('')
 const selectedAgeGroup = ref<number | null>(null) // null = show all, 0 = Fresh, 1+ = threshold level
 const error = ref<string | null>(null)
 const tabs = ref<any[]>([])
+const currentTime = ref<number>(Date.now()) // ✅ For fake time display in dev mode
 
 const columns: {
   name: string;
@@ -194,7 +208,8 @@ const columns: {
 ]
 
 const tabRows = computed(() => {
-  const rows = TabRow.fromTabs(tabs.value, appStore.thresholds.value)
+  // ✅ Pass currentTime (fake time in dev mode) to make tabs age correctly
+  const rows = TabRow.fromTabs(tabs.value, appStore.thresholds.value, currentTime.value)
   let filtered = rows.map((row: any, i: number) => {
     const days = row.lastAccessDays ?? 0
     const c = AgeClassification.fromDays(days, appStore.thresholds.value)
@@ -289,15 +304,15 @@ async function applyMockOverridesToTabs(): Promise<void> {
 async function refreshTabs(): Promise<void> {
   error.value = null
   try {
-    const resp: any = await browser.runtime.sendMessage({
-      action: BACKGROUND_MESSAGE_ACTIONS.GET_TABS
-    })
-    if (resp?.error) {
-      error.value = `[GET_TABS] ${resp.error}`
-      return
-    }
-    tabs.value = resp?.tabs ?? []
-    console.log(`[App] Got ${tabs.value.length} tabs from background`)
+    // ✅ Get current fake time (for testing with warped time)
+    const now = await getCurrentTime()
+    currentTime.value = now
+
+    // ⚠️ DEVELOPERS: Type-safe call to background service
+    // TypeScript knows getTabs returns Promise<Browser.tabs.Tab[]> ✅
+    const tabs_data = await background.getTabs()
+    tabs.value = tabs_data
+    console.log(`[App] Got ${tabs.value.length} tabs from background (fake time: ${now})`)
 
     // ✅ NEW: Small delay to let storage settle, then apply mock overrides
     // This ensures mockOverrides storage has synced and is ready to read
@@ -316,15 +331,20 @@ function onRefreshTabs(newTabs: any[]): void {
   tabs.value = newTabs
 }
 
+/** Called by TestAlarmButton component — alarm triggered successfully */
+function onAlarmTriggered(groupsCreated: number): void {
+  console.log(`[App] ✅ 24h alarm triggered: ${groupsCreated} groups created`)
+  refreshTabs()
+}
+
 async function closeTab(tabId: number | null): Promise<void> {
   if (tabId == null) return
   try {
-    const resp: any = await browser.runtime.sendMessage({
-      action: BACKGROUND_MESSAGE_ACTIONS.CLOSE_TAB,
-      tabId
-    })
-    if (resp?.error) {
-      error.value = `[CLOSE_TAB] Tab#${tabId}: ${resp.error}`
+    // ⚠️ DEVELOPERS: Type-safe call to background service
+    // TypeScript knows closeTab returns Promise<string | null> ✅
+    const errorMsg = await background.closeTab(tabId)
+    if (errorMsg) {
+      error.value = `[CLOSE_TAB] Tab#${tabId}: ${errorMsg}`
       return
     }
     tabs.value = tabs.value.filter((t: any) => t.id !== tabId)
@@ -336,12 +356,11 @@ async function closeTab(tabId: number | null): Promise<void> {
 async function focusTab(tabId: number | null): Promise<void> {
   if (tabId == null) return
   try {
-    const resp: any = await browser.runtime.sendMessage({
-      action: BACKGROUND_MESSAGE_ACTIONS.FOCUS_TAB,
-      tabId
-    })
-    if (resp?.error) {
-      error.value = `[FOCUS_TAB] Tab#${tabId}: ${resp.error}`
+    // ⚠️ DEVELOPERS: Type-safe call to background service
+    // TypeScript knows focusTab returns Promise<string | null> ✅
+    const errorMsg = await background.focusTab(tabId)
+    if (errorMsg) {
+      error.value = `[FOCUS_TAB] Tab#${tabId}: ${errorMsg}`
       return
     }
     // Success - tab is now focused, close the options page so user can investigate

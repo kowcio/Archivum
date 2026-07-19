@@ -1,4 +1,5 @@
 # Firefox Addon - Archivum: Tab Age Manager
+
 ## Submission Data & License Information
 
 ---
@@ -6,7 +7,7 @@
 ## 1. Summary (102 characters max)
 
 ```
-Automatically group your tabs by age. Organize tabs into groups: 
+Automatically group your tabs by age. Organize tabs into groups:
 Week+, Month+, Quarter+ and older.
 ```
 
@@ -36,7 +37,7 @@ Manage hundreds of open tabs without chaos.
 - People who forget to close tabs
 
 ⚙️ Installation:
-Click "Add to Firefox" and you're done! Runs once after installation, 
+Click "Add to Firefox" and you're done! Runs once after installation,
 then automatically every 24 hours.
 
 📊 Status: Stable, no limits, no tracking.
@@ -51,6 +52,7 @@ then automatically every 24 hours.
 **Recommended: MIT License**
 
 ### Why MIT?
+
 - ✅ Permissive & simple
 - ✅ Allows commercial use (future monetization outside Firefox)
 - ✅ Firefox accepts it
@@ -87,13 +89,14 @@ SOFTWARE.
 
 ## 4. Support & Help URLs
 
-| Channel | URL | Use Case |
-|---------|-----|----------|
-| **Issues** | https://github.com/kowcio/czynsz_ff/issues | Bug reports, feature requests |
-| **Repository** | https://github.com/kowcio/czynsz_ff | Source code, documentation |
-| **Support URL (required)** | https://github.com/kowcio/czynsz_ff/issues | Primary support |
+| Channel                    | URL                                        | Use Case                      |
+| -------------------------- | ------------------------------------------ | ----------------------------- |
+| **Issues**                 | https://github.com/kowcio/czynsz_ff/issues | Bug reports, feature requests |
+| **Repository**             | https://github.com/kowcio/czynsz_ff        | Source code, documentation    |
+| **Support URL (required)** | https://github.com/kowcio/czynsz_ff/issues | Primary support               |
 
 **Choice Rationale:**
+
 - ✅ GitHub Issues = transparent, public tracking
 - ✅ Mozilla moderators prefer open-source bug tracking
 - ✅ Easy for users to search existing issues
@@ -104,6 +107,7 @@ SOFTWARE.
 ## 5. Monetization Strategy
 
 ### ⚠️ Firefox Store Limitations
+
 - ❌ **NO** direct sales in store
 - ❌ **NO** paid features in store version
 - ❌ **NO** subscription inside addon
@@ -136,8 +140,9 @@ TIER 3: Blog Monetization
 ```
 
 ### Recommended Implementation Timeline
+
 ```
-Phase 1 (Now): 
+Phase 1 (Now):
 - Release on Firefox Store (FREE)
 - Build community & reputation
 - Gather user feedback
@@ -174,11 +179,13 @@ Phase 3 (ongoing):
 ## 7. Submission Links
 
 **Firefox Addon Store:**
+
 - Dashboard: https://addons.mozilla.org/en-US/firefox/developers/
 - Upload: https://addons.mozilla.org/en-US/developers/addon/submit/
 - Version Upload: https://addons.mozilla.org/en-US/firefox/addon/{id}/admin/
 
 **Review Requirements:**
+
 - ✅ Automatic review ~30 min
 - ✅ Manual review ~1-5 days
 - ✅ Test on Firefox 142+
@@ -189,8 +196,8 @@ Phase 3 (ongoing):
 ## 8. Keywords for Store Listing
 
 ```
-tab manager, productivity, organization, tab grouping, 
-browser extension, firefox, chrome, edge, tab management, 
+tab manager, productivity, organization, tab grouping,
+browser extension, firefox, chrome, edge, tab management,
 organization tool, productivity enhancement
 ```
 
@@ -199,6 +206,7 @@ organization tool, productivity enhancement
 ## 9. Screenshot Requirements
 
 For Firefox Store (recommended):
+
 - 1920x1200 or 1280x800 (JPG/PNG)
 - Show: Options page with threshold settings
 - Show: Tab table with grouped tabs
@@ -232,18 +240,17 @@ No analytics, no tracking, no ads.
 
 ## Summary Table
 
-| Item | Value |
-|------|-------|
-| **Addon Name** | Archivum - Tab Age Manager |
-| **License** | MIT |
-| **Firefox Min Version** | 142.0 |
-| **Support** | https://github.com/kowcio/czynsz_ff/issues |
-| **Monetization** | Free on store, Premium on website |
-| **Data Collection** | None - 100% local |
-| **Update Cycle** | As needed, community-driven |
+| Item                    | Value                                      |
+| ----------------------- | ------------------------------------------ |
+| **Addon Name**          | Archivum - Tab Age Manager                 |
+| **License**             | MIT                                        |
+| **Firefox Min Version** | 142.0                                      |
+| **Support**             | https://github.com/kowcio/czynsz_ff/issues |
+| **Monetization**        | Free on store, Premium on website          |
+| **Data Collection**     | None - 100% local                          |
+| **Update Cycle**        | As needed, community-driven                |
 
 ---
 
 **Last Updated:** 2026-07-05  
 **Status:** Ready for Firefox submission
-

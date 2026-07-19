@@ -7,8 +7,28 @@ stack: "WXT 0.20+ · Vue 3.5 · TypeScript 5.8 · Pinia 3 · Quasar 2 · Vitest 
 
 ## ⚠️ IMPORTANT: Documentation Policy
 
-**NEVER create documentation, summaries, or reports without explicit user request.**  
-Only: implement code changes, fix bugs, run tests. If creating docs is needed, ask first.
+**NEVER create documentation, summaries, or reports WITHOUT EXPLICIT USER REQUEST.**
+
+This includes:
+- ❌ README updates or summaries
+- ❌ Architecture diagrams or explanations  
+- ❌ Refactor summaries or "what changed" docs
+- ❌ Test reports or analysis
+- ❌ New .md files in docs/ or root
+
+**ONLY when user explicitly says**: "document this", "create a guide", "add to docs", "explain in markdown", etc.
+
+**What you CAN do without asking:**
+- ✅ Implement code changes
+- ✅ Fix bugs and run tests
+- ✅ Update code files
+- ✅ Make architectural improvements
+
+**When docs ARE requested:**
+- Place them in `docs/` folder
+- Update/consolidate existing docs (don't create new files unnecessarily)
+- Consider existing documentation and merge if appropriate
+- Ensure consistency with project style
 
 ---
 
@@ -51,6 +71,80 @@ Only: implement code changes, fix bugs, run tests. If creating docs is needed, a
 
 **Note**: IntelliJ may show TS2304 error despite fix being correct. This is IDE cache issue. npm run type-check passes ✅. Use File → Invalidate Caches → Restart IntelliJ to clear IDE cache.
 
+### Pattern 5: @webext-core/proxy-service RPC Type-Safety Gotchas
+⚠️ **CRITICAL**: Always use `registerService()` in background, `createProxyService()` in UI.
+
+**RPC Methods MUST be async** — Even if they don't need to be:
+```typescript
+❌ WRONG: getTabs: () => Browser.tabs.Tab[]  // NOT callable from UI — silently fails
+✅ RIGHT: getTabs: (): Promise<Browser.tabs.Tab[]> => BackgroundTabService.getTabs()
+```
+**Why**: `@webext-core/proxy-service` requires all methods to return `Promise<T>`. Without async, the proxy doesn't register the method.
+
+**Same service key on both sides**:
+```typescript
+// background.ts
+registerService('background', backgroundRPC)
+
+// components/*.vue
+const bg = createProxyService<typeof backgroundRPC>('background')
+// Key 'background' MUST match ✅
+```
+
+**No manual message routing** — Replace old `BACKGROUND_MESSAGE_ACTIONS` if-else chains:
+```typescript
+❌ OLD (200+ lines):
+browser.runtime.onMessage.addListener((msg) => {
+  if (msg.action === BACKGROUND_MESSAGE_ACTIONS.GROUP_TABS_BY_AGE) {
+    BackgroundTabService.groupTabsByAge().then(...)
+  }
+})
+
+✅ NEW (1 line):
+registerService('background', backgroundRPC)  // All 12+ methods auto-registered
+```
+
+**createProxyService() returns immediately** (not a Promise):
+```typescript
+// This is SYNC, not async:
+const bg = createProxyService<BackgroundRPC>('background')  // ✅ Use immediately
+const tabs = await bg.getTabs()  // Then call async methods on it
+```
+
+### Pattern 6: ⚠️ CRITICAL - Tab Group Ordering (CEMENTED IN STONE)
+
+**Groups are ordered OLDEST→YOUNGEST from LEFT→RIGHT by tab index (group.index)**
+
+```
+Order: [Hell!] → [Quarter+] → [Month+] → [2 Weeks+] → [Week+]
+Index: [0]     →   [1]     →   [2]   →    [3]      →  [4]
+Age:   365+    →  90-365   → 28-90  →  14-28 days → 7-14 days
+```
+
+**CRITICAL in ALL Playwright tests**:
+```typescript
+// ✅ CORRECT - groups ordered oldest to youngest
+const expectedOrder = ["Hell!", "Quarter+", "Month+", "2 Weeks+", "Week+"]
+expect(tabsBefore[0].title).toContain("Hell!")       // Leftmost (oldest)
+expect(tabsBefore[1].title).toContain("Quarter+")
+expect(tabsBefore[2].title).toContain("Month+")
+expect(tabsBefore[3].title).toContain("2 Weeks+")
+expect(tabsBefore[4].title).toContain("Week+")       // Rightmost (youngest)
+
+// ❌ WRONG - reversed order causes pipeline failures
+expect(tabsBefore[0].title).toContain("Week+")       // WRONG!
+expect(tabsBefore[4].title).toContain("Hell!")       // WRONG!
+```
+
+**Why**: `getAllGroups()` returns groups sorted by `group.index` (browser visual position left→right). Since groups are created with Hell! first (oldest), it gets the lowest index and appears first in the array.
+
+**Affected test files**:
+- `test/playwright/24h-alarm-age-grouping.spec.ts`
+- `test/playwright/thresholds-change.spec.ts`
+- `test/playwright/chromium/ThresholdDayLevelChange.spec.ts`
+
+**If tests fail**: Check group order assertions. ALL groups must follow oldest→youngest sequence. NO EXCEPTIONS.
+
 ---
 
 ## Why Groups Must Be Sorted
@@ -89,6 +183,11 @@ Indices:        0             3            5
 **Production** (7 kept): `vue`, `pinia`, `quasar`, `@quasar/extras`, `@vueuse/core`, `dayjs`, `webextension-polyfill`
 
 **Dev** (28 kept): WXT, Testing (vitest+happy-dom), Build, Linting, Type-checking
+
+**RPC Communication** (3 new): `@webext-core/proxy-service` (v2.0.1) + transitive deps
+- Type-safe background ↔ UI messaging across extension contexts
+- Replace 200+ lines of manual message routing with 1 registration call
+- Full TypeScript inference — no `as any` casting
 
 ---
 

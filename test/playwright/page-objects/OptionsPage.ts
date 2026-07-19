@@ -15,12 +15,9 @@
  */
 
 import { expect, type Locator, type Page } from '@playwright/test';
-import {BACKGROUND_MESSAGE_ACTIONS} from "../../../src/constants";
+import { BACKGROUND_MESSAGE_ACTIONS } from '../../../src/constants'
 
 // `chrome` is globally available in page.evaluate() context (no import needed)
-// Import constants using relative path (not bundled through Vite like app code)
-const MOCK_TABS_ACTION = 'createMockTabs';
-const ON_TAB_ACTIVATED_ACTION = 'onTabActivated';
 
 export class OptionsPage {
   private readonly groupTabsBtn: Locator;
@@ -60,13 +57,20 @@ export class OptionsPage {
   /**
    * Navigate to Options page using extension ID.
    * waitUntil: domcontentloaded ensures DOM is ready.
+   *
+   * IMPORTANT: Using waitForFunction instead of networkidle (which is discouraged by Playwright)
+   * to wait for Vue hydration and specific elements to be ready.
    */
   async goto(extensionId: string): Promise<void> {
     await this.page.goto(`chrome-extension://${extensionId}/options.html`, {
       waitUntil: 'domcontentloaded',
     });
-    // Wait for Vue to hydrate and render dynamic elements
-    await this.page.waitForLoadState('networkidle');
+    // Wait for Vue to hydrate by checking for button element in DOM
+    // This is more reliable than networkidle which is discouraged for testing
+    await this.page.waitForFunction(() => {
+      const btn = document.querySelector('[data-testid="group-tabs-btn"]');
+      return btn !== null && window.getComputedStyle(btn).display !== 'none';
+    }, { timeout: 10_000 });
     await this.expectPageLoaded();
   }
 
@@ -89,34 +93,52 @@ export class OptionsPage {
     await expect(this.groupTabsBtn).toBeVisible();
   }
 
+  /**
+   * Click "Group Tabs by Age" button and wait for grouping to complete.
+   * Optional: pass timeout override (default 1200ms).
+   */
+  async clickGroupTabs(waitMs: number = 1200): Promise<void> {
+      await this.groupTabsBtn.click();
+      await this.page.waitForTimeout(waitMs);
+    }
+
    /**
-    * Click "Group Tabs by Age" button and wait for grouping to complete.
-    * Optional: pass timeout override (default 1200ms).
+    * Click "Warp +4h" test alarm button to trigger grouping with time advancement.
+    * Optional: pass timeout override (default 2000ms for grouping to complete).
     */
-   async clickGroupTabs(waitMs: number = 1200): Promise<void> {
-     await this.groupTabsBtn.click();
-     await this.page.waitForTimeout(waitMs);
-   }
+    async clickTestAlarmButton(waitMs: number = 2000): Promise<void> {
+      const alarmBtn = this.page.getByTestId('test-alarm-btn');
+      await alarmBtn.click();
+      await this.page.waitForTimeout(waitMs);
+    }
 
 
-   /**
-    * Open a random tab from www.example.com/[0-9A-Z], optionally in a group at specified index.
-    * @returns generated alphanumeric ID (single char: 0-9 or A-Z)
-    */
-   async openRandomTabInGroup(newTabGroup: boolean = false, index?: number): Promise<string> {
-     const action = BACKGROUND_MESSAGE_ACTIONS.OPEN_RANDOM_TAB_IN_GROUP;
-     return this.page.evaluate(
-       ({ newTabGroup, index, action }) => {
-         return new Promise<string>((resolve) => {
-           chrome.runtime.sendMessage(
-             { action, newTabGroup, index },
-             (response: any) => resolve(response?.result || 'UNKNOWN')
-           );
-         });
-       },
-       { newTabGroup, index, action }
-     );
-   }
+    /**
+     * Open a random tab from www.example.com/[0-9A-Z], optionally in a group at specified index via RPC messaging.
+     * @returns generated alphanumeric ID (single char: 0-9 or A-Z)
+     */
+    async openRandomTabInGroup(newTabGroup: boolean = false, index?: number): Promise<string> {
+      return await this.page.evaluate(async (params: { nGroup: boolean; idx?: number }) => {
+        return new Promise<string>((resolve, reject) => {
+          chrome.runtime.sendMessage(
+            {
+              type: 'proxy-service.background',
+              data: { path: ['openRandomTabInGroup'], args: [params.nGroup, params.idx] },
+              timestamp: Date.now()
+            },
+            (response: any) => {
+              if (chrome.runtime.lastError) {
+                reject(new Error(chrome.runtime.lastError.message))
+              } else if (response?.err) {
+                reject(new Error(response.err.message || 'RPC failed'))
+              } else {
+                resolve(response?.res || '')
+              }
+            }
+          )
+        })
+      }, { nGroup: newTabGroup, idx: index })
+    }
 
   /**
    * Click "Ungroup All Tabs" button and wait for ungrouping to complete.
@@ -128,58 +150,82 @@ export class OptionsPage {
 
   }
 
-  /**
-   * Set mock overrides for created tabs (backdated ages).
-   * Call this AFTER creating mock tabs to set their lastAccessed timestamps.
-   * @param overrides - Map of tabId → lastAccessed timestamp (ms since epoch)
-   */
-  async setMockOverrides(overrides: Record<number, number>): Promise<void> {
-    const result = await this.page.evaluate((data: Record<string, number>) => {
-      return new Promise<{ error: string | null }>((resolve) => {
-        chrome.runtime.sendMessage(
-          { action: 'setMockOverrides', overrides: data },
-          (response: any) => {
-            resolve(response || { error: 'No response' });
-          }
-        );
-      });
-    }, overrides);
-
-    if (result.error) {
-      throw new Error(`Failed to set mock overrides: ${result.error}`);
+    /**
+     * Set mock overrides for created tabs (backdated ages) via RPC messaging.
+     * Call this AFTER creating mock tabs to set their lastAccessed timestamps.
+     * @param overrides - Map of tabId → lastAccessed timestamp (ms since epoch)
+     */
+    async setMockOverrides(overrides: Record<number, number>): Promise<void> {
+      try {
+        // Call setMockOverrides RPC through direct messaging
+        await this.page.evaluate(async (ov: Record<number, number>) => {
+          return new Promise<void>((resolve, reject) => {
+            chrome.runtime.sendMessage(
+              {
+                type: 'proxy-service.background',
+                data: { path: ['setMockOverrides'], args: [ov] },
+                timestamp: Date.now()
+              },
+              (response: any) => {
+                if (chrome.runtime.lastError) {
+                  reject(new Error(chrome.runtime.lastError.message))
+                } else if (response?.err) {
+                  reject(new Error(response.err.message || 'RPC failed'))
+                } else {
+                  resolve()
+                }
+              }
+            )
+          })
+        }, overrides)
+        // Extra wait to ensure storage is persisted
+        await this.page.waitForTimeout(500)
+      } catch (err) {
+        throw new Error(`Failed to set mock overrides: ${err}`)
+      }
     }
 
-    // Extra wait to ensure storage is persisted
-    await this.page.waitForTimeout(500);
-  }
-
-  /**
-   * Click "Load/Create Mock Tabs" button.
-   * Returns response from background service worker.
-   * Includes wait time for tabs to load with URLs.
-   */
-  async clickLoadMockTabs(waitMs: number = 500): Promise<{ ok: boolean; count: number; error: string | null }> {
-    const result = await this.page.evaluate((actionName: string) => {
-      return new Promise<{ ok: boolean; count: number; error: string | null }>((resolve) => {
-        try {
-          chrome.runtime.sendMessage({ action: actionName }, (r: any) => {
-            resolve({ ok: true, count: r?.tabs?.length ?? 0, error: r?.error ?? null });
-          });
-        } catch (e: unknown) {
-          resolve({ ok: false, count: 0, error: String(e) });
-        }
-      });
-    }, MOCK_TABS_ACTION);
-    // Wait for tabs to load with URLs
-    await this.page.waitForTimeout(waitMs);
-    return result as { ok: boolean; count: number; error: string | null };
-  }
+    /**
+     * Create mock tabs via RPC message call within browser context.
+     * Avoids any Node.js module loading errors.
+     * Returns response from background service.
+     * Includes wait time for tabs to load with URLs.
+     */
+    async clickLoadMockTabs(waitMs: number = 500): Promise<{ ok: boolean; count: number; error: string | null }> {
+      try {
+        // Call createMockTabs RPC through direct messaging
+        const tabs = await this.page.evaluate(async () => {
+          return new Promise<any[]>((resolve, reject) => {
+            chrome.runtime.sendMessage(
+              {
+                type: 'proxy-service.background',
+                data: { path: ['createMockTabs'], args: [] },
+                timestamp: Date.now()
+              },
+              (response: any) => {
+                if (chrome.runtime.lastError) {
+                  reject(new Error(chrome.runtime.lastError.message))
+                } else if (response?.err) {
+                  reject(new Error(response.err.message || 'RPC failed'))
+                } else {
+                  resolve(response?.res || [])
+                }
+              }
+            )
+          })
+        })
+        await this.page.waitForTimeout(waitMs)
+        return { ok: true, count: Array.isArray(tabs) ? tabs.length : 0, error: null }
+      } catch (err: unknown) {
+        return { ok: false, count: 0, error: String(err) }
+      }
+    }
 
   /**
    * Click "Close All Tabs" button.
    */
   async clickCloseAllTabs(): Promise<void> {
-    // await this.closeAllTabsBtn.waitFor({ state: 'visible' });
+    await this.closeAllTabsBtn.waitFor({ state: 'visible' });
     await this.closeAllTabsBtn.click();
   }
 
@@ -187,7 +233,7 @@ export class OptionsPage {
    * Get all tab groups with their titles and tab counts.
    * Returns array sorted by group position (left to right).
    */
-  async getAllGroups(): Promise<Array<{ id: number; title: string; tabCount: number }>> {
+  async getAllGroups(): Promise<Array<{ id: number; title: string; titleSet: boolean; collapsed: boolean; tabCount: number }>> {
     return this.page.evaluate(async () => {
       try {
         const currentWindow = await chrome.windows.getCurrent();
@@ -199,18 +245,22 @@ export class OptionsPage {
         const groupDetails = [];
         for (const group of groups) {
           const tabs = await chrome.tabs.query({ groupId: group.id });
-          console.log(`[getAllGroups] Group ${group.id}: "${group.title}" → ${tabs.length} tabs (index: ${group.index})`);
+          const titleSet = group.title != null && group.title !== '';
+          const groupTitle = group.title ?? `Group ${group.id}`;
+          console.log(`[getAllGroups] Group ${group.id}: "${groupTitle}" → ${tabs.length} tabs (titleSet: ${titleSet}, collapsed: ${group.collapsed})`);
           groupDetails.push({
             id: group.id,
-            title: group.title,
+            title: groupTitle,
+            titleSet: titleSet,
+            collapsed: group.collapsed ?? false,
             tabCount: tabs.length,
             index: group.index ?? -1,
           });
         }
         // Sort by visual position (index) — left to right (oldest to youngest)
         groupDetails.sort((a, b) => (a.index ?? -1) - (b.index ?? -1));
-        console.log('[getAllGroups] Sorted groups:', groupDetails.map(g => `"${g.title}"`).join(' → '));
-        return groupDetails.map(g => ({ id: g.id, title: g.title, tabCount: g.tabCount }));
+        console.log('[getAllGroups] Sorted groups:', groupDetails.map(g => `"${g.title}" (collapsed: ${g.collapsed}, titleSet: ${g.titleSet})`).join(' → '));
+        return groupDetails.map(g => ({ id: g.id, title: g.title, titleSet: g.titleSet, collapsed: g.collapsed, tabCount: g.tabCount }));
       } catch (err) {
         console.error('[getAllGroups] Error:', err);
         return [];
@@ -416,17 +466,32 @@ export class OptionsPage {
     expect(count).toBe(expectedCount);
   }
 
-  /**
-   * Simulate tab activation via message to background service worker.
-   * This triggers: ungroup + move to rightmost position.
-   */
-  async activateTab(tabId: number): Promise<void> {
-    await this.page.evaluate(({ id, actionName }: { id: number; actionName: string }) => {
-      return new Promise<void>((resolve) => {
-        chrome.runtime.sendMessage({ action: actionName, tabId: id }, () => resolve());
-      });
-    }, { id: tabId, actionName: ON_TAB_ACTIVATED_ACTION });
-  }
+   /**
+    * Simulate tab activation via RPC message to background service worker.
+    * This triggers: ungroup + move to rightmost position.
+    */
+   async activateTab(tabId: number): Promise<void> {
+     await this.page.evaluate(async (id: number) => {
+       return new Promise<void>((resolve, reject) => {
+         chrome.runtime.sendMessage(
+           {
+             type: 'proxy-service.background',
+             data: { path: ['onTabActivated'], args: [id] },
+             timestamp: Date.now()
+           },
+           (response: any) => {
+             if (chrome.runtime.lastError) {
+               reject(new Error(chrome.runtime.lastError.message))
+             } else if (response?.err) {
+               reject(new Error(response.err.message || 'RPC failed'))
+             } else {
+               resolve()
+             }
+           }
+         )
+       })
+     }, tabId)
+   }
 
   /**
    * Wait for a specific tab to be ungrouped and moved to rightmost.
@@ -447,101 +512,62 @@ export class OptionsPage {
     );
    }
 
-    /**
-     * Get all groups and tabs data.
-     * Returns group count, group details, and tab counts (grouped vs ungrouped).
-     * Applies mock overrides to lastAccessed timestamps if they exist.
-     * Prints each tab: index, id, groupId, title, url
-     */
-     async getGroupAndTabData(): Promise<{
-      groupCount: number;
-      groupsOrderedByIndex: Array<{ id: number; title: string; index: number }>;
-      groupedTabCount: number;
-      ungroupedTabCount: number;
-      tabs: Array<{
-        id?: number;
-        url?: string;
-        title?: string;
-        active?: boolean;
-        lastAccessed?: number;
-        groupId?: number;
-        windowIndex?: number;
-        positionInGroup?: number | null;
-      }>;
-      }> {
-      return await this.page.evaluate(function() {
-        // Fetch mock overrides
-        const mockOverridesPromise = new Promise<Record<number, number>>((resolve) => {
-          (chrome.runtime as any).sendMessage({ action: 'getMockOverrides' }, (response: any) => {
-            resolve(response?.overrides || {});
-          });
-        });
-
-        return mockOverridesPromise.then((mockOverrides) => {
-          return Promise.all([
-            (chrome.tabGroups as any).query({ windowId: (chrome.windows as any).WINDOW_ID_CURRENT }),
-            (chrome.tabs as any).query({ currentWindow: true })
-           ]).then(([groups, tabs]) => {
-             // Sort groups by index (left-to-right)
-             const sortedGroups = [...groups].sort((a: any, b: any) => (a.index ?? -1) - (b.index ?? -1))
-
-             // Apply mock overrides to tabs
-            for (const tab of tabs) {
-              if (tab.id != null) {
-                const numericOverride = (mockOverrides as Record<number, number>)[tab.id]
-                const stringOverride = (mockOverrides as Record<string, number>)[String(tab.id)]
-                const override = numericOverride ?? stringOverride
-                if (override != null) {
-                  tab.lastAccessed = override
-                }
-              }
-            }
-
-            // Calculate group index from first tab's index in each group (workaround for API issue)
-            const groupIndexMap = new Map<number, number>()
-            for (const group of sortedGroups) {
-              const groupTabs = tabs.filter((t: any) => t.groupId === group.id)
-              if (groupTabs.length > 0) {
-                const firstTabIndex = groupTabs[0].index
-                groupIndexMap.set(group.id, firstTabIndex)
-              }
-            }
-
-            // Build final groups with calculated indices
-            const groupsWithIndices = sortedGroups.map((g: any) => ({
-              id: g.id,
-              title: g.title,
-              index: groupIndexMap.get(g.id) ?? g.index ?? -1
-            }))
-
-            // Sort groups by calculated index (left-to-right)
-            groupsWithIndices.sort((a: any, b: any) => a.index - b.index)
-
-            return {
-              groupCount: groupsWithIndices.length,
-              groupsOrderedByIndex: groupsWithIndices,
-              groupedTabCount: tabs.filter((t: any) => t.groupId != null && t.groupId !== -1).length,
-              ungroupedTabCount: tabs.filter((t: any) => t.groupId == null || t.groupId === -1).length,
-              tabs: tabs.map((t: any) => {
-                const positionInGroup = t.groupId && t.groupId !== -1
-                  ? tabs.filter((tab: any) => tab.groupId === t.groupId && tab.index < t.index).length + 1
-                  : null
-                return {
-                  id: t.id,
-                  url: t.url,
-                  title: t.title,
-                  active: t.active,
-                  lastAccessed: t.lastAccessed,
-                  groupId: t.groupId,
-                  windowIndex: t.index,
-                  positionInGroup
-                }
-              })
-            }
-          })
-        })
-      })
-     }
+     /**
+      * Get all groups and tabs data.
+      * Returns group count, group details, and tab counts (grouped vs ungrouped).
+      * Applies mock overrides to lastAccessed timestamps if they exist.
+      * Prints each tab: index, id, groupId, title, url
+      *
+      * Now uses RPC to BackgroundTabService.getGroupAndTabData() for type-safe access.
+      */
+      async getGroupAndTabData(): Promise<{
+       groupCount: number;
+       groupsOrderedByIndex: Array<{ id: number; title: string; index: number }>;
+       groupedTabCount: number;
+       ungroupedTabCount: number;
+       tabs: Array<{
+         id?: number;
+         url?: string;
+         title?: string;
+         active?: boolean;
+         lastAccessed?: number;
+         groupId?: number;
+         windowIndex?: number;
+         positionInGroup?: number | null;
+       }>;
+       }> {
+       try {
+         return await this.page.evaluate(async () => {
+           return new Promise<any>((resolve, reject) => {
+             chrome.runtime.sendMessage(
+               {
+                 type: 'proxy-service.background',
+                 data: { path: ['getGroupAndTabData'], args: [] },
+                 timestamp: Date.now()
+               },
+               (response: any) => {
+                 if (chrome.runtime.lastError) {
+                   reject(new Error(chrome.runtime.lastError.message))
+                 } else if (response?.err) {
+                   reject(new Error(response.err.message || 'RPC failed'))
+                 } else {
+                   resolve(response?.res || {})
+                 }
+               }
+             )
+           })
+         })
+       } catch (err) {
+         console.error('[OptionsPage] getGroupAndTabData error:', err)
+         return {
+           groupCount: 0,
+           groupsOrderedByIndex: [],
+           groupedTabCount: 0,
+           ungroupedTabCount: 0,
+           tabs: [],
+         }
+       }
+      }
 
   /**
    * Click "Backup Tabs" button to save current tabs.
@@ -558,14 +584,14 @@ export class OptionsPage {
   }
 
   /**
-   * Get backed-up tabs from browser storage.
-   * @returns Array of backed-up tab URLs, or null if no backup exists
+   * Get backed-up data from browser storage (full backup object including groups).
+   * @returns Full backup object with tabs and groups, or null if no backup exists
    */
-  async getBackupFromStorage(): Promise<Array<{ url?: string; title?: string }> | null> {
+  async getBackupFromStorage(): Promise<{ tabs: any[]; groups: any[] } | null> {
     return this.page.evaluate(async () => {
       const data = await chrome.storage.local.get('archivum:tab_backup');
-      const backup = data['archivum:tab_backup'];
-      return backup?.tabs || null;
+      const backup = data['archivum:tab_backup'] as any;
+      return backup || null;
     });
   }
 

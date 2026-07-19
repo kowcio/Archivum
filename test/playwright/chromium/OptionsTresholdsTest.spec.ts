@@ -11,13 +11,13 @@ import { OptionsPage } from "../page-objects/OptionsPage.js";
 test.describe("Thresholds", () => {
   let ctx: ExtensionTestContext;
 
-  test.beforeAll(async () => {
+  test.beforeAll('Setup', async () => {
     ctx = await setupExtensionTest(false, 60_000);
   });
 
-  test.afterAll(async () => {
+  test.afterAll('Cleanup', async () => {
     if (ctx) await ctx.cleanup();
-  }, { timeout: 60_000 });  // Increased from default 30s to 60s
+  });
 
   test("Default thresholds → group tabs → change to 5 levels → verify groups", async () => {
     const options = new OptionsPage(await ctx.context.newPage());
@@ -32,24 +32,24 @@ test.describe("Thresholds", () => {
 
     await options.clickGroupTabs();
 
-    let result = await options.getAllGroups();
-    expect(result.length).toBe(5);
-    expect(result[0].title).toContain('Eat that frog!');
-    expect(result[1].title).toContain('Quarter+');
-    expect(result[2].title).toContain('Month+');
-    expect(result[3].title).toContain('2 Weeks+');
-    expect(result[4].title).toContain('Week+');
+     let result = await options.getAllGroups();
+     expect(result.length).toBe(5);
+     expect(result[0].title).toContain('Hell!');
+     expect(result[1].title).toContain('Quarter+');
+     expect(result[2].title).toContain('Month+');
+     expect(result[3].title).toContain('2 Weeks+');
+     expect(result[4].title).toContain('Week+');
 
 
     await options.changeThresholdLevels(3, 2000);
     const thresholdLevels3 = await options.getLevelsCount();
     expect(thresholdLevels3).toBe(3);
 
-    result = await options.getAllGroups();
-    expect(result.length).toBe(3);
-    expect(result[0].title).toContain('Month+');
-    expect(result[1].title).toContain('2 Weeks+');
-    expect(result[2].title).toContain('Week+');
+     result = await options.getAllGroups();
+     expect(result.length).toBe(3);
+     expect(result[0].title).toContain('Month+');
+     expect(result[1].title).toContain('2 Weeks+');
+     expect(result[2].title).toContain('Week+');
 
 
     // Verify ungrouped tabs are at the end after all grouped tabs

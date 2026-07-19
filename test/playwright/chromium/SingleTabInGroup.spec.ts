@@ -32,20 +32,20 @@ test.describe("Options Page Tests", () => {
     await options.clickGroupTabs();
     await options.expectUngroupButtonVisible();
 
-    // 3. Verify Week+ group has 3 tabs (daysAgo 8, 8, 12 → 7 < days ≤ 14)
-    const groups = await options.getAllGroups();
-    const weekGroup =
-      groups.find(g => g.title.startsWith(groupName));
-    console.log("Group to be ungrouped", weekGroup);
-    expect(weekGroup).toBeDefined();
-    expect(weekGroup!.tabCount).toBe(3);
-    const weekGroupId = weekGroup!.id;
-    console.log(`   → Week+ group has ${weekGroup!.tabCount} tabs (groupId=${weekGroupId})`);
+       // 3. Verify Week+ group has 3 tabs (daysAgo at expected range)
+       const groups = await options.getAllGroups();
+       const weekGroup =
+         groups.find(g => g.title.startsWith(groupName));
+       console.log("Group to be ungrouped", weekGroup);
+       expect(weekGroup).toBeDefined();
+       expect(weekGroup!.tabCount).toBe(3);
+      const weekGroupId = weekGroup!.id;
+      console.log(`   → Week+ group has ${weekGroup!.tabCount} tabs (groupId=${weekGroupId})`);
 
-    // 4. Get the tab IDs in the Week+ group
-    const allTabs = await options.queryAllTabs();
-    const weekGroupTabs = allTabs.filter(t => t.groupId === weekGroupId);
-    expect(weekGroupTabs.length).toBe(3);
+      // 4. Get the tab IDs in the Week+ group
+      const allTabs = await options.queryAllTabs();
+      const weekGroupTabs = allTabs.filter(t => t.groupId === weekGroupId);
+      expect(weekGroupTabs.length).toBe(3);
 
     // 5. Activate each tab one by one — each should ungroup and move to rightmost
     for (let i = 0; i < weekGroupTabs.length; i++) {
@@ -67,7 +67,7 @@ test.describe("Options Page Tests", () => {
       const groupsAfterUngroup = await options.getAllGroups();
       const weekGroupUpdated = groupsAfterUngroup.find(g => g.id === weekGroupId);
       const expectedCount = weekGroupTabs.length - (i + 1);
-      
+
       if (expectedCount === 0) {
         // Chrome auto-removes empty groups
         expect(weekGroupUpdated).toBeUndefined();
@@ -93,7 +93,7 @@ test.describe("Options Page Tests", () => {
     expect(groupsAfter.some(g => g.title.startsWith('2 Weeks+'))).toBe(true);
     expect(groupsAfter.some(g => g.title.startsWith('Month+'))).toBe(true);
     expect(groupsAfter.some(g => g.title.startsWith('Quarter+'))).toBe(true);
-    expect(groupsAfter.some(g => g.title.startsWith('Eat that frog!'))).toBe(true);
+    expect(groupsAfter.some(g => g.title.startsWith('Hell!'))).toBe(true);
 
     await options.close();
   });

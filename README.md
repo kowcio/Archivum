@@ -19,10 +19,11 @@
 
 ## Browsers
 
-[//]: # ([![Chrome]&#40;https://img.shields.io/badge/Chrome-MV3-4285f4.svg?logo=google-chrome&#41;]&#40;https://www.chromium.org/&#41;)
+[//]: # '[![Chrome](https://img.shields.io/badge/Chrome-MV3-4285f4.svg?logo=google-chrome)](https://www.chromium.org/)'
+
 [![Firefox](https://img.shields.io/badge/Firefox-MV3-ff7139.svg?logo=firefox-browser)](https://www.mozilla.org/firefox/)
 
-[//]: # ([![Edge]&#40;https://img.shields.io/badge/Edge-MV3-0078d4.svg?logo=microsoft-edge&#41;]&#40;https://www.microsoft.com/edge&#41;)
+[//]: # '[![Edge](https://img.shields.io/badge/Edge-MV3-0078d4.svg?logo=microsoft-edge)](https://www.microsoft.com/edge)'
 
 ## General
 
@@ -41,6 +42,7 @@
 ## Important: Sorting Behavior (Business Model)
 
 ### 🎯 **Grouping by Age**
+
 - **[Group Tabs by Age]** button creates age-based groups (Week+, Month+, Quarter+, etc.)
 - Tabs within each group are **sorted by domain (A→Z) by default** ✅
 - This setting can be toggled in **Settings** (⚙️):
@@ -50,19 +52,20 @@
 - If disabled, tabs within groups are sorted by age only (oldest first)
 
 ### 🎯 **Sorting Ungrouped Tabs**
+
 - **[Sort by Domain]** button ONLY sorts ungrouped tabs (right side)
 - Fresh tabs and manually ungrouped tabs get reordered alphabetically by domain
 - This respects your manual workflow — only ungrouped tabs are affected
 
 ### ⚠️ **Why This Design?**
+
 - **Groups are stable** — Don't reorder during grouping (respects user intent)
 - **Ungrouped tabs stay in order** — Only sort by domain when you explicitly click the button
 - **Domain sorting is optional** — Turn it off if you prefer age-only sorting within groups
 - **User control** — You choose when to sort, groups don't surprise you
 
 ### 📌 **Remember**
+
 - ❌ Cannot reorder tabs **within** a group using the sort button (Chrome API limitation)
 - ✅ Can sort **ungrouped** tabs by domain
 - ✅ Can toggle domain sorting within groups in Settings
-
-

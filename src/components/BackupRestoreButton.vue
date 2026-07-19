@@ -11,8 +11,11 @@
       size="md"
       :loading="isLoading"
       @click="handleBackup"
-    />
-
+    >
+      <q-tooltip>
+        This will backup all tabs and groups overwriting the previous save.
+      </q-tooltip>
+    </q-btn>
     <!-- Section 2: Delete/Clear Backup Button (with date) -->
     <div v-if="hasBackup" class="backup-delete-control col-12">
       <q-btn
@@ -54,7 +57,11 @@
       size="md"
       :loading="isLoading"
       @click="showRestoreDialog = true"
-    />
+    >
+      <q-tooltip>
+        This will restore all tabs and groups overwriting the current state.
+      </q-tooltip>
+    </q-btn>
 
 
     <div data-testid="backup-restore-timer" class="">
@@ -91,10 +98,15 @@
 
 <script setup lang="ts">
 import {ref, onMounted} from 'vue'
-import {browser} from 'wxt/browser'
+import { createProxyService } from '@webext-core/proxy-service'
 import type {Browser} from 'wxt/browser'
+import {browser} from 'wxt/browser'
 import dayjs from 'dayjs'
-import {BACKGROUND_MESSAGE_ACTIONS} from '@/constants'
+import type { BackgroundRPC } from '@/services/BackgroundRPC'
+
+// ⚠️ DEVELOPERS: createProxyService() returns type-safe proxy to background service worker
+// Replaces browser.runtime.sendMessage() with method calls - no string keys needed ✅
+const background = createProxyService<BackgroundRPC>('background')
 
 type Backup = { tabs: Browser.tabs.Tab[]; groups: any[]; createdAt: number; count: number }
 
@@ -124,17 +136,13 @@ onMounted(async () => {
 async function handleBackup(): Promise<void> {
   isLoading.value = true
   try {
-    const response = await browser.runtime.sendMessage({
-      action: BACKGROUND_MESSAGE_ACTIONS.BACKUP_TABS,
-    }) as any
-    if (response?.success) {
-      hasBackup.value = true
-      backupCount.value = response.count
-      backupDate.value = dayjs().format('YYYY-MM-DD HH:mm:ss')
-      statusMessage.value = `${backupDate.value} | ${backupCount.value} tabs`
-    } else {
-      statusMessage.value = '❌ Backup failed'
-    }
+    // ⚠️ DEVELOPERS: Type-safe call to background service
+    // TypeScript knows backupTabs returns Promise<Backup> with count property ✅
+    const backupResult = await background.backupTabs()
+    hasBackup.value = true
+    backupCount.value = backupResult.count
+    backupDate.value = dayjs().format('YYYY-MM-DD HH:mm:ss')
+    statusMessage.value = `${backupDate.value} | ${backupCount.value} tabs`
   } catch (err) {
     console.error('[BackupRestore]', err)
     statusMessage.value = '❌ Backup error'
@@ -147,22 +155,19 @@ async function confirmRestore(): Promise<void> {
   showRestoreDialog.value = false
   isLoading.value = true
   try {
-    const response = await browser.runtime.sendMessage({
-      action: BACKGROUND_MESSAGE_ACTIONS.RESTORE_TABS,
-    }) as any
-    if (!response?.success) {
-      statusMessage.value = '❌ Restore failed'
-    } else {
-      // ✅ FIX: Multiple waits to ensure storage persistence
-      // Before: emit immediately → table refreshes before overrides saved → shows 0 days ❌
-      // After: wait 1000ms for storage sync + background processing ✅
-      await new Promise(r => setTimeout(r, 1000))  // ← LONGER WAIT
+    // ⚠️ DEVELOPERS: Type-safe call to background service
+    // TypeScript knows restoreTabs returns Promise<void> ✅
+    await background.restoreTabs()
 
-      // ✅ FIX: Emit 'restored' event after successful restore + storage sync
-      // Before: No event → App.vue doesn't know restore completed → table stays old ❌
-      // Now: Parent catches @restored event → calls refreshTabs() → table refreshes ✅
-      emit('restored')
-    }
+    // ✅ FIX: Multiple waits to ensure storage persistence
+    // Before: emit immediately → table refreshes before overrides saved → shows 0 days ❌
+    // After: wait 1000ms for storage sync + background processing ✅
+    await new Promise(r => setTimeout(r, 1000))  // ← LONGER WAIT
+
+    // ✅ FIX: Emit 'restored' event after successful restore + storage sync
+    // Before: No event → App.vue doesn't know restore completed → table stays old ❌
+    // Now: Parent catches @restored event → calls refreshTabs() → table refreshes ✅
+    emit('restored')
   } catch (err) {
     console.error('[BackupRestore]', err)
     statusMessage.value = '❌ Restore error'

@@ -25,79 +25,81 @@ models/           ← type (not interface), factory static methods
 ```ts
 // ✅ background.ts — synchronous main() REQUIRED
 export default defineBackground(() => {
-  browser.alarms.create('scan', { periodInMinutes: 1440 })
+  browser.alarms.create('scan', { periodInMinutes: 1440 });
   browser.alarms.onAlarm.addListener((alarm) => {
-    if (alarm.name !== 'scan') return
-    BackgroundTabService.loadAndMarkTabs().catch(console.error)
-  })
-  browser.tabs.onActivated.addListener(({ tabId }) => { /* update favicon */ })
+    if (alarm.name !== 'scan') return;
+    BackgroundTabService.loadAndMarkTabs().catch(console.error);
+  });
+  browser.tabs.onActivated.addListener(({ tabId }) => {
+    /* update favicon */
+  });
   // ❌ setInterval — service workers suspend ~30s idle
   // ❌ async main() — listeners must register synchronously
   // ❌ listeners outside defineBackground() — broken in MV3
-})
+});
 
 // ✅ content script — ctx for lifecycle safety
 export default defineContentScript({
   matches: ['*://*/*'],
   main(ctx) {
-    if (!ctx.isValid) return
-    ctx.addEventListener(window, 'focus', handler)  // auto-removed on invalidation
-    ctx.onInvalidated(() => app.unmount())
-    createApp(App).mount('#root')
+    if (!ctx.isValid) return;
+    ctx.addEventListener(window, 'focus', handler); // auto-removed on invalidation
+    ctx.onInvalidated(() => app.unmount());
+    createApp(App).mount('#root');
   },
-})
+});
 ```
 
 ## Storage
 
 ```ts
 // Write (background context only)
-await browser.storage.local.set({ [KEY]: data })
+await browser.storage.local.set({ [KEY]: data });
 
 // Read (any context)
-const result = await browser.storage.local.get(KEY)
-const value = result[KEY] as MyType ?? defaultValue
+const result = await browser.storage.local.get(KEY);
+const value = (result[KEY] as MyType) ?? defaultValue;
 
 // Reactive sync (UI — subscribe in onMounted, unsubscribe in onUnmounted)
 const off = browser.storage.onChanged.addListener((changes, area) => {
-  if (area !== 'local' || !changes[KEY]) return
-  store.items = changes[KEY].newValue
-})
+  if (area !== 'local' || !changes[KEY]) return;
+  store.items = changes[KEY].newValue;
+});
 ```
 
 ## Vue Component (Extension UI)
 
 ```vue
 <script setup lang="ts">
-import { onMounted, onUnmounted } from 'vue'
-import browser from 'webextension-polyfill'
-import { useTabStore } from '@/stores/TabStore'
-import { useGlobalStore } from '@/stores/globalStore'
+import { onMounted, onUnmounted } from 'vue';
+import browser from 'webextension-polyfill';
+import { useTabStore } from '@/stores/TabStore';
+import { useGlobalStore } from '@/stores/globalStore';
 
 // Props — type (not interface), withDefaults always
-type Props = { title: string; count?: number }
-const props = withDefaults(defineProps<Props>(), { count: 0 })
+type Props = { title: string; count?: number };
+const props = withDefaults(defineProps<Props>(), { count: 0 });
 // ❌ const { count } = props — project rule: no destructuring, use props.count
 
 // Emits — always typed
-const emit = defineEmits<{ changed: [value: string] }>()
+const emit = defineEmits<{ changed: [value: string] }>();
 
-const tabStore = useTabStore()
-const global = useGlobalStore()
+const tabStore = useTabStore();
+const global = useGlobalStore();
 
-let unsubscribeStorageSync: (() => void) | null = null
+let unsubscribeStorageSync: (() => void) | null = null;
 
 onMounted(async () => {
-  await global.init()
-  await tabStore.loadTabsHistory()         // crash recovery from last snapshot
-  unsubscribeStorageSync = tabStore.initStorageSync()  // reactive from now on
-  browser.tabs.onActivated.addListener(handler)
-})
+  await global.init();
+  await tabStore.loadTabsHistory(); // crash recovery from last snapshot
+  unsubscribeStorageSync = tabStore.initStorageSync(); // reactive from now on
+  browser.tabs.onActivated.addListener(handler);
+});
 
 onUnmounted(() => {
-  unsubscribeStorageSync?.()
-  browser.tabs.onActivated.removeListener(handler)
-})
+  unsubscribeStorageSync?.();
+  browser.tabs.onActivated.removeListener(handler);
+});
 </script>
 ```
 
@@ -105,30 +107,33 @@ onUnmounted(() => {
 
 ```ts
 type State = {
-  items: SomeModel[]
-  loading: boolean
-  error: string | null  // always string | null
-}
+  items: SomeModel[];
+  loading: boolean;
+  error: string | null; // always string | null
+};
 
 export const useStoreName = defineStore('storeName', {
   state: (): State => ({ items: [], loading: false, error: null }),
   getters: {
-    count: (state): number => state.items.length,  // pure only
+    count: (state): number => state.items.length, // pure only
   },
   actions: {
     async fetchItems(): Promise<SomeModel[]> {
-      this.loading = true; this.error = null
+      this.loading = true;
+      this.error = null;
       try {
-        const raw = await browser.storage.local.get('key')
-        this.items = raw['key'] ?? []
-        return this.items
+        const raw = await browser.storage.local.get('key');
+        this.items = raw['key'] ?? [];
+        return this.items;
       } catch (err) {
-        this.error = err instanceof Error ? err.message : 'Unknown error'
-        return []
-      } finally { this.loading = false }
+        this.error = err instanceof Error ? err.message : 'Unknown error';
+        return [];
+      } finally {
+        this.loading = false;
+      }
     },
   },
-})
+});
 ```
 
 ## Static Service (background-safe)
@@ -137,9 +142,11 @@ export const useStoreName = defineStore('storeName', {
 export class ServiceName {
   static async getData(): Promise<string | null> {
     try {
-      const r = await browser.storage.local.get(APP_DEFAULTS.KEY)
-      return r[APP_DEFAULTS.KEY] as string ?? null
-    } catch { return null }
+      const r = await browser.storage.local.get(APP_DEFAULTS.KEY);
+      return (r[APP_DEFAULTS.KEY] as string) ?? null;
+    } catch {
+      return null;
+    }
   }
 }
 ```
@@ -148,8 +155,8 @@ export class ServiceName {
 
 ```ts
 // ✅ type for all shapes
-export type TabState = { tabs: ClassifiedTab[]; loading: boolean; error: string | null }
-type Nullable<T> = T | null
+export type TabState = { tabs: ClassifiedTab[]; loading: boolean; error: string | null };
+type Nullable<T> = T | null;
 
 // ❌ interface (only for declaration merging)
 // ❌ any — use generics or proper types
