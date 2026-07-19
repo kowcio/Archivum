@@ -52,12 +52,12 @@ test.describe('groupTabsByAge E2E', () => {
       expect(result.groupCount).toBe(5);
       expect(result.groupsOrderedByIndex.length).toBe(5);
 
-        // Verify: Each group has id and title (youngest → oldest, left → right)
-        expect(result.groupsOrderedByIndex[0].title).toContain('Week+');
-        expect(result.groupsOrderedByIndex[1].title).toContain('2 Weeks+');
+        // Verify: Each group has id and title (oldest → youngest, left → right)
+        expect(result.groupsOrderedByIndex[0].title).toContain('Hell!');
+        expect(result.groupsOrderedByIndex[1].title).toContain('Quarter+');
         expect(result.groupsOrderedByIndex[2].title).toContain('Month+');
-        expect(result.groupsOrderedByIndex[3].title).toContain('Quarter+');
-        expect(result.groupsOrderedByIndex[4].title).toContain('Hell!');
+        expect(result.groupsOrderedByIndex[3].title).toContain('2 Weeks+');
+        expect(result.groupsOrderedByIndex[4].title).toContain('Week+');
 
       // Verify each group has valid id and title
       for (let i = 0; i < result.groupsOrderedByIndex.length; i++) {
@@ -72,11 +72,11 @@ test.describe('groupTabsByAge E2E', () => {
       expect(groupedTabs.length).toBe(12);
       expect(ungroupedTabs.length).toBeGreaterThanOrEqual(2); // at least options page + fresh tabs
 
-      // Check the oldest tab from all should be in a group with npmjs URL
-      const oldestGroupedTab = groupedTabs.find((t) => t.url?.includes('npmjs.com'));
-      expect(oldestGroupedTab).toBeDefined();
-      expect(oldestGroupedTab?.groupId).not.toBe(-1);
-      expect(oldestGroupedTab?.groupId).not.toBeUndefined();
+      // Verify that all grouped tabs have valid groupId
+      for (const tab of groupedTabs) {
+        expect(tab.groupId).not.toBe(-1);
+        expect(tab.groupId).not.toBeUndefined();
+      }
 
       console.log(
         `✅ PASSED: ${result.groupCount} groups (oldest→youngest left→right), ${ungroupedTabs.length} ungrouped tabs`

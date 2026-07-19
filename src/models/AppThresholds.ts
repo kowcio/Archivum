@@ -1,4 +1,4 @@
-import { APP_DEFAULTS, type ThresholdLevel } from '@/constants'
+import {APP_DEFAULTS, type ThresholdLevel} from '@/constants'
 
 /**
  * Age threshold configuration with dynamic active levels.
@@ -129,12 +129,10 @@ export class AppThresholds {
        })
        return DEFAULT_THRESHOLDS
      }
-     const result = new AppThresholds(
+    return new AppThresholds(
        levels,
        obj.activeLevels ?? APP_DEFAULTS.THRESHOLDS.activeLevels
      )
-     console.log('[AppThresholds.fromObject] Created instance with activeLevels=', result.activeLevels)
-     return result
    }
 }
 
