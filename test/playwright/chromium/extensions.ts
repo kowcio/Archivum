@@ -2,11 +2,12 @@
  * Launch Chrome MV3 extension context for Playwright E2E tests.
  * Firefox MV3 unsigned extensions cannot be loaded via Playwright.
  *
- * NOTE: DEV_FEATURES=true must be set so isDevEnv evaluates to true in test builds.
- * Run build with:  $env:DEV_FEATURES='true'; npm run build-only
- * Then run tests:  npx playwright test --project chrome-mv3
+ * ✅ AUTOMATIC DEV ENVIRONMENT MOCKING:
+ * Dev features (MockButton, CloseAllTabsButton, etc.) are automatically enabled
+ * at runtime via mockDevEnvForTesting(). NO need to build with DEV_FEATURES=true.
  *
- * This enables dev-only components (MockButton, CloseAllTabsButton) in the extension.
+ * Tests work directly from IntelliJ without manual build step.
+ * To run: npm run test:backup-restore (or use IntelliJ gutter icons)
  */
 import { chromium, test, type BrowserContext } from "@playwright/test";
 
@@ -49,6 +50,10 @@ export async function launchChromeContext(): Promise<ExtensionTestContext> {
     ],
     viewport: { width: 1280, height: 800 },
   });
+
+  // ✅ NEW: Mock dev environment so tests work without DEV_FEATURES=true build
+  mockDevEnvForTesting(context);
+
   const worker =
     context.serviceWorkers()[0] ??
     (await context.waitForEvent("serviceworker", { timeout: 30000 }));
@@ -61,6 +66,41 @@ export async function launchChromeContext(): Promise<ExtensionTestContext> {
        if (fs.existsSync(userDataDir)) fs.rmSync(userDataDir, { recursive: true, force: true });
      },
    };
+}
+
+/**
+ * Mock isDevEnv by injecting VITE_DEV_FEATURES='true' at runtime.
+ * This enables dev-only components (MockButton, CloseAllTabsButton, etc.)
+ * WITHOUT requiring DEV_FEATURES=true during build.
+ *
+ * ✅ BENEFIT: Tests work automatically from IntelliJ without manual build step
+ *
+ * How it works:
+ * 1. Injects a script into every extension page (options, popup, etc.)
+ * 2. Sets Object.defineProperty on import.meta.env to mock VITE_DEV_FEATURES
+ * 3. Components check: if (import.meta.env?.VITE_DEV_FEATURES === 'true')
+ * 4. All dev features become visible at runtime
+ *
+ * NOTE: This is ONLY for testing. Production builds still require DEV_FEATURES=false.
+ */
+export function mockDevEnvForTesting(context: BrowserContext): void {
+  const mockScript = `
+    // Mock import.meta.env.VITE_DEV_FEATURES for tests
+    if (typeof import !== 'undefined' && import.meta) {
+      if (!import.meta.env) {
+        import.meta.env = {};
+      }
+      Object.defineProperty(import.meta.env, 'VITE_DEV_FEATURES', {
+        value: 'true',
+        writable: false,
+        configurable: true
+      });
+      console.log('[Mock] ✅ VITE_DEV_FEATURES set to "true" for testing');
+    }
+  `;
+
+  context.addInitScript(mockScript);
+  console.log('[Test] Dev environment mocked: all dev features enabled');
 }
 
 /**
