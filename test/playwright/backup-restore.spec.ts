@@ -30,7 +30,6 @@ test.describe('Backup & Restore', () => {
     await options.goto(ctx.extensionId)
 
     // Create mock tabs
-    await options.clickCloseAllTabs()
     await options.page.waitForTimeout(500)
     await options.clickLoadMockTabs()
     await options.page.waitForTimeout(1000)
