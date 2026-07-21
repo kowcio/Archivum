@@ -42,8 +42,14 @@ test.describe('24h Alarm: Tab Age Progression to Older Groups', () => {
   test('should move tabs to older groups after 1 week passes', async () => {
 
     // Phase 1: Group tabs with their default ages
-    await options.clickGroupTabs(1500)
+    // Extra delay to ensure all 14 mock tabs are persisted and loaded
+    await options.clickGroupTabs(2000)
     let result = await options.getGroupAndTabData()
+
+    // ⚠️ CRITICAL: Verify exactly 14 tabs exist before grouping assertions
+    const totalTabs = result.groupedTabCount + result.ungroupedTabCount
+    console.log(`Total tabs: ${totalTabs} (grouped: ${result.groupedTabCount}, ungrouped: ${result.ungroupedTabCount})`)
+    expect(totalTabs).toBe(14)
 
     // Phase 1 Assertions - EXACT values only (never use toBeGreaterThan)
     const tabsBefore = await options.getAllGroups()

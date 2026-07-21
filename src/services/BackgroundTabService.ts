@@ -475,8 +475,8 @@ export class BackgroundTabService {
         }
       }
 
-      // Brief delay to let tabs start loading
-      await new Promise(r => setTimeout(r, 500))
+      // Delay to ensure all tabs are created and loaded on slow runners
+      await new Promise(r => setTimeout(r, 1500))
 
       // Build overrides map: tabId → lastAccessed timestamp based on daysAgo
       const overridesMap: Record<number, number> = {}
@@ -493,8 +493,8 @@ export class BackgroundTabService {
         console.error(`[BackgroundTabService] ❌ Failed to set overrides:`, err)
       }
 
-       // Extra delay to ensure storage is persisted/synchronized (WXT MV3 constraint)
-       await new Promise(r => setTimeout(r, 1000))
+       // Extra delay to ensure storage is persisted/synchronized (WXT MV3 constraint - CI can be slow)
+       await new Promise(r => setTimeout(r, 2500))
 
        // ✅ getTabs() automatically applies mock overrides to all tabs
        return await this.getTabs()
