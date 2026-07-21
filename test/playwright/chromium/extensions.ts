@@ -51,56 +51,26 @@ export async function launchChromeContext(): Promise<ExtensionTestContext> {
     viewport: { width: 1280, height: 800 },
   });
 
-  // ✅ NEW: Mock dev environment so tests work without DEV_FEATURES=true build
-  mockDevEnvForTesting(context);
+  // ✅ Inject mock dev environment BEFORE pages are created
+  // Use addInitScript so it runs on every page created in this context
+  await context.addInitScript(`
+    // Make VITE_DEV_FEATURES available globally for testing
+    window.__VITE_DEV_FEATURES__ = 'true';
+    console.log('[Mock] ✅ Dev environment enabled for testing');
+  `);
 
   const worker =
     context.serviceWorkers()[0] ??
     (await context.waitForEvent("serviceworker", { timeout: 30000 }));
-   const extensionId = new URL(worker.url()).host;
-   return {
-     context,
-     extensionId,
-     cleanup: async () => {
-       await context.close();
-       if (fs.existsSync(userDataDir)) fs.rmSync(userDataDir, { recursive: true, force: true });
-     },
-   };
-}
-
-/**
- * Mock isDevEnv by injecting VITE_DEV_FEATURES='true' at runtime.
- * This enables dev-only components (MockButton, CloseAllTabsButton, etc.)
- * WITHOUT requiring DEV_FEATURES=true during build.
- *
- * ✅ BENEFIT: Tests work automatically from IntelliJ without manual build step
- *
- * How it works:
- * 1. Injects a script into every extension page (options, popup, etc.)
- * 2. Sets Object.defineProperty on import.meta.env to mock VITE_DEV_FEATURES
- * 3. Components check: if (import.meta.env?.VITE_DEV_FEATURES === 'true')
- * 4. All dev features become visible at runtime
- *
- * NOTE: This is ONLY for testing. Production builds still require DEV_FEATURES=false.
- */
-export function mockDevEnvForTesting(context: BrowserContext): void {
-  const mockScript = `
-    // Mock import.meta.env.VITE_DEV_FEATURES for tests
-    if (typeof import !== 'undefined' && import.meta) {
-      if (!import.meta.env) {
-        import.meta.env = {};
-      }
-      Object.defineProperty(import.meta.env, 'VITE_DEV_FEATURES', {
-        value: 'true',
-        writable: false,
-        configurable: true
-      });
-      console.log('[Mock] ✅ VITE_DEV_FEATURES set to "true" for testing');
-    }
-  `;
-
-  context.addInitScript(mockScript);
-  console.log('[Test] Dev environment mocked: all dev features enabled');
+    const extensionId = new URL(worker.url()).host;
+    return {
+      context,
+      extensionId,
+      cleanup: async () => {
+        await context.close();
+        if (fs.existsSync(userDataDir)) fs.rmSync(userDataDir, { recursive: true, force: true });
+      },
+    };
 }
 
 /**
