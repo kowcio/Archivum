@@ -102,4 +102,4 @@ export const MOCK_TABS = [
     favIconUrl: '',
     daysAgo: 101,
   }
-].slice(0, 16)  // Create 16 tabs to ensure 12+ are grouped even if some fail
+].slice(0, 14)
