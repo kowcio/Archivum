@@ -46,10 +46,10 @@ test.describe('24h Alarm: Tab Age Progression to Older Groups', () => {
     await options.clickGroupTabs(2000)
     let result = await options.getGroupAndTabData()
 
-    // ⚠️ CRITICAL: Verify exactly 14 tabs exist before grouping assertions
+    // ⚠️ CRITICAL: Verify exactly 14 mock tabs + 2 pre-existing = 16 total before grouping assertions
     const totalTabs = result.groupedTabCount + result.ungroupedTabCount
     console.log(`Total tabs: ${totalTabs} (grouped: ${result.groupedTabCount}, ungrouped: ${result.ungroupedTabCount})`)
-    expect(totalTabs).toBe(14)
+    expect(totalTabs).toBe(16)
 
     // Phase 1 Assertions - EXACT values only (never use toBeGreaterThan)
     const tabsBefore = await options.getAllGroups()
