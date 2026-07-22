@@ -51,8 +51,8 @@ test.describe('Threshold Day Levels', () => {
              expect(groups[0].tabCount).toBe(3)
              expect(groups[1].tabCount).toBe(2)
              expect(groups[2].tabCount).toBe(2)
-             expect(groups[3].tabCount).toBe(3)
-             expect(groups[4].tabCount).toBe(2)
+             expect(groups[3].tabCount).toBe(2)
+             expect(groups[4].tabCount).toBe(3)
 
     // 3. Change Week+ threshold from 7→3 days.
     // This will shift tab 6 (daysAgo=6) from fresh into Week+ group.

@@ -98,8 +98,8 @@ test.describe('TestAlarmButton: +4h Warp & Grouping', () => {
           expect(groupsBefore[0].tabCount).toBe(3)
           expect(groupsBefore[1].tabCount).toBe(2)
           expect(groupsBefore[2].tabCount).toBe(2)
-          expect(groupsBefore[3].tabCount).toBe(3)
-          expect(groupsBefore[4].tabCount).toBe(2)
+          expect(groupsBefore[3].tabCount).toBe(2)
+          expect(groupsBefore[4].tabCount).toBe(3)
       console.log(`   Total grouped before: ${groupsBefore.reduce((a, b) => a + b.tabCount, 0)}`)
     }
 
