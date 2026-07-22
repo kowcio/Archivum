@@ -9,7 +9,7 @@
  */
 
 import {test, expect} from '@playwright/test'
-import {setupExtensionTest, type ExtensionTestContext} from './chromium/extensions.js'
+import {setupExtensionTest, type ExtensionTestContext, WAIT_MS} from './chromium/extensions.js'
 import {OptionsPage} from './page-objects/OptionsPage.js'
 
 test.describe('Threshold Change: Store → Options Auto-Update', () => {
@@ -30,11 +30,11 @@ test.describe('Threshold Change: Store → Options Auto-Update', () => {
     await options.goto(ctx.extensionId)
 
     // 2. Load mock tabs (14 tabs with ages: 1,6,8,8,12,18,25,40,60,100,101,356,366,367)
-    await options.clickLoadMockTabs(2000)
-    await options.page.waitForTimeout(500)
+    await options.clickLoadMockTabs()
+    await options.page.waitForTimeout(WAIT_MS)
 
     // 3. Group tabs with default thresholds (5 active levels)
-    await options.clickGroupTabs(2500)
+    await options.clickGroupTabs()
 
     console.log('\n═══ LEVEL 5: Default (7,14,28,90,365 days) ═══')
     let result = await options.getGroupAndTabData()
@@ -54,7 +54,7 @@ test.describe('Threshold Change: Store → Options Auto-Update', () => {
 
     // 4. Change to 4 levels and verify
     console.log('\n═══ LEVEL 4: Change to 4 levels (without Years boundary) ═══')
-    await options.changeThresholdLevels(4, 3000)
+    await options.changeThresholdLevels(4)
     result = await options.getGroupAndTabData()
     console.log(`Groups: ${result.groupsOrderedByIndex.length}, Grouped: ${result.groupedTabCount}, Ungrouped: ${result.ungroupedTabCount}`)
     result.groupsOrderedByIndex.forEach((g, i) => {
@@ -71,7 +71,7 @@ test.describe('Threshold Change: Store → Options Auto-Update', () => {
 
     // 5. Change to 3 levels and verify
     console.log('\n═══ LEVEL 3: Change to 3 levels (without Quarter+ and Hell!) ═══')
-    await options.changeThresholdLevels(3, 3000)
+    await options.changeThresholdLevels(3)
     result = await options.getGroupAndTabData()
     console.log(`Groups: ${result.groupsOrderedByIndex.length}, Grouped: ${result.groupedTabCount}, Ungrouped: ${result.ungroupedTabCount}`)
     result.groupsOrderedByIndex.forEach((g, i) => {
@@ -87,7 +87,7 @@ test.describe('Threshold Change: Store → Options Auto-Update', () => {
 
     // 6. Change back to 5 levels and verify
     console.log('\n═══ LEVEL 5: Change back to 5 levels (7,14,28,90,365 days) ═══')
-    await options.changeThresholdLevels(5, 3000)
+    await options.changeThresholdLevels(5)
     result = await options.getGroupAndTabData()
     console.log(`Groups: ${result.groupsOrderedByIndex.length}, Grouped: ${result.groupedTabCount}, Ungrouped: ${result.ungroupedTabCount}`)
     result.groupsOrderedByIndex.forEach((g, i) => {

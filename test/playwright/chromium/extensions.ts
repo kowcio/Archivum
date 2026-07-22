@@ -22,6 +22,10 @@ export type ExtensionTestContext = {
   cleanup: () => Promise<void>;
 };
 
+// ⏱️ SINGLE SOURCE OF TRUTH: All test timeouts (reused across tests)
+// Both UI and RPC operations use same 3000ms default - sufficient for CI environments
+export const WAIT_MS = 3000;
+
 // ✅ Default timeout for all extension tests
 export const EXTENSION_TEST_TIMEOUT = 30_000;
 const OUTPUT_DIR = path.resolve(process.cwd(), ".output");

@@ -16,6 +16,7 @@
 
 import { expect, type Locator, type Page } from '@playwright/test';
 import { BACKGROUND_MESSAGE_ACTIONS } from '../../../src/constants'
+import { WAIT_MS } from '../chromium/extensions'
 
 // `chrome` is globally available in page.evaluate() context (no import needed)
 
@@ -95,21 +96,21 @@ export class OptionsPage {
 
   /**
    * Click "Group Tabs by Age" button and wait for grouping to complete.
-   * Optional: pass timeout override (default 1200ms).
+   * Optional: pass timeout override.
    */
-  async clickGroupTabs(waitMs: number = 1200): Promise<void> {
+  async clickGroupTabs(waitMs?: number): Promise<void> {
       await this.groupTabsBtn.click();
-      await this.page.waitForTimeout(waitMs);
+      await this.page.waitForTimeout(waitMs ?? WAIT_MS);
     }
 
    /**
-    * Click "Warp +4h" test alarm button to trigger grouping with time advancement.
-    * Optional: pass timeout override (default 2000ms for grouping to complete).
+    * Click "Test Alarm" button to trigger grouping with time advancement.
+    * Optional: pass timeout override.
     */
-    async clickTestAlarmButton(waitMs: number = 2000): Promise<void> {
+   async clickTestAlarmButton(waitMs?: number): Promise<void> {
       const alarmBtn = this.page.getByTestId('test-alarm-btn');
       await alarmBtn.click();
-      await this.page.waitForTimeout(waitMs);
+     await this.page.waitForTimeout(waitMs ?? WAIT_MS);
     }
 
 
@@ -141,13 +142,12 @@ export class OptionsPage {
     }
 
   /**
-   * Click "Ungroup All Tabs" button and wait for ungrouping to complete.
-   * Optional: pass timeout override (default 1000ms).
+   * Click "Sort by Domain" button and wait for sorting to complete.
+   * Optional: pass timeout override.
    */
-  async clickSortTabs(waitMs: number = 1000): Promise<void> {
+  async clickSortTabs(waitMs?: number): Promise<void> {
     await this.sortTabsBtn.click();
-    await this.page.waitForTimeout(waitMs);
-
+    await this.page.waitForTimeout(waitMs ?? WAIT_MS);
   }
 
     /**
@@ -179,7 +179,7 @@ export class OptionsPage {
           })
         }, overrides)
         // Extra wait to ensure storage is persisted
-        await this.page.waitForTimeout(500)
+        await this.page.waitForTimeout(WAIT_MS)
       } catch (err) {
         throw new Error(`Failed to set mock overrides: ${err}`)
       }
@@ -191,7 +191,7 @@ export class OptionsPage {
      * Returns response from background service.
      * Includes wait time for tabs to load with URLs.
      */
-    async clickLoadMockTabs(waitMs: number = 500): Promise<{ ok: boolean; count: number; error: string | null }> {
+    async clickLoadMockTabs(waitMs?: number): Promise<{ ok: boolean; count: number; error: string | null }> {
       try {
         // Call createMockTabs RPC through direct messaging
         const tabs = await this.page.evaluate(async () => {
@@ -214,7 +214,7 @@ export class OptionsPage {
             )
           })
         })
-        await this.page.waitForTimeout(waitMs)
+        await this.page.waitForTimeout(waitMs ?? WAIT_MS)
         return { ok: true, count: Array.isArray(tabs) ? tabs.length : 0, error: null }
       } catch (err: unknown) {
         return { ok: false, count: 0, error: String(err) }
@@ -335,12 +335,12 @@ export class OptionsPage {
   /**
    * Click Apply button to save threshold level changes.
    * Triggers tab regrouping by age with new thresholds.
-   * Optional: pass timeout override (default 1500ms for regroup completion).
+   * Optional: pass timeout override.
    */
-  async clickApplyThresholds(waitMs: number = 1500): Promise<void> {
+  async clickApplyThresholds(waitMs?: number): Promise<void> {
     await expect(this.applyThresholdBtn).toBeVisible();
     await this.applyThresholdBtn.click();
-    await this.page.waitForTimeout(waitMs);
+    await this.page.waitForTimeout(waitMs ?? WAIT_MS);
   }
 
   /**
@@ -390,7 +390,7 @@ export class OptionsPage {
    * Waits for regrouping to complete.
    */
 
-  async changeThresholdDayValue(levelIndex: number, days: number, waitMs: number = 1500): Promise<void> {
+  async changeThresholdDayValue(levelIndex: number, days: number, waitMs?: number): Promise<void> {
     await this.setThresholdDayValue(levelIndex, days);
     await this.expectApplyThresholdButtonVisible();
     await this.clickApplyThresholds(waitMs);
@@ -401,7 +401,7 @@ export class OptionsPage {
    * Change threshold levels and apply changes in one action.
    * Waits for regrouping to complete.
    */
-  async changeThresholdLevels(newCount: number, waitMs: number = 1500): Promise<void> {
+  async changeThresholdLevels(newCount: number, waitMs?: number): Promise<void> {
     await this.setLevelsCount(newCount);
     await this.expectApplyThresholdButtonVisible();
     await this.clickApplyThresholds(waitMs);
@@ -624,7 +624,7 @@ export class OptionsPage {
     // Click the restore-confirm button inside the dialog
     await this.page.getByTestId('restore-confirm').click();
     // Wait for restore operation to complete
-    await this.page.waitForTimeout(2000);
+    await this.page.waitForTimeout(WAIT_MS);
   }
 
   /**

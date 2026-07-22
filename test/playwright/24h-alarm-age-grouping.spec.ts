@@ -13,7 +13,7 @@
  */
 
 import { test, expect } from '@playwright/test'
-import { setupExtensionTest, type ExtensionTestContext } from './chromium/extensions.js'
+import { setupExtensionTest, type ExtensionTestContext, WAIT_MS } from './chromium/extensions.js'
 import { OptionsPage } from './page-objects/OptionsPage.js'
 
 test.describe('24h Alarm: Tab Age Progression to Older Groups', () => {
@@ -28,7 +28,7 @@ test.describe('24h Alarm: Tab Age Progression to Older Groups', () => {
     await options.expectPageLoaded()
 
     // Load mocks with their default ages
-    const mockResult = await options.clickLoadMockTabs(3000)
+    const mockResult = await options.clickLoadMockTabs()
     expect(mockResult.ok).toBe(true)
 
   })
@@ -43,7 +43,7 @@ test.describe('24h Alarm: Tab Age Progression to Older Groups', () => {
 
     // Phase 1: Group tabs with their default ages
     // Extra delay to ensure all 14 mock tabs are persisted and loaded
-    await options.clickGroupTabs(2000)
+    await options.clickGroupTabs()
     let result = await options.getGroupAndTabData()
 
     // ⚠️ CRITICAL: Verify exactly 14 mock tabs + 2 pre-existing = 16 total before grouping assertions
@@ -103,15 +103,15 @@ test.describe('24h Alarm: Tab Age Progression to Older Groups', () => {
     }
 
     await options.setMockOverrides(phase2Ages)
-    await options.page.waitForTimeout(400)
+    await options.page.waitForTimeout(WAIT_MS)
 
     // Ungroup and regroup to trigger age reclassification
     const ungroupBtn = options.page.getByTestId('ungroup-tabs-btn')
     const groupBtn = options.page.getByTestId('group-tabs-btn')
     await ungroupBtn.click()
-    await options.page.waitForTimeout(500)
+    await options.page.waitForTimeout(WAIT_MS)
     await groupBtn.click()
-    await options.page.waitForTimeout(1500)
+    await options.page.waitForTimeout(WAIT_MS)
 
     let phase2Result: typeof result
     try {

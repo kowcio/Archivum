@@ -15,7 +15,7 @@
  */
 
 import { test, expect } from '@playwright/test'
-import { setupExtensionTest, type ExtensionTestContext } from './chromium/extensions.js'
+import { setupExtensionTest, type ExtensionTestContext , WAIT_MS} from './chromium/extensions.js'
 import { OptionsPage } from './page-objects/OptionsPage.js'
 import { ThresholdLabel } from '../../src/constants.js'
 
@@ -40,14 +40,14 @@ test.describe('TestAlarmButton: +4h Warp & Grouping', () => {
   test('should warp time +4h and trigger grouping with updated tab ages', async () => {
     // Step 1: Load mock tabs
     console.log('Step 1: Loading mock tabs...')
-    const mockResult = await options.clickLoadMockTabs(2000)
+    const mockResult = await options.clickLoadMockTabs(WAIT_MS)
     expect(mockResult.ok).toBe(true)
     expect(mockResult.count).toBeGreaterThan(0)
     console.log(`   ✓ Created ${mockResult.count} mock tabs`)
 
     // Step 2: Group tabs with default grouping
     console.log('\nStep 2: Grouping tabs by age...')
-    await options.clickGroupTabs(2000)
+    await options.clickGroupTabs(WAIT_MS)
     console.log('   ✓ Group command executed')
 
     // Step 3: Verify groups BEFORE time warp
@@ -270,6 +270,7 @@ test.describe('TestAlarmButton: +4h Warp & Grouping', () => {
     console.log('\n✅ Test passed: Tabs aged ~7 days and moved to older groups!')
   })
 })
+
 
 
 

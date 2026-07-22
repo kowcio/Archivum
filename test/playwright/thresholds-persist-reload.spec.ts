@@ -6,7 +6,7 @@
  */
 
 import { test, expect } from '@playwright/test';
-import { setupExtensionTest, type ExtensionTestContext } from './chromium/extensions.js';
+import { setupExtensionTest, type ExtensionTestContext , WAIT_MS} from './chromium/extensions.js';
 import { OptionsPage } from './page-objects/OptionsPage.js';
 
 test.describe('Threshold Persistence across Reload', () => {
@@ -53,7 +53,7 @@ test.describe('Threshold Persistence across Reload', () => {
       console.log(`✅ Step 4: Input value after apply: ${valueAfterApply}`);
 
       // Wait for storage to persist
-      await options.page.waitForTimeout(2000);
+      await options.page.waitForTimeout(WAIT_MS);
 
        // Step 5: Verify Apply button disappeared (no unsaved changes)
        const applyBtn = options.page.locator('[data-testid="threshold-apply"]');
@@ -72,7 +72,7 @@ test.describe('Threshold Persistence across Reload', () => {
       // Wait for page to fully load AND storage to be loaded
       await optionsReloaded.expectPageLoaded();
       // Extra wait for storage to load from background context
-      await optionsReloaded.page.waitForTimeout(1000);
+      await optionsReloaded.page.waitForTimeout(WAIT_MS);
       console.log('✅ Step 7: Options page reloaded');
 
       // Step 8: ⚠️ CRITICAL TEST: Verify threshold is still 3 (NOT reset to 5)
@@ -80,7 +80,7 @@ test.describe('Threshold Persistence across Reload', () => {
       console.log(`✅ Step 8: After reload, threshold level: ${reloadedLevel}`);
 
       // THIS IS THE KEY TEST - threshold should be 3, not 5 (default)
-      expect(reloadedLevel).toBe('3', 'Thresholds should persist after reload, not reset to default');
+      expect(reloadedLevel).toBe('3');
       console.log('✅ PASSED: Thresholds persisted correctly! (3 levels preserved)');
 
     } finally {
@@ -88,3 +88,4 @@ test.describe('Threshold Persistence across Reload', () => {
     }
   });
 });
+

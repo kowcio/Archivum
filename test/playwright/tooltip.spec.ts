@@ -9,7 +9,7 @@
  */
 
 import { test, expect } from '@playwright/test'
-import { setupExtensionTest, type ExtensionTestContext } from './chromium/extensions.js'
+import { setupExtensionTest, type ExtensionTestContext , WAIT_MS} from './chromium/extensions.js'
 import { OptionsPage } from './page-objects/OptionsPage.js'
 
 test.describe('GroupUngroup: Tooltip Visibility', () => {
@@ -45,7 +45,7 @@ test.describe('GroupUngroup: Tooltip Visibility', () => {
     console.log('✓ Hovered over button')
 
     // Wait a bit for tooltip to appear
-    await options.page.waitForTimeout(500)
+    await options.page.waitForTimeout(WAIT_MS)
 
     // Check if tooltip text is visible on the page
     const tooltipText = await options.page.getByText('Nothing to archive, all tabs are less than').isVisible()
@@ -82,7 +82,7 @@ test.describe('GroupUngroup: Tooltip Visibility', () => {
     console.log(`✓ Created ${mockResult.count} mock tabs`)
 
     // Wait for state update and re-render
-    await options.page.waitForTimeout(1500)
+    await options.page.waitForTimeout(WAIT_MS)
 
     // Get the group button - it should now be enabled
     const groupBtn = options.page.getByTestId('group-tabs-btn')
@@ -101,6 +101,7 @@ test.describe('GroupUngroup: Tooltip Visibility', () => {
     }
   })
 })
+
 
 
 

@@ -1,5 +1,5 @@
 import {expect, test} from "@playwright/test";
-import {setupExtensionTest, type ExtensionTestContext} from "./extensions.js";
+import {setupExtensionTest, type ExtensionTestContext, WAIT_MS} from "./extensions.js";
 import {OptionsPage} from "../page-objects/OptionsPage.js";
 
 test.describe("Sort by Domain Button", () => {
@@ -18,12 +18,12 @@ test.describe("Sort by Domain Button", () => {
     await options.goto(ctx.extensionId);
 
     // Load mock tabs (already includes multiple domains for sorting tests)
-    const result = await options.clickLoadMockTabs(2500);  // Increased from 2000 to 2500ms
+    const result = await options.clickLoadMockTabs(WAIT_MS);
     expect(result.ok).toBe(true);
 
     // Wait for tabs to fully load
     await options.page.waitForLoadState('networkidle');
-    await options.page.waitForTimeout(1000);
+    await options.page.waitForTimeout(WAIT_MS);
 
     // Count tabs before grouping
     const dataBefore = await options.getGroupAndTabData();
@@ -31,18 +31,18 @@ test.describe("Sort by Domain Button", () => {
     console.log(`📊 Tabs before grouping: ${tabsBeforeGrouping}`);
 
     // Group tabs
-    await options.clickGroupTabs(1500);  // Increased from 1200 to 1500ms
+    await options.clickGroupTabs(WAIT_MS);
     const groups = await options.getAllGroups();
     console.log(`📦 Groups created: ${groups.length}`);
 
     // Sort by domain
-    await options.clickSortTabs(2000);  // Increased from 1500 to 2000ms
+    await options.clickSortTabs(WAIT_MS);
     // Instead of networkidle (discouraged), wait for tabs table to update
     await options.page.waitForFunction(() => {
       const tableRows = document.querySelectorAll('[data-testid="table-open-tabs"] tr');
       return tableRows.length > 1;  // At least header + 1 data row
     }, { timeout: 5_000 });
-    await options.page.waitForTimeout(500);  // Brief pause for final render
+    await options.page.waitForTimeout(WAIT_MS);  // Brief pause for final render
 
     // Verify results
     const data = await options.getGroupAndTabData();
@@ -99,3 +99,4 @@ test.describe("Sort by Domain Button", () => {
     // This prevents: "Target page, context or browser has been closed"
   });
 });
+

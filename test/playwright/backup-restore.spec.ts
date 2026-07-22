@@ -6,7 +6,7 @@
  */
 
 import { test, expect } from '@playwright/test'
-import {ExtensionTestContext, setupExtensionTest} from "./chromium/extensions";
+import {ExtensionTestContext, setupExtensionTest, WAIT_MS} from "./chromium/extensions";
 import {OptionsPage} from "./page-objects/OptionsPage";
 
 test.describe('Backup & Restore', () => {
@@ -30,12 +30,12 @@ test.describe('Backup & Restore', () => {
     await options.goto(ctx.extensionId)
 
     // Create mock tabs
-    await options.page.waitForTimeout(500)
+    await options.page.waitForTimeout(WAIT_MS)
     await options.clickLoadMockTabs()
-    await options.page.waitForTimeout(1000)
+    await options.page.waitForTimeout(WAIT_MS)
 
     // Group tabs by age
-    await options.clickGroupTabs(2000)
+    await options.clickGroupTabs(WAIT_MS)
     const groupsBeforeDetails = await options.getAllGroups()
     const groupsBeforeCount = groupsBeforeDetails.length
     console.log("[TEST] Groups BEFORE:", groupsBeforeCount)
@@ -43,7 +43,7 @@ test.describe('Backup & Restore', () => {
 
     // Backup
     await options.clickBackupTabs()
-    await options.page.waitForTimeout(500)
+    await options.page.waitForTimeout(WAIT_MS)
 
     // ✅ DEBUG: Check what was backed up
     const backupData = await options.getBackupFromStorage()
@@ -59,14 +59,14 @@ test.describe('Backup & Restore', () => {
 
     // Close all tabs
     await options.clickCloseAllTabs()
-    await options.page.waitForTimeout(500)
+    await options.page.waitForTimeout(WAIT_MS)
 
     // Restore
     await options.clickRestoreTabs()
     console.log("[TEST] Clicked 'Restore Tabs' button")
     await options.confirmRestore()
     console.log("[TEST] Confirmed restore")
-    await options.page.waitForTimeout(3000)  // Increased from 2000 to 3000ms for restoration to complete
+    await options.page.waitForTimeout(WAIT_MS)
     console.log("[TEST] Wait completed, now querying groups...")
 
     // ✅ DEBUG: Query group properties from Chrome API
@@ -112,7 +112,7 @@ test.describe('Backup & Restore', () => {
 
     // Delete the backup
     await options.clickDeleteBackup()
-    await options.page.waitForTimeout(500)
+    await options.page.waitForTimeout(WAIT_MS)
 
     // Verify backup is deleted (delete button and restore button should be hidden)
     await options.expectDeleteBackupButtonHidden()

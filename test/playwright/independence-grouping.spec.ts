@@ -9,7 +9,7 @@
  */
 
 import { test, expect } from '@playwright/test';
-import { setupExtensionTest, type ExtensionTestContext } from './chromium/extensions.js';
+import { setupExtensionTest, type ExtensionTestContext , WAIT_MS} from './chromium/extensions.js';
 import { OptionsPage } from './page-objects/OptionsPage.js';
 
 test.describe('groupTabsByAge E2E', () => {
@@ -33,17 +33,17 @@ test.describe('groupTabsByAge E2E', () => {
 
       // Close any existing tabs first (to have clean slate with only 1 tab = options page)
       await options.clickCloseAllTabs();
-      await options.page.waitForTimeout(500);
+      await options.page.waitForTimeout(WAIT_MS);
 
       // Click mock button
       const mockResult = await options.clickLoadMockTabs();
       expect(mockResult.ok).toBe(true);
 
       // Extra wait to ensure mock overrides are persisted to storage (WXT sync)
-      await options.page.waitForTimeout(1000);
+      await options.page.waitForTimeout(WAIT_MS);
 
       // Group tabs
-      await options.clickGroupTabs(2000);
+      await options.clickGroupTabs(WAIT_MS);
 
       // Get all tabs and groups
       const result = await options.getGroupAndTabData();
@@ -86,3 +86,4 @@ test.describe('groupTabsByAge E2E', () => {
     }
   });
 });
+

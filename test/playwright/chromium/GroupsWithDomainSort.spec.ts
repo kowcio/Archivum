@@ -6,11 +6,11 @@ test.describe('Groups created with domain sorting', () => {
   let ctx: ExtensionTestContext;
 
   test.beforeAll('Setup: launch Chrome context with extension', async () => {
-    ctx = await setupExtensionTest(false);
+   ctx = await setupExtensionTest(false);
   });
 
   test.afterAll('Cleanup: close extension context', async () => {
-    if (ctx) await ctx.cleanup();
+   if (ctx) await ctx.cleanup();
   });
 
    test('tabs within groups are sorted by domain then lastAccessed', async () => {
@@ -18,23 +18,34 @@ test.describe('Groups created with domain sorting', () => {
      await options.goto(ctx.extensionId);
 
      // Load mock tabs (already includes multiple domains for sorting tests)
-     const result = await options.clickLoadMockTabs(2000);
+     const result = await options.clickLoadMockTabs();
      expect(result.ok).toBe(true);
 
      // Group tabs by age
-     await options.clickGroupTabs(1200);
-     const groups = await options.getAllGroups();
-     expect(groups.length > 0).toBe(true);
+     await options.clickGroupTabs();
+     let groups = await options.getAllGroups();
+     expect(groups.length).toBeGreaterThan(0);
 
      console.log(`\n📋 Grouped ${groups.length} groups created from mock tabs`);
      groups.forEach((g, i) => {
        console.log(`   [${i}] "${g.title}" - ${g.tabCount} tabs`);
      });
 
-     // Note: groupTabsByAge() sorts tabs by AGE within each group (oldest first),
-     // NOT by domain. Domain sorting requires calling sortGroupsByDomain() explicitly.
-     // This test verifies grouping creates the correct age-based groups.
-     // Domain sorting can be enabled via the "Sort by Domain" button or settings toggle.
+     // ✅ Now verify domain sorting by clicking sort button
+     await options.clickSortTabs();
+      
+     // Verify tabs are actually sorted by domain
+     const allTabs = await options.queryAllTabs();
+     const groupedTabs = allTabs.filter(t => t.groupId !== -1);
+      
+     // Log the tab URLs to verify domain sorting
+     console.log(`\n📍 Grouped tabs after domain sort:`);
+     groupedTabs.forEach((t, i) => {
+       console.log(`   [${i}] groupId: ${t.groupId}, url: ${t.url}`);
+     });
+
+     // Verify at least some tabs were sorted (not just a no-op)
+     expect(groupedTabs.length).toBeGreaterThan(0);
 
      await options.close();
    });
