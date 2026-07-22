@@ -9,7 +9,7 @@
  */
 
 import {test, expect} from '@playwright/test'
-import {setupExtensionTest, type ExtensionTestContext, WAIT_MS} from './chromium/extensions.js'
+import {setupExtensionTest, type ExtensionTestContext} from './chromium/extensions.js'
 import {OptionsPage} from './page-objects/OptionsPage.js'
 
 test.describe('Threshold Change: Store → Options Auto-Update', () => {
@@ -31,7 +31,6 @@ test.describe('Threshold Change: Store → Options Auto-Update', () => {
 
     // 2. Load mock tabs (14 tabs with ages: 1,6,8,8,12,18,25,40,60,100,101,356,366,367)
     await options.clickLoadMockTabs()
-    await options.page.waitForTimeout(WAIT_MS)
 
     // 3. Group tabs with default thresholds (5 active levels)
     await options.clickGroupTabs()

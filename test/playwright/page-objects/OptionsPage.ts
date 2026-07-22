@@ -15,8 +15,6 @@
  */
 
 import { expect, type Locator, type Page } from '@playwright/test';
-import { BACKGROUND_MESSAGE_ACTIONS } from '../../../src/constants'
-import { WAIT_MS } from '../chromium/extensions'
 
 // `chrome` is globally available in page.evaluate() context (no import needed)
 
@@ -96,22 +94,36 @@ export class OptionsPage {
 
   /**
    * Click "Group Tabs by Age" button and wait for grouping to complete.
-   * Optional: pass timeout override.
+   * Polls until groups are created and visible.
    */
-  async clickGroupTabs(waitMs?: number): Promise<void> {
-      await this.groupTabsBtn.click();
-      await this.page.waitForTimeout(waitMs ?? WAIT_MS);
-    }
+  async clickGroupTabs(): Promise<void> {
+    await this.groupTabsBtn.click();
+    // Wait for groups to be created and visible in DOM
+    await expect.poll(
+      async () => {
+        const result = await this.getGroupAndTabData();
+        return result.groupsOrderedByIndex.length;
+      },
+      { timeout: 10_000, message: 'Groups created after clicking group button' }
+    ).toBeGreaterThan(0);
+  }
 
-   /**
-    * Click "Test Alarm" button to trigger grouping with time advancement.
-    * Optional: pass timeout override.
-    */
-   async clickTestAlarmButton(waitMs?: number): Promise<void> {
-      const alarmBtn = this.page.getByTestId('test-alarm-btn');
-      await alarmBtn.click();
-     await this.page.waitForTimeout(waitMs ?? WAIT_MS);
-    }
+  /**
+   * Click "Test Alarm" button to trigger grouping with time advancement.
+   * Polls until alarm completes and groups are updated.
+   */
+  async clickTestAlarmButton(): Promise<void> {
+   const alarmBtn = this.page.getByTestId('test-alarm-btn');
+   await alarmBtn.click();
+   // Wait for alarm to complete and groups to be updated
+   await expect.poll(
+     async () => {
+       const result = await this.getGroupAndTabData();
+       return result.groupsOrderedByIndex.length;
+     },
+     { timeout: 10_000, message: 'Groups updated after test alarm' }
+   ).toBeGreaterThan(0);
+  }
 
 
     /**
@@ -143,16 +155,24 @@ export class OptionsPage {
 
   /**
    * Click "Sort by Domain" button and wait for sorting to complete.
-   * Optional: pass timeout override.
+   * Polls until table is updated with sorted groups.
    */
-  async clickSortTabs(waitMs?: number): Promise<void> {
+  async clickSortTabs(): Promise<void> {
     await this.sortTabsBtn.click();
-    await this.page.waitForTimeout(waitMs ?? WAIT_MS);
+    // Wait for sorting to complete by verifying groups are still present
+    await expect.poll(
+      async () => {
+        const result = await this.getGroupAndTabData();
+        return result.groupsOrderedByIndex.length;
+      },
+      { timeout: 10_000, message: 'Tabs sorted by domain' }
+    ).toBeGreaterThan(0);
   }
 
     /**
      * Set mock overrides for created tabs (backdated ages) via RPC messaging.
      * Call this AFTER creating mock tabs to set their lastAccessed timestamps.
+     * Polls until overrides are applied and reflected in the tab data.
      * @param overrides - Map of tabId → lastAccessed timestamp (ms since epoch)
      */
     async setMockOverrides(overrides: Record<number, number>): Promise<void> {
@@ -178,8 +198,15 @@ export class OptionsPage {
             )
           })
         }, overrides)
-        // Extra wait to ensure storage is persisted
-        await this.page.waitForTimeout(WAIT_MS)
+        
+        // Poll until overrides are persisted in storage
+        await expect.poll(
+          async () => {
+            const result = await this.getGroupAndTabData();
+            return result.tabs.length;
+          },
+          { timeout: 10_000, message: 'Mock overrides applied and persisted' }
+        ).toBeGreaterThan(0);
       } catch (err) {
         throw new Error(`Failed to set mock overrides: ${err}`)
       }
@@ -189,9 +216,9 @@ export class OptionsPage {
      * Create mock tabs via RPC message call within browser context.
      * Avoids any Node.js module loading errors.
      * Returns response from background service.
-     * Includes wait time for tabs to load with URLs.
+     * Polls until tabs are created and available.
      */
-    async clickLoadMockTabs(waitMs?: number): Promise<{ ok: boolean; count: number; error: string | null }> {
+    async clickLoadMockTabs(): Promise<{ ok: boolean; count: number; error: string | null }> {
       try {
         // Call createMockTabs RPC through direct messaging
         const tabs = await this.page.evaluate(async () => {
@@ -214,12 +241,37 @@ export class OptionsPage {
             )
           })
         })
-        await this.page.waitForTimeout(waitMs ?? WAIT_MS)
+        
+        // Poll until mock tabs are actually available and queryable
+        await expect.poll(
+          async () => {
+            const allTabs = await this.queryAllTabs();
+            return allTabs.length;
+          },
+          { timeout: 10_000, message: 'Mock tabs created and loaded' }
+        ).toBeGreaterThan(0);
+        
         return { ok: true, count: Array.isArray(tabs) ? tabs.length : 0, error: null }
       } catch (err: unknown) {
         return { ok: false, count: 0, error: String(err) }
       }
     }
+
+  /**
+   * Click "Ungroup Tabs" button and wait for ungrouping to complete.
+   * Polls until tabs are ungrouped.
+   */
+  async clickUngroupTabs(): Promise<void> {
+    await this.ungroupTabsBtn.click();
+    // Wait for ungrouping to complete
+    await expect.poll(
+      async () => {
+        const result = await this.getGroupAndTabData();
+        return result.groupedTabCount;
+      },
+      { timeout: 10_000, message: 'All tabs ungrouped' }
+    ).toBe(0);
+  }
 
   /**
    * Click "Close All Tabs" button.
@@ -335,12 +387,20 @@ export class OptionsPage {
   /**
    * Click Apply button to save threshold level changes.
    * Triggers tab regrouping by age with new thresholds.
-   * Optional: pass timeout override.
+   * Polls until regrouping completes.
    */
-  async clickApplyThresholds(waitMs?: number): Promise<void> {
+  async clickApplyThresholds(): Promise<void> {
     await expect(this.applyThresholdBtn).toBeVisible();
     await this.applyThresholdBtn.click();
-    await this.page.waitForTimeout(waitMs ?? WAIT_MS);
+    
+    // Poll until thresholds are applied and groups are recreated
+    await expect.poll(
+      async () => {
+        const result = await this.getGroupAndTabData();
+        return result.groupsOrderedByIndex.length;
+      },
+      { timeout: 10_000, message: 'Thresholds applied and groups recreated' }
+    ).toBeGreaterThan(0);
   }
 
   /**
@@ -619,12 +679,20 @@ export class OptionsPage {
   /**
    * Confirm the restore dialog by clicking the "Restore" button in the confirmation popup.
    * Uses data-testid="restore-confirm" to target the dialog's Restore button specifically.
+   * Polls until restore operation completes.
    */
   async confirmRestore(): Promise<void> {
     // Click the restore-confirm button inside the dialog
     await this.page.getByTestId('restore-confirm').click();
-    // Wait for restore operation to complete
-    await this.page.waitForTimeout(WAIT_MS);
+    
+    // Wait for restore operation to complete by verifying groups are restored
+    await expect.poll(
+      async () => {
+        const result = await this.getGroupAndTabData();
+        return result.tabs.length;
+      },
+      { timeout: 10_000, message: 'Restore operation completed' }
+    ).toBeGreaterThan(0);
   }
 
   /**

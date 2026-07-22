@@ -1,5 +1,5 @@
 import {expect, test} from "@playwright/test";
-import {setupExtensionTest, type ExtensionTestContext, WAIT_MS} from "./extensions.js";
+import {setupExtensionTest, type ExtensionTestContext} from "./extensions.js";
 import {OptionsPage} from "../page-objects/OptionsPage.js";
 
 test.describe("Sort by Domain Button", () => {
@@ -18,12 +18,11 @@ test.describe("Sort by Domain Button", () => {
     await options.goto(ctx.extensionId);
 
     // Load mock tabs (already includes multiple domains for sorting tests)
-    const result = await options.clickLoadMockTabs(WAIT_MS);
+    const result = await options.clickLoadMockTabs();
     expect(result.ok).toBe(true);
 
     // Wait for tabs to fully load
     await options.page.waitForLoadState('networkidle');
-    await options.page.waitForTimeout(WAIT_MS);
 
     // Count tabs before grouping
     const dataBefore = await options.getGroupAndTabData();
@@ -31,18 +30,17 @@ test.describe("Sort by Domain Button", () => {
     console.log(`📊 Tabs before grouping: ${tabsBeforeGrouping}`);
 
     // Group tabs
-    await options.clickGroupTabs(WAIT_MS);
+    await options.clickGroupTabs();
     const groups = await options.getAllGroups();
     console.log(`📦 Groups created: ${groups.length}`);
 
     // Sort by domain
-    await options.clickSortTabs(WAIT_MS);
+    await options.clickSortTabs();
     // Instead of networkidle (discouraged), wait for tabs table to update
     await options.page.waitForFunction(() => {
       const tableRows = document.querySelectorAll('[data-testid="table-open-tabs"] tr');
       return tableRows.length > 1;  // At least header + 1 data row
     }, { timeout: 5_000 });
-    await options.page.waitForTimeout(WAIT_MS);  // Brief pause for final render
 
     // Verify results
     const data = await options.getGroupAndTabData();

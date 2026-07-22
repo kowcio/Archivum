@@ -6,7 +6,7 @@
  */
 
 import { test, expect } from '@playwright/test';
-import { setupExtensionTest, type ExtensionTestContext , WAIT_MS} from './chromium/extensions.js';
+import { setupExtensionTest, type ExtensionTestContext } from './chromium/extensions.js';
 import { OptionsPage } from './page-objects/OptionsPage.js';
 
 test.describe('Threshold Persistence across Reload', () => {
@@ -53,9 +53,7 @@ test.describe('Threshold Persistence across Reload', () => {
       console.log(`✅ Step 4: Input value after apply: ${valueAfterApply}`);
 
       // Wait for storage to persist
-      await options.page.waitForTimeout(WAIT_MS);
-
-       // Step 5: Verify Apply button disappeared (no unsaved changes)
+      // Step 5: Verify Apply button disappeared (no unsaved changes)
        const applyBtn = options.page.locator('[data-testid="threshold-apply"]');
        // Wait for button to disappear which indicates save is complete
        await applyBtn.waitFor({ state: 'hidden', timeout: 5000 });
@@ -72,7 +70,6 @@ test.describe('Threshold Persistence across Reload', () => {
       // Wait for page to fully load AND storage to be loaded
       await optionsReloaded.expectPageLoaded();
       // Extra wait for storage to load from background context
-      await optionsReloaded.page.waitForTimeout(WAIT_MS);
       console.log('✅ Step 7: Options page reloaded');
 
       // Step 8: ⚠️ CRITICAL TEST: Verify threshold is still 3 (NOT reset to 5)

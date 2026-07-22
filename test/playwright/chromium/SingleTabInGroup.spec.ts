@@ -2,7 +2,7 @@
 
 
 import {expect, test} from "@playwright/test";
-import {type ExtensionTestContext, setupExtensionTest, WAIT_MS} from "./extensions.js";
+import {type ExtensionTestContext, setupExtensionTest} from "./extensions.js";
 import {OptionsPage} from "../page-objects/OptionsPage.js";
 import {ThresholdLabel} from "../../../src/constants.js";
 
@@ -80,8 +80,6 @@ test.describe("Options Page Tests", () => {
     }
 
     // 6. Small wait for Chrome to auto-remove the now-empty Week+ group
-    await options.page.waitForTimeout(WAIT_MS);
-
     // 7. Verify Week+ group no longer exists (Chrome auto-removes empty groups)
     const groupsAfter = await options.getAllGroups();
     const weekGroupAfter = groupsAfter.find(g => g.title.startsWith(groupName));
