@@ -65,7 +65,7 @@ export const backgroundRPC = {
     // 🧪 DEV/TEST ONLY: Mock tabs & age overrides (MockButton.vue + Playwright tests)
     // useReal=true: load REAL tabs with real URLs (slower, for UI previews)
     // useReal=false: create mock tab objects WITHOUT network calls (faster, for testing)
-    createMockTabs: (useReal?: boolean): Promise<Browser.tabs.Tab[]> => BackgroundTabService.createMockTabs(useReal),
+    createMockTabs: (useReal: boolean = true): Promise<Browser.tabs.Tab[]> => BackgroundTabService.createMockTabs(useReal),
     setMockOverrides: (overrides: Record<number, number>): Promise<void> => mockOverrides.setValue(overrides),
     getMockOverrides: (): Promise<Record<number, number>> => mockOverrides.getValue(),
 
