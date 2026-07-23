@@ -274,11 +274,21 @@ export class OptionsPage {
   }
 
   /**
-   * Click "Close All Tabs" button.
+   * Click "Close All Tabs" button and wait for tabs to actually close.
+   * Note: The options page tab itself won't be closed, so we wait for grouped tabs to be gone.
    */
   async clickCloseAllTabs(): Promise<void> {
     await this.closeAllTabsBtn.waitFor({ state: 'visible' });
     await this.closeAllTabsBtn.click();
+    
+    // Wait for all grouped tabs to be closed
+    await expect.poll(
+      async () => {
+        const result = await this.getGroupAndTabData();
+        return result.groupedTabCount;
+      },
+      { timeout: 10000, message: 'All grouped tabs closed' }
+    ).toBe(0);
   }
 
   /**
@@ -631,16 +641,27 @@ export class OptionsPage {
 
   /**
    * Click "Backup Tabs" button to save current tabs.
+   * Waits for backup to be persisted to storage before returning.
    */
   async clickBackupTabs(): Promise<void> {
     await this.page.getByTestId('backup-btn').click();
+    
+    // Wait for backup to be persisted to storage
+    await this.page.waitForFunction(async () => {
+      const data = await chrome.storage.local.get('archivum:tab_backup');
+      return data['archivum:tab_backup'] != null;
+    }, { timeout: 5000, polling: 200 });
   }
 
   /**
-   * Click "Restore Tabs" button.
+   * Click "Restore Tabs" button and wait for dialog to appear.
+   * The actual restore operation completes in confirmRestore().
    */
   async clickRestoreTabs(): Promise<void> {
     await this.page.getByTestId('restore-btn').click();
+    
+    // Wait for restore confirmation dialog to appear
+    await this.page.getByTestId('restore-confirm').waitFor({ state: 'visible', timeout: 5000 });
   }
 
   /**
@@ -679,28 +700,37 @@ export class OptionsPage {
   /**
    * Confirm the restore dialog by clicking the "Restore" button in the confirmation popup.
    * Uses data-testid="restore-confirm" to target the dialog's Restore button specifically.
-   * Polls until restore operation completes (both tabs AND groups are restored).
+   * Waits for groups to begin appearing (restore operation started).
+   * 
+   * Note: The test should wait for all expected groups after calling this,
+   * as groups are created asynchronously one by one.
    */
   async confirmRestore(): Promise<void> {
-    // Click the restore-confirm button inside the dialog
-    await this.page.getByTestId('restore-confirm').click();
+   // Click the restore-confirm button inside the dialog
+   await this.page.getByTestId('restore-confirm').click();
     
-    // Wait for restore operation to complete by verifying groups are restored
-   // (Important: wait for groups, not just tabs, as tabs may arrive before group creation completes)
+   // Wait for restore operation to begin by checking that at least one group appears
    await expect.poll(
      async () => {
        const result = await this.getGroupAndTabData();
        return result.groupsOrderedByIndex.length;
      },
-     { timeout: 10_000, message: 'Restore operation completed - groups restored' }
+     { timeout: 15_000, message: 'Restore operation started - initial group created' }
    ).toBeGreaterThan(0);
   }
 
   /**
    * Click "Delete/Clear Backup" button to remove the backup.
+   * Waits for backup to be removed from storage before returning.
    */
   async clickDeleteBackup(): Promise<void> {
     await this.page.getByTestId('clear-backup-btn').click();
+    
+    // Wait for backup to be removed from storage
+    await this.page.waitForFunction(async () => {
+      const data = await chrome.storage.local.get('archivum:tab_backup');
+      return data['archivum:tab_backup'] == null;
+    }, { timeout: 5000, polling: 200 });
   }
 
   /**

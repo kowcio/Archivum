@@ -26,6 +26,11 @@ test.describe('Backup & Restore', () => {
 
   test('Happy path: backup grouped tabs, close all, restore with groups intact', async () => {
 
+    // Guard: ensure setup succeeded
+    if (!ctx) {
+      throw new Error('Setup failed: Extension context not initialized');
+    }
+
     // Load options
     await options.goto(ctx.extensionId)
 
@@ -63,6 +68,15 @@ test.describe('Backup & Restore', () => {
     await options.confirmRestore()
     console.log("[TEST] Confirmed restore")
     console.log("[TEST] Now querying groups...")
+    
+    // Wait for all groups to be fully restored (exact count)
+    await expect.poll(
+      async () => {
+        const groups = await options.getAllGroups();
+        return groups.length;
+      },
+      { timeout: 15_000, message: 'All groups fully restored' }
+    ).toBe(groupsBeforeCount);
 
     // ✅ DEBUG: Query group properties from Chrome API
     const groupDetails = await options.page.evaluate(async () => {
@@ -115,9 +129,6 @@ test.describe('Backup & Restore', () => {
     // Verify backup was actually removed from storage
     const backupAfterDelete = await options.getBackupFromStorage()
     expect(backupAfterDelete).toBeNull()
-
-    // Cleanup
-    await ctx.cleanup()
 
     // Cleanup
     await ctx.cleanup()
