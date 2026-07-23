@@ -679,20 +679,21 @@ export class OptionsPage {
   /**
    * Confirm the restore dialog by clicking the "Restore" button in the confirmation popup.
    * Uses data-testid="restore-confirm" to target the dialog's Restore button specifically.
-   * Polls until restore operation completes.
+   * Polls until restore operation completes (both tabs AND groups are restored).
    */
   async confirmRestore(): Promise<void> {
     // Click the restore-confirm button inside the dialog
     await this.page.getByTestId('restore-confirm').click();
     
     // Wait for restore operation to complete by verifying groups are restored
-    await expect.poll(
-      async () => {
-        const result = await this.getGroupAndTabData();
-        return result.tabs.length;
-      },
-      { timeout: 10_000, message: 'Restore operation completed' }
-    ).toBeGreaterThan(0);
+   // (Important: wait for groups, not just tabs, as tabs may arrive before group creation completes)
+   await expect.poll(
+     async () => {
+       const result = await this.getGroupAndTabData();
+       return result.groupsOrderedByIndex.length;
+     },
+     { timeout: 10_000, message: 'Restore operation completed - groups restored' }
+   ).toBeGreaterThan(0);
   }
 
   /**
