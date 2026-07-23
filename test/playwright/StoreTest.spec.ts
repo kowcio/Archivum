@@ -31,7 +31,6 @@ test.describe('onTabActivated — last tab removes group', () => {
       await options.goto(ctx.extensionId)
       await options.expectPageLoaded()
       await options.clickCloseAllTabs()
-      await options.page.waitForTimeout(500)
 
       // Create 1 tab and group it with plugin-style title
       const tab = await options.page.evaluate(async () => {
@@ -41,7 +40,6 @@ test.describe('onTabActivated — last tab removes group', () => {
           })
         })
       })
-      await options.page.waitForTimeout(500)
 
       // Create group with plugin-style title so isInPluginGroup() recognizes it
       const groupId = await options.page.evaluate(async (tabId: number) => {
@@ -54,8 +52,6 @@ test.describe('onTabActivated — last tab removes group', () => {
       await options.page.evaluate((id: number) => {
         return (chrome.tabGroups as any).update(id, { title: 'Week+ (1)', collapsed: true })
       }, groupId)
-
-      await options.page.waitForTimeout(500)
 
        // Verify: Group exists before activation
        const before = await options.getGroupAndTabData()
@@ -90,3 +86,4 @@ test.describe('onTabActivated — last tab removes group', () => {
     }
   })
 })
+

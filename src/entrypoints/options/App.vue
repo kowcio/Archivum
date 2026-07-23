@@ -6,18 +6,18 @@
       <div class="row items-center q-mt-sm q-gutter-md ">
 
         <GroupUngroup/>
-        <RefreshButton v-if="isDevEnv" @refresh="onRefreshTabs" @error="(msg) => error = msg"/>
+        <RefreshButton v-if="isDevEnv()" @refresh="onRefreshTabs" @error="(msg) => error = msg"/>
         <SortButton @sorted="refreshTabs" @error="(msg) => error = msg"/>
 
         <!-- Dev Buttons -->
-        <MockButton @mock-created="refreshTabs" v-if="isDevEnv"/>
+        <MockButton @mock-created="refreshTabs" v-if="isDevEnv()"/>
         <TestAlarmButton
-          v-if="isDevEnv"
+          v-if="isDevEnv()"
           @success="onAlarmTriggered"
           @error="(msg) => error = msg"
         />
         <CloseAllTabsButton
-          v-if="isDevEnv"
+          v-if="isDevEnv()"
           @success="refreshTabs"
           @error="(msg) => error = msg"
         />

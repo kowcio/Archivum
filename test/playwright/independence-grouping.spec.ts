@@ -33,17 +33,14 @@ test.describe('groupTabsByAge E2E', () => {
 
       // Close any existing tabs first (to have clean slate with only 1 tab = options page)
       await options.clickCloseAllTabs();
-      await options.page.waitForTimeout(500);
 
       // Click mock button
       const mockResult = await options.clickLoadMockTabs();
       expect(mockResult.ok).toBe(true);
 
       // Extra wait to ensure mock overrides are persisted to storage (WXT sync)
-      await options.page.waitForTimeout(1000);
-
       // Group tabs
-      await options.clickGroupTabs(2000);
+      await options.clickGroupTabs();
 
       // Get all tabs and groups
       const result = await options.getGroupAndTabData();
@@ -86,3 +83,4 @@ test.describe('groupTabsByAge E2E', () => {
     }
   });
 });
+

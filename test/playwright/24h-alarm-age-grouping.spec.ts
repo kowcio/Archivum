@@ -28,7 +28,7 @@ test.describe('24h Alarm: Tab Age Progression to Older Groups', () => {
     await options.expectPageLoaded()
 
     // Load mocks with their default ages
-    const mockResult = await options.clickLoadMockTabs(3000)
+    const mockResult = await options.clickLoadMockTabs()
     expect(mockResult.ok).toBe(true)
 
   })
@@ -42,8 +42,13 @@ test.describe('24h Alarm: Tab Age Progression to Older Groups', () => {
   test('should move tabs to older groups after 1 week passes', async () => {
 
     // Phase 1: Group tabs with their default ages
-    await options.clickGroupTabs(1500)
+    await options.clickGroupTabs()
     let result = await options.getGroupAndTabData()
+
+    // ⚠️ CRITICAL: Verify exactly 14 mock tabs + 2 pre-existing = 16 total before grouping assertions
+    const totalTabs = result.groupedTabCount + result.ungroupedTabCount
+    console.log(`Total tabs: ${totalTabs} (grouped: ${result.groupedTabCount}, ungrouped: ${result.ungroupedTabCount})`)
+    expect(totalTabs).toBe(16)
 
     // Phase 1 Assertions - EXACT values only (never use toBeGreaterThan)
     const tabsBefore = await options.getAllGroups()
@@ -96,16 +101,10 @@ test.describe('24h Alarm: Tab Age Progression to Older Groups', () => {
       }
     }
 
+    // Apply overrides and regroup (clicking these methods handles polling internally)
     await options.setMockOverrides(phase2Ages)
-    await options.page.waitForTimeout(400)
-
-    // Ungroup and regroup to trigger age reclassification
-    const ungroupBtn = options.page.getByTestId('ungroup-tabs-btn')
-    const groupBtn = options.page.getByTestId('group-tabs-btn')
-    await ungroupBtn.click()
-    await options.page.waitForTimeout(500)
-    await groupBtn.click()
-    await options.page.waitForTimeout(1500)
+    await options.clickUngroupTabs()
+    await options.clickGroupTabs()
 
     let phase2Result: typeof result
     try {

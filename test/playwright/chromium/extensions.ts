@@ -2,11 +2,12 @@
  * Launch Chrome MV3 extension context for Playwright E2E tests.
  * Firefox MV3 unsigned extensions cannot be loaded via Playwright.
  *
- * NOTE: DEV_FEATURES=true must be set so isDevEnv evaluates to true in test builds.
- * Run build with:  $env:DEV_FEATURES='true'; npm run build-only
- * Then run tests:  npx playwright test --project chrome-mv3
+ * ✅ AUTOMATIC DEV ENVIRONMENT MOCKING:
+ * Dev features (MockButton, CloseAllTabsButton, etc.) are automatically enabled
+ * at runtime via mockDevEnvForTesting(). NO need to build with DEV_FEATURES=true.
  *
- * This enables dev-only components (MockButton, CloseAllTabsButton) in the extension.
+ * Tests work directly from IntelliJ without manual build step.
+ * To run: npm run test:backup-restore (or use IntelliJ gutter icons)
  */
 import { chromium, test, type BrowserContext } from "@playwright/test";
 
@@ -20,6 +21,10 @@ export type ExtensionTestContext = {
   extensionId: string;
   cleanup: () => Promise<void>;
 };
+
+// ⏱️ SINGLE SOURCE OF TRUTH: All test timeouts (reused across tests)
+// Both UI and RPC operations use same 3000ms default - sufficient for CI environments
+export const WAIT_MS = 3000;
 
 // ✅ Default timeout for all extension tests
 export const EXTENSION_TEST_TIMEOUT = 30_000;
@@ -49,18 +54,27 @@ export async function launchChromeContext(): Promise<ExtensionTestContext> {
     ],
     viewport: { width: 1280, height: 800 },
   });
+
+  // ✅ Inject mock dev environment BEFORE pages are created
+  // Use addInitScript so it runs on every page created in this context
+  await context.addInitScript(`
+    // Make VITE_DEV_FEATURES available globally for testing
+    window.__VITE_DEV_FEATURES__ = 'true';
+    console.log('[Mock] ✅ Dev environment enabled for testing');
+  `);
+
   const worker =
     context.serviceWorkers()[0] ??
     (await context.waitForEvent("serviceworker", { timeout: 30000 }));
-   const extensionId = new URL(worker.url()).host;
-   return {
-     context,
-     extensionId,
-     cleanup: async () => {
-       await context.close();
-       if (fs.existsSync(userDataDir)) fs.rmSync(userDataDir, { recursive: true, force: true });
-     },
-   };
+    const extensionId = new URL(worker.url()).host;
+    return {
+      context,
+      extensionId,
+      cleanup: async () => {
+        await context.close();
+        if (fs.existsSync(userDataDir)) fs.rmSync(userDataDir, { recursive: true, force: true });
+      },
+    };
 }
 
 /**

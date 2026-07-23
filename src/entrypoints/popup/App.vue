@@ -18,7 +18,7 @@
         />
 
         <q-btn
-          v-if="isDevEnv"
+          v-if="isDevEnv()"
           class="got-btn-ghost"
           label="Manage archivum - browser"
           data-testid="popup-btn-plugin-browser-option"

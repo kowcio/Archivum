@@ -26,17 +26,19 @@ test.describe('Backup & Restore', () => {
 
   test('Happy path: backup grouped tabs, close all, restore with groups intact', async () => {
 
+    // Guard: ensure setup succeeded
+    if (!ctx) {
+      throw new Error('Setup failed: Extension context not initialized');
+    }
+
     // Load options
     await options.goto(ctx.extensionId)
 
     // Create mock tabs
-    await options.clickCloseAllTabs()
-    await options.page.waitForTimeout(500)
     await options.clickLoadMockTabs()
-    await options.page.waitForTimeout(1000)
 
     // Group tabs by age
-    await options.clickGroupTabs(2000)
+    await options.clickGroupTabs()
     const groupsBeforeDetails = await options.getAllGroups()
     const groupsBeforeCount = groupsBeforeDetails.length
     console.log("[TEST] Groups BEFORE:", groupsBeforeCount)
@@ -44,7 +46,6 @@ test.describe('Backup & Restore', () => {
 
     // Backup
     await options.clickBackupTabs()
-    await options.page.waitForTimeout(500)
 
     // ✅ DEBUG: Check what was backed up
     const backupData = await options.getBackupFromStorage()
@@ -60,15 +61,22 @@ test.describe('Backup & Restore', () => {
 
     // Close all tabs
     await options.clickCloseAllTabs()
-    await options.page.waitForTimeout(500)
 
     // Restore
     await options.clickRestoreTabs()
     console.log("[TEST] Clicked 'Restore Tabs' button")
     await options.confirmRestore()
     console.log("[TEST] Confirmed restore")
-    await options.page.waitForTimeout(3000)  // Increased from 2000 to 3000ms for restoration to complete
-    console.log("[TEST] Wait completed, now querying groups...")
+    console.log("[TEST] Now querying groups...")
+    
+    // Wait for all groups to be fully restored (exact count)
+    await expect.poll(
+      async () => {
+        const groups = await options.getAllGroups();
+        return groups.length;
+      },
+      { timeout: 15_000, message: 'All groups fully restored' }
+    ).toBe(groupsBeforeCount);
 
     // ✅ DEBUG: Query group properties from Chrome API
     const groupDetails = await options.page.evaluate(async () => {
@@ -113,7 +121,6 @@ test.describe('Backup & Restore', () => {
 
     // Delete the backup
     await options.clickDeleteBackup()
-    await options.page.waitForTimeout(500)
 
     // Verify backup is deleted (delete button and restore button should be hidden)
     await options.expectDeleteBackupButtonHidden()
@@ -122,9 +129,6 @@ test.describe('Backup & Restore', () => {
     // Verify backup was actually removed from storage
     const backupAfterDelete = await options.getBackupFromStorage()
     expect(backupAfterDelete).toBeNull()
-
-    // Cleanup
-    await ctx.cleanup()
 
     // Cleanup
     await ctx.cleanup()

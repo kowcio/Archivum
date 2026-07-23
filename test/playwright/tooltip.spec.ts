@@ -44,9 +44,6 @@ test.describe('GroupUngroup: Tooltip Visibility', () => {
     await groupBtn.hover()
     console.log('✓ Hovered over button')
 
-    // Wait a bit for tooltip to appear
-    await options.page.waitForTimeout(500)
-
     // Check if tooltip text is visible on the page
     const tooltipText = await options.page.getByText('Nothing to archive, all tabs are less than').isVisible()
 
@@ -82,8 +79,6 @@ test.describe('GroupUngroup: Tooltip Visibility', () => {
     console.log(`✓ Created ${mockResult.count} mock tabs`)
 
     // Wait for state update and re-render
-    await options.page.waitForTimeout(1500)
-
     // Get the group button - it should now be enabled
     const groupBtn = options.page.getByTestId('group-tabs-btn')
 
@@ -101,6 +96,7 @@ test.describe('GroupUngroup: Tooltip Visibility', () => {
     }
   })
 })
+
 
 
 

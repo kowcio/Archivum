@@ -442,62 +442,99 @@ export class BackgroundTabService {
     }
 
     /**
-    * Creates mock tabs using realistic data from mockTabData.ts.
-    * Automatically sets mock overrides for each tab based on daysAgo to enable grouping.
-    *
-    * Flow:
-    * 1. Create N tabs from MOCK_TABS array
-    * 2. Build overrides map: tabId → (now - daysAgo * 24h)
-    * 3. Set overrides in storage for applyMockOverrides() to use
-    * 4. Return all tabs (mock + existing)
-    */
-    static async createMockTabs(): Promise<Browser.tabs.Tab[]> {
-      const tabIds: number[] = []
-      const DAY_MS = 86400000 // 24 hours in milliseconds
-      // ✅ Use fake time if warped, otherwise real time
-      const now = await getCurrentTime()
+   * Creates mock tabs with optional network loading.
+   *
+   * @param useReal - If true, loads REAL tabs with real URLs from the internet (slower, for UI previews)
+   *                  If false, creates mock tab objects WITHOUT network calls (faster, for testing)
+   *
+   * Flow:
+   * 1. Generate N mock tabs from MOCK_TABS array
+   * 2. Build overrides map: tabId → (now - daysAgo * 24h)
+   * 3. Set overrides in storage for applyMockOverrides() to use
+   * 4. Return all tabs (mock + existing)
+   */
+   static async createMockTabs(useReal: boolean = true): Promise<Browser.tabs.Tab[]> {
+     const DAY_MS = 86400000 // 24 hours in milliseconds
+     // ✅ Use fake time if warped, otherwise real time
+     const now = await getCurrentTime()
 
-      // Create tabs using realistic mock data
-      for (let i = 0; i < MOCK_TABS.length; i++) {
-        const mock = MOCK_TABS[i]
-        try {
-          const tab = await browser.tabs.create({
-            url: mock.url,
-            active: false,
-          })
-          if (tab.id != null) {
-            tabIds.push(tab.id)
-          }
-        } catch {
-          // Some URLs may fail — create simpler tabs as fallback
-          const tab = await browser.tabs.create({ url: `https://example.com/mock-${i}`, active: false })
-          if (tab.id != null) tabIds.push(tab.id)
-        }
-      }
+     let tabIds: number[] = []
 
-      // Brief delay to let tabs start loading
-      await new Promise(r => setTimeout(r, 500))
+     if (useReal) {
+       // ── REAL MODE: Load actual tabs from the internet ──
+       // For UI button clicks - gives realistic previews with real content
+       for (let i = 0; i < MOCK_TABS.length; i++) {
+         const mock = MOCK_TABS[i]
+         try {
+           const tab = await browser.tabs.create({
+             url: mock.url,
+             active: false,
+           })
+           if (tab.id != null) {
+             tabIds.push(tab.id)
+           }
+         } catch {
+           // Some URLs may fail — create simpler tabs as fallback
+           const tab = await browser.tabs.create({ url: `https://example.com/mock-${i}`, active: false })
+           if (tab.id != null) tabIds.push(tab.id)
+         }
+       }
 
-      // Build overrides map: tabId → lastAccessed timestamp based on daysAgo
-      const overridesMap: Record<number, number> = {}
-      for (let i = 0; i < tabIds.length && i < MOCK_TABS.length; i++) {
-        const tabId = tabIds[i]
-        const daysAgo = MOCK_TABS[i].daysAgo ?? 1
-        overridesMap[tabId] = now - daysAgo * DAY_MS
-      }
+       // Delay to ensure all tabs are created and loaded on slow runners
+       await new Promise(r => setTimeout(r, 1500))
+     } else {
+       // ── MOCK MODE: Create in-memory tab objects without network calls ──
+       // For testing - fast, no network, deterministic
+       // Generate synthetic but valid Browser.tabs.Tab objects
+       tabIds = MOCK_TABS.map((_, i) => 1000 + i) // Synthetic IDs: 1000, 1001, ...
+     }
 
-      // Set overrides via WXT storage (unified approach with setMockOverrides action)
-      try {
-        await mockOverrides.setValue(overridesMap)
-      } catch (err) {
-        console.error(`[BackgroundTabService] ❌ Failed to set overrides:`, err)
-      }
+     // Build overrides map: tabId → lastAccessed timestamp based on daysAgo
+     const overridesMap: Record<number, number> = {}
+     for (let i = 0; i < tabIds.length && i < MOCK_TABS.length; i++) {
+       const tabId = tabIds[i]
+       const daysAgo = MOCK_TABS[i].daysAgo ?? 1
+       overridesMap[tabId] = now - daysAgo * DAY_MS
+     }
 
-       // Extra delay to ensure storage is persisted/synchronized (WXT MV3 constraint)
-       await new Promise(r => setTimeout(r, 1000))
+     // Set overrides via WXT storage (unified approach with setMockOverrides action)
+     try {
+       await mockOverrides.setValue(overridesMap)
+     } catch (err) {
+       console.error(`[BackgroundTabService] ❌ Failed to set overrides:`, err)
+     }
+
+     if (!useReal) {
+       // ── MOCK MODE: Extra delay to ensure storage persists, then return synthetic tabs ──
+       await new Promise(r => setTimeout(r, 500))
+
+       // Create synthetic tab objects for testing without network calls
+       const mockTabs: Browser.tabs.Tab[] = tabIds.map((tabId, i) => ({
+         id: tabId,
+         windowId: 1,
+         index: i,
+         url: MOCK_TABS[i].url,
+         title: MOCK_TABS[i].title,
+         active: false,
+         lastAccessed: overridesMap[tabId],
+         favIconUrl: MOCK_TABS[i].favIconUrl,
+         status: 'complete' as const,
+         pinned: false,
+         highlighted: false,
+         frozen: false,
+         incognito: false,
+         discarded: false,
+         autoDiscardable: true,
+       } as Browser.tabs.Tab))
+
+       return mockTabs
+     } else {
+       // ── REAL MODE: Extra delay to ensure storage is persisted/synchronized ──
+       await new Promise(r => setTimeout(r, 2500))
 
        // ✅ getTabs() automatically applies mock overrides to all tabs
        return await this.getTabs()
+     }
    }
 
    /**
