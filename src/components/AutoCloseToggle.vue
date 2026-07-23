@@ -38,51 +38,6 @@
     </div>
   </div>
 
-  <!-- Confirmation dialog for enabling -->
-  <q-dialog
-    v-model="showConfirmDialog"
-    data-testid="auto-close-confirm-dialog"
-  >
-    <q-card style="min-width: 400px">
-      <q-card-section class="row items-center">
-        <q-icon name="warning" color="negative" size="lg" />
-        <span class="q-ml-md text-h6">Enable Auto-Close?</span>
-      </q-card-section>
-
-      <q-separator />
-
-      <q-card-section>
-        <div class="text-body2 q-mb-md">
-          This will automatically close all tabs in the oldest age group <strong>every 24 hours</strong>.
-        </div>
-        <div class="text-body2 q-mb-md">
-          ⚠️ <strong>Closed tabs are permanently deleted</strong> and cannot be recovered.
-        </div>
-        <div class="text-body2">
-          Are you sure you want to enable this feature?
-        </div>
-      </q-card-section>
-
-      <q-separator />
-
-      <q-card-actions align="right">
-        <q-btn
-          flat
-          label="Cancel"
-          color="primary"
-          v-close-popup
-          @click="cancelEnable"
-        />
-        <q-btn
-          flat
-          label="Enable (I understand the risks)"
-          color="negative"
-          v-close-popup
-          @click="confirmEnable"
-        />
-      </q-card-actions>
-    </q-card>
-  </q-dialog>
 </template>
 
 <script setup lang="ts">
@@ -90,7 +45,6 @@ import { ref, computed } from 'vue'
 import { useAppStore } from '@/store/appStore'
 
 const appStore = useAppStore()
-const showConfirmDialog = ref(false)
 const pendingValue = ref(false)
 
 // Computed properties for dynamic icon and tooltip
@@ -117,24 +71,9 @@ const tooltipLine2 = computed(() => {
 })
 
 async function handleToggle(newValue: boolean): Promise<void> {
-  if (newValue && !appStore.autoClose.value) {
-    // User is trying to ENABLE - show confirmation
-    pendingValue.value = newValue
-    showConfirmDialog.value = true
-  } else if (!newValue && appStore.autoClose.value) {
-    // User is DISABLING - no confirmation needed
-    await appStore.setAutoClose(false)
-  }
+  appStore.autoClose.value = newValue
 }
 
-async function confirmEnable(): Promise<void> {
-  await appStore.setAutoClose(true)
-  pendingValue.value = false
-}
-
-function cancelEnable(): void {
-  pendingValue.value = false
-}
 </script>
 
 <style scoped>
