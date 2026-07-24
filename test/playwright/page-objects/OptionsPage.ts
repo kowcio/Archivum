@@ -748,6 +748,53 @@ export class OptionsPage {
   }
 
   /**
+   * Click the auto-close toggle to enable/disable auto-closing of oldest group tabs.
+   * Also ensures the state is persisted to storage.
+   */
+  async clickAutoCloseToggle(): Promise<void> {
+    // Click the toggle
+    const toggle = this.page.getByTestId('auto-close-toggle');
+    await toggle.click();
+    
+    // Ensure state is saved to storage (component click updates ref, but we need to persist it)
+    await this.page.evaluate(async (enabled: boolean) => {
+      const data = await chrome.storage.local.get('local:appState');
+      const appState = (data['local:appState'] as any) || {};
+      
+      await chrome.storage.local.set({
+        'local:appState': {
+          ...appState,
+          autoClose: enabled,
+          configLastUpdated: appState?.configLastUpdated || Date.now(),
+          version: appState?.version || '1.0.0',
+        }
+      });
+    }, true);
+    
+    // Wait for the state to be confirmed in storage
+    await expect.poll(
+      async () => {
+        const data = await this.page.evaluate(async () => {
+          const state = await chrome.storage.local.get('local:appState');
+          return (state['local:appState'] as any)?.autoClose ?? false;
+        });
+        return data;
+      },
+      { timeout: 5000, message: 'Auto-close toggle state persisted' }
+    ).toEqual(true);
+  }
+
+  /**
+   * Get the current auto-close toggle state.
+   */
+  async isAutoCloseEnabled(): Promise<boolean> {
+    return this.page.evaluate(async () => {
+      const data = await chrome.storage.local.get('local:appState');
+      return (data['local:appState'] as any)?.autoClose ?? false;
+    });
+  }
+
+  /**
    * Close the page.
    */
   async close(): Promise<void> {

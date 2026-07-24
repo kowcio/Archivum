@@ -19,6 +19,7 @@
 import {TabRow} from '@/entrypoints/options/models/TabRow.ts'
 import {AgeClassification} from '@/models/AgeClassification.ts'
 import {appStateStorage, getStorageThresholds, mockOverrides} from '@/store/appStore.ts'
+import type { AppState } from '@/models/ThresholdState.ts'
 import {AppThresholds} from '@/models/AppThresholds'
 import type {Browser} from 'wxt/browser'
 import {browser} from 'wxt/browser'
@@ -890,6 +891,30 @@ export class BackgroundTabService {
       }
     }
 
+   /**
+    * Enable or disable auto-close feature via storage.
+    * When enabled, the 24h alarm will automatically close tabs in the oldest group.
+    *
+    * @param enabled - true to enable auto-close, false to disable
+    */
+   static async setAutoClose(enabled: boolean): Promise<void> {
+    try {
+      const state = await appStateStorage.getValue()
+      const updatedState: AppState = {
+        thresholds: state?.thresholds || { levels: [], activeLevels: 0 },
+        configLastUpdated: state?.configLastUpdated || Date.now(),
+        version: state?.version || '1.0.0',
+        sortSettings: state?.sortSettings || { sortByDomainInGroups: true },
+        autoClose: enabled,
+      }
+      await appStateStorage.setValue(updatedState)
+      console.log(`[BackgroundTabService] ✅ Auto-close ${enabled ? 'ENABLED' : 'DISABLED'}`)
+    } catch (err) {
+      console.error('[BackgroundTabService] ❌ Failed to set auto-close:', err)
+      throw err
+    }
+   }
+
   /**
    * Auto-close all tabs in the oldest (leftmost) group.
    * The oldest group is the one with the lowest index value.
@@ -949,6 +974,10 @@ export class BackgroundTabService {
    * 🧪 DEV-ONLY: Manually trigger the 24h alarm to test groupTabsByAge() behavior.
    * Simulates: browser.alarms fires after 24 hours.
    *
+   * If autoClose is enabled:
+   * - After grouping, closes all tabs in the oldest group (Hell! group)
+   * - Removes the oldest group
+   *
    * Returns: count of groups created after grouping
    *
    * Used by: Dev UI button "Test 24h Alarm" in Options Page (dev mode only)
@@ -956,8 +985,22 @@ export class BackgroundTabService {
   static async testTriggerAlarm24h(): Promise<number> {
     console.log('[BackgroundTabService] 🧪 DEV: Manually triggering 24h alarm...')
     try {
+      // Step 1: Group tabs by age
       const result = await this.groupTabsByAge()
       console.log(`[BackgroundTabService] 🧪 DEV: Alarm triggered → ${result} groups created`)
+
+      // Step 2: Check if autoClose is enabled
+      const appState = await appStateStorage.getValue()
+      const isAutoCloseEnabled = appState?.autoClose ?? false
+      
+      if (isAutoCloseEnabled) {
+        console.log('[BackgroundTabService] 🔥 autoClose is ENABLED - closing oldest group...')
+        const closedCount = await this.closeOldestGroupTabs()
+        console.log(`[BackgroundTabService] ✅ Auto-close completed: removed ${closedCount} tabs from oldest group`)
+      } else {
+        console.log('[BackgroundTabService] 🛡️  autoClose is DISABLED - skipping tab auto-close')
+      }
+
       return result
     } catch (err) {
       console.error('[BackgroundTabService] ❌ DEV: Failed to trigger alarm:', err)

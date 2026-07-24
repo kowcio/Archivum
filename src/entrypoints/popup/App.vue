@@ -32,7 +32,7 @@
         <SortButton @error="(msg) => console.error(msg)"/>
 
         <div class="q-mt-md">
-          <AutoCloseToggle />
+          <AutoCloseToggle no-dialog />
         </div>
 
         <GroupUngroup rounded size="lg" class=""/>

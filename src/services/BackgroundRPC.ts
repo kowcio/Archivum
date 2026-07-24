@@ -15,7 +15,7 @@
 import type { Browser } from 'wxt/browser'
 import { BackgroundTabService } from '@/services/BackgroundTabService'
 import { BackupService, type Backup } from '@/services/BackupService'
-import { mockOverrides } from '@/store/appStore'
+import { mockOverrides, appStateStorage } from '@/store/appStore'
 import { addTimeOffset } from '@/utils/testTime'
 
 /**
@@ -68,6 +68,9 @@ export const backgroundRPC = {
     createMockTabs: (useReal: boolean = true): Promise<Browser.tabs.Tab[]> => BackgroundTabService.createMockTabs(useReal),
     setMockOverrides: (overrides: Record<number, number>): Promise<void> => mockOverrides.setValue(overrides),
     getMockOverrides: (): Promise<Record<number, number>> => mockOverrides.getValue(),
+
+    // 🧪 DEV/TEST ONLY: Auto-close toggle control
+    setAutoClose: (enabled: boolean): Promise<void> => BackgroundTabService.setAutoClose(enabled),
 
     // 🧪 DEV-ONLY: Test alarm triggering (warp time simulation)
     testTriggerAlarm24h: (): Promise<number> => BackgroundTabService.testTriggerAlarm24h(),
