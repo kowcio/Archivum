@@ -19,6 +19,7 @@
 import {TabRow} from '@/entrypoints/options/models/TabRow.ts'
 import {AgeClassification} from '@/models/AgeClassification.ts'
 import {appStateStorage, getStorageThresholds, mockOverrides} from '@/store/appStore.ts'
+import type { AppState } from '@/models/ThresholdState.ts'
 import {AppThresholds} from '@/models/AppThresholds'
 import type {Browser} from 'wxt/browser'
 import {browser} from 'wxt/browser'
@@ -889,6 +890,30 @@ export class BackgroundTabService {
         }
       }
     }
+
+   /**
+    * Enable or disable auto-close feature via storage.
+    * When enabled, the 24h alarm will automatically close tabs in the oldest group.
+    *
+    * @param enabled - true to enable auto-close, false to disable
+    */
+   static async setAutoClose(enabled: boolean): Promise<void> {
+    try {
+      const state = await appStateStorage.getValue()
+      const updatedState: AppState = {
+        thresholds: state?.thresholds || { levels: [], activeLevels: 0 },
+        configLastUpdated: state?.configLastUpdated || Date.now(),
+        version: state?.version || '1.0.0',
+        sortSettings: state?.sortSettings || { sortByDomainInGroups: true },
+        autoClose: enabled,
+      }
+      await appStateStorage.setValue(updatedState)
+      console.log(`[BackgroundTabService] ✅ Auto-close ${enabled ? 'ENABLED' : 'DISABLED'}`)
+    } catch (err) {
+      console.error('[BackgroundTabService] ❌ Failed to set auto-close:', err)
+      throw err
+    }
+   }
 
   /**
    * Auto-close all tabs in the oldest (leftmost) group.
