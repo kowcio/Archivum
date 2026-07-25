@@ -9,23 +9,19 @@
  */
 
 import { test, expect } from '@playwright/test'
-import { setupExtensionTest, type ExtensionTestContext } from './chromium/extensions.js'
-import { OptionsPage } from './page-objects/OptionsPage.js'
+import { TestEnvironment } from './chromium/extensions.js'
 
 test.describe('GroupUngroup: Tooltip Visibility', () => {
-  let ctx: ExtensionTestContext
-  let options: OptionsPage
+  let env: TestEnvironment
 
   test.beforeAll('Setup: launch Chrome context with extension', async () => {
-    ctx = await setupExtensionTest(false, 120_000)
-    options = new OptionsPage(await ctx.context.newPage())
-
-    await options.goto(ctx.extensionId)
-    await options.expectPageLoaded()
+    env = await TestEnvironment.create(false, 120_000);
+    await env.optionsPage.goto(env.extensionId);
+    await env.optionsPage.expectPageLoaded();
   })
 
   test.afterAll('Cleanup: close extension context', async () => {
-    if (ctx) await ctx.cleanup()
+    if (env) await env.cleanup();
   })
 
   test.setTimeout(60_000)
@@ -34,7 +30,7 @@ test.describe('GroupUngroup: Tooltip Visibility', () => {
     console.log('Test: Disabled button tooltip visibility')
 
     // Get the group button locator
-    const groupBtn = options.page.getByTestId('group-tabs-btn')
+    const groupBtn = env.optionsPage.page.getByTestId('group-tabs-btn')
 
     // Verify button is disabled (no stale tabs to group)
     await expect(groupBtn).toBeDisabled()
@@ -45,18 +41,18 @@ test.describe('GroupUngroup: Tooltip Visibility', () => {
     console.log('✓ Hovered over button')
 
     // Check if tooltip text is visible on the page
-    const tooltipText = await options.page.getByText('Nothing to archive, all tabs are less than').isVisible()
+    const tooltipText = await env.optionsPage.page.getByText('Nothing to archive, all tabs are less than').isVisible()
 
     if (tooltipText) {
       console.log('✓ Tooltip is visible: "Nothing to archive..."')
       expect(tooltipText).toBe(true)
     } else {
       // Alternative: check if any q-tooltip element exists
-      const tooltips = await options.page.locator('.q-tooltip').count()
+      const tooltips = await env.optionsPage.page.locator('.q-tooltip').count()
       console.log(`Found ${tooltips} tooltip elements on page`)
 
       // Check for the tooltip content in the page's HTML
-      const pageContent = await options.page.content()
+      const pageContent = await env.optionsPage.page.content()
       const hasTooltipText = pageContent.includes('Nothing to archive')
 
       if (hasTooltipText) {
@@ -74,13 +70,13 @@ test.describe('GroupUngroup: Tooltip Visibility', () => {
 
     // Load mock tabs to create stale tabs
     console.log('Loading mock tabs with varied ages...')
-    const mockResult = await options.clickLoadMockTabs(3000)
+    const mockResult = await env.optionsPage.clickLoadMockTabs(3000)
     expect(mockResult.ok).toBe(true)
     console.log(`✓ Created ${mockResult.count} mock tabs`)
 
     // Wait for state update and re-render
     // Get the group button - it should now be enabled
-    const groupBtn = options.page.getByTestId('group-tabs-btn')
+    const groupBtn = env.optionsPage.page.getByTestId('group-tabs-btn')
 
     // Verify button is enabled (has stale tabs)
     try {
@@ -96,7 +92,4 @@ test.describe('GroupUngroup: Tooltip Visibility', () => {
     }
   })
 })
-
-
-
 

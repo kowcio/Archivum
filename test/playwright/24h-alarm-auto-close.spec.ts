@@ -13,24 +13,20 @@
  */
 
 import {test, expect} from '@playwright/test'
-import {setupExtensionTest, type ExtensionTestContext} from './chromium/extensions.js'
-import {OptionsPage} from './page-objects/OptionsPage.js'
+import {TestEnvironment} from "./chromium/extensions.js"
 import {APP_DEFAULTS} from '../../src/constants.js'
 
 test.describe('24h Alarm: Auto-Close Oldest Group Tabs', () => {
-  let ctx: ExtensionTestContext
-  let options: OptionsPage
+  let env: TestEnvironment
   let oldestThreshold: any
 
   test.beforeAll('Setup: launch Chrome context with extension', async () => {
-    ctx = await setupExtensionTest(false, 120_000)
-    options = new OptionsPage(await ctx.context.newPage())
-
-    await options.goto(ctx.extensionId)
-    await options.expectPageLoaded()
+    env = await TestEnvironment.create(false, 120_000)
+    await env.optionsPage.goto(env.extensionId)
+    await env.optionsPage.expectPageLoaded()
 
     // Load mocks with their default ages
-    const mockResult = await options.clickLoadMockTabs()
+    const mockResult = await env.optionsPage.clickLoadMockTabs()
     expect(mockResult.ok).toBe(true)
 
     // Pre-compute oldest threshold for test
@@ -39,7 +35,7 @@ test.describe('24h Alarm: Auto-Close Oldest Group Tabs', () => {
   })
 
   test.afterAll('Cleanup: close extension context', async () => {
-    if (ctx) await ctx.cleanup()
+    if (env) await env.cleanup()
   })
 
   test.setTimeout(60_000)
@@ -54,9 +50,9 @@ test.describe('24h Alarm: Auto-Close Oldest Group Tabs', () => {
     // PHASE 1: Group tabs with their default ages
     // ═══════════════════════════════════════════════════════════════════
     console.log('\n[Phase 1] Grouping tabs by age...')
-    await options.clickGroupTabs()
-    const result = await options.getGroupAndTabData()
-    const tabsBefore = await options.getAllGroups()
+    await env.optionsPage.clickGroupTabs()
+    const result = await env.optionsPage.getGroupAndTabData()
+    const tabsBefore = await env.optionsPage.getAllGroups()
 
     await logGroupState('Initial state', tabsBefore, result)
 
@@ -77,10 +73,10 @@ test.describe('24h Alarm: Auto-Close Oldest Group Tabs', () => {
     // PHASE 2: Enable auto-close toggle
     // ═══════════════════════════════════════════════════════════════════
     console.log('\n[Phase 2] Enabling auto-close toggle...')
-    await options.clickAutoCloseToggle()
+    await env.optionsPage.clickAutoCloseToggle()
 
     // Verify auto-close is enabled
-    const autoCloseState = await options.isAutoCloseEnabled()
+    const autoCloseState = await env.optionsPage.isAutoCloseEnabled()
     console.log(`Auto-close enabled: ${autoCloseState}`)
     expect(autoCloseState).toBe(true)
 
@@ -109,7 +105,7 @@ test.describe('24h Alarm: Auto-Close Oldest Group Tabs', () => {
     }
 
     // Apply age overrides
-    await options.setMockOverrides(ageOverrides)
+    await env.optionsPage.setMockOverrides(ageOverrides)
     console.log(`Applied age overrides for ${Object.keys(ageOverrides).length} tabs`)
 
     // ═══════════════════════════════════════════════════════════════════
@@ -123,16 +119,16 @@ test.describe('24h Alarm: Auto-Close Oldest Group Tabs', () => {
     // Step 1: Ungroup then regroup to apply mock overrides
     console.log('  Step 1: Regrouping tabs with mock overrides...')
     // Close any dialog that might interfere with the click
-    await options.page.keyboard.press('Escape');
-    await options.page.waitForTimeout(300);
-    await options.clickUngroupTabs()
-    await options.clickGroupTabs()
-    const resultAfterGroup = await options.getGroupAndTabData()
+    await env.optionsPage.page.keyboard.press('Escape');
+    await env.optionsPage.page.waitForTimeout(300);
+    await env.optionsPage.clickUngroupTabs()
+    await env.optionsPage.clickGroupTabs()
+    const resultAfterGroup = await env.optionsPage.getGroupAndTabData()
     console.log(`  After grouping: ${resultAfterGroup.groupsOrderedByIndex.length} groups`)
 
     // Step 2: Close the oldest group tabs via RPC (closeOldestGroupTabs)
     console.log('  Step 2: Closing oldest group tabs...')
-    const closedCount = await options.page.evaluate(async () => {
+    const closedCount = await env.optionsPage.page.evaluate(async () => {
       return new Promise<number>((resolve, reject) => {
         chrome.runtime.sendMessage(
           {
@@ -167,8 +163,8 @@ test.describe('24h Alarm: Auto-Close Oldest Group Tabs', () => {
     await new Promise(r => setTimeout(r, 500))
 
     // Re-query groups and tabs after close operation
-    const resultAfter = await options.getGroupAndTabData()
-    const groupsAfter = await options.getAllGroups()
+    const resultAfter = await env.optionsPage.getGroupAndTabData()
+    const groupsAfter = await env.optionsPage.getAllGroups()
 
     await logGroupState('After close', groupsAfter, resultAfter)
 
@@ -198,14 +194,4 @@ test.describe('24h Alarm: Auto-Close Oldest Group Tabs', () => {
     expect(tabsAfterCount).toBe(expectedTabsRemaining)
   })
 })
-
-
-
-
-
-
-
-
-
-
 

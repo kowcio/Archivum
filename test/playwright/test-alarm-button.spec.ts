@@ -15,24 +15,20 @@
  */
 
 import { test, expect } from '@playwright/test'
-import { setupExtensionTest, type ExtensionTestContext } from './chromium/extensions.js'
-import { OptionsPage } from './page-objects/OptionsPage.js'
+import { TestEnvironment } from './chromium/extensions.js'
 import { ThresholdLabel } from '../../src/constants.js'
 
 test.describe('TestAlarmButton: +4h Warp & Grouping', () => {
-  let ctx: ExtensionTestContext
-  let options: OptionsPage
+  let env: TestEnvironment
 
   test.beforeAll('Setup: launch Chrome context with extension', async () => {
-    ctx = await setupExtensionTest(false, 120_000)
-    options = new OptionsPage(await ctx.context.newPage())
-
-    await options.goto(ctx.extensionId)
-    await options.expectPageLoaded()
+    env = await TestEnvironment.create(false, 120_000)
+    await env.optionsPage.goto(env.extensionId)
+    await env.optionsPage.expectPageLoaded()
   })
 
   test.afterAll('Cleanup: close extension context', async () => {
-    if (ctx) await ctx.cleanup()
+    if (env) await env.cleanup()
   })
 
   test.setTimeout(180_000)
@@ -40,22 +36,22 @@ test.describe('TestAlarmButton: +4h Warp & Grouping', () => {
   test('should warp time +4h and trigger grouping with updated tab ages', async () => {
     // Step 1: Load mock tabs
     console.log('Step 1: Loading mock tabs...')
-    const mockResult = await options.clickLoadMockTabs()
+    const mockResult = await env.optionsPage.clickLoadMockTabs()
     expect(mockResult.ok).toBe(true)
     expect(mockResult.count).toBeGreaterThan(0)
     console.log(`   ✓ Created ${mockResult.count} mock tabs`)
 
     // Step 2: Group tabs with default grouping
     console.log('\nStep 2: Grouping tabs by age...')
-    await options.clickGroupTabs()
+    await env.optionsPage.clickGroupTabs()
     console.log('   ✓ Group command executed')
 
     // Step 3: Verify groups BEFORE time warp
     console.log('\nStep 3: Verifying groups BEFORE time warp...')
-    let tabsBefore = await options.queryAllTabs(true)
+    let tabsBefore = await env.optionsPage.queryAllTabs(true)
     console.log(`   ✓ Tab count before warp: ${tabsBefore.length}`)
 
-    let groupsBefore = await options.getAllGroups()
+    let groupsBefore = await env.optionsPage.getAllGroups()
     const groupCountBefore = groupsBefore.length
     const groupedCountBefore = tabsBefore.filter(t => t.groupId !== -1).length
 
@@ -116,7 +112,7 @@ test.describe('TestAlarmButton: +4h Warp & Grouping', () => {
       if (i % 7 === 1) {
         console.log(`   Warp ${i}/42: Advancing time +4h... (~${Math.floor((i * 4) / 24)} days so far)`)
       }
-      await options.clickTestAlarmButton(400)
+      await env.optionsPage.clickTestAlarmButton()
     }
     console.log('   ✓ Total time advanced: ~7 days (168 hours)')
     console.log('   ✓ Tabs should have aged and MOVED to older groups!')
@@ -126,7 +122,7 @@ test.describe('TestAlarmButton: +4h Warp & Grouping', () => {
     console.log('\nStep 4b: Triggering backup alarm (+1h hourly backup)...')
     console.log('   When 24h alarm fires: both grouping AND backup should happen')
     try {
-      const backupResult = await options.page.evaluate(async () => {
+      const backupResult = await env.optionsPage.page.evaluate(async () => {
         return new Promise<any>((resolve, reject) => {
           chrome.runtime.sendMessage(
             {
@@ -153,7 +149,7 @@ test.describe('TestAlarmButton: +4h Warp & Grouping', () => {
 
       // Step 4c: Verify backup was actually created in storage
       console.log('\nStep 4c: Verifying backup was saved to storage...')
-      const backupData = await options.page.evaluate(async () => {
+      const backupData = await env.optionsPage.page.evaluate(async () => {
         const storage = await chrome.storage.local.get('archivum:tab_backup')
         return storage['archivum:tab_backup']
       })
@@ -170,13 +166,13 @@ test.describe('TestAlarmButton: +4h Warp & Grouping', () => {
 
     // Step 5: Verify tabs after warp
     console.log('\nStep 5: Verifying tab grouping after warp...')
-    let tabsAfter = await options.queryAllTabs(true)
+    let tabsAfter = await env.optionsPage.queryAllTabs(true)
     console.log(`   ✓ Final tab count: ${tabsAfter.length} (should match initial ${tabsBefore.length})`)
     expect(tabsAfter.length).toBe(tabsBefore.length)
 
     // Step 6: Verify groups AFTER time warp
     console.log('\nStep 6: Verifying groups AFTER time warp...')
-    let groupsAfter = await options.getAllGroups()
+    let groupsAfter = await env.optionsPage.getAllGroups()
 
     console.log(`   Groups AFTER time warp:`)
     groupsAfter.forEach((group, idx) => {
@@ -240,7 +236,6 @@ test.describe('TestAlarmButton: +4h Warp & Grouping', () => {
         console.log(`   groups[${i}]: "${g.title}" → ${g.tabCount} tabs`)
       })
 
-
     // Step 9: Verify tab counts per group AFTER warp
     console.log('\nStep 9: Verifying tab counts per group AFTER time advancement...')
     groupsAfter.forEach((group, idx) => {
@@ -266,11 +261,7 @@ test.describe('TestAlarmButton: +4h Warp & Grouping', () => {
     expect(totalAfter).toBeGreaterThan(0)
     console.log(`   ✓ Grouping event fired and processed after each time warp`)
 
-
     console.log('\n✅ Test passed: Tabs aged ~7 days and moved to older groups!')
   })
 })
-
-
-
 

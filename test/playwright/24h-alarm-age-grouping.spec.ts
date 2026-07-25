@@ -13,28 +13,25 @@
  */
 
 import { test, expect } from '@playwright/test'
-import { setupExtensionTest, type ExtensionTestContext } from './chromium/extensions.js'
-import { OptionsPage } from './page-objects/OptionsPage.js'
+import { TestEnvironment } from './chromium/extensions.js'
+import { APP_DEFAULTS } from '../../src/constants.js'
 
 test.describe('24h Alarm: Tab Age Progression to Older Groups', () => {
-  let ctx: ExtensionTestContext
-  let options: OptionsPage
+  let env: TestEnvironment
 
   test.beforeAll('Setup: launch Chrome context with extension', async () => {
-    ctx = await setupExtensionTest(false, 120_000)
-    options = new OptionsPage(await ctx.context.newPage())
-
-    await options.goto(ctx.extensionId)
-    await options.expectPageLoaded()
+    env = await TestEnvironment.create(false, 120_000)
+    await env.optionsPage.goto(env.extensionId)
+    await env.optionsPage.expectPageLoaded()
 
     // Load mocks with their default ages
-    const mockResult = await options.clickLoadMockTabs()
+    const mockResult = await env.optionsPage.clickLoadMockTabs()
     expect(mockResult.ok).toBe(true)
 
   })
 
   test.afterAll('Cleanup: close extension context', async () => {
-    if (ctx) await ctx.cleanup()
+    if (env) await env.cleanup()
   })
 
   test.setTimeout(180_000)
@@ -42,8 +39,8 @@ test.describe('24h Alarm: Tab Age Progression to Older Groups', () => {
   test('should move tabs to older groups after 1 week passes', async () => {
 
     // Phase 1: Group tabs with their default ages
-    await options.clickGroupTabs()
-    let result = await options.getGroupAndTabData()
+    await env.optionsPage.clickGroupTabs()
+    let result = await env.optionsPage.getGroupAndTabData()
 
     // ⚠️ CRITICAL: Verify exactly 14 mock tabs + 2 pre-existing = 16 total before grouping assertions
     const totalTabs = result.groupedTabCount + result.ungroupedTabCount
@@ -51,7 +48,7 @@ test.describe('24h Alarm: Tab Age Progression to Older Groups', () => {
     expect(totalTabs).toBe(16)
 
     // Phase 1 Assertions - EXACT values only (never use toBeGreaterThan)
-    const tabsBefore = await options.getAllGroups()
+    const tabsBefore = await env.optionsPage.getAllGroups()
     const phase1GroupCount = tabsBefore.length
     const phase1GroupedTabCount = result.groupedTabCount
 
@@ -102,13 +99,13 @@ test.describe('24h Alarm: Tab Age Progression to Older Groups', () => {
     }
 
     // Apply overrides and regroup (clicking these methods handles polling internally)
-    await options.setMockOverrides(phase2Ages)
-    await options.clickUngroupTabs()
-    await options.clickGroupTabs()
+    await env.optionsPage.setMockOverrides(phase2Ages)
+    await env.optionsPage.clickUngroupTabs()
+    await env.optionsPage.clickGroupTabs()
 
     let phase2Result: typeof result
     try {
-      const getDataPromise = options.getGroupAndTabData()
+      const getDataPromise = env.optionsPage.getGroupAndTabData()
       const timeoutPromise = new Promise((_, reject) =>
         setTimeout(() => reject(new Error('timeout')), 8000)
       )
@@ -119,7 +116,7 @@ test.describe('24h Alarm: Tab Age Progression to Older Groups', () => {
     }
 
      // Phase 2 Assertions - EXACT values only (never use toBeGreaterThan)
-     const tabsAfter = await options.getAllGroups()
+     const tabsAfter = await env.optionsPage.getAllGroups()
      const phase2GroupCount = tabsAfter.length
      const phase2GroupedTabCount = phase2Result.groupedTabCount
 
@@ -143,18 +140,6 @@ test.describe('24h Alarm: Tab Age Progression to Older Groups', () => {
        expect(phase2GroupCount).toBe(5)
        expect(phase2GroupedTabCount).toBe(14)
 
-
-
   })
 })
-
-
-
-
-
-
-
-
-
-
 

@@ -6,49 +6,45 @@
  */
 
 import { test, expect } from '@playwright/test'
-import {ExtensionTestContext, setupExtensionTest} from "./chromium/extensions";
-import {OptionsPage} from "./page-objects/OptionsPage";
+import { TestEnvironment } from "./chromium/extensions.js";
 
 test.describe('Backup & Restore', () => {
 
-  let ctx: ExtensionTestContext;
-  let options: OptionsPage;
+  let env: TestEnvironment
 
   test.beforeAll("Setup: launch Chrome context with extension", async () => {
-    ctx = await setupExtensionTest(false);
-    options = new OptionsPage(await ctx.context.newPage());
-
+    env = await TestEnvironment.create(false);
   });
 
   test.afterAll("Cleanup: close extension context", async () => {
-    if (ctx) await ctx.cleanup();
+    if (env) await env.cleanup();
   });
 
   test('Happy path: backup grouped tabs, close all, restore with groups intact', async () => {
 
     // Guard: ensure setup succeeded
-    if (!ctx) {
+    if (!env) {
       throw new Error('Setup failed: Extension context not initialized');
     }
 
     // Load options
-    await options.goto(ctx.extensionId)
+    await env.optionsPage.goto(env.extensionId)
 
     // Create mock tabs
-    await options.clickLoadMockTabs()
+    await env.optionsPage.clickLoadMockTabs()
 
     // Group tabs by age
-    await options.clickGroupTabs()
-    const groupsBeforeDetails = await options.getAllGroups()
+    await env.optionsPage.clickGroupTabs()
+    const groupsBeforeDetails = await env.optionsPage.getAllGroups()
     const groupsBeforeCount = groupsBeforeDetails.length
     console.log("[TEST] Groups BEFORE:", groupsBeforeCount)
     groupsBeforeDetails.forEach(g => console.log(`  - "${g.title}" (${g.tabCount} tabs)`))
 
     // Backup
-    await options.clickBackupTabs()
+    await env.optionsPage.clickBackupTabs()
 
     // ✅ DEBUG: Check what was backed up
-    const backupData = await options.getBackupFromStorage()
+    const backupData = await env.optionsPage.getBackupFromStorage()
     console.log("[TEST] Backup - tabs count:", backupData?.tabs.length)
     console.log("[TEST] Backup - sample tabs with groupId:")
     backupData?.tabs.slice(0, 3).forEach((t: any, i: number) => {
@@ -60,26 +56,26 @@ test.describe('Backup & Restore', () => {
     })
 
     // Close all tabs
-    await options.clickCloseAllTabs()
+    await env.optionsPage.clickCloseAllTabs()
 
     // Restore
-    await options.clickRestoreTabs()
+    await env.optionsPage.clickRestoreTabs()
     console.log("[TEST] Clicked 'Restore Tabs' button")
-    await options.confirmRestore()
+    await env.optionsPage.confirmRestore()
     console.log("[TEST] Confirmed restore")
     console.log("[TEST] Now querying groups...")
-    
+
     // Wait for all groups to be fully restored (exact count)
     await expect.poll(
       async () => {
-        const groups = await options.getAllGroups();
+        const groups = await env.optionsPage.getAllGroups();
         return groups.length;
       },
       { timeout: 15_000, message: 'All groups fully restored' }
     ).toBe(groupsBeforeCount);
 
     // ✅ DEBUG: Query group properties from Chrome API
-    const groupDetails = await options.page.evaluate(async () => {
+    const groupDetails = await env.optionsPage.page.evaluate(async () => {
       const currentWindow = await (window as any).chrome.windows.getCurrent();
       const groups = await (window as any).chrome.tabGroups.query({ windowId: currentWindow.id });
       return groups.map((g: any) => ({
@@ -91,9 +87,8 @@ test.describe('Backup & Restore', () => {
     });
     console.log("[TEST] Groups from API (first group):", groupDetails[0]);
 
-
     // Verify groups restored — fetch from scratch (exact count)
-    const groupsAfterDetails = await options.getAllGroups()
+    const groupsAfterDetails = await env.optionsPage.getAllGroups()
     const groupsAfterCount = groupsAfterDetails.length
     console.log("[TEST] Groups AFTER:", groupsAfterCount)
     groupsAfterDetails.forEach(g => console.log(`  - "${g.title}" (titleSet: ${g.titleSet}, collapsed: ${g.collapsed}, tabs: ${g.tabCount})`))
@@ -116,23 +111,22 @@ test.describe('Backup & Restore', () => {
     console.log("[TEST] Collapsed state - After restore:", collapsedAfter)
 
     // Verify backup exists (delete button should be visible)
-    await options.expectDeleteBackupButtonVisible()
-    await options.expectRestoreButtonVisible()
+    await env.optionsPage.expectDeleteBackupButtonVisible()
+    await env.optionsPage.expectRestoreButtonVisible()
 
     // Delete the backup
-    await options.clickDeleteBackup()
+    await env.optionsPage.clickDeleteBackup()
 
     // Verify backup is deleted (delete button and restore button should be hidden)
-    await options.expectDeleteBackupButtonHidden()
-    await options.expectRestoreButtonHidden()
+    await env.optionsPage.expectDeleteBackupButtonHidden()
+    await env.optionsPage.expectRestoreButtonHidden()
 
     // Verify backup was actually removed from storage
-    const backupAfterDelete = await options.getBackupFromStorage()
+    const backupAfterDelete = await env.optionsPage.getBackupFromStorage()
     expect(backupAfterDelete).toBeNull()
 
     // Cleanup
-    await ctx.cleanup()
+    await env.cleanup()
   })
 })
-
 

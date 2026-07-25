@@ -9,40 +9,38 @@
  */
 
 import {test, expect} from '@playwright/test';
-import {setupExtensionTest, type ExtensionTestContext} from './chromium/extensions.js';
-import {OptionsPage} from './page-objects/OptionsPage.js';
+import {TestEnvironment} from "./chromium/extensions.js"
 
 test.describe('groupTabsByAge E2E', () => {
-  let ctx: ExtensionTestContext;
+  let env: TestEnvironment
 
   test.beforeAll('Setup', async () => {
-    ctx = await setupExtensionTest(false, 60_000);
+    env = await TestEnvironment.create(false, 60_000);
   });
 
   test.afterAll('Cleanup', async () => {
-    if (ctx) await ctx.cleanup();
+    if (env) await env.cleanup();
   });
 
   test('Load options, click mock, group tabs, verify groups and ungrouped tabs', async () => {
-    const options = new OptionsPage(await ctx.context.newPage());
 
     // Load options page
-    await options.goto(ctx.extensionId);
-    await options.expectPageLoaded();
+    await env.optionsPage.goto(env.extensionId);
+    await env.optionsPage.expectPageLoaded();
 
     // Close any existing tabs first (to have clean slate with only 1 tab = options page)
-    await options.clickCloseAllTabs();
+    await env.optionsPage.clickCloseAllTabs();
 
     // Click mock button
-    const mockResult = await options.clickLoadMockTabs();
+    const mockResult = await env.optionsPage.clickLoadMockTabs();
     expect(mockResult.ok).toBe(true);
 
     // Extra wait to ensure mock overrides are persisted to storage (WXT sync)
     // Group tabs
-    await options.clickGroupTabs();
+    await env.optionsPage.clickGroupTabs();
 
     // Get all tabs and groups
-    const result = await options.getGroupAndTabData();
+    const result = await env.optionsPage.getGroupAndTabData();
 
     // Verify: 5 groups created (one per active threshold level — default is 5)
     expect(result.groupCount).toBe(5);

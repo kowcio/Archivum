@@ -7,32 +7,30 @@
  * - All groups are created correctly after Apply
  */
 import {test, expect} from '@playwright/test'
-import {setupExtensionTest, type ExtensionTestContext} from './extensions.js'
-import {OptionsPage} from '../page-objects/OptionsPage.js'
+import {TestEnvironment} from "./extensions.js"
 import {ThresholdLabel} from "../../../src/constants.js";
 
 test.describe('Threshold Day Levels', () => {
-  let ctx: ExtensionTestContext
+  let env: TestEnvironment
 
   test.beforeAll('Setup: launch Chrome context with extension', async () => {
-   ctx = await setupExtensionTest(false, 90_000)
+   env = await TestEnvironment.create(false, 90_000)
   })
 
   test.afterAll('Cleanup: close extension context', async () => {
-   if (ctx) await ctx.cleanup()
+   if (env) await env.cleanup()
   })
 
   test('Check threshold day levels to save properly and change tabs after apply', async () => {
-   const options = new OptionsPage(await ctx.context.newPage())
-   await options.goto(ctx.extensionId)
+   await env.optionsPage.goto(env.extensionId)
 
    // 1. Create mock tabs (14 tabs with various daysAgo values)
-   const resp = await options.clickLoadMockTabs()
+   const resp = await env.optionsPage.clickLoadMockTabs()
    expect(resp.ok).toBe(true)
 
    // 2. Group tabs with default thresholds (Week+=7, 2 Weeks+=14, Month+=28)
-   await options.clickGroupTabs()
-   let groups = await options.getAllGroups()
+   await env.optionsPage.clickGroupTabs()
+   let groups = await env.optionsPage.getAllGroups()
 
           // Default classification (14 mocks):
           //   Fresh (0-6):      1, 6                → 2 tabs
@@ -54,11 +52,22 @@ test.describe('Threshold Day Levels', () => {
              expect(groups[3].tabCount).toBe(2)
              expect(groups[4].tabCount).toBe(3)
 
-   // 3. Change Week+ threshold from 7→3 days.
-   // This will shift tab 6 (daysAgo=6) from fresh into Week+ group.
-       await options.changeThresholdDayValue(0, 3)
+    // 3. Change Week+ threshold from 7→3 days.
+    // This will shift tab 6 (daysAgo=6) from fresh into Week+ group.
+        await env.optionsPage.changeThresholdDayValue(0, 3)
 
-          // 4. Verify group tab counts reflect new thresholds.
+        // After changing threshold, tabs are automatically regrouped with new thresholds
+        // The button changes from "group-tabs-btn" to "ungroup-tabs-btn"
+        // So we need to ungroup first, then re-group to apply the new threshold logic
+        await env.optionsPage.page.getByTestId('ungroup-tabs-btn').click();
+
+        // Wait for tabs to be ungrouped
+        await env.optionsPage.page.waitForTimeout(1000);
+
+        // Now group again with new thresholds
+        await env.optionsPage.clickGroupTabs()
+
+           // 4. Verify group tab counts reflect new thresholds.
           // After changing Week+ from 7→3 days, activeLevels still 5, so 5 groups remain:
           //   Hell! (365+):    366, 366, 367                → 3 tabs
           //   Quarter+ (90-364): 100, 101                    → 2 tabs
@@ -66,7 +75,7 @@ test.describe('Threshold Day Levels', () => {
           //   2 Weeks+ (14-27): 18, 25                      → 2 tabs
           //   Week+ (3-13):    6, 8, 8, 12                  → 4 tabs (6 moves from fresh to week+)
           //   Fresh (≤2):      1                            → 1 tab
-              groups = await options.getAllGroups()
+              groups = await env.optionsPage.getAllGroups()
               expect(groups.length).toBe(5)
               expect(groups[0].title).toContain('Hell!')
               expect(groups[1].title).toContain('Quarter+')
@@ -82,9 +91,9 @@ test.describe('Threshold Day Levels', () => {
               expect(groups[4].tabCount).toBeGreaterThan(0)
 
         // 5. Verify fresh (ungrouped) tabs: 3 total (1 fresh mock at ≤3 days + 2 extension pages)
-            const ungroupedCount = await options.getUngroupedTabCount()
+            const ungroupedCount = await env.optionsPage.getUngroupedTabCount()
             expect(ungroupedCount).toBe(3)
 
-        await options.close()
+        await env.optionsPage.close()
   })
 })
