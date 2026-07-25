@@ -36,10 +36,10 @@ export default defineBackground({
       //alarms listeners
       browser.alarms.onAlarm.addListener(async (alarm) => {
         if (alarm.name === APP_DEFAULTS.ALARM_UPDATE_TABS) {
-          BackgroundTabService.groupTabsByAge()
+          await BackgroundTabService.groupTabsByAge()
         }
         if (alarm.name === APP_DEFAULTS.ALARM_BACKUP_TABS) {
-          BackupService.backupTabs()
+          await BackupService.backupTabs()
         }
         if (alarm.name === APP_DEFAULTS.ALARM_AUTO_CLOSE_TABS) {
           // Check if auto-close is enabled in settings
@@ -61,8 +61,8 @@ export default defineBackground({
      */
     // 🖱️ Tab activation — ungroup + move to rightmost
     if (browser.tabs != null) {
-      browser.tabs.onActivated.addListener(({ tabId }) => {
-        BackgroundTabService.onTabActivated(tabId)
+      browser.tabs.onActivated.addListener(async ({ tabId }) => {
+        await BackgroundTabService.onTabActivated(tabId)
       })
     }
 
