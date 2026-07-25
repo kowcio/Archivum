@@ -25,7 +25,7 @@ export default defineBackground({
     ExtensionCleanupService.registerLifecycleListeners()
 
     /**
-     * Scheduled alarms using cronns
+     * Scheduled alarms using crons
      */
     // ⏰ Alarms— periodic interval function execution for given schedules / crons
     if (browser.alarms != null) {
@@ -46,11 +46,9 @@ export default defineBackground({
           try {
             const state = await appStateStorage.getValue()
             if (state?.autoClose) {
-              const closed = await BackgroundTabService.closeOldestGroupTabs()
-              console.log(`[background] Auto-close alarm fired: ${closed} tabs closed`)
+              await BackgroundTabService.closeOldestGroupTabs();
             }
           } catch (err) {
-            console.error('[background] Failed to check auto-close settings:', err)
           }
         }
       })
