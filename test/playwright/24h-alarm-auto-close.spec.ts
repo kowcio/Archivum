@@ -122,6 +122,9 @@ test.describe('24h Alarm: Auto-Close Oldest Group Tabs', () => {
 
     // Step 1: Ungroup then regroup to apply mock overrides
     console.log('  Step 1: Regrouping tabs with mock overrides...')
+    // Close any dialog that might interfere with the click
+    await options.page.keyboard.press('Escape');
+    await options.page.waitForTimeout(300);
     await options.clickUngroupTabs()
     await options.clickGroupTabs()
     const resultAfterGroup = await options.getGroupAndTabData()
