@@ -6,7 +6,6 @@ import { mount } from '@vue/test-utils'
 import { setActivePinia, createPinia } from 'pinia'
 import { Quasar, QBtn, QTooltip, QDialog, QCard, QCardSection, QCardActions, QSpace } from 'quasar'
 import { fakeBrowser } from 'wxt/testing/fake-browser'
-import { BACKGROUND_MESSAGE_ACTIONS } from '@/constants'
 import App from '@/entrypoints/popup/App.vue'
 
 beforeEach(() => {
