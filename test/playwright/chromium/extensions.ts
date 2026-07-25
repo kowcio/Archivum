@@ -9,11 +9,13 @@
  * Tests work directly from IntelliJ without manual build step.
  * To run: npm run test:backup-restore (or use IntelliJ gutter icons)
  */
-import { chromium, test, type BrowserContext } from "@playwright/test";
+import { chromium, test, type BrowserContext, type Page } from "@playwright/test";
 
 import fs from "fs";
 import path from "path";
 import crypto from "crypto";
+import type { BackgroundRPC } from "@/services/BackgroundRPC";
+import { OptionsPage } from "../page-objects/OptionsPage.js";
 
 // ✅ Shared context type for all tests
 export type ExtensionTestContext = {
@@ -138,3 +140,82 @@ export async function setupExtensionTest(
 
   return ctx;
 }
+
+/**
+ * Create RPC proxy for calling background service worker methods from tests
+ * Wraps chrome.runtime.sendMessage with type-safe BackgroundRPC interface
+ */
+export function createRPCProxy(page: Page): BackgroundRPC {
+  return new Proxy({} as BackgroundRPC, {
+    get: (target: any, methodName: string | symbol) => {
+      if (typeof methodName === 'symbol') {
+        return target[methodName]
+      }
+
+      // Return async function that sends RPC message
+      return async (...args: any[]) => {
+        return page.evaluate(
+          async (method: string, methodArgs: any[]) => {
+            return new Promise<any>((resolve, reject) => {
+              ;(window as any).chrome.runtime.sendMessage(
+                {
+                  type: 'proxy-service.background',
+                  data: { path: [method], args: methodArgs },
+                  timestamp: Date.now(),
+                },
+                (response: any) => {
+                  if ((window as any).chrome.runtime.lastError) {
+                    reject(
+                      new Error(
+                        (window as any).chrome.runtime.lastError.message
+                      )
+                    )
+                  } else if (response?.err) {
+                    reject(new Error(response.err.message || 'RPC failed'))
+                  } else {
+                    resolve(response?.res)
+                  }
+                }
+              )
+            })
+          },
+          methodName as string,
+          args
+        )
+      }
+    },
+  })
+}
+
+/**
+ * Test Environment - all-in-one setup for Options page testing
+ * Provides: context, extensionId, and pre-configured OptionsPage POM
+ */
+export class TestEnvironment {
+  optionsPage: OptionsPage;
+  extensionId: string;
+  private ctx: ExtensionTestContext;
+
+  private constructor(ctx: ExtensionTestContext, optionsPage: OptionsPage, extensionId: string) {
+    this.ctx = ctx;
+    this.optionsPage = optionsPage;
+    this.extensionId = extensionId;
+  }
+
+  static async create(
+    withServiceWorkerLogging: boolean = true,
+    timeoutMs: number = EXTENSION_TEST_TIMEOUT
+  ): Promise<TestEnvironment> {
+    const ctx = await setupExtensionTest(withServiceWorkerLogging, timeoutMs);
+    const page = await ctx.context.newPage();
+    const backgroundRPC = createRPCProxy(page);
+    const optionsPage = new OptionsPage(page, backgroundRPC);
+
+    return new TestEnvironment(ctx, optionsPage, ctx.extensionId);
+  }
+
+  async cleanup(): Promise<void> {
+    await this.ctx.cleanup();
+  }
+}
+
