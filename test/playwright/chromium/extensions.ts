@@ -208,8 +208,7 @@ export class TestEnvironment {
   ): Promise<TestEnvironment> {
     const ctx = await setupExtensionTest(withServiceWorkerLogging, timeoutMs);
     const page = await ctx.context.newPage();
-    const backgroundRPC = createRPCProxy(page);
-    const optionsPage = new OptionsPage(page, backgroundRPC);
+    const optionsPage = new OptionsPage(page);
 
     return new TestEnvironment(ctx, optionsPage, ctx.extensionId);
   }
