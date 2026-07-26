@@ -198,7 +198,7 @@ export class OptionsPage {
             )
           })
         }, overrides)
-        
+
         // Poll until overrides are persisted in storage
         await expect.poll(
           async () => {
@@ -241,7 +241,7 @@ export class OptionsPage {
             )
           })
         })
-        
+
         // Poll until mock tabs are actually available and queryable
         await expect.poll(
           async () => {
@@ -250,7 +250,7 @@ export class OptionsPage {
           },
           { timeout: 10_000, message: 'Mock tabs created and loaded' }
         ).toBeGreaterThan(0);
-        
+
         return { ok: true, count: Array.isArray(tabs) ? tabs.length : 0, error: null }
       } catch (err: unknown) {
         return { ok: false, count: 0, error: String(err) }
@@ -280,7 +280,7 @@ export class OptionsPage {
   async clickCloseAllTabs(): Promise<void> {
     await this.closeAllTabsBtn.waitFor({ state: 'visible' });
     await this.closeAllTabsBtn.click();
-    
+
     // Wait for all grouped tabs to be closed
     await expect.poll(
       async () => {
@@ -402,7 +402,7 @@ export class OptionsPage {
   async clickApplyThresholds(): Promise<void> {
     await expect(this.applyThresholdBtn).toBeVisible();
     await this.applyThresholdBtn.click();
-    
+
     // Poll until thresholds are applied and groups are recreated
     await expect.poll(
       async () => {
@@ -645,7 +645,7 @@ export class OptionsPage {
    */
   async clickBackupTabs(): Promise<void> {
     await this.page.getByTestId('backup-btn').click();
-    
+
     // Wait for backup to be persisted to storage
     await this.page.waitForFunction(async () => {
       const data = await chrome.storage.local.get('archivum:tab_backup');
@@ -659,7 +659,7 @@ export class OptionsPage {
    */
   async clickRestoreTabs(): Promise<void> {
     await this.page.getByTestId('restore-btn').click();
-    
+
     // Wait for restore confirmation dialog to appear
     await this.page.getByTestId('restore-confirm').waitFor({ state: 'visible', timeout: 5000 });
   }
@@ -701,14 +701,14 @@ export class OptionsPage {
    * Confirm the restore dialog by clicking the "Restore" button in the confirmation popup.
    * Uses data-testid="restore-confirm" to target the dialog's Restore button specifically.
    * Waits for groups to begin appearing (restore operation started).
-   * 
+   *
    * Note: The test should wait for all expected groups after calling this,
    * as groups are created asynchronously one by one.
    */
   async confirmRestore(): Promise<void> {
    // Click the restore-confirm button inside the dialog
    await this.page.getByTestId('restore-confirm').click();
-    
+
    // Wait for restore operation to begin by checking that at least one group appears
    await expect.poll(
      async () => {
@@ -725,7 +725,7 @@ export class OptionsPage {
    */
   async clickDeleteBackup(): Promise<void> {
     await this.page.getByTestId('clear-backup-btn').click();
-    
+
     // Wait for backup to be removed from storage
     await this.page.waitForFunction(async () => {
       const data = await chrome.storage.local.get('archivum:tab_backup');
@@ -755,12 +755,12 @@ export class OptionsPage {
     // Click the toggle
     const toggle = this.page.getByTestId('auto-close-toggle');
     await toggle.click();
-    
+
     // Ensure state is saved to storage (component click updates ref, but we need to persist it)
     await this.page.evaluate(async (enabled: boolean) => {
       const data = await chrome.storage.local.get('local:appState');
       const appState = (data['local:appState'] as any) || {};
-      
+
       await chrome.storage.local.set({
         'local:appState': {
           ...appState,
@@ -770,7 +770,7 @@ export class OptionsPage {
         }
       });
     }, true);
-    
+
     // Wait for the state to be confirmed in storage
     await expect.poll(
       async () => {
@@ -800,4 +800,31 @@ export class OptionsPage {
   async close(): Promise<void> {
     await this.page.close();
   }
+
+   /**
+    * Close the oldest group tabs via RPC proxy (one-liner for Playwright tests).
+    * Uses chrome.runtime.sendMessage to trigger BackgroundRPC.closeOldestGroupTabs()
+    */
+   async closeOldestGroupTabs(): Promise<number> {
+     return this.page.evaluate(async () => {
+       return new Promise<number>((resolve, reject) => {
+         chrome.runtime.sendMessage(
+           {
+             type: 'proxy-service.background',
+             data: { path: ['closeOldestGroupTabs'], args: [] },
+             timestamp: Date.now(),
+           },
+           (response: any) => {
+             if (chrome.runtime.lastError) {
+               reject(new Error(chrome.runtime.lastError.message));
+             } else if (response?.err) {
+               reject(new Error(response.err.message || 'RPC failed'));
+             } else {
+               resolve(response?.res ?? 0);
+             }
+           }
+         );
+       });
+     });
+   }
 }

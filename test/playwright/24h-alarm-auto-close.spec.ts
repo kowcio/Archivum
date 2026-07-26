@@ -12,7 +12,7 @@
  * ⚠️  CRITICAL: All assertions use EXACT values with toBe(), NEVER use toBeGreaterThan()
  */
 
-import {test, expect} from '@playwright/test'
+import {expect, test} from '@playwright/test'
 import {TestEnvironment} from "./chromium/extensions.js"
 import {APP_DEFAULTS} from '../../src/constants.js'
 
@@ -126,31 +126,9 @@ test.describe('24h Alarm: Auto-Close Oldest Group Tabs', () => {
     const resultAfterGroup = await env.optionsPage.getGroupAndTabData()
     console.log(`  After grouping: ${resultAfterGroup.groupsOrderedByIndex.length} groups`)
 
-    // Step 2: Close the oldest group tabs via RPC (closeOldestGroupTabs)
+    // Step 2: Close the oldest group tabs via RPC proxy (one-liner!)
     console.log('  Step 2: Closing oldest group tabs...')
-    const closedCount = await env.optionsPage.page.evaluate(async () => {
-      return new Promise<number>((resolve, reject) => {
-        chrome.runtime.sendMessage(
-          {
-            type: 'proxy-service.background',
-            data: {path: ['closeOldestGroupTabs'], args: []},
-            timestamp: Date.now()
-          },
-          (response: any) => {
-            if (chrome.runtime.lastError) {
-              console.error('[RPC closeOldestGroupTabs]', chrome.runtime.lastError)
-              reject(new Error(chrome.runtime.lastError.message))
-            } else if (response?.err) {
-              console.error('[RPC closeOldestGroupTabs error]', response.err)
-              reject(new Error(response.err.message || 'RPC failed'))
-            } else {
-              console.log('[RPC closeOldestGroupTabs success]', response?.res)
-              resolve(response?.res ?? 0)
-            }
-          }
-        )
-      })
-    })
+    const closedCount = await env.optionsPage.closeOldestGroupTabs()
 
     console.log(`  Alarm completed: ${closedCount} tabs closed from oldest group`)
 
@@ -169,8 +147,7 @@ test.describe('24h Alarm: Auto-Close Oldest Group Tabs', () => {
     await logGroupState('After close', groupsAfter, resultAfter)
 
     // Verify that tabs were closed from the oldest group
-    const expectedClosedCount = oldestGroupTabsBeforeCount
-    expect(closedCount).toBe(expectedClosedCount)
+    expect(closedCount).toBe(oldestGroupTabsBeforeCount)
 
     // Verify the oldest group was removed if it had no other tabs
     // OR if oldest group still exists, it should have 0 tabs for our simple test case
