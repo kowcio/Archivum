@@ -155,12 +155,12 @@ export function createRPCProxy(page: Page): BackgroundRPC {
       // Return async function that sends RPC message
       return async (...args: any[]) => {
         return page.evaluate(
-          async (method: string, methodArgs: any[]) => {
+          async (params: { method: string; methodArgs: any[] }) => {
             return new Promise<any>((resolve, reject) => {
               ;(window as any).chrome.runtime.sendMessage(
                 {
                   type: 'proxy-service.background',
-                  data: { path: [method], args: methodArgs },
+                  data: { path: [params.method], args: params.methodArgs },
                   timestamp: Date.now(),
                 },
                 (response: any) => {
@@ -179,8 +179,7 @@ export function createRPCProxy(page: Page): BackgroundRPC {
               )
             })
           },
-          methodName as string,
-          args
+          { method: methodName as string, methodArgs: args }
         )
       }
     },
@@ -208,7 +207,8 @@ export class TestEnvironment {
   ): Promise<TestEnvironment> {
     const ctx = await setupExtensionTest(withServiceWorkerLogging, timeoutMs);
     const page = await ctx.context.newPage();
-    const optionsPage = new OptionsPage(page);
+    const backgroundRPC = createRPCProxy(page);
+    const optionsPage = new OptionsPage(page, backgroundRPC);
 
     return new TestEnvironment(ctx, optionsPage, ctx.extensionId);
   }
