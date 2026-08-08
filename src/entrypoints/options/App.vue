@@ -189,7 +189,7 @@ const columns: {
     align: 'left',
     sortable: true,
     sort: (a, b) => a - b,
-    style: 'width: 25px'
+    style: 'width: 50px'
   },
   {name: 'actions', label: 'Actions', field: 'actions', align: 'left', style: 'width: 90px'},
   {name: 'thumbnail', label: 'Icon', field: 'thumbnail', align: 'left', style: 'width: 45px'},
@@ -203,7 +203,7 @@ const columns: {
     align: 'left',
     sortable: true,
     sort: (a, b) => a - b,
-    style: 'width: 60px'
+    style: 'width: 70px'
   },
 ]
 
