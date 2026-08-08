@@ -64,14 +64,14 @@ const oldestGroupName = computed(() => {
 
 const tooltipLine1 = computed(() => {
   if (appStore.autoClose.value) {
-    return `🔥 Active: "${oldestGroupName.value}" tabs will auto-delete every 24 hours.`
+    return `🔥 Active: "${oldestGroupName.value}" tabs will auto-close every 24 hours.`
   }
-  return `🛡️ Inactive: Your tabs are safe. Enable to auto-delete "${oldestGroupName.value}" after 24h.`
+  return `🛡️ Inactive: Your tabs are safe. Enable to auto-close "${oldestGroupName.value}" after 24h.`
 })
 
 const tooltipLine2 = computed(() => {
   if (appStore.autoClose.value) {
-    return '⚠️ Permanent deletion — tabs cannot be recovered.'
+    return '⚠️ Auto closure — search Your browser history.'
   }
   return '💡 Tip: Click a tab to move it to ungrouped section and preserve it.'
 })
