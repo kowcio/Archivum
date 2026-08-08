@@ -56,11 +56,17 @@ const iconColor = computed(() =>
   appStore.autoClose.value ? 'negative' : 'info'
 )
 
+const oldestGroupName = computed(() => {
+  const activeThresholds = appStore.thresholds.value.active()
+  if (activeThresholds.length === 0) return 'oldest group'
+  return activeThresholds[activeThresholds.length - 1].label
+})
+
 const tooltipLine1 = computed(() => {
   if (appStore.autoClose.value) {
-    return '🔥 Active: Oldest group tabs will auto-delete every 24 hours.'
+    return `🔥 Active: "${oldestGroupName.value}" tabs will auto-delete every 24 hours.`
   }
-  return '🛡️ Inactive: Your tabs are safe. Enable to auto-delete oldest group after 24h.'
+  return `🛡️ Inactive: Your tabs are safe. Enable to auto-delete "${oldestGroupName.value}" after 24h.`
 })
 
 const tooltipLine2 = computed(() => {
