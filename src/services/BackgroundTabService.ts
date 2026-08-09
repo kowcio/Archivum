@@ -952,8 +952,8 @@ export class BackgroundTabService {
 
       // Close all tabs in the group
       const tabIds = groupTabs.map(t => t.id).filter((id): id is number => id != null)
-      await browser.tabs.remove(tabIds)
-      console.log(`[BackgroundTabService] ✅ Auto-closed ${tabIds.length} tabs from oldest group`)
+        await browser.tabs.remove(tabIds)
+        console.log(`[BackgroundTabService] ✅ Auto-closed ${tabIds.length} tabs from oldest group`)
 
       // The group will be automatically removed when last tab is closed
       // But if any tabs remain (unlikely), try to remove the group itself
@@ -992,7 +992,7 @@ export class BackgroundTabService {
       // Step 2: Check if autoClose is enabled
       const appState = await appStateStorage.getValue()
       const isAutoCloseEnabled = appState?.autoClose ?? false
-      
+
       if (isAutoCloseEnabled) {
         console.log('[BackgroundTabService] 🔥 autoClose is ENABLED - closing oldest group...')
         const closedCount = await this.closeOldestGroupTabs()
