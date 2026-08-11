@@ -1,6 +1,6 @@
 /**
  * BackgroundRPC — Single RPC interface for all background ↔ UI communication
- * 
+ *
  * Naming convention:
  * - Tab operations: groupTabsByAge(), getTabs(), etc.
  * - Store operations: storeGetAppState(), storeSetThresholds(), etc.
@@ -27,7 +27,7 @@ export const backgroundRPC = {
   sortGroupsByDomain: (): Promise<number> => BackgroundTabService.sortGroupsByDomain(),
   openRandomTabInGroup: (newTabGroup: boolean, index?: number): Promise<string> =>
     BackgroundTabService.openRandomTabInGroup(newTabGroup, index),
-  closeOldestGroupTabs: (): Promise<number> => BackgroundTabService.closeOldestGroupTabs(),
+  closeOldestGroupTabs: (): Promise<number> => BackgroundTabService.autoCloseOldestGroupTabs(),
 
   // ── Tab queries & updates ────────────────────────────────────────────────
   getTabs: (): Promise<Browser.tabs.Tab[]> => BackgroundTabService.getTabs(),
@@ -64,7 +64,7 @@ export const backgroundRPC = {
     getMockOverrides: (): Promise<Record<number, number> | undefined> => StorageRepository.getMockOverrides(),
 
    // 🧪 DEV-ONLY: Test alarm triggering (warp time simulation)
-   testTriggerAlarm24h: (): Promise<number> => BackgroundTabService.testTriggerAlarm24h(),
+   testTriggerAlarm24h: (): Promise<number> => BackgroundTabService.autoCloseOldestGroupTabs(),
 
    // 🧪 DEV-ONLY: Warp time forward by milliseconds (for testing aging behavior)
    addTimeWarp: (ms: number): Promise<number> => addTimeOffset(ms),

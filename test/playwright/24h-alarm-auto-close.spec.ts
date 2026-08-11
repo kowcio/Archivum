@@ -1,6 +1,7 @@
 import {expect, test} from '@playwright/test'
 import {TestEnvironment} from "./chromium/extensions.js"
 import {APP_DEFAULTS} from '../../src/constants.js'
+import {BackgroundTabService} from "../../src/services/BackgroundTabService";
 
 test.describe('24h Alarm: Auto-Close Feature', () => {
   let env: TestEnvironment
@@ -41,6 +42,7 @@ test.describe('24h Alarm: Auto-Close Feature', () => {
     // Scenario 2: Enable auto-close and verify feature is active
     await env.optionsPage.clickAutoCloseToggle()
     expect(await env.optionsPage.isAutoCloseEnabled()).toBe(true)
+
     await env.optionsPage.bg.testTriggerAlarm24h()
     await new Promise(r => setTimeout(r, 100))
     const tabsAfterAutoCloser = await env.optionsPage.getAllGroups()

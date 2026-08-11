@@ -46,7 +46,7 @@ export default defineBackground({
           try {
             const state = await StorageRepository.storage.appStateStorage.getValue()
             if (state?.autoClose) {
-              await BackgroundTabService.closeOldestGroupTabs();
+              await BackgroundTabService.autoCloseOldestGroupTabs();
             }
           } catch (err) {
           }
