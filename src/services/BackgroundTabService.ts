@@ -18,7 +18,7 @@
 
 import {TabRow} from '@/entrypoints/options/models/TabRow.ts'
 import {AgeClassification} from '@/models/AgeClassification.ts'
-import {appStateStorage, getStorageThresholds, mockOverrides} from '@/store/appStore.ts'
+import { StorageRepository } from '@/store'
 import type { AppState } from '@/models/ThresholdState.ts'
 import {AppThresholds} from '@/models/AppThresholds'
 import type {Browser} from 'wxt/browser'
@@ -100,7 +100,7 @@ export class BackgroundTabService {
    }
 
   static async getThresholds(): Promise<AppThresholds> {
-    return await getStorageThresholds()
+    return await StorageRepository.getStorageThresholds()
   }
 
      /**
@@ -117,7 +117,7 @@ export class BackgroundTabService {
       */
       private static async applyMockOverrides(tabs: { id?: number; lastAccessed?: number }[]): Promise<void> {
         try {
-          const overrides = await mockOverrides.getValue()
+          const overrides = await StorageRepository.getMockOverrides() ?? {}
 
           // This method is only called if overrides exist, but double-check for safety
           if (!overrides || Object.keys(overrides).length === 0) {
@@ -428,7 +428,7 @@ export class BackgroundTabService {
 
       try {
         // Check if ANY mocks are set in storage
-        const overrides = await mockOverrides.getValue()
+        const overrides = await StorageRepository.getMockOverrides()
 
         // If mocks exist, apply them to matching tab IDs
         if (overrides && Object.keys(overrides).length > 0) {
@@ -498,12 +498,12 @@ export class BackgroundTabService {
        overridesMap[tabId] = now - daysAgo * DAY_MS
      }
 
-     // Set overrides via WXT storage (unified approach with setMockOverrides action)
-     try {
-       await mockOverrides.setValue(overridesMap)
-     } catch (err) {
-       console.error(`[BackgroundTabService] ❌ Failed to set overrides:`, err)
-     }
+      // Set overrides via WXT storage (unified approach with setMockOverrides action)
+      try {
+        await StorageRepository.setMockOverrides(overridesMap)
+      } catch (err) {
+        console.error(`[BackgroundTabService] ❌ Failed to set overrides:`, err)
+      }
 
      if (!useReal) {
        // ── MOCK MODE: Extra delay to ensure storage persists, then return synthetic tabs ──
@@ -784,7 +784,7 @@ export class BackgroundTabService {
         // Fetch mock overrides if they exist
         let mockOverridesMap: Record<number, number> = {}
         try {
-          const overrides = await mockOverrides.getValue()
+          const overrides = await StorageRepository.getMockOverrides()
           mockOverridesMap = overrides ?? {}
         } catch {
           // No overrides set, continue with empty map
@@ -899,7 +899,7 @@ export class BackgroundTabService {
     */
    static async setAutoClose(enabled: boolean): Promise<void> {
     try {
-      const state = await appStateStorage.getValue()
+     const state = await StorageRepository.storage.appStateStorage.getValue()
       const updatedState: AppState = {
         thresholds: state?.thresholds || { levels: [], activeLevels: 0 },
         configLastUpdated: state?.configLastUpdated || Date.now(),
@@ -907,7 +907,7 @@ export class BackgroundTabService {
         sortSettings: state?.sortSettings || { sortByDomainInGroups: true },
         autoClose: enabled,
       }
-      await appStateStorage.setValue(updatedState)
+     await StorageRepository.storage.appStateStorage.setValue(updatedState)
       console.log(`[BackgroundTabService] ✅ Auto-close ${enabled ? 'ENABLED' : 'DISABLED'}`)
     } catch (err) {
       console.error('[BackgroundTabService] ❌ Failed to set auto-close:', err)
@@ -990,7 +990,7 @@ export class BackgroundTabService {
       console.log(`[BackgroundTabService] 🧪 DEV: Alarm triggered → ${result} groups created`)
 
       // Step 2: Check if autoClose is enabled
-      const appState = await appStateStorage.getValue()
+      const appState = await StorageRepository.storage.appStateStorage.getValue()
       const isAutoCloseEnabled = appState?.autoClose ?? false
 
       if (isAutoCloseEnabled) {

@@ -6,7 +6,7 @@ import { BackupService } from '@/services/BackupService'
 import { APP_DEFAULTS } from '@/constants'
 import { browser } from 'wxt/browser'
 import { backgroundRPC } from '@/services/BackgroundRPC'
-import { appStateStorage } from '@/store/appStore'
+import { StorageRepository } from '@/store'
 
 // ⚠️ DEVELOPERS: Type-safe RPC is now the single source of truth for all background ↔ UI communication
 // NO MORE manual message routing with if-else chains ✅
@@ -44,7 +44,7 @@ export default defineBackground({
         if (alarm.name === APP_DEFAULTS.ALARM_AUTO_CLOSE_TABS) {
           // Check if auto-close is enabled in settings
           try {
-            const state = await appStateStorage.getValue()
+            const state = await StorageRepository.storage.appStateStorage.getValue()
             if (state?.autoClose) {
               await BackgroundTabService.closeOldestGroupTabs();
             }

@@ -20,7 +20,7 @@
           type="number"
           :min="1"
           :max="maxLevels"
-          :disable="appStore.loading.value"
+          :disable="store.loading.value"
           dense
           class="levels-input"
           @update:model-value="(v) => handleChangeCount(Number(v))"
@@ -32,7 +32,7 @@
         style="gap: 8px"
       >
         <q-btn
-          v-if="hasChanges && !appStore.loading.value"
+         v-if="hasChanges && !store.loading.value"
           data-testid="threshold-apply"
           class="q-px-md got-btn-green"
           icon="check"
@@ -47,17 +47,17 @@
           label="Reset"
           class="got-btn-cyan q-px-md"
           dense
-          :disable="appStore.loading.value"
+         :disable="store.loading.value"
           @click="handleReset"
         />
 
         <AutoCloseToggle />
       </div>
       <div
-        v-if="appStore.error.value"
+        v-if="store.error.value"
         class="error-text row"
       >
-        {{ appStore.error.value }}
+        {{ store.error.value }}
       </div>
     </div>
 
@@ -103,41 +103,35 @@
 <script setup lang="ts">
 import { computed, ref, onMounted, watch } from 'vue';
 import { createProxyService } from '@webext-core/proxy-service';
-import { useAppStore } from '@/store/appStore.ts';
+import { useStore } from '@/composables/useStore';
 import { AppThresholds, DEFAULT_THRESHOLDS } from '@/models/AppThresholds';
 import { APP_DEFAULTS, isDevEnv } from '@/constants';
 import type { BackgroundRPC } from '@/services/BackgroundRPC';
 import AutoCloseToggle from '@/components/AutoCloseToggle.vue';
 
 // ⚠️ DEVELOPERS: createProxyService() returns type-safe proxy to background service worker
-// Replaces browser.runtime.sendMessage() with method calls - no string keys needed ✅
 const background = createProxyService<BackgroundRPC>('background');
 
-const appStore = useAppStore();
+const store = useStore();
 const emit = defineEmits<{ apply: [] }>();
 const maxLevels = computed(() => APP_DEFAULTS.THRESHOLDS.presets.length);
-const isThresholdEditingDisabled = computed<boolean>(() => appStore.loading.value || !isDevEnv);
+const isThresholdEditingDisabled = computed<boolean>(() => store.loading.value || !isDevEnv);
 
 // Local state to track unsaved changes
-// ⚠️ CRITICAL: Must wait for appStore to load before initializing!
-// If we initialize here, appStore.thresholds is still DEFAULT (not loaded from storage yet)
-// appStore.load() runs in onMounted, so we delay initialization until store is ready
 const localThresholds = ref<AppThresholds>(DEFAULT_THRESHOLDS);
 
 const activeThresholds = computed(() => localThresholds.value.active());
 
-// Check if there are unsaved changes (only when store is loaded)
+// Check if there are unsaved changes
 const hasChanges = computed(() => {
-  if (appStore.loading.value) return false;
+  if (store.loading.value) return false;
 
-  // Check if activeLevels changed
-  if (localThresholds.value.activeLevels !== appStore.thresholds.value.activeLevels) {
+  if (localThresholds.value.activeLevels !== store.thresholds.value.activeLevels) {
     return true;
   }
 
-  // Check if any threshold days changed
   for (let i = 0; i < localThresholds.value.levels.length; i++) {
-    if (localThresholds.value.levels[i].days !== appStore.thresholds.value.levels[i].days) {
+    if (localThresholds.value.levels[i].days !== store.thresholds.value.levels[i].days) {
       return true;
     }
   }
@@ -163,68 +157,61 @@ async function handleApply(): Promise<void> {
     // Collect threshold changes
     const changes: Record<number, Partial<{ days: number }>> = {};
     for (let i = 0; i < localThresholds.value.levels.length; i++) {
-      if (localThresholds.value.levels[i].days !== appStore.thresholds.value.levels[i].days) {
+      if (localThresholds.value.levels[i].days !== store.thresholds.value.levels[i].days) {
         changes[i] = { days: localThresholds.value.levels[i].days };
       }
     }
 
     if (Object.keys(changes).length > 0) {
-      await appStore.setThresholds(changes);
+      await store.storeSetThresholds(changes);
     }
 
-    if (localThresholds.value.activeLevels !== appStore.thresholds.value.activeLevels) {
-      await appStore.setActiveLevels(localThresholds.value.activeLevels);
+    if (localThresholds.value.activeLevels !== store.thresholds.value.activeLevels) {
+      await store.storeSetActiveLevels(localThresholds.value.activeLevels);
     }
 
-    localThresholds.value = AppThresholds.fromObject(appStore.thresholds.value.toJSON());
+    localThresholds.value = AppThresholds.fromObject(store.thresholds.value.toJSON());
 
-    // ⚠️ DEVELOPERS: Type-safe call to background service
-    // TypeScript knows groupTabsByAge returns Promise<number> ✅
     await background.groupTabsByAge();
     emit('apply');
   } catch (err: any) {
     const errorMsg = err instanceof Error ? err.message : String(err);
     if (errorMsg.includes('DataCloneError') || errorMsg.includes('Proxy')) {
-      appStore.error.value = `[THRESHOLD_APPLY_PROXY_ERROR] Cannot serialize threshold data. Try refreshing the page.`;
+      store.error.value = `[THRESHOLD_APPLY_PROXY_ERROR] Cannot serialize threshold data. Try refreshing the page.`;
     } else {
-      appStore.error.value = `[THRESHOLD_APPLY_ERROR] ${errorMsg}`;
+      store.error.value = `[THRESHOLD_APPLY_ERROR] ${errorMsg}`;
     }
-    console.error('[Thresholds.handleApply]', appStore.error.value);
+    console.error('[Thresholds.handleApply]', store.error.value);
   }
 }
 
 async function handleReset(): Promise<void> {
-  await appStore.resetToDefaults();
-  localThresholds.value = AppThresholds.fromObject(appStore.thresholds.value.toJSON());
+  await store.storeResetToDefaults();
+  localThresholds.value = AppThresholds.fromObject(store.thresholds.value.toJSON());
 
-  // Regroup with defaults and refresh table
-  // ⚠️ DEVELOPERS: Type-safe call to background service
-  // TypeScript knows groupTabsByAge returns Promise<number> ✅
   await background.groupTabsByAge();
   emit('apply');
 }
 
-// Sync localThresholds when store changes (from another context)
-// ⚠️ CRITICAL FIX: Initialize localThresholds AFTER store is loaded, not before!
+// Sync localThresholds when store changes
 onMounted(() => {
-  // 1️⃣ Wait for store to load from storage
+  // 1️⃣ Initialize from store
   watch(
-    () => appStore.loading.value,
+    () => store.loading.value,
     (isLoading) => {
       if (!isLoading) {
-        // ✅ Store is now loaded → initialize localThresholds with real values
-        localThresholds.value = AppThresholds.fromObject(appStore.thresholds.value.toJSON())
+        localThresholds.value = AppThresholds.fromObject(store.thresholds.value.toJSON())
       }
     },
-    { immediate: true } // Check immediately in case store is already loaded
+    { immediate: true }
   )
 
-  // 2️⃣ Then watch for external changes (from other tabs/windows)
+  // 2️⃣ Watch for external changes
   watch(
-    () => appStore.thresholds.value.toJSON(),
+    () => store.thresholds.value.toJSON(),
     () => {
-      if (!appStore.loading.value && !hasChanges.value) {
-        localThresholds.value = AppThresholds.fromObject(appStore.thresholds.value.toJSON())
+      if (!store.loading.value && !hasChanges.value) {
+        localThresholds.value = AppThresholds.fromObject(store.thresholds.value.toJSON())
       }
     }
   )

@@ -18,7 +18,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { fakeBrowser } from 'wxt/testing/fake-browser';
 import { BackgroundTabService } from '@/services/BackgroundTabService';
-import { mockOverrides } from '@/store/appStore.ts';
+import { StorageRepository } from '@/store';
 import { AgeClassification } from '@/models/AgeClassification';
 import { ThemeColor } from '@/constants';
 
@@ -26,7 +26,7 @@ describe('BackgroundTabService', () => {
   beforeEach(async () => {
     fakeBrowser.reset();
     vi.clearAllMocks();
-    await mockOverrides.setValue({});
+    await StorageRepository.storage.mockOverrides.setValue({});
   });
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -86,7 +86,7 @@ describe('BackgroundTabService', () => {
       overrides[tabs[0].id!] = now - DAY_MS; // 1 day old
       overrides[tabs[1].id!] = now - 15 * DAY_MS; // 15 days old
       overrides[tabs[2].id!] = now - 40 * DAY_MS; // 40 days old
-      await mockOverrides.setValue(overrides);
+      await StorageRepository.storage.mockOverrides.setValue(overrides);
 
       const count = await BackgroundTabService.groupTabsByAge();
       expect(count).toBeGreaterThanOrEqual(0);
@@ -110,7 +110,7 @@ describe('BackgroundTabService', () => {
         [tabs[3].id!]: now - 20 * DAY_MS,
         [tabs[4].id!]: now - 50 * DAY_MS,
       };
-      await mockOverrides.setValue(overrides);
+      await StorageRepository.storage.mockOverrides.setValue(overrides);
 
       const count = await BackgroundTabService.groupTabsByAge();
       expect(count).toBeGreaterThanOrEqual(0);
@@ -192,7 +192,7 @@ describe('BackgroundTabService', () => {
       overrides[level3Tab2.id!] = now - 50 * DAY_MS;
       overrides[level3Tab3.id!] = now - 100 * DAY_MS;
 
-      await mockOverrides.setValue(overrides);
+      await StorageRepository.storage.mockOverrides.setValue(overrides);
 
       // ─ Test age classification logic
       const fresh3DaysClass = AgeClassification.fromDays(3, thresholds);
@@ -281,7 +281,7 @@ describe('BackgroundTabService', () => {
         [tabs[2].id!]: now - 20 * DAY_MS, // Level 2
         [tabs[3].id!]: now - 50 * DAY_MS, // Level 3
       };
-      await mockOverrides.setValue(overrides);
+      await StorageRepository.storage.mockOverrides.setValue(overrides);
 
       // Verify each tab's classification
       const classifications = [
@@ -459,7 +459,7 @@ describe('BackgroundTabService', () => {
       ];
 
       // Set ages
-      await mockOverrides.setValue({
+      await StorageRepository.storage.mockOverrides.setValue({
         [tabs[0].id!]: now - 5 * DAY_MS,
         [tabs[1].id!]: now - 20 * DAY_MS, // Oldest
         [tabs[2].id!]: now - 10 * DAY_MS,
@@ -478,7 +478,7 @@ describe('BackgroundTabService', () => {
         await fakeBrowser.tabs.create({ url: 'https://example.com/2' }),
       ];
 
-      await mockOverrides.setValue({
+      await StorageRepository.storage.mockOverrides.setValue({
         [tabs[0].id!]: now - 50 * DAY_MS,
         [tabs[1].id!]: now - DAY_MS,
       });
@@ -518,7 +518,7 @@ describe('BackgroundTabService', () => {
       ];
 
       // Apply different ages to trigger within-domain sorting
-      await mockOverrides.setValue({
+      await StorageRepository.storage.mockOverrides.setValue({
         [tabs[0].id!]: now - 2 * DAY_MS,
         [tabs[1].id!]: now - 30 * DAY_MS,
         [tabs[2].id!]: now - 15 * DAY_MS,
@@ -632,7 +632,7 @@ describe('BackgroundTabService', () => {
         }
       }
 
-      await mockOverrides.setValue(overrides);
+      await StorageRepository.storage.mockOverrides.setValue(overrides);
       console.log(`\n  📊 Created ${tabs.length} tabs in 3 groups\n`);
 
       // Verify tabs were created

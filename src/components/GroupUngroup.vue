@@ -37,9 +37,9 @@
 import { ref, computed, onMounted } from 'vue'
 import { createProxyService } from '@webext-core/proxy-service'
 import { browser } from 'wxt/browser'
-import { useAppStore } from '@/store/appStore'
+import { useStore } from '@/composables/useStore'
 import { TabRow } from '@/entrypoints/options/models/TabRow.ts'
-import { mockOverrides } from '@/store/appStore'
+import { StorageRepository } from '@/store'
 import type { BackgroundRPC } from '@/services/BackgroundRPC'
 
 // ⚠️ DEVELOPERS: createProxyService() returns a type-safe proxy object immediately (not a promise)
@@ -67,14 +67,14 @@ const props = withDefaults(defineProps<Props>(), {
   square: false,
 })
 
-const appStore = useAppStore()
+const store = useStore()
 const isGrouped = ref(false)
 const isLoading = ref(false)
 const allTabs = ref<any[]>([])
 const buttonRef = ref<any>(null)
 
 const minThresholdDays = computed(() => {
-  const levels = appStore.thresholds.value?.active()
+  const levels = store.thresholds.value?.active()
   return levels && levels.length > 0 ? levels[0].days : 7
 })
 
@@ -85,7 +85,7 @@ const minThresholdDays = computed(() => {
 const hasStaleTabsToGroup = computed(() => {
   if (allTabs.value.length === 0) return false
 
-  const thresholds = appStore.thresholds.value
+  const thresholds = store.thresholds.value
   const minDays = minThresholdDays.value
 
   // Check if any tab is older than the minimum threshold
@@ -122,8 +122,8 @@ async function refreshAllTabs(): Promise<void> {
   try {
     const tabs = await browser.tabs.query({ currentWindow: true })
 
-    // Apply mock overrides for testing
-    const overridesObj = await mockOverrides.getValue()
+    // Apply mock overrides for testing (via RPC proxy)
+    const overridesObj = await background.getMockOverrides() ?? {}
 
     // ✅ FIX: Handle both numeric keys and string keys (WXT JSON serialization)
     const overrides: Record<number, number> = {}
@@ -164,7 +164,6 @@ async function checkGroupState(): Promise<void> {
 }
 
 onMounted(async () => {
-  await appStore.load()
   await refreshAllTabs()
   await checkGroupState()
 
@@ -175,7 +174,7 @@ onMounted(async () => {
   }
 
    // Listen to mock overrides changes (for testing with backdated tabs)
-   mockOverrides.watch(() => {
+   StorageRepository.storage.mockOverrides.watch(() => {
      refreshAllTabs()
    })
 })

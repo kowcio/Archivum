@@ -1,7 +1,7 @@
 <template>
   <div class="row items-center q-gutter-sm" data-testid="auto-close-toggle">
     <q-toggle
-      :model-value="appStore.autoClose.value"
+      :model-value="store.autoClose.value"
       label="Auto close"
       size="sm"
       @update:model-value="handleToggle"
@@ -26,58 +26,62 @@
     </q-toggle>
 
     <q-linear-progress
-      v-if="appStore.loading.value"
+      v-if="store.loading.value"
       indeterminate
       color="primary"
       class="q-mt-xs"
       style="height: 2px; width: 100%"
     />
 
-    <div v-if="appStore.error.value" class="text-negative text-caption q-mt-xs">
-      {{ appStore.error.value }}
+    <div v-if="store.error.value" class="text-negative text-caption q-mt-xs">
+      {{ store.error.value }}
     </div>
   </div>
 
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
-import { useAppStore } from '@/store/appStore'
+import { computed } from 'vue'
+import { useStore } from '@/composables/useStore'
 
-const appStore = useAppStore()
-const pendingValue = ref(false)
+const store = useStore()
 
 // Computed properties for dynamic icon and tooltip
 const iconName = computed(() =>
-  appStore.autoClose.value ? 'local_fire_department' : 'shield_off'
+  store.autoClose.value ? 'local_fire_department' : 'shield_off'
 )
 
 const iconColor = computed(() =>
-  appStore.autoClose.value ? 'negative' : 'info'
+  store.autoClose.value ? 'negative' : 'info'
 )
 
 const oldestGroupName = computed(() => {
-  const activeThresholds = appStore.thresholds.value.active()
+  const activeThresholds = store.thresholds.value.active()
   if (activeThresholds.length === 0) return 'oldest group'
   return activeThresholds[activeThresholds.length - 1].label
 })
 
 const tooltipLine1 = computed(() => {
-  if (appStore.autoClose.value) {
+  if (store.autoClose.value) {
     return `🔥 Active: "${oldestGroupName.value}" tabs will auto-close every 24 hours.`
   }
   return `🛡️ Inactive: Your tabs are safe. Enable to auto-close "${oldestGroupName.value}" after 24h.`
 })
 
 const tooltipLine2 = computed(() => {
-  if (appStore.autoClose.value) {
+  if (store.autoClose.value) {
     return '⚠️ Auto closure — search Your browser history.'
   }
   return '💡 Tip: Click a tab to move it to ungrouped section and preserve it.'
 })
 
 async function handleToggle(newValue: boolean): Promise<void> {
-  appStore.autoClose.value = newValue
+  try {
+    await store.storeSetAutoClose(newValue)
+  } catch (err) {
+    console.error('[AutoCloseToggle.handleToggle]', err)
+    store.autoClose.value = !newValue
+  }
 }
 
 </script>
