@@ -945,7 +945,7 @@ export class BackgroundTabService {
         console.log('[BackgroundTabService] ℹ️ No tabGroups API available (Firefox), skipping auto-close')
         return 0
       }
-      const oldesGroup = await this.getOldestGroup()
+      const oldesGroup = this.getOldestGroup()
       const oldestGroupTitle = oldesGroup?.title
       const thresholds = await this.getThresholds()
       const activeLevels = thresholds.active()
@@ -968,24 +968,25 @@ export class BackgroundTabService {
         console.log(`[BackgroundTabService] ℹ️ No tabs to auto-close in oldest group "${oldestGroupTitle}"`)
         return 0
       }
+    } catch (err) {
+      console.error('[BackgroundTabService] ❌ Failed to auto-close tabs:', err)
+      return 0
     }
+  }
 
-    /**
-     * 🧪 DEV-ONLY: Manually trigger the 24h alarm to test groupTabsByAge() behavior.
-     * Simulates: browser.alarms fires after 24 hours.
-     *
-     * If autoClose is enabled:
-     * - After grouping, closes all tabs in the oldest group (Hell! group)
-     * - Removes the oldest group
-     *
-     * Returns: count of groups created after grouping
-     *
-     * Used by: Dev UI button "Test 24h Alarm" in Options Page (dev mode only)
-     */
-  static async
-    testTriggerAlarm24h()
-  :
-    Promise < number > {
+  /**
+   * 🧪 DEV-ONLY: Manually trigger the 24h alarm to test groupTabsByAge() behavior.
+   * Simulates: browser.alarms fires after 24 hours.
+   *
+   * If autoClose is enabled:
+   * - After grouping, closes all tabs in the oldest group (Hell! group)
+   * - Removes the oldest group
+   *
+   * Returns: count of groups created after grouping
+   *
+   * Used by: Dev UI button "Test 24h Alarm" in Options Page (dev mode only)
+   */
+  static async testTriggerAlarm24h(): Promise<number> {
       console.log('[BackgroundTabService] 🧪 DEV: Manually triggering 24h alarm...')
       try {
         // Step 1: Group tabs by age
@@ -1071,10 +1072,7 @@ export class BackgroundTabService {
     /**
      * Activate burn mode - set alarm to close oldest group in 24 hours
      */
-  static async
-    activateBurnMode()
-  :
-    Promise < void > {
+    static async activateBurnMode(): Promise<void> {
       try {
         console.log('[BackgroundTabService] 🔥 Activating burn mode...')
         // Set alarm to fire in 24 hours
@@ -1088,10 +1086,7 @@ export class BackgroundTabService {
     /**
      * Deactivate burn mode - cancel the burn mode alarm
      */
-  static async
-    deactivateBurnMode()
-  :
-    Promise < void > {
+    static async deactivateBurnMode(): Promise<void> {
       try {
         console.log('[BackgroundTabService] 🛑 Deactivating burn mode...')
         await browser.alarms.clear('burnModeAlarm')
