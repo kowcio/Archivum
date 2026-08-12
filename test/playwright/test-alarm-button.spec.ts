@@ -113,6 +113,10 @@ test.describe('TestAlarmButton: +4h Warp & Grouping', () => {
         console.log(`   Warp ${i}/42: Advancing time +4h... (~${Math.floor((i * 4) / 24)} days so far)`)
       }
       await env.optionsPage.clickTestAlarmButton()
+      // Small delay between iterations to avoid overwhelming the browser
+      if (i < 42) {
+        await new Promise(resolve => setTimeout(resolve, 200))
+      }
     }
     console.log('   ✓ Total time advanced: ~7 days (168 hours)')
     console.log('   ✓ Tabs should have aged and MOVED to older groups!')

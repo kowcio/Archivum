@@ -152,35 +152,43 @@ export function createRPCProxy(page: Page): BackgroundRPC {
         return target[methodName]
       }
 
-      // Return async function that sends RPC message
+  // Return async function that sends RPC message
       return async (...args: any[]) => {
-        return page.evaluate(
-          async (params: { method: string; methodArgs: any[] }) => {
-            return new Promise<any>((resolve, reject) => {
-              ;(window as any).chrome.runtime.sendMessage(
-                {
-                  type: 'proxy-service.background',
-                  data: { path: [params.method], args: params.methodArgs },
-                  timestamp: Date.now(),
-                },
-                (response: any) => {
-                  if ((window as any).chrome.runtime.lastError) {
-                    reject(
-                      new Error(
-                        (window as any).chrome.runtime.lastError.message
-                      )
-                    )
-                  } else if (response?.err) {
-                    reject(new Error(response.err.message || 'RPC failed'))
-                  } else {
-                    resolve(response?.res)
-                  }
-                }
-              )
-            })
-          },
-          { method: methodName as string, methodArgs: args }
-        )
+       try {
+         return await page.evaluate(
+           async (params: { method: string; methodArgs: any[] }) => {
+             return new Promise<any>((resolve, reject) => {
+               ;(window as any).chrome.runtime.sendMessage(
+                 {
+                   type: 'proxy-service.background',
+                   data: { path: [params.method], args: params.methodArgs },
+                   timestamp: Date.now(),
+                 },
+                 (response: any) => {
+                   if ((window as any).chrome.runtime.lastError) {
+                     reject(
+                       new Error(
+                         (window as any).chrome.runtime.lastError.message
+                       )
+                     )
+                   } else if (response?.err) {
+                     reject(new Error(response.err.message || 'RPC failed'))
+                   } else {
+                     resolve(response?.res)
+                   }
+                 }
+               )
+             })
+           },
+           { method: methodName as string, methodArgs: args }
+         )
+       } catch (err) {
+         // Wrap page closed errors for clearer debugging
+         if (err instanceof Error && err.message.includes('closed')) {
+           throw new Error(`RPC call failed: page or browser context closed (${err.message})`)
+         }
+         throw err
+       }
       }
     },
   })

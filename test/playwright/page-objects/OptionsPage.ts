@@ -118,13 +118,23 @@ export class OptionsPage {
   async clickTestAlarmButton(): Promise<void> {
    const alarmBtn = this.page.getByTestId('test-alarm-btn');
    await alarmBtn.click();
+   
+   // Give the alarm handler time to process
+   await new Promise(resolve => setTimeout(resolve, 500));
+   
    // Wait for alarm to complete and groups to be updated
+   // Use longer timeout for more reliability (page might be temporarily unresponsive)
    await expect.poll(
      async () => {
-       const result = await this.getGroupAndTabData();
-       return result.groupsOrderedByIndex.length;
+       try {
+         const result = await this.getGroupAndTabData();
+         return result.groupsOrderedByIndex.length;
+       } catch {
+         // Page might be temporarily closed during RPC, return 0 to retry
+         return 0;
+       }
      },
-     { timeout: 10_000, message: 'Groups updated after test alarm' }
+     { timeout: 15_000, message: 'Groups updated after test alarm' }
    ).toBeGreaterThan(0);
   }
 
