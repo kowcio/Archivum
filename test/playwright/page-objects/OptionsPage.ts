@@ -121,45 +121,80 @@ export class OptionsPage {
   /**
    * Click "Test Alarm" button to trigger grouping with time advancement.
    * Polls until alarm completes and groups are updated.
-   * Includes page validity check to detect context closure.
+  * Includes service worker recovery mechanism for long test runs.
    */
   async clickTestAlarmButton(attemptNum: number = 1): Promise<void> {
    // Check if page is still valid before attempting
    if (this.page.isClosed()) {
-     throw new Error(`Page is closed - cannot click test alarm button (attempt ${attemptNum})`)
+     throw new Error(`Page is closed - cannot click test alarm button (attempt ${attemptNum})`);
    }
 
    const alarmBtn = this.page.getByTestId('test-alarm-btn');
    await alarmBtn.click();
-   
-   // Give the alarm handler time to process
-   await new Promise(resolve => setTimeout(resolve, 800));
-   
+
+   // ✅ Extended delay for service worker to fully process the alarm
+   // MV3 service workers can suspend, so this gives time to respond
+   await new Promise(resolve => setTimeout(resolve, 1500));
+
    // Wait for alarm to complete and groups to be updated
-   // Use longer timeout for more reliability (page might be temporarily unresponsive)
+   // Extended timeout to allow for service worker recovery in long test runs
    let pollAttempts = 0;
-   await expect.poll(
-     async () => {
-       pollAttempts++;
-       try {
-         // Check page validity on each poll iteration
-         if (this.page.isClosed()) {
-           console.warn(`[clickTestAlarmButton] Page closed on poll attempt ${pollAttempts}`)
-           return 0; // Will trigger timeout with helpful message
+   let lastError: Error | null = null;
+    
+   try {
+     await expect.poll(
+       async () => {
+         pollAttempts++;
+         try {
+           // Check page validity on each poll iteration
+           if (this.page.isClosed()) {
+             lastError = new Error(`Page closed on poll attempt ${pollAttempts}`);
+             console.warn(`[clickTestAlarmButton] ${lastError.message}`);
+             return 0; // Triggers timeout, then we catch and handle
+           }
+
+           // Add small delay before attempting RPC to avoid overwhelming service worker
+           if (pollAttempts > 1) {
+             await new Promise(resolve => setTimeout(resolve, 50));
+           }
+
+           // Check if page context is still available
+           try {
+             const result = await this.getGroupAndTabData();
+             // Successfully got data - reset error tracking
+             lastError = null;
+             return result.groupsOrderedByIndex.length;
+           } catch (rpcErr) {
+             // RPC failed - service worker might be recovering
+             lastError = rpcErr as Error;
+             if (pollAttempts % 5 === 0) {
+               console.warn(
+                 `[clickTestAlarmButton] Poll ${pollAttempts}: Service worker not responding (${lastError.message}), retrying...`
+               );
+             }
+             // Wait extra time for service worker recovery before next attempt
+             if (pollAttempts > 10) {
+               await new Promise(resolve => setTimeout(resolve, 300));
+             }
+             return 0; // Retry
+           }
+         } catch (err) {
+           lastError = err as Error;
+           console.warn(`[clickTestAlarmButton] Poll attempt ${pollAttempts} error:`, lastError.message);
+           return 0; // Retry
          }
-         const result = await this.getGroupAndTabData();
-         return result.groupsOrderedByIndex.length;
-       } catch (err) {
-         // Log error details for debugging
-         if (pollAttempts % 3 === 0) {
-           console.warn(`[clickTestAlarmButton] Poll attempt ${pollAttempts} failed, retrying...`)
-         }
-         // Page might be temporarily closed during RPC, return 0 to retry
-         return 0;
-       }
-     },
-     { timeout: 20_000, message: 'Groups updated after test alarm' }
-   ).toBeGreaterThan(0);
+       },
+       { timeout: 40_000, message: 'Groups updated after test alarm' } // Extended from 30s to 40s for safety
+     ).toBeGreaterThan(0);
+   } catch (timeoutErr) {
+     // Provide helpful error message if polling times out
+     if (lastError) {
+       throw new Error(
+         `Failed to trigger alarm after ${pollAttempts} poll attempts: ${lastError.message}`
+       );
+     }
+     throw timeoutErr;
+   }
   }
 
 

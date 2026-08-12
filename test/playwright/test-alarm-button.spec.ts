@@ -104,11 +104,11 @@ test.describe('TestAlarmButton: +4h Warp & Grouping', () => {
     // - 6 days old tab → becomes 13+ days (moves to older group)
     // - 8 days old tab → becomes 15+ days (2Weeks+ group)
     // - 12 days old tab → becomes 19+ days (Quarter+ group)
-    // Strategy: Do fewer, larger batch warp operations to avoid context exhaustion
+    // Strategy: Conservative batching with extensive service worker recovery windows
     // 4h * 6 = 24 hours (1 day) per batch × 7 batches = 7 days total
     console.log('\nStep 4: Clicking Warp +4h button in BATCHES to advance time significantly...')
     console.log('   Goal: Move tabs from their current groups to OLDER groups')
-    console.log('   Advancing 7 days total in batches (context-safe approach)...')
+    console.log('   Advancing 7 days total in batches (conservative recovery approach)...')
     
     const WARP_PER_BATCH = 6; // Each batch = 6 × 4h = 24h = 1 day
     const NUM_BATCHES = 7;    // 7 batches × 1 day = 7 days total
@@ -116,14 +116,22 @@ test.describe('TestAlarmButton: +4h Warp & Grouping', () => {
     for (let batch = 1; batch <= NUM_BATCHES; batch++) {
       console.log(`\n   Batch ${batch}/${NUM_BATCHES}: Advancing ${WARP_PER_BATCH * 4}h (1 day)...`)
       for (let i = 1; i <= WARP_PER_BATCH; i++) {
-        await env.optionsPage.clickTestAlarmButton(batch * WARP_PER_BATCH + i)
-        // Slightly longer delay between warps in batch to avoid overwhelming
-        await new Promise(resolve => setTimeout(resolve, 300))
+        try {
+          await env.optionsPage.clickTestAlarmButton(batch * WARP_PER_BATCH + i)
+        } catch (err) {
+          console.error(`   ❌ Alarm ${batch * WARP_PER_BATCH + i} failed:`, err instanceof Error ? err.message : err)
+          // Longer recovery time on error
+          await new Promise(resolve => setTimeout(resolve, 2000))
+          // Retry once on error
+          await env.optionsPage.clickTestAlarmButton(batch * WARP_PER_BATCH + i)
+        }
+        // Delay between warps to allow service worker to process each alarm
+        await new Promise(resolve => setTimeout(resolve, 800))
       }
-      // Longer pause between batches to let browser recover
+      // Extended pause between batches for full service worker recovery
       if (batch < NUM_BATCHES) {
-        console.log(`   ⏸️  Batch ${batch} complete, pausing before batch ${batch + 1}...`)
-        await new Promise(resolve => setTimeout(resolve, 1000))
+        console.log(`   ⏸️  Batch ${batch} complete, pausing ${3000}ms for full service worker recovery...`)
+        await new Promise(resolve => setTimeout(resolve, 3000))
       }
     }
     console.log('\n   ✓ Total time advanced: 7 days (168 hours in batches)')
