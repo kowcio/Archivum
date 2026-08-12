@@ -57,6 +57,13 @@ export class OptionsPage {
   }
 
   /**
+  * Public accessor for background RPC - needed for direct RPC calls in tests
+  */
+  getBackgroundRPC(): BackgroundRPC {
+   return this.bg;
+  }
+
+  /**
    * Navigate to Options page using extension ID.
    * waitUntil: domcontentloaded ensures DOM is ready.
    *

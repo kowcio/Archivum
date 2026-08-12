@@ -40,7 +40,7 @@ test.describe('24h Alarm: Auto-Close Feature', () => {
     const hellCountBefore = hellGroupBefore!.tabCount
 
     // Simulate alarm trigger (through RPC, respects the disable toggle)
-    await env.optionsPage.bg.testTriggerAlarm24h()
+    await env.optionsPage.getBackgroundRPC().testTriggerAlarm24h()
     await new Promise(r => setTimeout(r, 100))
 
     const groupsAfterDisabled = await env.optionsPage.getAllGroups()
@@ -69,7 +69,7 @@ test.describe('24h Alarm: Auto-Close Feature', () => {
     console.log(`  Only 367-day tab qualifies for closure`)
 
     // Trigger alarm (now respects enabled toggle)
-    await env.optionsPage.bg.testTriggerAlarm24h()
+    await env.optionsPage.getBackgroundRPC().testTriggerAlarm24h()
     await new Promise(r => setTimeout(r, 100))
 
     const groupsAfterEnabled = await env.optionsPage.getAllGroups()
