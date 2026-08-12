@@ -1013,60 +1013,103 @@ export class BackgroundTabService {
     }
 
     /**
+     * 🧪 DEBUG-ONLY: Get diagnostic info for understanding tab operations.
+     * Useful for spying on what's happening during tests.
+     */
+    static async getDiagnostics(): Promise<{
+      allTabs: Array<{ id?: number; title?: string; groupId?: number; lastAccessed?: number }>;
+      allGroups: Array<{ id: number; title: string; index?: number }>;
+      tabsInOldestGroup: Array<{ id?: number; title?: string; age?: number }>;
+      oldestGroupInfo?: { id: number; title: string };
+    }> {
+      try {
+        const now = await getCurrentTime();
+        const allTabs = await this.getTabs();
+        const allGroups = await this.getGroups(true); // Get all groups including user-created
+        const oldestGroup = await this.getGroupByIndex();
+
+        // Get tabs in oldest group if it exists
+        let tabsInOldestGroup: Array<{ id?: number; title?: string; age?: number }> = [];
+        if (oldestGroup?.id != null) {
+          const oldest = await browser.tabs.query({ groupId: oldestGroup.id });
+          tabsInOldestGroup = oldest.map(tab => ({
+            id: tab.id,
+            title: tab.title,
+            age: tab.lastAccessed ? Math.round((now - tab.lastAccessed) / 86400000) : undefined
+          }));
+        }
+
+        const result = {
+          allTabs: allTabs.map(t => ({
+            id: t.id,
+            title: t.title,
+            groupId: t.groupId,
+            lastAccessed: t.lastAccessed
+          })),
+          allGroups: allGroups.map(g => ({
+            id: g.id,
+            title: g.title,
+            index: g.index
+          })),
+          tabsInOldestGroup,
+          oldestGroupInfo: oldestGroup ? { id: oldestGroup.id, title: oldestGroup.title } : undefined
+        };
+
+        console.log('[BackgroundTabService] 🔍 DIAGNOSTICS:', result);
+        return result;
+      } catch (err) {
+        console.error('[BackgroundTabService] ❌ getDiagnostics error:', err);
+        throw err;
+      }
+    }
+
+    /**
      * Get the oldest (first/leftmost) plugin-created group.
      * Returns null if no groups exist.
      */
-  static
-    getOldestGroup()
-  :
-    {
-      id: number;
-      title: string;
-      index ? : number
-    }
-  |
-    null
-    {
+    private static async getGroupByIndex(): Promise<{ id: number; title: string; index?: number } | null> {
       try {
-        if (browser.tabGroups == null) return null
+        if (browser.tabGroups == null) return null;
 
-        // This is a synchronous convenience method - it should be called after groups are loaded
-        // In practice, components should call this after ensuring groups are available
-        return null // Placeholder - actual implementation depends on reactive state
+        const groups = await this.getGroups();
+        if (groups.length === 0) return null;
+
+        // Return first group (lowest index = leftmost = oldest)
+        return groups[0] || null;
       } catch {
-        return null
+        return null;
       }
+    }
+
+    /**
+     * Get the oldest (first/leftmost) plugin-created group.
+     * Returns null if no groups exist.
+     */
+    static getOldestGroup(): { id: number; title: string; index?: number } | null {
+     try {
+       if (browser.tabGroups == null) return null;
+       // This is a placeholder - actual implementation depends on cached groups
+       return null;
+     } catch {
+       return null;
+     }
     }
 
     /**
      * Format a group label with its age in days.
      * Example: "Week+ (5 days)"
      */
-  static
-    getGroupLabel(group
-  :
-    {
-      id: number;
-      title: string;
-      index ? : number
-    }
-  ):
-    string
-    {
-      return group.title
+    static getGroupLabel(group: { id: number; title: string; index?: number }): string {
+     return group.title;
     }
 
     /**
      * Check if there are any ungrouped tabs.
      * Used to enable/disable burn mode button.
      */
-  static
-    hasStaleTabsToGroup()
-  :
-    boolean
-    {
+    static hasStaleTabsToGroup(): boolean {
       // This should query current tabs and check if any are ungrouped
-      return true // Placeholder
+     return true; // Placeholder
     }
 
     /**

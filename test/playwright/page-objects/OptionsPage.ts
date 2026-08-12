@@ -64,6 +64,38 @@ export class OptionsPage {
   }
 
   /**
+  * 🔍 DEBUG SPY: Get diagnostic info about tab operations.
+  * Useful for understanding what BackgroundTabService is doing.
+  */
+  async spyOnBackgroundState(): Promise<{
+   allTabs: Array<{ id?: number; title?: string; groupId?: number; lastAccessed?: number }>;
+   allGroups: Array<{ id: number; title: string; index?: number }>;
+   tabsInOldestGroup: Array<{ id?: number; title?: string; age?: number }>;
+   oldestGroupInfo?: { id: number; title: string };
+  }> {
+   return await this.bg.debugGetDiagnostics();
+  }
+
+  /**
+  * 🔍 DEBUG SPY: Log current state to console for inspection.
+  */
+  async spyLogState(label?: string): Promise<void> {
+   const diagnostics = await this.spyOnBackgroundState();
+   const prefix = label ? `[${label}]` : '';
+   console.log(`\n🔍 ${prefix} BACKGROUND STATE SPY:`);
+   console.log(`   📊 Total tabs: ${diagnostics.allTabs.length}`);
+   console.log(`   📊 Total groups: ${diagnostics.allGroups.length}`);
+   console.log(`   📊 Tabs in oldest group: ${diagnostics.tabsInOldestGroup.length}`);
+   if (diagnostics.oldestGroupInfo) {
+     console.log(`   📍 Oldest group: "${diagnostics.oldestGroupInfo.title}" (ID: ${diagnostics.oldestGroupInfo.id})`);
+   }
+   console.log('   --- Full diagnostics ---');
+   console.table(diagnostics.allTabs);
+   console.table(diagnostics.allGroups);
+   console.table(diagnostics.tabsInOldestGroup);
+  }
+
+  /**
    * Navigate to Options page using extension ID.
    * waitUntil: domcontentloaded ensures DOM is ready.
    *

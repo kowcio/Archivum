@@ -76,30 +76,24 @@ export const MOCK_TABS = [
      url: 'https://stackoverflow.com/questions/ask',
      title: 'Ask a Question - Stack Overflow',
      favIconUrl: '',
-     daysAgo: 366,
+     daysAgo: 365,
    },
   {
     url: 'https://www.docker.com/',
     title: 'Docker: Accelerated Container Application Development',
     favIconUrl: '',
-    daysAgo: 366,
+    daysAgo: 364,
   },
   {
     url: 'https://www.npmjs.com/',
     title: 'npm | Home',
     favIconUrl: '',
-    daysAgo: 367,
+    daysAgo: 365,
   },
    {
      url: 'https://vercel.com/',
      title: 'Develop Preview Ship | Vercel',
      favIconUrl: '',
-     daysAgo: 367,
-   },
-  {
-    url: 'https://aws.amazon.com/console/',
-    title: 'AWS Management Console',
-    favIconUrl: '',
-    daysAgo: 101,
-  }
+     daysAgo: 364,
+   }
 ].slice(0, 14)

@@ -69,6 +69,14 @@ export const backgroundRPC = {
    // 🧪 DEV-ONLY: Warp time forward by milliseconds (for testing aging behavior)
    addTimeWarp: (ms: number): Promise<number> => addTimeOffset(ms),
 
+   // 🧪 DEBUG-ONLY: Diagnostic spy for understanding tab operations
+   debugGetDiagnostics: (): Promise<{
+     allTabs: Array<{ id?: number; title?: string; groupId?: number; lastAccessed?: number }>;
+     allGroups: Array<{ id: number; title: string; index?: number }>;
+     tabsInOldestGroup: Array<{ id?: number; title?: string; age?: number }>;
+     oldestGroupInfo?: { id: number; title: string };
+   }> => BackgroundTabService.getDiagnostics(),
+
    // ── Backup & restore ─────────────────────────────────────────────────
    backupTabs: (): Promise<Backup> => BackupService.backupTabs(),
    restoreTabs: (): Promise<void> => BackupService.restoreTabs(),
