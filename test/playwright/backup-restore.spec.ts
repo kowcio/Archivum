@@ -124,9 +124,6 @@ test.describe('Backup & Restore', () => {
     // Verify backup was actually removed from storage
     const backupAfterDelete = await env.optionsPage.getBackupFromStorage()
     expect(backupAfterDelete).toBeNull()
-
-    // Cleanup
-    await env.cleanup()
   })
 })
 

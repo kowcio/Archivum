@@ -73,8 +73,34 @@ export async function launchChromeContext(): Promise<ExtensionTestContext> {
       context,
       extensionId,
       cleanup: async () => {
-        await context.close();
-        if (fs.existsSync(userDataDir)) fs.rmSync(userDataDir, { recursive: true, force: true });
+        try {
+          // Close all pages first (before closing context)
+          for (const page of context.pages()) {
+            try {
+              await page.close();
+            } catch (err) {
+              // Ignore page close errors - context closure will handle remaining pages
+            }
+          }
+          
+          // Now close the context
+          if (!context.isClosed()) {
+            await context.close();
+          }
+        } catch (err) {
+          // Log but don't throw - context might already be closed
+          console.warn('[launchChromeContext.cleanup] Error closing context:', err instanceof Error ? err.message : err);
+        }
+        
+        // Clean up user data directory
+        try {
+          if (fs.existsSync(userDataDir)) {
+            fs.rmSync(userDataDir, { recursive: true, force: true });
+          }
+        } catch (err) {
+          // Log but don't throw - might be in use by OS
+          console.warn('[launchChromeContext.cleanup] Error removing user data dir:', err instanceof Error ? err.message : err);
+        }
       },
     };
 }
@@ -202,6 +228,7 @@ export class TestEnvironment {
   optionsPage: OptionsPage;
   extensionId: string;
   private ctx: ExtensionTestContext;
+  private cleaned = false;
 
   private constructor(ctx: ExtensionTestContext, optionsPage: OptionsPage, extensionId: string) {
     this.ctx = ctx;
@@ -221,8 +248,22 @@ export class TestEnvironment {
     return new TestEnvironment(ctx, optionsPage, ctx.extensionId);
   }
 
+  /**
+   * Idempotent cleanup - safe to call multiple times.
+   * Only performs actual cleanup on first call.
+   */
   async cleanup(): Promise<void> {
-    await this.ctx.cleanup();
+    if (this.cleaned) {
+      return;
+    }
+    this.cleaned = true;
+    
+    try {
+      await this.ctx.cleanup();
+    } catch (err) {
+      // Log but don't throw - context might already be closed
+      console.warn('[TestEnvironment.cleanup] Error during cleanup:', err instanceof Error ? err.message : err);
+    }
   }
 }
 
