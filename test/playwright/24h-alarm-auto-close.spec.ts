@@ -1,7 +1,5 @@
 import {expect, test} from '@playwright/test'
 import {TestEnvironment} from "./chromium/extensions.js"
-import {APP_DEFAULTS} from '../../src/constants.js'
-import {BackgroundTabService} from "../../src/services/BackgroundTabService";
 
 test.describe('24h Alarm: Auto-Close Feature', () => {
   let env: TestEnvironment

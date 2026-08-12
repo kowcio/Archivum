@@ -48,10 +48,10 @@ test.describe('TestAlarmButton: +4h Warp & Grouping', () => {
 
     // Step 3: Verify groups BEFORE time warp
     console.log('\nStep 3: Verifying groups BEFORE time warp...')
-    let tabsBefore = await env.optionsPage.queryAllTabs(true)
+    const tabsBefore = await env.optionsPage.queryAllTabs(true)
     console.log(`   ✓ Tab count before warp: ${tabsBefore.length}`)
 
-    let groupsBefore = await env.optionsPage.getAllGroups()
+    const groupsBefore = await env.optionsPage.getAllGroups()
     const groupCountBefore = groupsBefore.length
     const groupedCountBefore = tabsBefore.filter(t => t.groupId !== -1).length
 
@@ -122,7 +122,7 @@ test.describe('TestAlarmButton: +4h Warp & Grouping', () => {
     console.log('\nStep 4b: Triggering backup alarm (+1h hourly backup)...')
     console.log('   When 24h alarm fires: both grouping AND backup should happen')
     try {
-      const backupResult = await env.optionsPage.page.evaluate(async () => {
+      await env.optionsPage.page.evaluate(async () => {
         return new Promise<any>((resolve, reject) => {
           chrome.runtime.sendMessage(
             {
@@ -166,13 +166,13 @@ test.describe('TestAlarmButton: +4h Warp & Grouping', () => {
 
     // Step 5: Verify tabs after warp
     console.log('\nStep 5: Verifying tab grouping after warp...')
-    let tabsAfter = await env.optionsPage.queryAllTabs(true)
+    const tabsAfter = await env.optionsPage.queryAllTabs(true)
     console.log(`   ✓ Final tab count: ${tabsAfter.length} (should match initial ${tabsBefore.length})`)
     expect(tabsAfter.length).toBe(tabsBefore.length)
 
     // Step 6: Verify groups AFTER time warp
     console.log('\nStep 6: Verifying groups AFTER time warp...')
-    let groupsAfter = await env.optionsPage.getAllGroups()
+    const groupsAfter = await env.optionsPage.getAllGroups()
 
     console.log(`   Groups AFTER time warp:`)
     groupsAfter.forEach((group, idx) => {

@@ -25,11 +25,9 @@
       :target="buttonRef?.$el"
       class="bg-dark text-subtitle2"
       v-else-if="hasStaleTabsToGroup"
-      v-html="
-        `Group all ungrouped tabs older than ${minThresholdDays} days into age-based groups.
-        <br/> Existing tabs will be left intact !`
-      "
-    />
+    >
+      <div>Group all ungrouped tabs older than {{ minThresholdDays }} days into age-based groups.<br />Existing tabs will be left intact !</div>
+    </q-tooltip>
   </div>
 </template>
 

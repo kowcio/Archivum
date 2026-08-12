@@ -14,7 +14,6 @@
 
 import { test, expect } from '@playwright/test'
 import { TestEnvironment } from './chromium/extensions.js'
-import { APP_DEFAULTS } from '../../src/constants.js'
 
 test.describe('24h Alarm: Tab Age Progression to Older Groups', () => {
   let env: TestEnvironment
@@ -40,7 +39,7 @@ test.describe('24h Alarm: Tab Age Progression to Older Groups', () => {
 
     // Phase 1: Group tabs with their default ages
     await env.optionsPage.clickGroupTabs()
-    let result = await env.optionsPage.getGroupAndTabData()
+    const result = await env.optionsPage.getGroupAndTabData()
 
     // ⚠️ CRITICAL: Verify exactly 14 mock tabs + 2 pre-existing = 16 total before grouping assertions
     const totalTabs = result.groupedTabCount + result.ungroupedTabCount
@@ -60,7 +59,6 @@ test.describe('24h Alarm: Tab Age Progression to Older Groups', () => {
 
      // Verify groups are returned in visual order (getAllGroups() sorts by browser visual index)
       console.log(`\nPhase 1 Visual Order Verification (Oldest→Left to Youngest→Right):`)
-       const expectedOrder = ["Hell!", "Quarter+", "Month+", "2 Weeks+", "Week+"]
 
        // Find the "Hell!" group at index 0 (oldest, leftmost)
        const hellGroupIndex = tabsBefore.findIndex(g => g.title.includes("Hell!"))
@@ -86,7 +84,6 @@ test.describe('24h Alarm: Tab Age Progression to Older Groups', () => {
       .filter(t => t.id && t.lastAccessed)
       .map(t => t.id as number)
 
-    const now = Date.now()
     const weekMs = 7 * 24 * 60 * 60 * 1000
 
     // Age all grouped tabs by 1 week
@@ -110,7 +107,7 @@ test.describe('24h Alarm: Tab Age Progression to Older Groups', () => {
         setTimeout(() => reject(new Error('timeout')), 8000)
       )
       phase2Result = (await Promise.race([getDataPromise, timeoutPromise])) as typeof result
-    } catch (err) {
+    } catch {
       console.log('⚠️  Data fetch timeout, skipping phase 2 assertions')
       return
     }

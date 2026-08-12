@@ -24,7 +24,7 @@ import {AppThresholds} from '@/models/AppThresholds'
 import type {Browser} from 'wxt/browser'
 import {browser} from 'wxt/browser'
 import {MOCK_TABS} from '@/utils/mockTabData'
-import {APP_DEFAULTS, ThresholdLabel} from '@/constants'
+import {APP_DEFAULTS} from '@/constants'
 import {getCurrentTime} from '@/utils/testTime'
 
 export class BackgroundTabService {

@@ -1,6 +1,4 @@
 import {defineConfig} from 'wxt'
-import {readFileSync} from 'fs'
-import {resolve} from 'path'
 
 // See https://wxt.dev/api/config.html
 const date = `${new Date().toISOString().replace(/[-:T]/g, '').slice(0, 12)}`;

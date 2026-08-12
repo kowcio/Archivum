@@ -5,7 +5,7 @@
  * shared browser.storage — the real mechanism background <-> UI use.
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { fakeBrowser } from 'wxt/testing/fake-browser';
 import { StorageRepository } from '@/store';
 import { BackgroundTabService } from '@/services/BackgroundTabService';

@@ -121,11 +121,11 @@ export const APP_DEFAULTS = {
     },
 
     getLabelByDays(days: number): string {
-      return this.presets.find((p: ThresholdLevel) => p.days === days)?.label!
+      return this.presets.find((p: ThresholdLevel) => p.days === days)!.label
     },
 
     getColorByDays(days: number): ThemeColor {
-      return this.presets.find((p: ThresholdLevel) => p.days === days)?.color!
+      return this.presets.find((p: ThresholdLevel) => p.days === days)!.color
     },
   },
 }

@@ -55,7 +55,7 @@ test.describe("Options Page Tests", () => {
     await env.optionsPage.goto(env.extensionId);  // Already waits for hydration
 
     // 1. Initial: Query tabs (queryAllTabs handles waiting)
-    let tabs1 = await env.optionsPage.queryAllTabs(true);  // Wait for tabs to load
+    const tabs1 = await env.optionsPage.queryAllTabs(true);  // Wait for tabs to load
     const initialCount = tabs1.length;
     console.log(`   → Initial tabs: ${initialCount}`);
     // Just verify count exists (will be used for expectations below)
@@ -72,7 +72,7 @@ test.describe("Options Page Tests", () => {
       return tableRows.length > 1;  // At least header + data rows
     }, { timeout: 5_000 });
 
-    let tabs2 = await env.optionsPage.queryAllTabs(true);
+    const tabs2 = await env.optionsPage.queryAllTabs(true);
     const expectedCount = initialCount + 14;
     console.log(`   → After mock: ${tabs2.length} tabs (expected ~${expectedCount})`);
     // Should have initial + 14 mock tabs
@@ -99,7 +99,7 @@ test.describe("Options Page Tests", () => {
        return userTabs.length === 0;  // All user tabs closed
      }, { timeout: 10_000 }, env.extensionId);
 
-    let tabs3 = await env.optionsPage.queryAllTabs(true);
+    const tabs3 = await env.optionsPage.queryAllTabs(true);
     tabs3.forEach(tab => console.log(`   → Remaining tab: ${tab.groupId} | ${tab.url}`));
     // After close all, should have only the options page tab (1)
     expect(tabs3.length).toBe(1);

@@ -21,7 +21,7 @@ test.describe('Groups created with domain sorting', () => {
 
      // Group tabs by age
      await env.optionsPage.clickGroupTabs();
-     let groups = await env.optionsPage.getAllGroups();
+     const groups = await env.optionsPage.getAllGroups();
      expect(groups.length).toBeGreaterThan(0);
 
      console.log(`\n📋 Grouped ${groups.length} groups created from mock tabs`);

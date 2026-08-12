@@ -48,7 +48,7 @@ export default defineBackground({
             if (state?.autoClose) {
               await BackgroundTabService.autoCloseOldestGroupTabs();
             }
-          } catch (err) {
+          } catch {
           }
         }
       })

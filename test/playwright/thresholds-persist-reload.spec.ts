@@ -7,7 +7,6 @@
 
 import { test, expect } from '@playwright/test';
 import { TestEnvironment } from './chromium/extensions.js';
-import { OptionsPage } from './page-objects/OptionsPage.js';
 
 test.describe('Threshold Persistence across Reload', () => {
   let env: TestEnvironment
