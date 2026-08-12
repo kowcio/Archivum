@@ -1,12 +1,12 @@
-import { defineBackground } from 'wxt/utils/define-background'
-import { registerService } from '@webext-core/proxy-service'
-import { ExtensionCleanupService } from '@/services/ExtensionCleanupService'
-import { BackgroundTabService } from '@/services/BackgroundTabService'
-import { BackupService } from '@/services/BackupService'
-import { APP_DEFAULTS } from '@/constants'
-import { browser } from 'wxt/browser'
-import { backgroundRPC } from '@/services/BackgroundRPC'
-import { StorageRepository } from '@/store'
+import {defineBackground} from 'wxt/utils/define-background'
+import {registerService} from '@webext-core/proxy-service'
+import {ExtensionCleanupService} from '@/services/ExtensionCleanupService'
+import {BackgroundTabService} from '@/services/BackgroundTabService'
+import {BackupService} from '@/services/BackupService'
+import {APP_DEFAULTS} from '@/constants'
+import {browser} from 'wxt/browser'
+import {backgroundRPC} from '@/services/BackgroundRPC'
+import {StorageRepository} from '@/store'
 
 // ⚠️ DEVELOPERS: Type-safe RPC is now the single source of truth for all background ↔ UI communication
 // NO MORE manual message routing with if-else chains ✅
@@ -30,9 +30,9 @@ export default defineBackground({
     // ⏰ Alarms— periodic interval function execution for given schedules / crons
     if (browser.alarms != null) {
       //alarms schedules - crons
-      browser.alarms.create(APP_DEFAULTS.ALARM_UPDATE_TABS, { periodInMinutes: 60 * 24 })
-      browser.alarms.create(APP_DEFAULTS.ALARM_BACKUP_TABS, { periodInMinutes: 60 })
-      browser.alarms.create(APP_DEFAULTS.ALARM_AUTO_CLOSE_TABS, { periodInMinutes: 60 * 24 })
+      browser.alarms.create(APP_DEFAULTS.ALARM_UPDATE_TABS, {periodInMinutes: 60 * 24})
+      browser.alarms.create(APP_DEFAULTS.ALARM_BACKUP_TABS, {periodInMinutes: 60})
+      browser.alarms.create(APP_DEFAULTS.ALARM_AUTO_CLOSE_TABS, {periodInMinutes: 60 * 24})
       //alarms listeners
       browser.alarms.onAlarm.addListener(async (alarm) => {
         if (alarm.name === APP_DEFAULTS.ALARM_UPDATE_TABS) {
@@ -59,12 +59,29 @@ export default defineBackground({
      */
     // 🖱️ Tab activation — ungroup + move to rightmost
     if (browser.tabs != null) {
-      browser.tabs.onActivated.addListener(async ({ tabId }) => {
+      browser.tabs.onActivated.addListener(async ({tabId}) => {
         await BackgroundTabService.onTabActivated(tabId)
       })
     }
 
 
+    /**
+     *
+     chrome.runtime.sendMessage( { action: 'debugCloseOldestGroupTabs' },
+     (response) => {console.log('✅ DEBUG RESPONSE:', response)  } )
+     *
+     *
+     */
+
+    // 🧪 DEBUG-ONLY: Message listener for console debugging
+    browser.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+      if (msg.action === 'debugCloseOldestGroupTabs') {
+        BackgroundTabService.autoCloseOldestGroupTabs().then(result => {
+          sendResponse({success: true, closed: result})
+        })
+        return true // Keep channel open for async response
+      }
+    })
 
     console.log('[background] ✅ Ready')
   },

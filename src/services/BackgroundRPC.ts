@@ -64,7 +64,7 @@ export const backgroundRPC = {
     getMockOverrides: (): Promise<Record<number, number> | undefined> => StorageRepository.getMockOverrides(),
 
    // 🧪 DEV-ONLY: Test alarm triggering (warp time simulation)
-   testTriggerAlarm24h: (): Promise<number> => BackgroundTabService.autoCloseOldestGroupTabs(),
+   testTriggerAlarm24h: (): Promise<number> => BackgroundTabService.testTriggerAlarm24h(),
 
    // 🧪 DEV-ONLY: Warp time forward by milliseconds (for testing aging behavior)
    addTimeWarp: (ms: number): Promise<number> => addTimeOffset(ms),

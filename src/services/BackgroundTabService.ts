@@ -62,6 +62,8 @@ export class BackgroundTabService {
       const allGroups = await (browser.tabGroups as any)
         .query({windowId: (browser.windows as any).WINDOW_ID_CURRENT})
       // ✅ Safety filter: remove groups without id (shouldn't happen but defensive)
+
+      console.log(`[BackgroundTabService] Queried ${allGroups.length} groups, filtering for valid plugin groups...`)
       const validGroups = allGroups.filter((g: any) => g.id != null)
       validGroups.sort((a: any, b: any) => (a.index ?? -1) - (b.index ?? -1))
 
@@ -426,7 +428,9 @@ export class BackgroundTabService {
       const pluginGroupIds = new Set<number>(groups.filter(g => g.id != null).map(g => g.id))
 
       // Keep ungrouped + plugin-grouped tabs
+      // Exclude extension pages (chrome-extension://) to avoid grouping/closing the options UI
       filteredTabs = allTabs.filter(t => {
+        if (t.url && t.url.startsWith('chrome-extension://')) return false
         if (t.groupId == null || t.groupId === -1) return true // Ungrouped
         return pluginGroupIds.has(t.groupId) // In plugin group
       })
@@ -941,11 +945,13 @@ export class BackgroundTabService {
    */
   static async autoCloseOldestGroupTabs(): Promise<number> {
     try {
-      if (await this.getGroups() == null) {
+      const groups = await this.getGroups();
+      if (groups == null) {
         console.log('[BackgroundTabService] ℹ️ No tabGroups API available (Firefox), skipping auto-close')
         return 0
       }
-      const oldesGroup = this.getOldestGroup()
+      console.log(`[BackgroundTabService] Auto-close: Found ${groups.length} groups`)
+      const oldesGroup = await this.getGroupByIndex()
       const oldestGroupTitle = oldesGroup?.title
       const thresholds = await this.getThresholds()
       const activeLevels = thresholds.active()
