@@ -114,27 +114,44 @@ export class OptionsPage {
   /**
    * Click "Test Alarm" button to trigger grouping with time advancement.
    * Polls until alarm completes and groups are updated.
+   * Includes page validity check to detect context closure.
    */
-  async clickTestAlarmButton(): Promise<void> {
+  async clickTestAlarmButton(attemptNum: number = 1): Promise<void> {
+   // Check if page is still valid before attempting
+   if (this.page.isClosed()) {
+     throw new Error(`Page is closed - cannot click test alarm button (attempt ${attemptNum})`)
+   }
+
    const alarmBtn = this.page.getByTestId('test-alarm-btn');
    await alarmBtn.click();
    
    // Give the alarm handler time to process
-   await new Promise(resolve => setTimeout(resolve, 500));
+   await new Promise(resolve => setTimeout(resolve, 800));
    
    // Wait for alarm to complete and groups to be updated
    // Use longer timeout for more reliability (page might be temporarily unresponsive)
+   let pollAttempts = 0;
    await expect.poll(
      async () => {
+       pollAttempts++;
        try {
+         // Check page validity on each poll iteration
+         if (this.page.isClosed()) {
+           console.warn(`[clickTestAlarmButton] Page closed on poll attempt ${pollAttempts}`)
+           return 0; // Will trigger timeout with helpful message
+         }
          const result = await this.getGroupAndTabData();
          return result.groupsOrderedByIndex.length;
-       } catch {
+       } catch (err) {
+         // Log error details for debugging
+         if (pollAttempts % 3 === 0) {
+           console.warn(`[clickTestAlarmButton] Poll attempt ${pollAttempts} failed, retrying...`)
+         }
          // Page might be temporarily closed during RPC, return 0 to retry
          return 0;
        }
      },
-     { timeout: 15_000, message: 'Groups updated after test alarm' }
+     { timeout: 20_000, message: 'Groups updated after test alarm' }
    ).toBeGreaterThan(0);
   }
 

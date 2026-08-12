@@ -101,24 +101,32 @@ test.describe('TestAlarmButton: +4h Warp & Grouping', () => {
 
     // Step 4: Click Warp +4h button MULTIPLE TIMES (TestAlarmButton)
     // We need to advance time enough to move tabs between thresholds:
-    // - Tab at 6 days → should become 13+ days (into Week+ = 7-13 range becomes 14+)
-    // - Tab at 8 days → should become 15+ days (into 2Weeks+)
-    // - Tab at 12 days → should become 19+ days (into 2Weeks+)
-    // 4h * 42 = 168 hours = 7 days advancement
-    console.log('\nStep 4: Clicking Warp +4h button MULTIPLE TIMES to advance time significantly...')
+    // - 6 days old tab → becomes 13+ days (moves to older group)
+    // - 8 days old tab → becomes 15+ days (2Weeks+ group)
+    // - 12 days old tab → becomes 19+ days (Quarter+ group)
+    // Strategy: Do fewer, larger batch warp operations to avoid context exhaustion
+    // 4h * 6 = 24 hours (1 day) per batch × 7 batches = 7 days total
+    console.log('\nStep 4: Clicking Warp +4h button in BATCHES to advance time significantly...')
     console.log('   Goal: Move tabs from their current groups to OLDER groups')
-    console.log('   Advancing ~7+ days so tabs age into next thresholds...')
-    for (let i = 1; i <= 42; i++) {
-      if (i % 7 === 1) {
-        console.log(`   Warp ${i}/42: Advancing time +4h... (~${Math.floor((i * 4) / 24)} days so far)`)
+    console.log('   Advancing 7 days total in batches (context-safe approach)...')
+    
+    const WARP_PER_BATCH = 6; // Each batch = 6 × 4h = 24h = 1 day
+    const NUM_BATCHES = 7;    // 7 batches × 1 day = 7 days total
+    
+    for (let batch = 1; batch <= NUM_BATCHES; batch++) {
+      console.log(`\n   Batch ${batch}/${NUM_BATCHES}: Advancing ${WARP_PER_BATCH * 4}h (1 day)...`)
+      for (let i = 1; i <= WARP_PER_BATCH; i++) {
+        await env.optionsPage.clickTestAlarmButton(batch * WARP_PER_BATCH + i)
+        // Slightly longer delay between warps in batch to avoid overwhelming
+        await new Promise(resolve => setTimeout(resolve, 300))
       }
-      await env.optionsPage.clickTestAlarmButton()
-      // Small delay between iterations to avoid overwhelming the browser
-      if (i < 42) {
-        await new Promise(resolve => setTimeout(resolve, 200))
+      // Longer pause between batches to let browser recover
+      if (batch < NUM_BATCHES) {
+        console.log(`   ⏸️  Batch ${batch} complete, pausing before batch ${batch + 1}...`)
+        await new Promise(resolve => setTimeout(resolve, 1000))
       }
     }
-    console.log('   ✓ Total time advanced: ~7 days (168 hours)')
+    console.log('\n   ✓ Total time advanced: 7 days (168 hours in batches)')
     console.log('   ✓ Tabs should have aged and MOVED to older groups!')
 
     // Step 4b: Also trigger the backup alarm (+1h hourly backup)
