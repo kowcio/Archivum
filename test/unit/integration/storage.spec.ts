@@ -60,8 +60,8 @@ describe('integration: background service + storage', () => {
 
     const t = await BackgroundTabService.getThresholds();
     expect(t.activeLevels).toBe(2);
-    expect(t.active()[0].days).toBe(2);
-    expect(t.active()[1].days).toBe(10);
+    expect(t.activeThresholdLevels()[0].days).toBe(2);
+    expect(t.activeThresholdLevels()[1].days).toBe(10);
   });
 });
 

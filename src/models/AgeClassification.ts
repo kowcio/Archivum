@@ -20,13 +20,13 @@ export class AgeClassification {
 
     constructor(index: number, thresholds: AppThresholds) {
         this.thresholds = thresholds
-        this.index = Math.max(0, Math.min(thresholds.active().length, index))
+        this.index = Math.max(0, Math.min(thresholds.activeThresholdLevels().length, index))
     }
 
     /** Color name from THRESHOLD preset — used directly as CSS value */
     get colorName(): string {
         if (this.index === 0) return ""
-        const activeList = this.thresholds.active()
+        const activeList = this.thresholds.activeThresholdLevels()
         const level = activeList[this.index - 1]
         return (level?.color as string) ?? ThemeColor.Grey
     }
@@ -34,7 +34,7 @@ export class AgeClassification {
     /** Label from threshold level */
     get label(): string {
         if (this.index === 0) return 'Fresh'
-        const activeList = this.thresholds.active()
+        const activeList = this.thresholds.activeThresholdLevels()
         const level = activeList[this.index - 1]
         return level?.label ?? 'Unknown'
     }
@@ -67,8 +67,8 @@ export class AgeClassification {
 
     static fromDays(days: number, thresholds: AppThresholds): AgeClassification {
         const boundaries = thresholds.toBoundaries()
-        const found = boundaries.findIndex((threshold) => days <= threshold)
-        const indexInThresholds = found !== -1 ? found : thresholds.active().length
+       const found = boundaries.findIndex((threshold) => days < threshold)
+       const indexInThresholds = found !== -1 ? found : thresholds.activeThresholdLevels().length
         return new AgeClassification(indexInThresholds, thresholds)
     }
 }

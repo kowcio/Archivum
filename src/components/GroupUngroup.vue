@@ -72,7 +72,7 @@ const allTabs = ref<any[]>([])
 const buttonRef = ref<any>(null)
 
 const minThresholdDays = computed(() => {
-  const levels = store.thresholds.value?.active()
+  const levels = store.thresholds.value?.activeThresholdLevels()
   return levels && levels.length > 0 ? levels[0].days : 7
 })
 

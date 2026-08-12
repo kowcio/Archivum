@@ -237,7 +237,7 @@ const ageGroupOptions = computed(() => {
   ]
 
   // Add threshold levels with their colors
-  const active = thresholds.active()
+  const active = thresholds.activeThresholdLevels()
   active.forEach((level, idx) => {
     options.push({
       label: level.label,

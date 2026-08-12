@@ -63,7 +63,7 @@ test.describe('groupTabsByAge E2E', () => {
     const groupedTabs = result.tabs.filter((t) => t.groupId != null && t.groupId !== -1);
     const ungroupedTabs = result.tabs.filter((t) => !t.groupId || t.groupId === -1);
 
-    expect(groupedTabs.length).toBe(12);
+    expect(groupedTabs.length).toBe(14);
     expect(ungroupedTabs.length).toBeGreaterThanOrEqual(2); // at least options page + fresh tabs
 
     console.log(

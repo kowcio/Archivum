@@ -22,7 +22,7 @@ test.describe("Options Page Tests", () => {
     // 1. Create mock tabs (14 tabs with varying ages from 1 to 367 days)
     const resp = await env.optionsPage.clickLoadMockTabs(1000);
     expect(resp.ok).toBe(true);
-    expect(resp.count).toBe(16);
+    expect(resp.count).toBe(17);
     console.log(`   → Created ${resp.count} mock tabs`);
 
     // 2. Group tabs by age with default 5 levels

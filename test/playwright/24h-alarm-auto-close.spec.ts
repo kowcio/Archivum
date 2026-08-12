@@ -94,7 +94,7 @@ test.describe('24h Alarm: Auto-Close Feature', () => {
     const beforeCount = tabsInOldest.length
     // Get thresholds to lookup groupDays
     const thresholds = await env.optionsPage.getBackgroundRPC().storeGetThresholds()
-    const activeLevels = thresholds.active ? thresholds.active() : []
+    const activeLevels = thresholds.active ? thresholds.activeThresholdLevels() : []
     // Extract label from oldest group title and find matching threshold.days
     const label = oldestInfo?.title?.match(/^(.+?)\s*\(\d+\)$/)?.[1] ?? oldestInfo?.title
     const matching = activeLevels.find((l: any) => l.label === label)

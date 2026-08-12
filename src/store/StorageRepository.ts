@@ -115,7 +115,7 @@ export class StorageRepository {
    *
    * @example
    * const thresholds = await StorageRepository.getStorageThresholds()
-   * console.log(thresholds.active())  // Only active levels
+   * console.log(thresholds.activeThresholdLevels())  // Only active levels
    * console.log(thresholds.toBoundaries())  // [7, 14, 28, 90, 365]
    */
   static async getStorageThresholds(): Promise<AppThresholds> {
@@ -174,7 +174,7 @@ export class StorageRepository {
   static async getOldestThresholdLevel(): Promise<ThresholdLevel | null> {
     try {
       const thresholds = await this.getStorageThresholds()
-      const activeLevels = thresholds.active()
+      const activeLevels = thresholds.activeThresholdLevels()
 
       if (activeLevels.length === 0) {
         return null

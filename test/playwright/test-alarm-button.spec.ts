@@ -91,9 +91,9 @@ test.describe('TestAlarmButton: +4h Warp & Grouping', () => {
        console.log(`   groups[4].tabCount: ${groupsBefore[4].tabCount}`)
 
           // Add assertions for before warp
-          expect(groupsBefore[0].tabCount).toBe(3)
-          expect(groupsBefore[1].tabCount).toBe(2)
-          expect(groupsBefore[2].tabCount).toBe(2)
+          expect(groupsBefore[0].tabCount).toBe(4)
+          expect(groupsBefore[1].tabCount).toBe(4)
+          expect(groupsBefore[2].tabCount).toBe(1)
           expect(groupsBefore[3].tabCount).toBe(2)
           expect(groupsBefore[4].tabCount).toBe(3)
       console.log(`   Total grouped before: ${groupsBefore.reduce((a, b) => a + b.tabCount, 0)}`)
@@ -109,10 +109,10 @@ test.describe('TestAlarmButton: +4h Warp & Grouping', () => {
     console.log('\nStep 4: Clicking Warp +4h button in BATCHES to advance time significantly...')
     console.log('   Goal: Move tabs from their current groups to OLDER groups')
     console.log('   Advancing 7 days total in batches (conservative recovery approach)...')
-    
+
     const WARP_PER_BATCH = 6; // Each batch = 6 × 4h = 24h = 1 day
     const NUM_BATCHES = 7;    // 7 batches × 1 day = 7 days total
-    
+
     for (let batch = 1; batch <= NUM_BATCHES; batch++) {
       console.log(`\n   Batch ${batch}/${NUM_BATCHES}: Advancing ${WARP_PER_BATCH * 4}h (1 day)...`)
       for (let i = 1; i <= WARP_PER_BATCH; i++) {

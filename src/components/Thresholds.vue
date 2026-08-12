@@ -120,7 +120,7 @@ const isThresholdEditingDisabled = computed<boolean>(() => store.loading.value |
 // Local state to track unsaved changes
 const localThresholds = ref<AppThresholds>(DEFAULT_THRESHOLDS);
 
-const activeThresholds = computed(() => localThresholds.value.active());
+const activeThresholds = computed(() => localThresholds.value.activeThresholdLevels());
 
 // Check if there are unsaved changes
 const hasChanges = computed(() => {

@@ -56,7 +56,7 @@ const iconColor = computed(() =>
 )
 
 const oldestGroupName = computed(() => {
-  const activeThresholds = store.thresholds.value.active()
+  const activeThresholds = store.thresholds.value.activeThresholdLevels()
   if (activeThresholds.length === 0) return 'oldest group'
   return activeThresholds[activeThresholds.length - 1].label
 })

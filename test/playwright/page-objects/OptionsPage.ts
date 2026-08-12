@@ -172,7 +172,7 @@ export class OptionsPage {
    // Extended timeout to allow for service worker recovery in long test runs
    let pollAttempts = 0;
    let lastError: Error | null = null;
-    
+
    try {
      await expect.poll(
        async () => {

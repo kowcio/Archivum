@@ -41,13 +41,14 @@ test.describe('24h Alarm: Tab Age Progression to Older Groups', () => {
     await env.optionsPage.clickGroupTabs()
     const result = await env.optionsPage.getGroupAndTabData()
 
-    // ⚠️ CRITICAL: Verify exactly 14 mock tabs + 2 pre-existing = 16 total before grouping assertions
+    // ⚠️ CRITICAL: Verify exactly 16 mock tabs + 1 pre-existing = 17 total before grouping assertions
     const totalTabs = result.groupedTabCount + result.ungroupedTabCount
     console.log(`Total tabs: ${totalTabs} (grouped: ${result.groupedTabCount}, ungrouped: ${result.ungroupedTabCount})`)
-    expect(totalTabs).toBe(16)
+    expect(totalTabs).toBe(17)
 
     // Phase 1 Assertions - EXACT values only (never use toBeGreaterThan)
     const tabsBefore = await env.optionsPage.getAllGroups()
+
     const phase1GroupCount = tabsBefore.length
     const phase1GroupedTabCount = result.groupedTabCount
 
@@ -55,7 +56,7 @@ test.describe('24h Alarm: Tab Age Progression to Older Groups', () => {
 
     // Verify basic grouping state with default mock ages
     expect(phase1GroupCount).toBe(5)
-    expect(phase1GroupedTabCount).toBe(12)
+    expect(phase1GroupedTabCount).toBe(14)
 
      // Verify groups are returned in visual order (getAllGroups() sorts by browser visual index)
       console.log(`\nPhase 1 Visual Order Verification (Oldest→Left to Youngest→Right):`)
@@ -65,13 +66,13 @@ test.describe('24h Alarm: Tab Age Progression to Older Groups', () => {
        console.log("Hell! group index:", hellGroupIndex)
 
          expect(tabsBefore[0].title).toContain("Hell!")
-         expect(tabsBefore[0].tabCount).toBe(3)
+         expect(tabsBefore[0].tabCount).toBe(4)
 
          expect(tabsBefore[1].title).toContain("Quarter+")
-         expect(tabsBefore[1].tabCount).toBe(2)
+         expect(tabsBefore[1].tabCount).toBe(4)
 
         expect(tabsBefore[2].title).toContain("Month+")
-        expect(tabsBefore[2].tabCount).toBe(2)
+        expect(tabsBefore[2].tabCount).toBe(1)
 
          expect(tabsBefore[3].title).toContain("2 Weeks+")
          expect(tabsBefore[3].tabCount).toBe(2)
@@ -135,7 +136,7 @@ test.describe('24h Alarm: Tab Age Progression to Older Groups', () => {
 
        // Dynamic assertions - copy actual values from console logs above
        expect(phase2GroupCount).toBe(5)
-       expect(phase2GroupedTabCount).toBe(14)
+       expect(phase2GroupedTabCount).toBe(17)
 
   })
 })

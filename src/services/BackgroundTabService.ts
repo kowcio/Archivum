@@ -163,7 +163,7 @@ export class BackgroundTabService {
       const currentTime = await getCurrentTime()
 
       const rows = TabRow.fromTabs(rawTabs, thresholds, currentTime)
-      const activeLevels = thresholds.active()
+      const activeLevels = thresholds.activeThresholdLevels()
       const levelTabIds: number[][] = Array.from({length: activeLevels.length}, () => [])
       const freshTabIds: number[] = []
 
@@ -252,7 +252,7 @@ export class BackgroundTabService {
 
       const rawTabs = await this.getTabs()
       const thresholds = await this.getThresholds()
-      const activeLevels = thresholds.active()
+      const activeLevels = thresholds.activeThresholdLevels()
 
       // ✅ Use centralized getPluginGroupMap() instead of manual query + filtering
       const groupByLabel = await this.getPluginGroupMap()
@@ -954,7 +954,7 @@ export class BackgroundTabService {
       const oldesGroup = await this.getGroupByIndex()
       const oldestGroupTitle = oldesGroup?.title
       const thresholds = await this.getThresholds()
-      const activeLevels = thresholds.active()
+      const activeLevels = thresholds.activeThresholdLevels()
       const groupDays = activeLevels.find(level => oldestGroupTitle?.startsWith(level.label))?.days
       //find the tabs in this group that are 1 day older then the group age
       const tabsInOldestGroup = await browser.tabs.query({groupId: oldesGroup?.id})

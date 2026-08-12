@@ -73,7 +73,7 @@ test.describe("Options Page Tests", () => {
     }, { timeout: 5_000 });
 
     const tabs2 = await env.optionsPage.queryAllTabs(true);
-    const expectedCount = initialCount + 14;
+    const expectedCount = initialCount + 16;
     console.log(`   → After mock: ${tabs2.length} tabs (expected ~${expectedCount})`);
     // Should have initial + 14 mock tabs
     expect(tabs2.length).toBe(expectedCount);

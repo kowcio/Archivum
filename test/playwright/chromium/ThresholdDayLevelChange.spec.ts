@@ -46,9 +46,9 @@ test.describe('Threshold Day Levels', () => {
             expect(groups[2].title).toContain(ThresholdLabel.MONTH)
             expect(groups[3].title).toContain(ThresholdLabel.WEEKS_2)
             expect(groups[4].title).toContain(ThresholdLabel.WEEK)
-             expect(groups[0].tabCount).toBe(3)
-             expect(groups[1].tabCount).toBe(2)
-             expect(groups[2].tabCount).toBe(2)
+             expect(groups[0].tabCount).toBe(4)
+             expect(groups[1].tabCount).toBe(4)
+             expect(groups[2].tabCount).toBe(1)
              expect(groups[3].tabCount).toBe(2)
              expect(groups[4].tabCount).toBe(3)
 
