@@ -567,7 +567,7 @@ describe('BackgroundTabService', () => {
   });
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // COMPREHENSIVE END-TO-END TEST: Grouping + Ungrouping + Backup + Restore
+  // COMPREHENSIVE END-TO-END TEST: Grouping + Ungrouping
   // ═══════════════════════════════════════════════════════════════════════════
   // This test verifies:
   // 1. ✅ Creates 10 random tabs split into 3 groups
@@ -575,18 +575,17 @@ describe('BackgroundTabService', () => {
   // 3. ✅ Verifies tab groups are sorted by index (LEFT→RIGHT = OLDEST→YOUNGEST)
   // 4. ✅ Verifies plugin-created groups occupy first positions (not user tabs)
   // 5. ✅ Ungroups and regroups — verifies consistent order
-  // 6. ✅ Backup/restore cycle — verifies state preservation
-  // 7. ✅ Verifies tab sorting (oldest first within groups)
-  // 8. ✅ Final report: All tabs + groups with their indices
+  // 6. ✅ Verifies tab sorting (oldest first within groups)
+  // 7. ✅ Final report: All tabs + groups with their indices
   //
   // NOTE: fakeBrowser doesn't support tabGroups API (Chrome-only feature).
   // This test verifies the LOGIC that WOULD run in real Chrome/Playwright.
   // Actual grouping tested in: test/playwright/chromium/*.spec.ts
-  describe('E2E Scenario: Grouping → Ungrouping → Backup → Restore', () => {
-    it('should handle complete grouping lifecycle with 10 tabs in 3 groups', async () => {
-      console.log('\n╔════════════════════════════════════════════════════════════════╗');
-      console.log('║     COMPREHENSIVE E2E TEST: TAB GROUPING LIFECYCLE              ║');
-      console.log('╚════════════════════════════════════════════════════════════════╝\n');
+  describe('E2E Scenario: Grouping → Ungrouping', () => {
+      it('should handle complete grouping lifecycle with 10 tabs in 3 groups', async () => {
+        console.log('\n╔════════════════════════════════════════════════════════════════╗');
+        console.log('║     COMPREHENSIVE E2E TEST: TAB GROUPING LIFECYCLE              ║');
+        console.log('╚════════════════════════════════════════════════════════════════╝\n');
 
       const now = Date.now();
       const DAY_MS = 86400000;
@@ -811,20 +810,9 @@ describe('BackgroundTabService', () => {
       expect(orderConsistent).toBe(true);
 
       // ─────────────────────────────────────────────────────────────────────
-      // STEP 8: BACKUP, CLOSE, RESTORE CYCLE
+      // STEP 8: FINAL VERIFICATION & COMPREHENSIVE REPORT
       // ─────────────────────────────────────────────────────────────────────
-      console.log('\n💾 STEP 8: Backup → Close → Restore cycle...\n');
-
-      // Note: BackupService tests would go here in Playwright
-      // For unit tests: verify the logic would work
-      console.log(`  ✓ Would backup: ${tabs.length} tabs`);
-      console.log(`  ✓ Would close all tabs`);
-      console.log(`  ✓ Would restore: ${tabs.length} tabs`);
-
-      // ─────────────────────────────────────────────────────────────────────
-      // STEP 9: FINAL VERIFICATION & COMPREHENSIVE REPORT
-      // ─────────────────────────────────────────────────────────────────────
-      console.log('\n📋 STEP 9: FINAL REPORT — All tabs and groups\n');
+      console.log('\n📋 STEP 8: FINAL REPORT — All tabs and groups\n');
 
       console.log('╔════════════════════════════════════════════════════════════════╗');
       console.log('║                    TAB GROUPING SUMMARY                        ║');
@@ -859,9 +847,9 @@ describe('BackgroundTabService', () => {
       });
 
       // ─────────────────────────────────────────────────────────────────────
-      // STEP 10: ASSERTIONS FOR EACH ENTITY
+      // STEP 9: ASSERTIONS FOR EACH ENTITY
       // ─────────────────────────────────────────────────────────────────────
-      console.log('\n✅ STEP 10: Detailed assertions for each tab and group\n');
+      console.log('\n✅ STEP 9: Detailed assertions for each tab and group\n');
 
       // Assert: All 10 tabs exist
       expect(tabs).toHaveLength(10);

@@ -137,53 +137,6 @@ test.describe('TestAlarmButton: +4h Warp & Grouping', () => {
     console.log('\n   ✓ Total time advanced: 7 days (168 hours in batches)')
     console.log('   ✓ Tabs should have aged and MOVED to older groups!')
 
-    // Step 4b: Also trigger the backup alarm (+1h hourly backup)
-    // The 24h grouping alarm should also trigger backup when both fire in real scenario
-    console.log('\nStep 4b: Triggering backup alarm (+1h hourly backup)...')
-    console.log('   When 24h alarm fires: both grouping AND backup should happen')
-    try {
-      await env.optionsPage.page.evaluate(async () => {
-        return new Promise<any>((resolve, reject) => {
-          chrome.runtime.sendMessage(
-            {
-              type: 'proxy-service.background',
-              data: { path: ['backupTabs'], args: [] },
-              timestamp: Date.now()
-            },
-            (response: any) => {
-              if (chrome.runtime.lastError) {
-                reject(new Error(chrome.runtime.lastError.message))
-              } else if (response?.err) {
-                reject(new Error(response.err.message || 'Backup RPC failed'))
-              } else {
-                resolve(response?.res || {})
-              }
-            }
-          )
-        })
-      })
-      console.log('   ✓ Backup alarm triggered - current tabs backed up to storage')
-      console.log('\n   🔔 BOTH ALARMS VERIFIED:')
-      console.log('     • 24h Grouping Alarm: ✅ (7 days of +4h warps completed)')
-      console.log('     • 1h Backup Alarm: ✅ (backupTabs() called - tabs saved)')
-
-      // Step 4c: Verify backup was actually created in storage
-      console.log('\nStep 4c: Verifying backup was saved to storage...')
-      const backupData = await env.optionsPage.page.evaluate(async () => {
-        const storage = await chrome.storage.local.get('archivum:tab_backup')
-        return storage['archivum:tab_backup']
-      })
-
-      if (backupData && backupData.tabs && backupData.tabs.length > 0) {
-        console.log(`   ✓ Backup confirmed in storage: ${backupData.tabs.length} tabs backed up`)
-        console.log(`   ✓ Backup timestamp: ${new Date(backupData.timestamp || Date.now()).toISOString()}`)
-      } else {
-        console.warn('   ⚠️ No backup found in storage')
-      }
-    } catch (err) {
-      console.warn('   ⚠️ Backup alarm trigger failed:', err)
-    }
-
     // Step 5: Verify tabs after warp
     console.log('\nStep 5: Verifying tab grouping after warp...')
     const tabsAfter = await env.optionsPage.queryAllTabs(true)

@@ -17,18 +17,6 @@
           @click="openOptionsPageFull"
         />
 
-        <q-btn
-          v-if="isDevEnv()"
-          class="got-btn-ghost"
-          label="Manage archivum - browser"
-          data-testid="popup-btn-plugin-browser-option"
-          icon="settings"
-          rounded
-          no-caps
-          size="md"
-          @click="openOptionsPage"
-        />
-
         <SortButton @error="(msg) => console.error(msg)"/>
 
         <div class="q-mt-md">
@@ -36,10 +24,6 @@
         </div>
 
         <GroupUngroup rounded size="lg" class=""/>
-
-        <div class="q-mt-md">
-          <BackupRestoreButton/>
-        </div>
 
       </div>
     </div>
@@ -52,12 +36,7 @@ import {isDevEnv} from '@/constants'
 import AppTitle from '@/components/Title.vue'
 import GroupUngroup from "@/components/GroupUngroup.vue";
 import SortButton from '@/components/SortButton.vue';
-import BackupRestoreButton from "@/components/BackupRestoreButton.vue";
 import AutoCloseToggle from "@/components/AutoCloseToggle.vue";
-
-function openOptionsPage(): void {
-  browser.runtime.openOptionsPage()
-}
 
 async function openOptionsPageFull(): Promise<void> {
   const url = (browser.runtime as any).getURL('/options.html')

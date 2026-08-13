@@ -21,9 +21,6 @@
           @success="refreshTabs"
           @error="(msg) => error = msg"
         />
-        <div class="col-12 row items-center q-pa-md bg-grey-1 rounded-borders accent-border" style="gap: 0.75rem">
-          <BackupRestoreButton @restored="refreshTabs" />
-        </div>
       </div>
 
       <!-- Error display -->
@@ -158,7 +155,6 @@ import TestAlarmButton from '@/components/TestAlarmButton.vue'
 import CloseAllTabsButton from '@/components/CloseAllTabsButton.vue'
 import RefreshButton from '@/components/RefreshButton.vue'
 import SortButton from '@/components/SortButton.vue'
-import BackupRestoreButton from "@/components/BackupRestoreButton.vue"
 import type { BackgroundRPC } from '@/services/BackgroundRPC'
 
 // ⚠️ DEVELOPERS: createProxyService() returns type-safe proxy to background service worker

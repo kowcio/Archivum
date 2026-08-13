@@ -28,11 +28,6 @@ const SortButtonStub = {
   template: '<button data-testid="sort-tabs-by-domain">Sort</button>',
 }
 
-// Stub for BackupRestoreButton component
-const BackupRestoreButtonStub = {
-  template: '<button data-testid="backup-btn">Backup</button>',
-}
-
 describe('Popup App.vue', () => {
   function createPage() {
     return mount(App, {
@@ -47,7 +42,6 @@ describe('Popup App.vue', () => {
           AppTitle: true,
           GroupUngroup: GroupUngroupStub,
           SortButton: SortButtonStub,
-          BackupRestoreButton: BackupRestoreButtonStub,
         },
       },
     })

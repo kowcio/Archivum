@@ -8,7 +8,6 @@
 
 import type { Browser } from 'wxt/browser'
 import { BackgroundTabService } from '@/services/BackgroundTabService'
-import { BackupService, type Backup } from '@/services/BackupService'
 import { StorageRepository } from '@/store'
 import { addTimeOffset } from '@/utils/testTime'
 
@@ -76,10 +75,6 @@ export const backgroundRPC = {
      tabsInOldestGroup: Array<{ id?: number; title?: string; age?: number }>;
      oldestGroupInfo?: { id: number; title: string };
    }> => BackgroundTabService.getDiagnostics(),
-
-   // ── Backup & restore ─────────────────────────────────────────────────
-   backupTabs: (): Promise<Backup> => BackupService.backupTabs(),
-   restoreTabs: (): Promise<void> => BackupService.restoreTabs(),
 
    // ── Store operations (config/settings) ────────────────────────────────
    // Prefixed with "store" for clarity that these are config methods
