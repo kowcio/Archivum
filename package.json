@@ -1,6 +1,6 @@
 {
   "name": "archivum",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Organize your browser tabs by age. Automatically group tabs into age-based groups (Week+, Month+, Quarter+, etc.) and keep your workspace organized.",
   "private": true,
   "type": "module",

@@ -1,5 +1,5 @@
 import { browser } from 'wxt/browser';
-import { mockOverrides } from '@/store/appStore';
+import { StorageRepository } from '@/store';
 import { BackgroundTabService } from '@/services/BackgroundTabService.ts';
 
 export interface Backup {
@@ -29,7 +29,7 @@ export class BackupService {
 
     // ✅ NEW: Apply mock overrides BEFORE backup so we capture real ages
     // When testing with mocks: backup should have 7d, 14d, etc. not current timestamps
-    const mockOvds = await mockOverrides.getValue();
+    const mockOvds = await StorageRepository.getMockOverrides() ?? {};
     const mockOverridesMap: Record<number, number> = {};
     for (const key in mockOvds) {
       const numKey = parseInt(key, 10);
@@ -155,7 +155,7 @@ export class BackupService {
           `[BackupService] About to set ${Object.keys(restoredOverrides).length} overrides:`,
           restoredOverrides
         );
-        await mockOverrides.setValue(restoredOverrides);
+        await StorageRepository.setMockOverrides(restoredOverrides);
         console.log(
           `[BackupService] ✅ Restored ${Object.keys(restoredOverrides).length} tab age overrides`
         );

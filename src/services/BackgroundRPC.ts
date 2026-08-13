@@ -1,21 +1,15 @@
 /**
- * ⚠️ CRITICAL: BackgroundRPC is the SOURCE OF TRUTH for all background ↔ UI communication
- * Changes to this file are automatically reflected in:
- * - background.ts (registration)
- * - All Vue components (type-safe calls)
+ * BackgroundRPC — Single RPC interface for all background ↔ UI communication
  *
- * TYPE-SAFE MESSAGING: useProxy<typeof backgroundRPC>('background') in any UI context
- * NO MORE browser.runtime.sendMessage() with 'as any' casting ✅
- *
- * 🧪 DEV-ONLY METHODS: createMockTabs, setMockOverrides, getMockOverrides
- * These are test helpers for MockButton.vue (dev-only UI) and Playwright tests.
- * They will be present in code but only callable in DEV builds.
+ * Naming convention:
+ * - Tab operations: groupTabsByAge(), getTabs(), etc.
+ * - Store operations: storeGetAppState(), storeSetThresholds(), etc.
  */
 
 import type { Browser } from 'wxt/browser'
 import { BackgroundTabService } from '@/services/BackgroundTabService'
 import { BackupService, type Backup } from '@/services/BackupService'
-import { mockOverrides } from '@/store/appStore'
+import { StorageRepository } from '@/store'
 import { addTimeOffset } from '@/utils/testTime'
 
 /**
@@ -33,7 +27,7 @@ export const backgroundRPC = {
   sortGroupsByDomain: (): Promise<number> => BackgroundTabService.sortGroupsByDomain(),
   openRandomTabInGroup: (newTabGroup: boolean, index?: number): Promise<string> =>
     BackgroundTabService.openRandomTabInGroup(newTabGroup, index),
-  closeOldestGroupTabs: (): Promise<number> => BackgroundTabService.closeOldestGroupTabs(),
+  closeOldestGroupTabs: (): Promise<number> => BackgroundTabService.autoCloseOldestGroupTabs(),
 
   // ── Tab queries & updates ────────────────────────────────────────────────
   getTabs: (): Promise<Browser.tabs.Tab[]> => BackgroundTabService.getTabs(),
@@ -62,27 +56,40 @@ export const backgroundRPC = {
      }>;
    }> => BackgroundTabService.getGroupAndTabData(),
 
-    // 🧪 DEV/TEST ONLY: Mock tabs & age overrides (MockButton.vue + Playwright tests)
+   // 🧪 DEV/TEST ONLY: Mock tabs & age overrides (MockButton.vue + Playwright tests)
     // useReal=true: load REAL tabs with real URLs (slower, for UI previews)
     // useReal=false: create mock tab objects WITHOUT network calls (faster, for testing)
     createMockTabs: (useReal: boolean = true): Promise<Browser.tabs.Tab[]> => BackgroundTabService.createMockTabs(useReal),
-    setMockOverrides: (overrides: Record<number, number>): Promise<void> => mockOverrides.setValue(overrides),
-    getMockOverrides: (): Promise<Record<number, number>> => mockOverrides.getValue(),
+    setMockOverrides: (overrides: Record<number, number>): Promise<void> => StorageRepository.setMockOverrides(overrides),
+    getMockOverrides: (): Promise<Record<number, number> | undefined> => StorageRepository.getMockOverrides(),
 
-    // 🧪 DEV-ONLY: Test alarm triggering (warp time simulation)
-    testTriggerAlarm24h: (): Promise<number> => BackgroundTabService.testTriggerAlarm24h(),
+   // 🧪 DEV-ONLY: Test alarm triggering (warp time simulation)
+   testTriggerAlarm24h: (): Promise<number> => BackgroundTabService.testTriggerAlarm24h(),
 
-    // 🧪 DEV-ONLY: Warp time forward by milliseconds (for testing aging behavior)
-    addTimeWarp: (ms: number): Promise<number> => addTimeOffset(ms),
+   // 🧪 DEV-ONLY: Warp time forward by milliseconds (for testing aging behavior)
+   addTimeWarp: (ms: number): Promise<number> => addTimeOffset(ms),
+
+   // 🧪 DEBUG-ONLY: Diagnostic spy for understanding tab operations
+   debugGetDiagnostics: (): Promise<{
+     allTabs: Array<{ id?: number; title?: string; groupId?: number; lastAccessed?: number }>;
+     allGroups: Array<{ id: number; title: string; index?: number }>;
+     tabsInOldestGroup: Array<{ id?: number; title?: string; age?: number }>;
+     oldestGroupInfo?: { id: number; title: string };
+   }> => BackgroundTabService.getDiagnostics(),
 
    // ── Backup & restore ─────────────────────────────────────────────────
    backupTabs: (): Promise<Backup> => BackupService.backupTabs(),
    restoreTabs: (): Promise<void> => BackupService.restoreTabs(),
+
+   // ── Store operations (config/settings) ────────────────────────────────
+   // Prefixed with "store" for clarity that these are config methods
+   storeGetAppState: (): Promise<any> => StorageRepository.getAppState(),
+   storeGetThresholds: (): Promise<any> => StorageRepository.getStorageThresholds(),
+   storeSetThresholds: (levels: any[], activeLevels: number): Promise<void> => StorageRepository.setThresholds(levels, activeLevels),
+   storeSetAutoClose: (enabled: boolean): Promise<void> => StorageRepository.setAutoClose(enabled),
+   storeSetSortByDomain: (enabled: boolean): Promise<void> => StorageRepository.setSortByDomain(enabled),
 } as const
 
-// ⚠️ DEVELOPERS: Type assertion for useProxy<typeof backgroundRPC>
-// DO NOT export separately - always use: useProxy<typeof backgroundRPC>('background')
+// ⚠️ DEVELOPERS: Type assertion for createProxyService<typeof backgroundRPC>
+// DO NOT export separately - always use: createProxyService<typeof backgroundRPC>('background')
 export type BackgroundRPC = typeof backgroundRPC
-
-
-

@@ -1,49 +1,47 @@
 import {expect, test} from "@playwright/test";
-import {setupExtensionTest, type ExtensionTestContext} from "./extensions.js";
-import {OptionsPage} from "../page-objects/OptionsPage.js";
+import {TestEnvironment} from "./extensions.js"
 
 test.describe("Sort by Domain Button", () => {
-  let ctx: ExtensionTestContext;
+  let env: TestEnvironment
 
   test.beforeAll("Setup: launch Chrome context with extension", async () => {
-    ctx = await setupExtensionTest(false);
+    env = await TestEnvironment.create(false);
   });
 
   test.afterAll("Cleanup: close extension context", async () => {
-    if (ctx) await ctx.cleanup();
+    if (env) await env.cleanup();
   });
 
   test("sorts tabs by domain then lastAccessed with grouping", async () => {
-    const options = new OptionsPage(await ctx.context.newPage());
-    await options.goto(ctx.extensionId);
+    await env.optionsPage.goto(env.extensionId);
 
     // Load mock tabs (already includes multiple domains for sorting tests)
-    const result = await options.clickLoadMockTabs();
+    const result = await env.optionsPage.clickLoadMockTabs();
     expect(result.ok).toBe(true);
 
     // Wait for tabs to fully load
-    await options.page.waitForLoadState('networkidle');
+    await env.optionsPage.page.waitForLoadState('networkidle');
 
     // Count tabs before grouping
-    const dataBefore = await options.getGroupAndTabData();
+    const dataBefore = await env.optionsPage.getGroupAndTabData();
     const tabsBeforeGrouping = dataBefore.tabs.length;
     console.log(`📊 Tabs before grouping: ${tabsBeforeGrouping}`);
 
     // Group tabs
-    await options.clickGroupTabs();
-    const groups = await options.getAllGroups();
+    await env.optionsPage.clickGroupTabs();
+    const groups = await env.optionsPage.getAllGroups();
     console.log(`📦 Groups created: ${groups.length}`);
 
     // Sort by domain
-    await options.clickSortTabs();
+    await env.optionsPage.clickSortTabs();
     // Instead of networkidle (discouraged), wait for tabs table to update
-    await options.page.waitForFunction(() => {
+    await env.optionsPage.page.waitForFunction(() => {
       const tableRows = document.querySelectorAll('[data-testid="table-open-tabs"] tr');
       return tableRows.length > 1;  // At least header + 1 data row
     }, { timeout: 5_000 });
 
     // Verify results
-    const data = await options.getGroupAndTabData();
+    const data = await env.optionsPage.getGroupAndTabData();
     const { tabs, groupedTabCount, ungroupedTabCount } = data;
 
     console.log(`✅ Grouped tabs: ${groupedTabCount}, Ungrouped tabs: ${ungroupedTabCount}, Total: ${tabsBeforeGrouping}`);

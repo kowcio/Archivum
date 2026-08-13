@@ -1,29 +1,27 @@
 import { expect, test } from '@playwright/test';
-import { setupExtensionTest, type ExtensionTestContext } from './extensions.js';
-import { OptionsPage } from '../page-objects/OptionsPage.js';
+import { TestEnvironment } from './extensions.js';
 
 test.describe('Groups created with domain sorting', () => {
-  let ctx: ExtensionTestContext;
+  let env: TestEnvironment
 
   test.beforeAll('Setup: launch Chrome context with extension', async () => {
-   ctx = await setupExtensionTest(false);
+   env = await TestEnvironment.create(false);
   });
 
   test.afterAll('Cleanup: close extension context', async () => {
-   if (ctx) await ctx.cleanup();
+   if (env) await env.cleanup();
   });
 
    test('tabs within groups are sorted by domain then lastAccessed', async () => {
-     const options = new OptionsPage(await ctx.context.newPage());
-     await options.goto(ctx.extensionId);
+     await env.optionsPage.goto(env.extensionId);
 
      // Load mock tabs (already includes multiple domains for sorting tests)
-     const result = await options.clickLoadMockTabs();
+     const result = await env.optionsPage.clickLoadMockTabs();
      expect(result.ok).toBe(true);
 
      // Group tabs by age
-     await options.clickGroupTabs();
-     let groups = await options.getAllGroups();
+     await env.optionsPage.clickGroupTabs();
+     const groups = await env.optionsPage.getAllGroups();
      expect(groups.length).toBeGreaterThan(0);
 
      console.log(`\n📋 Grouped ${groups.length} groups created from mock tabs`);
@@ -32,12 +30,12 @@ test.describe('Groups created with domain sorting', () => {
      });
 
      // ✅ Now verify domain sorting by clicking sort button
-     await options.clickSortTabs();
-      
+     await env.optionsPage.clickSortTabs();
+
      // Verify tabs are actually sorted by domain
-     const allTabs = await options.queryAllTabs();
+     const allTabs = await env.optionsPage.queryAllTabs();
      const groupedTabs = allTabs.filter(t => t.groupId !== -1);
-      
+
      // Log the tab URLs to verify domain sorting
      console.log(`\n📍 Grouped tabs after domain sort:`);
      groupedTabs.forEach((t, i) => {
@@ -47,6 +45,6 @@ test.describe('Groups created with domain sorting', () => {
      // Verify at least some tabs were sorted (not just a no-op)
      expect(groupedTabs.length).toBeGreaterThan(0);
 
-     await options.close();
+     await env.optionsPage.close();
    });
 });

@@ -18,7 +18,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { fakeBrowser } from 'wxt/testing/fake-browser'
 import { BackgroundTabService } from '@/services/BackgroundTabService'
-import { mockOverrides } from '@/store/appStore.ts'
+import { StorageRepository } from '@/store'
 import { AgeClassification } from '@/models/AgeClassification'
 import { ThemeColor } from '@/constants'
 
@@ -26,7 +26,7 @@ describe('BackgroundTabService', () => {
   beforeEach(async () => {
     fakeBrowser.reset()
     vi.clearAllMocks()
-    await mockOverrides.setValue({})
+    await StorageRepository.storage.mockOverrides.setValue({})
   })
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -43,7 +43,7 @@ describe('BackgroundTabService', () => {
 
     it('should return thresholds with at least one active level', async () => {
       const thresholds = await BackgroundTabService.getThresholds()
-      expect(thresholds.active().length).toBeGreaterThanOrEqual(1)
+      expect(thresholds.activeThresholdLevels().length).toBeGreaterThanOrEqual(1)
     })
 
     it('should return strictly ordered thresholds', async () => {
@@ -86,7 +86,8 @@ describe('BackgroundTabService', () => {
         overrides[tabs[0].id!] = now - DAY_MS     // 1 day old
         overrides[tabs[1].id!] = now - 15 * DAY_MS    // 15 days old
         overrides[tabs[2].id!] = now - 40 * DAY_MS    // 40 days old
-        await mockOverrides.setValue(overrides)
+
+      await StorageRepository.storage.mockOverrides.setValue(overrides)
 
        const count = await BackgroundTabService.groupTabsByAge()
        expect(count).toBeGreaterThanOrEqual(0)
@@ -110,7 +111,8 @@ describe('BackgroundTabService', () => {
           [tabs[3].id!]: now - 20 * DAY_MS,
           [tabs[4].id!]: now - 50 * DAY_MS,
         }
-       await mockOverrides.setValue(overrides)
+
+      await StorageRepository.storage.mockOverrides.setValue(overrides)
 
        const count = await BackgroundTabService.groupTabsByAge()
        expect(count).toBeGreaterThanOrEqual(0)
@@ -128,7 +130,7 @@ describe('BackgroundTabService', () => {
 
      it('should use active threshold levels only', async () => {
        const thresholds = await BackgroundTabService.getThresholds()
-       const activeLevels = thresholds.active()
+       const activeLevels = thresholds.activeThresholdLevels()
 
        // Should respect active levels count
        expect(activeLevels.length).toBeLessThanOrEqual(thresholds.levels.length)
@@ -149,7 +151,7 @@ describe('BackgroundTabService', () => {
 
        // Get thresholds to understand boundaries
        const thresholds = await BackgroundTabService.getThresholds()
-       const activeLevels = thresholds.active()
+       const activeLevels = thresholds.activeThresholdLevels()
        const boundaries = thresholds.toBoundaries()
 
        // With default APP_DEFAULTS: activeLevels = 5, boundaries = [7, 14, 28, 90, 365]
@@ -174,33 +176,38 @@ describe('BackgroundTabService', () => {
        // Set mock overrides with specific ages
        const overrides: Record<number, number> = {}
 
-       // Fresh (0-7 days): indices 0, 1
+       // Fresh (0-6 days): index 0
        overrides[freshTab1.id!] = now - 3 * DAY_MS
-       overrides[freshTab2.id!] = now - 7 * DAY_MS
+       overrides[freshTab2.id!] = now - 6 * DAY_MS
 
-       // Level 1 (8-14 days): index 1 in classification
+       // Level 1 / Week+ (7-13 days): index 1 in classification
        overrides[level1Tab1.id!] = now - 10 * DAY_MS
        overrides[level1Tab2.id!] = now - 12 * DAY_MS
 
-       // Level 2 (15-28 days): index 2 in classification
+       // Level 2 / 2 Weeks+ (14-27 days): index 2 in classification
        overrides[level2Tab1.id!] = now - 20 * DAY_MS
        overrides[level2Tab2.id!] = now - 25 * DAY_MS
 
-       // Level 3 (29+ days): index 3 in classification
+       // Level 3 / Month+ (28-89 days): index 3 in classification
        overrides[level3Tab1.id!] = now - 30 * DAY_MS
        overrides[level3Tab2.id!] = now - 50 * DAY_MS
        overrides[level3Tab3.id!] = now - 100 * DAY_MS
 
-       await mockOverrides.setValue(overrides)
+
+      await StorageRepository.storage.mockOverrides.setValue(overrides)
 
        // ─ Test age classification logic
        const fresh3DaysClass = AgeClassification.fromDays(3, thresholds)
        expect(fresh3DaysClass.index).toBe(0) // Fresh
        expect(fresh3DaysClass.isFresh).toBe(true)
 
-       const fresh7DaysClass = AgeClassification.fromDays(7, thresholds)
-       expect(fresh7DaysClass.index).toBe(0) // Still fresh at boundary
-       expect(fresh7DaysClass.isFresh).toBe(true)
+       const fresh6DaysClass = AgeClassification.fromDays(6, thresholds)
+       expect(fresh6DaysClass.index).toBe(0) // Still fresh at boundary-1
+       expect(fresh6DaysClass.isFresh).toBe(true)
+
+       const level1At7DaysClass = AgeClassification.fromDays(7, thresholds)
+       expect(level1At7DaysClass.index).toBe(1) // Week+ at boundary
+       expect(level1At7DaysClass.isFresh).toBe(false)
 
        const level1Class = AgeClassification.fromDays(10, thresholds)
        expect(level1Class.index).toBe(1) // Week+
@@ -217,13 +224,13 @@ describe('BackgroundTabService', () => {
 
        // ─ Test threshold boundaries
        const atBoundary7Days = AgeClassification.fromDays(7, thresholds)
-       expect(atBoundary7Days.index).toBe(0)
+       expect(atBoundary7Days.index).toBe(1) // 7 days is Week+, not fresh
 
        const afterBoundary8Days = AgeClassification.fromDays(8, thresholds)
        expect(afterBoundary8Days.index).toBe(1)
 
        const atBoundary14Days = AgeClassification.fromDays(14, thresholds)
-       expect(atBoundary14Days.index).toBe(1)
+       expect(atBoundary14Days.index).toBe(2) // 14 days is 2 Weeks+
 
        const afterBoundary15Days = AgeClassification.fromDays(15, thresholds)
        expect(afterBoundary15Days.index).toBe(2)
@@ -280,7 +287,8 @@ describe('BackgroundTabService', () => {
          [tabs[2].id!]: now - 20 * DAY_MS,   // Level 2
          [tabs[3].id!]: now - 50 * DAY_MS,   // Level 3
        }
-       await mockOverrides.setValue(overrides)
+
+      await StorageRepository.storage.mockOverrides.setValue(overrides)
 
        // Verify each tab's classification
        const classifications = [
@@ -458,7 +466,8 @@ describe('BackgroundTabService', () => {
       ]
 
       // Set ages
-      await mockOverrides.setValue({
+
+      await StorageRepository.storage.mockOverrides.setValue({
         [tabs[0].id!]: now - 5 * DAY_MS,
         [tabs[1].id!]: now - 20 * DAY_MS,  // Oldest
         [tabs[2].id!]: now - 10 * DAY_MS,
@@ -477,7 +486,7 @@ describe('BackgroundTabService', () => {
         await fakeBrowser.tabs.create({ url: 'https://example.com/2' }),
       ]
 
-      await mockOverrides.setValue({
+      await StorageRepository.storage.mockOverrides.setValue({
         [tabs[0].id!]: now - 50 * DAY_MS,
         [tabs[1].id!]: now - DAY_MS,
       })
@@ -517,7 +526,7 @@ describe('BackgroundTabService', () => {
       ]
 
       // Apply different ages to trigger within-domain sorting
-      await mockOverrides.setValue({
+      await StorageRepository.storage.mockOverrides.setValue({
         [tabs[0].id!]: now - 2 * DAY_MS,
         [tabs[1].id!]: now - 30 * DAY_MS,
         [tabs[2].id!]: now - 15 * DAY_MS,

@@ -5,34 +5,32 @@
  * Chrome MV3 only. Run: npm run build-only && npx playwright test OptionsTresholdsTest
  */
 import { expect, test } from "@playwright/test";
-import { setupExtensionTest, type ExtensionTestContext } from "./extensions.js";
-import { OptionsPage } from "../page-objects/OptionsPage.js";
+import { TestEnvironment } from "./extensions.js";
 
 test.describe("Thresholds", () => {
-  let ctx: ExtensionTestContext;
+  let env: TestEnvironment
 
   test.beforeAll('Setup', async () => {
-    ctx = await setupExtensionTest(false, 60_000);
+    env = await TestEnvironment.create(false, 60_000);
   });
 
   test.afterAll('Cleanup', async () => {
-    if (ctx) await ctx.cleanup();
+    if (env) await env.cleanup();
   });
 
   test("Default thresholds → group tabs → change to 5 levels → verify groups", async () => {
-    const options = new OptionsPage(await ctx.context.newPage());
-    await options.goto(ctx.extensionId);
-    await options.expectPageLoaded()
+    await env.optionsPage.goto(env.extensionId);
+    await env.optionsPage.expectPageLoaded()
 
-    const resp = await options.clickLoadMockTabs();
+    const resp = await env.optionsPage.clickLoadMockTabs();
     expect(resp.ok).toBe(true);
 
-    const thresholdLevels5 = await options.getLevelsCount();
+    const thresholdLevels5 = await env.optionsPage.getLevelsCount();
     console.log("Threshold levels ", thresholdLevels5)
 
-    await options.clickGroupTabs();
+    await env.optionsPage.clickGroupTabs();
 
-     let result = await options.getAllGroups();
+     let result = await env.optionsPage.getAllGroups();
      expect(result.length).toBe(5);
      expect(result[0].title).toContain('Hell!');
      expect(result[1].title).toContain('Quarter+');
@@ -40,24 +38,22 @@ test.describe("Thresholds", () => {
      expect(result[3].title).toContain('2 Weeks+');
      expect(result[4].title).toContain('Week+');
 
-
-    await options.changeThresholdLevels(3, 2000);
-    const thresholdLevels3 = await options.getLevelsCount();
+    await env.optionsPage.changeThresholdLevels(3, 2000);
+    const thresholdLevels3 = await env.optionsPage.getLevelsCount();
     expect(thresholdLevels3).toBe(3);
 
-     result = await options.getAllGroups();
+     result = await env.optionsPage.getAllGroups();
      expect(result.length).toBe(3);
      expect(result[0].title).toContain('Month+');
      expect(result[1].title).toContain('2 Weeks+');
      expect(result[2].title).toContain('Week+');
 
-
     // Verify ungrouped tabs are at the end after all grouped tabs
-    const allTabs = await options.queryAllTabs();
+    const allTabs = await env.optionsPage.queryAllTabs();
     const groupedCount = result.reduce((acc, group) => acc + group.tabCount, 0);
     allTabs.slice(groupedCount).forEach(tab => expect(tab.groupId).toBe(-1));
 
-    await options.close();
+    await env.optionsPage.close();
   });
 
 });

@@ -16,7 +16,7 @@ import {APP_DEFAULTS, type ThresholdLevel} from '@/constants'
  *   3  // activeLevels: use first 3
  * )
  * thresholds.levels               // all levels
- * thresholds.active()             // first 3 levels (active)
+ * thresholds.activeThresholdLevels()             // first 3 levels (active)
  * thresholds.isValid()            // true
  * thresholds.toBoundaries()       // [7, 14, 21]
  */
@@ -33,7 +33,7 @@ export class AppThresholds {
    * Returns only the active threshold levels (first N based on activeLevels count).
    * Always safe: levels is always an array and activeLevels ≥ 1.
    */
-  active(): ThresholdLevel[] {
+  activeThresholdLevels(): ThresholdLevel[] {
     return this.levels.slice(0, this.activeLevels)
   }
 
@@ -42,14 +42,14 @@ export class AppThresholds {
    * Example: [7, 14, 21] means: 0-7=level0, 7-14=level1, 14-21=level2
    */
   toBoundaries(): readonly number[] {
-    return this.active().map(l => l.days)
+    return this.activeThresholdLevels().map(l => l.days)
   }
 
   /**
    * Validates strict ordering for active levels: 0 ≤ level[0] < level[1] < ... < level[N-1]
    */
   isValid(): boolean {
-    const active = this.active()
+    const active = this.activeThresholdLevels()
     if (active.length < 1) return false
     if (active[0].days < 0) return false
     for (let i = 1; i < active.length; i++) {

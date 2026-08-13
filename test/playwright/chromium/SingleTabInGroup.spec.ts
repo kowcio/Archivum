@@ -1,39 +1,36 @@
 /// <reference types="chrome" />
 
-
 import {expect, test} from "@playwright/test";
-import {type ExtensionTestContext, setupExtensionTest} from "./extensions.js";
-import {OptionsPage} from "../page-objects/OptionsPage.js";
+import {TestEnvironment} from "./extensions.js";
 import {ThresholdLabel} from "../../../src/constants.js";
 
 test.describe("Options Page Tests", () => {
-  let ctx: ExtensionTestContext;
+  let env: TestEnvironment
   const groupName = ThresholdLabel.WEEK;
 
   test.beforeAll("Setup: launch Chrome context with extension", async () => {
-    ctx = await setupExtensionTest(true);
+    env = await TestEnvironment.create(true);
   });
 
   test.afterAll("Cleanup: close extension context", async () => {
-    if (ctx) await ctx.cleanup();
+    if (env) await env.cleanup();
   });
 
   test("Single tab is left in one of our groups after click it should be ungrouped.", async () => {
-    const options = new OptionsPage(await ctx.context.newPage());
-    await options.goto(ctx.extensionId);
+    await env.optionsPage.goto(env.extensionId);
 
     // 1. Create mock tabs (14 tabs with varying ages from 1 to 367 days)
-    const resp = await options.clickLoadMockTabs(1000);
+    const resp = await env.optionsPage.clickLoadMockTabs(1000);
     expect(resp.ok).toBe(true);
-    expect(resp.count).toBe(16);
+    expect(resp.count).toBe(17);
     console.log(`   → Created ${resp.count} mock tabs`);
 
     // 2. Group tabs by age with default 5 levels
-    await options.clickGroupTabs();
-    await options.expectUngroupButtonVisible();
+    await env.optionsPage.clickGroupTabs();
+    await env.optionsPage.expectUngroupButtonVisible();
 
         // 3. Verify Week+ group has 2 tabs (daysAgo at expected range)
-        const groups = await options.getAllGroups();
+        const groups = await env.optionsPage.getAllGroups();
         const weekGroup =
           groups.find(g => g.title.startsWith(groupName));
         console.log("Group to be ungrouped", weekGroup);
@@ -43,7 +40,7 @@ test.describe("Options Page Tests", () => {
       console.log(`   → Week+ group has ${weekGroup!.tabCount} tabs (groupId=${weekGroupId})`);
 
        // 4. Get the tab IDs in the Week+ group
-       const allTabs = await options.queryAllTabs();
+       const allTabs = await env.optionsPage.queryAllTabs();
        const weekGroupTabs = allTabs.filter(t => t.groupId === weekGroupId);
        expect(weekGroupTabs.length).toBe(3);
 
@@ -53,18 +50,18 @@ test.describe("Options Page Tests", () => {
       const tabId = tab.id!;
       console.log(`   → Activating tab#${tabId} ${tab.url.substring(0,445)} (${i + 1}/${weekGroupTabs.length}) in "${weekGroup?.title}" group`);
 
-      await options.activateTab(tabId);
-      await options.waitForTabActivated(tabId);
+      await env.optionsPage.activateTab(tabId);
+      await env.optionsPage.waitForTabActivated(tabId);
 
       // Verify the activated tab is now ungrouped
-      const tabsAfter = await options.queryAllTabs();
+      const tabsAfter = await env.optionsPage.queryAllTabs();
       const tabState = tabsAfter.find(t => t.id === tabId);
       expect(tabState).toBeDefined();
       expect(tabState!.groupId).toBe(-1);
       console.log(`   → Tab#${tabId} successfully ungrouped`);
 
       // Verify the group has changed the title (or was auto-removed if empty)
-      const groupsAfterUngroup = await options.getAllGroups();
+      const groupsAfterUngroup = await env.optionsPage.getAllGroups();
       const weekGroupUpdated = groupsAfterUngroup.find(g => g.id === weekGroupId);
       const expectedCount = weekGroupTabs.length - (i + 1);
 
@@ -81,7 +78,7 @@ test.describe("Options Page Tests", () => {
 
     // 6. Small wait for Chrome to auto-remove the now-empty Week+ group
     // 7. Verify Week+ group no longer exists (Chrome auto-removes empty groups)
-    const groupsAfter = await options.getAllGroups();
+    const groupsAfter = await env.optionsPage.getAllGroups();
     const weekGroupAfter = groupsAfter.find(g => g.title.startsWith(groupName));
     expect(weekGroupAfter).toBeUndefined();
     console.log("   → Week+ group auto-removed (0 tabs left)");
@@ -93,7 +90,7 @@ test.describe("Options Page Tests", () => {
     expect(groupsAfter.some(g => g.title.startsWith('Quarter+'))).toBe(true);
     expect(groupsAfter.some(g => g.title.startsWith('Hell!'))).toBe(true);
 
-    await options.close();
+    await env.optionsPage.close();
   });
 
 });

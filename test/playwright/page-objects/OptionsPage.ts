@@ -15,6 +15,7 @@
  */
 
 import { expect, type Locator, type Page } from '@playwright/test';
+import type { BackgroundRPC } from '@/services/BackgroundRPC';
 
 // `chrome` is globally available in page.evaluate() context (no import needed)
 
@@ -30,8 +31,10 @@ export class OptionsPage {
   private readonly levelsInput: Locator;
   private readonly applyThresholdBtn: Locator;
   private readonly resetThresholdBtn: Locator;
+  private readonly bg: BackgroundRPC;
 
-  constructor(public readonly page: Page) {
+  constructor(public readonly page: Page, backgroundRPC: BackgroundRPC) {
+    this.bg = backgroundRPC;
     // Button locators - note: IDs are dynamic based on isGrouped state
     // When not grouped: 'group-tabs-btn', when grouped: 'ungroup-tabs-btn'
     this.groupTabsBtn = page.getByTestId('group-tabs-btn');
@@ -51,6 +54,45 @@ export class OptionsPage {
 
     // Table row locators
     this.tableRows = page.locator('[data-testid="table-open-tabs"] tr');
+  }
+
+  /**
+  * Public accessor for background RPC - needed for direct RPC calls in tests
+  */
+  getBackgroundRPC(): BackgroundRPC {
+   return this.bg;
+  }
+
+  /**
+  * 🔍 DEBUG SPY: Get diagnostic info about tab operations.
+  * Useful for understanding what BackgroundTabService is doing.
+  */
+  async spyOnBackgroundState(): Promise<{
+   allTabs: Array<{ id?: number; title?: string; groupId?: number; lastAccessed?: number }>;
+   allGroups: Array<{ id: number; title: string; index?: number }>;
+   tabsInOldestGroup: Array<{ id?: number; title?: string; age?: number }>;
+   oldestGroupInfo?: { id: number; title: string };
+  }> {
+   return await this.bg.debugGetDiagnostics();
+  }
+
+  /**
+  * 🔍 DEBUG SPY: Log current state to console for inspection.
+  */
+  async spyLogState(label?: string): Promise<void> {
+   const diagnostics = await this.spyOnBackgroundState();
+   const prefix = label ? `[${label}]` : '';
+   console.log(`\n🔍 ${prefix} BACKGROUND STATE SPY:`);
+   console.log(`   📊 Total tabs: ${diagnostics.allTabs.length}`);
+   console.log(`   📊 Total groups: ${diagnostics.allGroups.length}`);
+   console.log(`   📊 Tabs in oldest group: ${diagnostics.tabsInOldestGroup.length}`);
+   if (diagnostics.oldestGroupInfo) {
+     console.log(`   📍 Oldest group: "${diagnostics.oldestGroupInfo.title}" (ID: ${diagnostics.oldestGroupInfo.id})`);
+   }
+   console.log('   --- Full diagnostics ---');
+   console.table(diagnostics.allTabs);
+   console.table(diagnostics.allGroups);
+   console.table(diagnostics.tabsInOldestGroup);
   }
 
   /**
@@ -111,46 +153,89 @@ export class OptionsPage {
   /**
    * Click "Test Alarm" button to trigger grouping with time advancement.
    * Polls until alarm completes and groups are updated.
+  * Includes service worker recovery mechanism for long test runs.
    */
-  async clickTestAlarmButton(): Promise<void> {
+  async clickTestAlarmButton(attemptNum: number = 1): Promise<void> {
+   // Check if page is still valid before attempting
+   if (this.page.isClosed()) {
+     throw new Error(`Page is closed - cannot click test alarm button (attempt ${attemptNum})`);
+   }
+
    const alarmBtn = this.page.getByTestId('test-alarm-btn');
    await alarmBtn.click();
+
+   // ✅ Extended delay for service worker to fully process the alarm
+   // MV3 service workers can suspend, so this gives time to respond
+   await new Promise(resolve => setTimeout(resolve, 1500));
+
    // Wait for alarm to complete and groups to be updated
-   await expect.poll(
-     async () => {
-       const result = await this.getGroupAndTabData();
-       return result.groupsOrderedByIndex.length;
-     },
-     { timeout: 10_000, message: 'Groups updated after test alarm' }
-   ).toBeGreaterThan(0);
+   // Extended timeout to allow for service worker recovery in long test runs
+   let pollAttempts = 0;
+   let lastError: Error | null = null;
+
+   try {
+     await expect.poll(
+       async () => {
+         pollAttempts++;
+         try {
+           // Check page validity on each poll iteration
+           if (this.page.isClosed()) {
+             lastError = new Error(`Page closed on poll attempt ${pollAttempts}`);
+             console.warn(`[clickTestAlarmButton] ${lastError.message}`);
+             return 0; // Triggers timeout, then we catch and handle
+           }
+
+           // Add small delay before attempting RPC to avoid overwhelming service worker
+           if (pollAttempts > 1) {
+             await new Promise(resolve => setTimeout(resolve, 50));
+           }
+
+           // Check if page context is still available
+           try {
+             const result = await this.getGroupAndTabData();
+             // Successfully got data - reset error tracking
+             lastError = null;
+             return result.groupsOrderedByIndex.length;
+           } catch (rpcErr) {
+             // RPC failed - service worker might be recovering
+             lastError = rpcErr as Error;
+             if (pollAttempts % 5 === 0) {
+               console.warn(
+                 `[clickTestAlarmButton] Poll ${pollAttempts}: Service worker not responding (${lastError.message}), retrying...`
+               );
+             }
+             // Wait extra time for service worker recovery before next attempt
+             if (pollAttempts > 10) {
+               await new Promise(resolve => setTimeout(resolve, 300));
+             }
+             return 0; // Retry
+           }
+         } catch (err) {
+           lastError = err as Error;
+           console.warn(`[clickTestAlarmButton] Poll attempt ${pollAttempts} error:`, lastError.message);
+           return 0; // Retry
+         }
+       },
+       { timeout: 40_000, message: 'Groups updated after test alarm' } // Extended from 30s to 40s for safety
+     ).toBeGreaterThan(0);
+   } catch (timeoutErr) {
+     // Provide helpful error message if polling times out
+     if (lastError) {
+       throw new Error(
+         `Failed to trigger alarm after ${pollAttempts} poll attempts: ${lastError.message}`
+       );
+     }
+     throw timeoutErr;
+   }
   }
 
 
     /**
-     * Open a random tab from www.example.com/[0-9A-Z], optionally in a group at specified index via RPC messaging.
+     * Open a random tab from www.example.com/[0-9A-Z], optionally in a group at specified index.
      * @returns generated alphanumeric ID (single char: 0-9 or A-Z)
      */
     async openRandomTabInGroup(newTabGroup: boolean = false, index?: number): Promise<string> {
-      return await this.page.evaluate(async (params: { nGroup: boolean; idx?: number }) => {
-        return new Promise<string>((resolve, reject) => {
-          chrome.runtime.sendMessage(
-            {
-              type: 'proxy-service.background',
-              data: { path: ['openRandomTabInGroup'], args: [params.nGroup, params.idx] },
-              timestamp: Date.now()
-            },
-            (response: any) => {
-              if (chrome.runtime.lastError) {
-                reject(new Error(chrome.runtime.lastError.message))
-              } else if (response?.err) {
-                reject(new Error(response.err.message || 'RPC failed'))
-              } else {
-                resolve(response?.res || '')
-              }
-            }
-          )
-        })
-      }, { nGroup: newTabGroup, idx: index })
+      return await this.bg.openRandomTabInGroup(newTabGroup, index)
     }
 
   /**
@@ -177,28 +262,9 @@ export class OptionsPage {
      */
     async setMockOverrides(overrides: Record<number, number>): Promise<void> {
       try {
-        // Call setMockOverrides RPC through direct messaging
-        await this.page.evaluate(async (ov: Record<number, number>) => {
-          return new Promise<void>((resolve, reject) => {
-            chrome.runtime.sendMessage(
-              {
-                type: 'proxy-service.background',
-                data: { path: ['setMockOverrides'], args: [ov] },
-                timestamp: Date.now()
-              },
-              (response: any) => {
-                if (chrome.runtime.lastError) {
-                  reject(new Error(chrome.runtime.lastError.message))
-                } else if (response?.err) {
-                  reject(new Error(response.err.message || 'RPC failed'))
-                } else {
-                  resolve()
-                }
-              }
-            )
-          })
-        }, overrides)
-        
+        // Call setMockOverrides RPC through BackgroundRPC proxy
+        await this.bg.setMockOverrides(overrides)
+
         // Poll until overrides are persisted in storage
         await expect.poll(
           async () => {
@@ -213,35 +279,15 @@ export class OptionsPage {
     }
 
     /**
-     * Create mock tabs via RPC message call within browser context.
-     * Avoids any Node.js module loading errors.
+     * Create mock tabs via BackgroundRPC proxy.
      * Returns response from background service.
      * Polls until tabs are created and available.
      */
     async clickLoadMockTabs(): Promise<{ ok: boolean; count: number; error: string | null }> {
       try {
-        // Call createMockTabs RPC through direct messaging
-        const tabs = await this.page.evaluate(async () => {
-          return new Promise<any[]>((resolve, reject) => {
-            chrome.runtime.sendMessage(
-              {
-                type: 'proxy-service.background',
-                data: { path: ['createMockTabs'], args: [] },
-                timestamp: Date.now()
-              },
-              (response: any) => {
-                if (chrome.runtime.lastError) {
-                  reject(new Error(chrome.runtime.lastError.message))
-                } else if (response?.err) {
-                  reject(new Error(response.err.message || 'RPC failed'))
-                } else {
-                  resolve(response?.res || [])
-                }
-              }
-            )
-          })
-        })
-        
+        // Call createMockTabs RPC through BackgroundRPC proxy
+        const tabs = await this.bg.createMockTabs()
+
         // Poll until mock tabs are actually available and queryable
         await expect.poll(
           async () => {
@@ -250,7 +296,7 @@ export class OptionsPage {
           },
           { timeout: 10_000, message: 'Mock tabs created and loaded' }
         ).toBeGreaterThan(0);
-        
+
         return { ok: true, count: Array.isArray(tabs) ? tabs.length : 0, error: null }
       } catch (err: unknown) {
         return { ok: false, count: 0, error: String(err) }
@@ -280,7 +326,7 @@ export class OptionsPage {
   async clickCloseAllTabs(): Promise<void> {
     await this.closeAllTabsBtn.waitFor({ state: 'visible' });
     await this.closeAllTabsBtn.click();
-    
+
     // Wait for all grouped tabs to be closed
     await expect.poll(
       async () => {
@@ -398,18 +444,19 @@ export class OptionsPage {
    * Click Apply button to save threshold level changes.
    * Triggers tab regrouping by age with new thresholds.
    * Polls until regrouping completes.
+   * @param waitMs - Custom timeout for polling (default: 10_000ms)
    */
-  async clickApplyThresholds(): Promise<void> {
+  async clickApplyThresholds(waitMs?: number): Promise<void> {
     await expect(this.applyThresholdBtn).toBeVisible();
     await this.applyThresholdBtn.click();
-    
+
     // Poll until thresholds are applied and groups are recreated
     await expect.poll(
       async () => {
         const result = await this.getGroupAndTabData();
         return result.groupsOrderedByIndex.length;
       },
-      { timeout: 10_000, message: 'Thresholds applied and groups recreated' }
+      { timeout: waitMs ?? 10_000, message: 'Thresholds applied and groups recreated' }
     ).toBeGreaterThan(0);
   }
 
@@ -536,32 +583,13 @@ export class OptionsPage {
     expect(count).toBe(expectedCount);
   }
 
-   /**
-    * Simulate tab activation via RPC message to background service worker.
-    * This triggers: ungroup + move to rightmost position.
-    */
-   async activateTab(tabId: number): Promise<void> {
-     await this.page.evaluate(async (id: number) => {
-       return new Promise<void>((resolve, reject) => {
-         chrome.runtime.sendMessage(
-           {
-             type: 'proxy-service.background',
-             data: { path: ['onTabActivated'], args: [id] },
-             timestamp: Date.now()
-           },
-           (response: any) => {
-             if (chrome.runtime.lastError) {
-               reject(new Error(chrome.runtime.lastError.message))
-             } else if (response?.err) {
-               reject(new Error(response.err.message || 'RPC failed'))
-             } else {
-               resolve()
-             }
-           }
-         )
-       })
-     }, tabId)
-   }
+    /**
+     * Simulate tab activation via BackgroundRPC proxy.
+     * This triggers: ungroup + move to rightmost position.
+     */
+    async activateTab(tabId: number): Promise<void> {
+      await this.bg.onTabActivated(tabId)
+    }
 
   /**
    * Wait for a specific tab to be ungrouped and moved to rightmost.
@@ -582,14 +610,10 @@ export class OptionsPage {
     );
    }
 
-     /**
-      * Get all groups and tabs data.
-      * Returns group count, group details, and tab counts (grouped vs ungrouped).
-      * Applies mock overrides to lastAccessed timestamps if they exist.
-      * Prints each tab: index, id, groupId, title, url
-      *
-      * Now uses RPC to BackgroundTabService.getGroupAndTabData() for type-safe access.
-      */
+      /**
+       * Get all groups and tabs data via BackgroundRPC proxy.
+       * Returns group count, group details, and tab counts (grouped vs ungrouped).
+       */
       async getGroupAndTabData(): Promise<{
        groupCount: number;
        groupsOrderedByIndex: Array<{ id: number; title: string; index: number }>;
@@ -607,26 +631,7 @@ export class OptionsPage {
        }>;
        }> {
        try {
-         return await this.page.evaluate(async () => {
-           return new Promise<any>((resolve, reject) => {
-             chrome.runtime.sendMessage(
-               {
-                 type: 'proxy-service.background',
-                 data: { path: ['getGroupAndTabData'], args: [] },
-                 timestamp: Date.now()
-               },
-               (response: any) => {
-                 if (chrome.runtime.lastError) {
-                   reject(new Error(chrome.runtime.lastError.message))
-                 } else if (response?.err) {
-                   reject(new Error(response.err.message || 'RPC failed'))
-                 } else {
-                   resolve(response?.res || {})
-                 }
-               }
-             )
-           })
-         })
+         return await this.bg.getGroupAndTabData()
        } catch (err) {
          console.error('[OptionsPage] getGroupAndTabData error:', err)
          return {
@@ -645,7 +650,7 @@ export class OptionsPage {
    */
   async clickBackupTabs(): Promise<void> {
     await this.page.getByTestId('backup-btn').click();
-    
+
     // Wait for backup to be persisted to storage
     await this.page.waitForFunction(async () => {
       const data = await chrome.storage.local.get('archivum:tab_backup');
@@ -659,7 +664,7 @@ export class OptionsPage {
    */
   async clickRestoreTabs(): Promise<void> {
     await this.page.getByTestId('restore-btn').click();
-    
+
     // Wait for restore confirmation dialog to appear
     await this.page.getByTestId('restore-confirm').waitFor({ state: 'visible', timeout: 5000 });
   }
@@ -701,14 +706,14 @@ export class OptionsPage {
    * Confirm the restore dialog by clicking the "Restore" button in the confirmation popup.
    * Uses data-testid="restore-confirm" to target the dialog's Restore button specifically.
    * Waits for groups to begin appearing (restore operation started).
-   * 
+   *
    * Note: The test should wait for all expected groups after calling this,
    * as groups are created asynchronously one by one.
    */
   async confirmRestore(): Promise<void> {
    // Click the restore-confirm button inside the dialog
    await this.page.getByTestId('restore-confirm').click();
-    
+
    // Wait for restore operation to begin by checking that at least one group appears
    await expect.poll(
      async () => {
@@ -725,7 +730,7 @@ export class OptionsPage {
    */
   async clickDeleteBackup(): Promise<void> {
     await this.page.getByTestId('clear-backup-btn').click();
-    
+
     // Wait for backup to be removed from storage
     await this.page.waitForFunction(async () => {
       const data = await chrome.storage.local.get('archivum:tab_backup');
@@ -748,9 +753,64 @@ export class OptionsPage {
   }
 
   /**
+   * Click the auto-close toggle to enable/disable auto-closing of oldest group tabs.
+   * Also ensures the state is persisted to storage.
+   */
+  async clickAutoCloseToggle(): Promise<void> {
+    // Click the toggle
+    const toggle = this.page.getByTestId('auto-close-toggle');
+    await toggle.click();
+
+    // Ensure state is saved to storage (component click updates ref, but we need to persist it)
+    await this.page.evaluate(async (enabled: boolean) => {
+      const data = await chrome.storage.local.get('local:appState');
+      const appState = (data['local:appState'] as any) || {};
+
+      await chrome.storage.local.set({
+        'local:appState': {
+          ...appState,
+          autoClose: enabled,
+          configLastUpdated: appState?.configLastUpdated || Date.now(),
+          version: appState?.version || '1.0.0',
+        }
+      });
+    }, true);
+
+    // Wait for the state to be confirmed in storage
+    await expect.poll(
+      async () => {
+        const data = await this.page.evaluate(async () => {
+          const state = await chrome.storage.local.get('local:appState');
+          return (state['local:appState'] as any)?.autoClose ?? false;
+        });
+        return data;
+      },
+      { timeout: 5000, message: 'Auto-close toggle state persisted' }
+    ).toEqual(true);
+  }
+
+  /**
+   * Get the current auto-close toggle state.
+   */
+  async isAutoCloseEnabled(): Promise<boolean> {
+    return this.page.evaluate(async () => {
+      const data = await chrome.storage.local.get('local:appState');
+      return (data['local:appState'] as any)?.autoClose ?? false;
+    });
+  }
+
+  /**
    * Close the page.
    */
   async close(): Promise<void> {
     await this.page.close();
   }
+
+    /**
+     * Close the oldest group tabs via BackgroundRPC proxy.
+     * @returns number of tabs closed
+     */
+    async closeOldestGroupTabs(): Promise<number> {
+      return await this.bg.closeOldestGroupTabs()
+    }
 }

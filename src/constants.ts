@@ -121,11 +121,11 @@ export const APP_DEFAULTS = {
     },
 
     getLabelByDays(days: number): string {
-      return this.presets.find((p: ThresholdLevel) => p.days === days)?.label!
+      return this.presets.find((p: ThresholdLevel) => p.days === days)!.label
     },
 
     getColorByDays(days: number): ThemeColor {
-      return this.presets.find((p: ThresholdLevel) => p.days === days)?.color!
+      return this.presets.find((p: ThresholdLevel) => p.days === days)!.color
     },
   },
 }
@@ -171,24 +171,6 @@ if (isDevEnv()) {
     'color:#1565c0;font-weight:bold'
   )
 }
-
-// Background service worker message action constants
-// Imported by: background.ts (action handlers), UI components, and E2E tests
-export const BACKGROUND_MESSAGE_ACTIONS = {
-  GROUP_TABS_BY_AGE: 'groupTabsByAge',
-  SORT_TABS_BY_DOMAIN: 'sortTabsByDomain',
-  UNGROUP_ALL_TABS: 'ungroupAllTabs',
-  CREATE_MOCK_TABS: 'createMockTabs',
-  GET_TABS: 'getTabs',
-  ON_TAB_ACTIVATED: 'onTabActivated',
-  HAS_PLUGIN_GROUPS: 'hasPluginGroups',
-  CLOSE_TAB: 'closeTab',
-  FOCUS_TAB: 'focusTab',
-  BACKUP_TABS: 'backupTabs',
-  RESTORE_TABS: 'restoreTabs',
-  OPEN_RANDOM_TAB_IN_GROUP: 'openRandomTabInGroup',
-} as const
-
 /**
  * ── ThemeColor → hex map (brand-aligned) ─────────────────────────────
  * Used for inline table styling via AgeClassification.inlineStyle.

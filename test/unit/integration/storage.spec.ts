@@ -5,9 +5,9 @@
  * shared browser.storage — the real mechanism background <-> UI use.
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { fakeBrowser } from 'wxt/testing/fake-browser';
-import { appStateStorage, mockOverrides } from '@/store/appStore.ts';
+import { StorageRepository } from '@/store';
 import { BackgroundTabService } from '@/services/BackgroundTabService';
 import { DEFAULT_THRESHOLDS } from '@/models/AppThresholds';
 import { ThemeColor } from '@/constants';
@@ -23,13 +23,13 @@ describe('storage integration: config', () => {
       configLastUpdated: Date.now(),
       version: '1.0.0',
     };
-    await appStateStorage.setValue(data);
-    const read = await appStateStorage.getValue();
+    await StorageRepository.storage.appStateStorage.setValue(data);
+    const read = await StorageRepository.storage.appStateStorage.getValue();
     expect(read?.thresholds?.activeLevels).toBe(data.thresholds.activeLevels);
   });
 
   it('appStateStorage falls back to init value when empty', async () => {
-    const val = await appStateStorage.getValue();
+    const val = await StorageRepository.storage.appStateStorage.getValue();
     expect(val?.thresholds).toBeDefined();
     expect(val?.configLastUpdated).toBeGreaterThan(0);
   });
@@ -37,8 +37,8 @@ describe('storage integration: config', () => {
 
 describe('storage integration: mock overrides', () => {
   it('mockOverrides can store and retrieve tab timestamps', async () => {
-    await mockOverrides.setValue({ 1: 1000, 2: 2000 });
-    const val = await mockOverrides.getValue();
+    await StorageRepository.storage.mockOverrides.setValue({ 1: 1000, 2: 2000 });
+    const val = await StorageRepository.storage.mockOverrides.getValue();
     expect(val[1]).toBe(1000);
     expect(val[2]).toBe(2000);
   });
@@ -46,7 +46,7 @@ describe('storage integration: mock overrides', () => {
 
 describe('integration: background service + storage', () => {
   it('uses storage thresholds via getThresholds', async () => {
-    await appStateStorage.setValue({
+    await StorageRepository.storage.appStateStorage.setValue({
       thresholds: {
         levels: [
           { key: 'YOUNG', label: 'Young', days: 2, color: ThemeColor.Green },
@@ -60,14 +60,14 @@ describe('integration: background service + storage', () => {
 
     const t = await BackgroundTabService.getThresholds();
     expect(t.activeLevels).toBe(2);
-    expect(t.active()[0].days).toBe(2);
-    expect(t.active()[1].days).toBe(10);
+    expect(t.activeThresholdLevels()[0].days).toBe(2);
+    expect(t.activeThresholdLevels()[1].days).toBe(10);
   });
 });
 
 describe('integration: app store + storage', () => {
   it('app state persists to storage', async () => {
-    const initialState = await appStateStorage.getValue();
+    const initialState = await StorageRepository.storage.appStateStorage.getValue();
     expect(initialState?.thresholds).toBeDefined();
     expect(initialState?.configLastUpdated).toBeGreaterThan(0);
 
@@ -77,8 +77,8 @@ describe('integration: app store + storage', () => {
       configLastUpdated: Date.now(),
       version: initialState?.version ?? '1.0.0',
     };
-    await appStateStorage.setValue(newState);
-    const stored = await appStateStorage.getValue();
+    await StorageRepository.storage.appStateStorage.setValue(newState);
+    const stored = await StorageRepository.storage.appStateStorage.getValue();
     expect(stored?.configLastUpdated).toBe(newState.configLastUpdated);
   });
 });

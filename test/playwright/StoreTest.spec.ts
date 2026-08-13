@@ -10,30 +10,27 @@
  */
 
 import { test, expect } from '@playwright/test'
-import { setupExtensionTest, type ExtensionTestContext } from './chromium/extensions.js'
-import { OptionsPage } from './page-objects/OptionsPage.js'
+import { TestEnvironment } from './chromium/extensions.js'
 
 test.describe('onTabActivated — last tab removes group', () => {
-  let ctx: ExtensionTestContext
+  let env: TestEnvironment
 
   test.beforeAll('Setup', async () => {
-    ctx = await setupExtensionTest(false, 60_000)
+    env = await TestEnvironment.create(false, 60_000)
   })
 
   test.afterAll('Cleanup', async () => {
-    if (ctx) await ctx.cleanup()
+    if (env) await env.cleanup()
   })
 
   test('Last tab from group: activating it sets groupId=-1 and group disappears', async () => {
-    const options = new OptionsPage(await ctx.context.newPage())
-
     try {
-      await options.goto(ctx.extensionId)
-      await options.expectPageLoaded()
-      await options.clickCloseAllTabs()
+      await env.optionsPage.goto(env.extensionId)
+      await env.optionsPage.expectPageLoaded()
+      await env.optionsPage.clickCloseAllTabs()
 
       // Create 1 tab and group it with plugin-style title
-      const tab = await options.page.evaluate(async () => {
+      const tab = await env.optionsPage.page.evaluate(async () => {
         return await new Promise<{ id: number }>((resolve) => {
           chrome.tabs.create({ url: 'https://example.com', active: false }, (t: any) => {
             resolve({ id: t.id })
@@ -42,30 +39,30 @@ test.describe('onTabActivated — last tab removes group', () => {
       })
 
       // Create group with plugin-style title so isInPluginGroup() recognizes it
-      const groupId = await options.page.evaluate(async (tabId: number) => {
+      const groupId = await env.optionsPage.page.evaluate(async (tabId: number) => {
         return await new Promise<number>((resolve) => {
           (chrome.tabs as any).group({ tabIds: [tabId] }, (id: number) => resolve(id))
         })
       }, tab.id)
 
       // Use plugin-style title so onTabActivated recognizes it
-      await options.page.evaluate((id: number) => {
+      await env.optionsPage.page.evaluate((id: number) => {
         return (chrome.tabGroups as any).update(id, { title: 'Week+ (1)', collapsed: true })
       }, groupId)
 
        // Verify: Group exists before activation
-       const before = await options.getGroupAndTabData()
+       const before = await env.optionsPage.getGroupAndTabData()
        expect(before.groupCount).toBe(1)
        expect(before.groupsOrderedByIndex[0].id).toBe(groupId)
 
       // Activate the only tab in the group
-      await options.activateTab(tab.id)
+      await env.optionsPage.activateTab(tab.id)
 
       // Use Playwright's native polling + expect pattern to wait for service worker
       // This is idiomatic Playwright that handles retries + backoff automatically
       await expect.poll(
         async () => {
-          const data = await options.getGroupAndTabData()
+          const data = await env.optionsPage.getGroupAndTabData()
           const activatedTab = data.tabs.find(t => t.id === tab.id)
           return activatedTab?.groupId ?? null
         },
@@ -76,7 +73,7 @@ test.describe('onTabActivated — last tab removes group', () => {
       ).toBe(-1)
 
       // Verify final state: Tab ungrouped and group is gone
-      const after = await options.getGroupAndTabData()
+      const after = await env.optionsPage.getGroupAndTabData()
       const activatedTab = after.tabs.find(t => t.id === tab.id)
       expect(activatedTab?.groupId).toBe(-1)
       expect(after.groupCount).toBe(0)

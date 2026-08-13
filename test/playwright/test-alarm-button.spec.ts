@@ -15,24 +15,20 @@
  */
 
 import { test, expect } from '@playwright/test'
-import { setupExtensionTest, type ExtensionTestContext } from './chromium/extensions.js'
-import { OptionsPage } from './page-objects/OptionsPage.js'
+import { TestEnvironment } from './chromium/extensions.js'
 import { ThresholdLabel } from '../../src/constants.js'
 
 test.describe('TestAlarmButton: +4h Warp & Grouping', () => {
-  let ctx: ExtensionTestContext
-  let options: OptionsPage
+  let env: TestEnvironment
 
   test.beforeAll('Setup: launch Chrome context with extension', async () => {
-    ctx = await setupExtensionTest(false, 120_000)
-    options = new OptionsPage(await ctx.context.newPage())
-
-    await options.goto(ctx.extensionId)
-    await options.expectPageLoaded()
+    env = await TestEnvironment.create(false, 120_000)
+    await env.optionsPage.goto(env.extensionId)
+    await env.optionsPage.expectPageLoaded()
   })
 
   test.afterAll('Cleanup: close extension context', async () => {
-    if (ctx) await ctx.cleanup()
+    if (env) await env.cleanup()
   })
 
   test.setTimeout(180_000)
@@ -40,22 +36,22 @@ test.describe('TestAlarmButton: +4h Warp & Grouping', () => {
   test('should warp time +4h and trigger grouping with updated tab ages', async () => {
     // Step 1: Load mock tabs
     console.log('Step 1: Loading mock tabs...')
-    const mockResult = await options.clickLoadMockTabs()
+    const mockResult = await env.optionsPage.clickLoadMockTabs()
     expect(mockResult.ok).toBe(true)
     expect(mockResult.count).toBeGreaterThan(0)
     console.log(`   ✓ Created ${mockResult.count} mock tabs`)
 
     // Step 2: Group tabs with default grouping
     console.log('\nStep 2: Grouping tabs by age...')
-    await options.clickGroupTabs()
+    await env.optionsPage.clickGroupTabs()
     console.log('   ✓ Group command executed')
 
     // Step 3: Verify groups BEFORE time warp
     console.log('\nStep 3: Verifying groups BEFORE time warp...')
-    let tabsBefore = await options.queryAllTabs(true)
+    const tabsBefore = await env.optionsPage.queryAllTabs(true)
     console.log(`   ✓ Tab count before warp: ${tabsBefore.length}`)
 
-    let groupsBefore = await options.getAllGroups()
+    const groupsBefore = await env.optionsPage.getAllGroups()
     const groupCountBefore = groupsBefore.length
     const groupedCountBefore = tabsBefore.filter(t => t.groupId !== -1).length
 
@@ -95,9 +91,9 @@ test.describe('TestAlarmButton: +4h Warp & Grouping', () => {
        console.log(`   groups[4].tabCount: ${groupsBefore[4].tabCount}`)
 
           // Add assertions for before warp
-          expect(groupsBefore[0].tabCount).toBe(3)
-          expect(groupsBefore[1].tabCount).toBe(2)
-          expect(groupsBefore[2].tabCount).toBe(2)
+          expect(groupsBefore[0].tabCount).toBe(4)
+          expect(groupsBefore[1].tabCount).toBe(4)
+          expect(groupsBefore[2].tabCount).toBe(1)
           expect(groupsBefore[3].tabCount).toBe(2)
           expect(groupsBefore[4].tabCount).toBe(3)
       console.log(`   Total grouped before: ${groupsBefore.reduce((a, b) => a + b.tabCount, 0)}`)
@@ -105,20 +101,40 @@ test.describe('TestAlarmButton: +4h Warp & Grouping', () => {
 
     // Step 4: Click Warp +4h button MULTIPLE TIMES (TestAlarmButton)
     // We need to advance time enough to move tabs between thresholds:
-    // - Tab at 6 days → should become 13+ days (into Week+ = 7-13 range becomes 14+)
-    // - Tab at 8 days → should become 15+ days (into 2Weeks+)
-    // - Tab at 12 days → should become 19+ days (into 2Weeks+)
-    // 4h * 42 = 168 hours = 7 days advancement
-    console.log('\nStep 4: Clicking Warp +4h button MULTIPLE TIMES to advance time significantly...')
+    // - 6 days old tab → becomes 13+ days (moves to older group)
+    // - 8 days old tab → becomes 15+ days (2Weeks+ group)
+    // - 12 days old tab → becomes 19+ days (Quarter+ group)
+    // Strategy: Conservative batching with extensive service worker recovery windows
+    // 4h * 6 = 24 hours (1 day) per batch × 7 batches = 7 days total
+    console.log('\nStep 4: Clicking Warp +4h button in BATCHES to advance time significantly...')
     console.log('   Goal: Move tabs from their current groups to OLDER groups')
-    console.log('   Advancing ~7+ days so tabs age into next thresholds...')
-    for (let i = 1; i <= 42; i++) {
-      if (i % 7 === 1) {
-        console.log(`   Warp ${i}/42: Advancing time +4h... (~${Math.floor((i * 4) / 24)} days so far)`)
+    console.log('   Advancing 7 days total in batches (conservative recovery approach)...')
+
+    const WARP_PER_BATCH = 6; // Each batch = 6 × 4h = 24h = 1 day
+    const NUM_BATCHES = 7;    // 7 batches × 1 day = 7 days total
+
+    for (let batch = 1; batch <= NUM_BATCHES; batch++) {
+      console.log(`\n   Batch ${batch}/${NUM_BATCHES}: Advancing ${WARP_PER_BATCH * 4}h (1 day)...`)
+      for (let i = 1; i <= WARP_PER_BATCH; i++) {
+        try {
+          await env.optionsPage.clickTestAlarmButton(batch * WARP_PER_BATCH + i)
+        } catch (err) {
+          console.error(`   ❌ Alarm ${batch * WARP_PER_BATCH + i} failed:`, err instanceof Error ? err.message : err)
+          // Longer recovery time on error
+          await new Promise(resolve => setTimeout(resolve, 2000))
+          // Retry once on error
+          await env.optionsPage.clickTestAlarmButton(batch * WARP_PER_BATCH + i)
+        }
+        // Delay between warps to allow service worker to process each alarm
+        await new Promise(resolve => setTimeout(resolve, 800))
       }
-      await options.clickTestAlarmButton(400)
+      // Extended pause between batches for full service worker recovery
+      if (batch < NUM_BATCHES) {
+        console.log(`   ⏸️  Batch ${batch} complete, pausing ${3000}ms for full service worker recovery...`)
+        await new Promise(resolve => setTimeout(resolve, 3000))
+      }
     }
-    console.log('   ✓ Total time advanced: ~7 days (168 hours)')
+    console.log('\n   ✓ Total time advanced: 7 days (168 hours in batches)')
     console.log('   ✓ Tabs should have aged and MOVED to older groups!')
 
     // Step 4b: Also trigger the backup alarm (+1h hourly backup)
@@ -126,7 +142,7 @@ test.describe('TestAlarmButton: +4h Warp & Grouping', () => {
     console.log('\nStep 4b: Triggering backup alarm (+1h hourly backup)...')
     console.log('   When 24h alarm fires: both grouping AND backup should happen')
     try {
-      const backupResult = await options.page.evaluate(async () => {
+      await env.optionsPage.page.evaluate(async () => {
         return new Promise<any>((resolve, reject) => {
           chrome.runtime.sendMessage(
             {
@@ -153,7 +169,7 @@ test.describe('TestAlarmButton: +4h Warp & Grouping', () => {
 
       // Step 4c: Verify backup was actually created in storage
       console.log('\nStep 4c: Verifying backup was saved to storage...')
-      const backupData = await options.page.evaluate(async () => {
+      const backupData = await env.optionsPage.page.evaluate(async () => {
         const storage = await chrome.storage.local.get('archivum:tab_backup')
         return storage['archivum:tab_backup']
       })
@@ -170,13 +186,13 @@ test.describe('TestAlarmButton: +4h Warp & Grouping', () => {
 
     // Step 5: Verify tabs after warp
     console.log('\nStep 5: Verifying tab grouping after warp...')
-    let tabsAfter = await options.queryAllTabs(true)
+    const tabsAfter = await env.optionsPage.queryAllTabs(true)
     console.log(`   ✓ Final tab count: ${tabsAfter.length} (should match initial ${tabsBefore.length})`)
     expect(tabsAfter.length).toBe(tabsBefore.length)
 
     // Step 6: Verify groups AFTER time warp
     console.log('\nStep 6: Verifying groups AFTER time warp...')
-    let groupsAfter = await options.getAllGroups()
+    const groupsAfter = await env.optionsPage.getAllGroups()
 
     console.log(`   Groups AFTER time warp:`)
     groupsAfter.forEach((group, idx) => {
@@ -240,7 +256,6 @@ test.describe('TestAlarmButton: +4h Warp & Grouping', () => {
         console.log(`   groups[${i}]: "${g.title}" → ${g.tabCount} tabs`)
       })
 
-
     // Step 9: Verify tab counts per group AFTER warp
     console.log('\nStep 9: Verifying tab counts per group AFTER time advancement...')
     groupsAfter.forEach((group, idx) => {
@@ -266,11 +281,7 @@ test.describe('TestAlarmButton: +4h Warp & Grouping', () => {
     expect(totalAfter).toBeGreaterThan(0)
     console.log(`   ✓ Grouping event fired and processed after each time warp`)
 
-
     console.log('\n✅ Test passed: Tabs aged ~7 days and moved to older groups!')
   })
 })
-
-
-
 

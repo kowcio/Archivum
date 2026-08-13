@@ -144,8 +144,8 @@
 <script setup lang="ts">
 import {computed, onMounted, ref} from 'vue'
 import {isDevEnv} from '@/constants'
-import {useAppStore} from '@/store/appStore.ts'
-import { mockOverrides } from '@/store/appStore'
+import {useStore} from '@/composables/useStore'
+import { StorageRepository } from '@/store'
 import { createProxyService } from '@webext-core/proxy-service'
 import {TabRow} from '@/entrypoints/options/models/TabRow.ts'
 import {AgeClassification} from '@/models/AgeClassification.ts'
@@ -159,14 +159,13 @@ import CloseAllTabsButton from '@/components/CloseAllTabsButton.vue'
 import RefreshButton from '@/components/RefreshButton.vue'
 import SortButton from '@/components/SortButton.vue'
 import BackupRestoreButton from "@/components/BackupRestoreButton.vue"
-import AutoCloseToggle from '@/components/AutoCloseToggle.vue'
 import type { BackgroundRPC } from '@/services/BackgroundRPC'
 
 // ⚠️ DEVELOPERS: createProxyService() returns type-safe proxy to background service worker
 // Replaces browser.runtime.sendMessage() with method calls - no string keys needed ✅
 const background = createProxyService<BackgroundRPC>('background')
 
-const appStore = useAppStore()
+const store = useStore()
 const filter = ref('')
 const selectedAgeGroup = ref<number | null>(null) // null = show all, 0 = Fresh, 1+ = threshold level
 const error = ref<string | null>(null)
@@ -189,7 +188,7 @@ const columns: {
     align: 'left',
     sortable: true,
     sort: (a, b) => a - b,
-    style: 'width: 25px'
+    style: 'width: 50px'
   },
   {name: 'actions', label: 'Actions', field: 'actions', align: 'left', style: 'width: 90px'},
   {name: 'thumbnail', label: 'Icon', field: 'thumbnail', align: 'left', style: 'width: 45px'},
@@ -203,16 +202,16 @@ const columns: {
     align: 'left',
     sortable: true,
     sort: (a, b) => a - b,
-    style: 'width: 60px'
+    style: 'width: 70px'
   },
 ]
 
 const tabRows = computed(() => {
   // ✅ Pass currentTime (fake time in dev mode) to make tabs age correctly
-  const rows = TabRow.fromTabs(tabs.value, appStore.thresholds.value, currentTime.value)
+  const rows = TabRow.fromTabs(tabs.value, store.thresholds.value, currentTime.value)
   let filtered = rows.map((row: any, i: number) => {
     const days = row.lastAccessDays ?? 0
-    const c = AgeClassification.fromDays(days, appStore.thresholds.value)
+    const c = AgeClassification.fromDays(days, store.thresholds.value)
     return {
       ...row,
       ordinal: i + 1, // Original position index (before filtering)
@@ -232,13 +231,13 @@ const tabRows = computed(() => {
 
 /** Available age group options for filter dropdown */
 const ageGroupOptions = computed(() => {
-  const thresholds = appStore.thresholds.value
+  const thresholds = store.thresholds.value
   const options: Array<{ label: string; value: number; color?: string }> = [
     { label: 'Fresh', value: 0, color: 'white' }
   ]
 
   // Add threshold levels with their colors
-  const active = thresholds.active()
+  const active = thresholds.activeThresholdLevels()
   active.forEach((level, idx) => {
     options.push({
       label: level.label,
@@ -271,7 +270,7 @@ function truncate(text: string, max: number): string {
  */
 async function applyMockOverridesToTabs(): Promise<void> {
   try {
-    const overridesObj = await mockOverrides.getValue()
+    const overridesObj = await StorageRepository.storage.mockOverrides.getValue()
     console.log('[App] Raw overrides from storage:', overridesObj, 'type:', typeof overridesObj)
 
     // ✅ FIX: Handle both numeric keys and string keys (WXT JSON serialization issue)
@@ -376,7 +375,7 @@ onMounted(() => {
   // ✅ NEW: Listen to mock overrides changes
   // When restore happens or mocks are created, overrides change in storage
   // Automatically refresh table to apply new overrides
-  mockOverrides.watch(() => {
+  StorageRepository.storage.mockOverrides.watch(() => {
     console.log('[App] Mock overrides changed → applying to table')
     applyMockOverridesToTabs()
   })
