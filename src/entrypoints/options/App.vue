@@ -6,7 +6,6 @@
       <div class="row items-center q-mt-sm q-gutter-md ">
 
         <GroupUngroup/>
-        <RefreshButton v-if="isDevEnv()" @refresh="onRefreshTabs" @error="(msg) => error = msg"/>
         <SortButton @sorted="refreshTabs" @error="(msg) => error = msg"/>
 
         <!-- Dev Buttons -->
@@ -153,7 +152,6 @@ import GroupUngroup from '@/components/GroupUngroup.vue'
 import MockButton from '@/components/MockButton.vue'
 import TestAlarmButton from '@/components/TestAlarmButton.vue'
 import CloseAllTabsButton from '@/components/CloseAllTabsButton.vue'
-import RefreshButton from '@/components/RefreshButton.vue'
 import SortButton from '@/components/SortButton.vue'
 import type { BackgroundRPC } from '@/services/BackgroundRPC'
 
@@ -319,11 +317,6 @@ async function refreshTabs(): Promise<void> {
   } catch (err) {
     error.value = `[GET_TABS_ERROR] ${err instanceof Error ? err.message : 'Failed to load tabs'}`
   }
-}
-
-/** Called by RefreshButton component — receives tabs from its internal sendMessage */
-function onRefreshTabs(newTabs: any[]): void {
-  tabs.value = newTabs
 }
 
 /** Called by TestAlarmButton component — alarm triggered successfully */
