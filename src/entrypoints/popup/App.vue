@@ -17,8 +17,6 @@
           @click="openOptionsPageFull"
         />
 
-        <SortButton @error="(msg) => console.error(msg)"/>
-
         <div class="q-mt-md">
           <AutoCloseToggle no-dialog />
         </div>
@@ -35,7 +33,6 @@ import {browser} from 'wxt/browser'
 import {isDevEnv} from '@/constants'
 import AppTitle from '@/components/Title.vue'
 import GroupUngroup from "@/components/GroupUngroup.vue";
-import SortButton from '@/components/SortButton.vue';
 import AutoCloseToggle from "@/components/AutoCloseToggle.vue";
 
 async function openOptionsPageFull(): Promise<void> {

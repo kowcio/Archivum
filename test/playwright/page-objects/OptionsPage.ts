@@ -22,7 +22,6 @@ import type { BackgroundRPC } from '@/services/BackgroundRPC';
 export class OptionsPage {
   private readonly groupTabsBtn: Locator;
   private readonly ungroupTabsBtn: Locator;
-  private readonly sortTabsBtn: Locator;
   // private readonly loadTabsBtn: Locator;
   private readonly closeAllTabsBtn: Locator;
   private readonly thresholdsConfig: Locator;
@@ -38,7 +37,6 @@ export class OptionsPage {
     // Button locators - note: IDs are dynamic based on isGrouped state
     // When not grouped: 'group-tabs-btn', when grouped: 'ungroup-tabs-btn'
     this.groupTabsBtn = page.getByTestId('group-tabs-btn');
-    this.sortTabsBtn = page.getByTestId('sort-tabs-by-domain');
     this.ungroupTabsBtn = page.getByTestId('ungroup-tabs-btn');
     // this.loadTabsBtn = page.getByTestId('btn-load-tabs');
     this.closeAllTabsBtn = page.getByTestId('btn-close-all-tabs');
@@ -238,23 +236,7 @@ export class OptionsPage {
       return await this.bg.openRandomTabInGroup(newTabGroup, index)
     }
 
-  /**
-   * Click "Sort by Domain" button and wait for sorting to complete.
-   * Polls until table is updated with sorted groups.
-   */
-  async clickSortTabs(): Promise<void> {
-    await this.sortTabsBtn.click();
-    // Wait for sorting to complete by verifying groups are still present
-    await expect.poll(
-      async () => {
-        const result = await this.getGroupAndTabData();
-        return result.groupsOrderedByIndex.length;
-      },
-      { timeout: 10_000, message: 'Tabs sorted by domain' }
-    ).toBeGreaterThan(0);
-  }
-
-    /**
+   /**
      * Set mock overrides for created tabs (backdated ages) via RPC messaging.
      * Call this AFTER creating mock tabs to set their lastAccessed timestamps.
      * Polls until overrides are applied and reflected in the tab data.

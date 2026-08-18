@@ -6,7 +6,6 @@
       <div class="row items-center q-mt-sm q-gutter-md ">
 
         <GroupUngroup/>
-        <SortButton @sorted="refreshTabs" @error="(msg) => error = msg"/>
 
         <!-- Dev Buttons -->
         <MockButton @mock-created="refreshTabs" v-if="isDevEnv()"/>
@@ -152,7 +151,6 @@ import GroupUngroup from '@/components/GroupUngroup.vue'
 import MockButton from '@/components/MockButton.vue'
 import TestAlarmButton from '@/components/TestAlarmButton.vue'
 import CloseAllTabsButton from '@/components/CloseAllTabsButton.vue'
-import SortButton from '@/components/SortButton.vue'
 import type { BackgroundRPC } from '@/services/BackgroundRPC'
 
 // ⚠️ DEVELOPERS: createProxyService() returns type-safe proxy to background service worker

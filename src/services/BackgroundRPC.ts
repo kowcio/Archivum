@@ -23,7 +23,6 @@ export const backgroundRPC = {
   updateTabByAge: (): Promise<number> => BackgroundTabService.updateTabByAge(),
   ungroupAllTabs: (): Promise<void> => BackgroundTabService.ungroupAllTabs(),
   hasPluginGroups: (): Promise<boolean> => BackgroundTabService.hasPluginGroups(),
-  sortGroupsByDomain: (): Promise<number> => BackgroundTabService.sortGroupsByDomain(),
   openRandomTabInGroup: (newTabGroup: boolean, index?: number): Promise<string> =>
     BackgroundTabService.openRandomTabInGroup(newTabGroup, index),
   closeOldestGroupTabs: (): Promise<number> => BackgroundTabService.autoCloseOldestGroupTabs(),
@@ -82,7 +81,6 @@ export const backgroundRPC = {
    storeGetThresholds: (): Promise<any> => StorageRepository.getStorageThresholds(),
    storeSetThresholds: (levels: any[], activeLevels: number): Promise<void> => StorageRepository.setThresholds(levels, activeLevels),
    storeSetAutoClose: (enabled: boolean): Promise<void> => StorageRepository.setAutoClose(enabled),
-   storeSetSortByDomain: (enabled: boolean): Promise<void> => StorageRepository.setSortByDomain(enabled),
 } as const
 
 // ⚠️ DEVELOPERS: Type assertion for createProxyService<typeof backgroundRPC>

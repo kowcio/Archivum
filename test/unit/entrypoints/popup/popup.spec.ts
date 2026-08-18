@@ -23,11 +23,6 @@ const GroupUngroupStub = {
   `,
 }
 
-// Stub for SortButton component
-const SortButtonStub = {
-  template: '<button data-testid="sort-tabs-by-domain">Sort</button>',
-}
-
 describe('Popup App.vue', () => {
   function createPage() {
     return mount(App, {
@@ -41,7 +36,6 @@ describe('Popup App.vue', () => {
         stubs: {
           AppTitle: true,
           GroupUngroup: GroupUngroupStub,
-          SortButton: SortButtonStub,
         },
       },
     })
