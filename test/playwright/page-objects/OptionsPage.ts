@@ -687,4 +687,25 @@ export class OptionsPage {
     async closeOldestGroupTabs(): Promise<number> {
       return await this.bg.closeOldestGroupTabs()
     }
+
+    /**
+     * Progress time forward by aging all current mock tabs by specified days.
+     * Calculates new lastAccessed timestamps (subtracts days) and applies via setMockOverrides.
+     * @param days - Number of days to age all mocks forward
+     */
+    async timeProgress(days: number): Promise<void> {
+     const result = await this.getGroupAndTabData();
+     const daysMs = days * 24 * 60 * 60 * 1000;
+
+     // Calculate new ages for all tabs by subtracting days
+     const newAges: Record<number, number> = {};
+     for (const tab of result.tabs) {
+       if (tab.id && tab.lastAccessed) {
+         newAges[tab.id] = tab.lastAccessed - daysMs;
+       }
+     }
+
+     // Apply the time progression via mock overrides
+     await this.setMockOverrides(newAges);
+    }
 }

@@ -67,59 +67,25 @@ test.describe('24h Alarm: Tab Age Progression to Older Groups', () => {
     expect(tabsBefore[4].title).toContain("Week+")
     expect(tabsBefore[4].tabCount).toBe(3)
 
-    // Phase 2: Get tab IDs and apply time progression (1 week older)
-    const tabIds = result.tabs
-      .filter(t => t.id && t.lastAccessed)
-      .map(t => t.id as number)
+    // Phase 2: Apply time progression and trigger 24h alarm
+    // Age all mocks by 1 week using the new timeProgress helper
+    // Trigger the 24h alarm which ungroups and regroups tabs by new ages
 
-    const weekMs = 7 * 24 * 60 * 60 * 1000
-
-    // Age all grouped tabs by 1 week
-    const phase2Ages: Record<number, number> = {}
-    for (const tabId of tabIds) {
-      const tab = result.tabs.find(t => t.id === tabId)
-      if (tab && tab.lastAccessed) {
-        phase2Ages[tabId] = tab.lastAccessed - weekMs
-      }
-    }
-
-
-
-    //rewrite this trigger alarm to etter handle tabs andadd 24h by default
-
-    await env.optionsPage.setMockOverrides(phase2Ages)
-
+    //WHEN
+    await env.optionsPage.timeProgress(7)
     const groupsCreated = await env.optionsPage.getBackgroundRPC().testTriggerAlarm24h()
 
-
-
-
-
-
-
-
-
-    console.log(`[24h Alarm Test] ✅ Alarm triggered: ${groupsCreated} groups active`)
-
-    let phase2Result: typeof result
-    try {
-      const getDataPromise = env.optionsPage.getGroupAndTabData()
-      const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('timeout')), 8000)
-      )
-      phase2Result = (await Promise.race([getDataPromise, timeoutPromise])) as typeof result
-    } catch {
-      console.log('⚠️  Data fetch timeout, skipping phase 2 assertions')
-      return
-    }
-
+    //THEN
     // Phase 2 Assertions - EXACT values only (never use toBeGreaterThan)
     const tabsAfter = await env.optionsPage.getAllGroups()
     const phase2GroupCount = tabsAfter.length
-    const phase2GroupedTabCount = phase2Result.groupedTabCount
+    expect(phase2GroupCount).toBe(5)
+
+
+    const phase2GroupedTabs = await env.optionsPage.getGroupedTabs()
+    const phase2GroupedTabCount = phase2GroupedTabs.length
 
     // Dynamic assertions - copy actual values from console logs above
-    expect(phase2GroupCount).toBe(5)
     expect(phase2GroupedTabCount).toBe(17)
 
     expect(tabsAfter[0].title).toContain("Hell!")
