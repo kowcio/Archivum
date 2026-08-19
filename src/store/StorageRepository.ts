@@ -282,6 +282,7 @@ export class StorageRepository {
 
   static async getThresholdLevels(): Promise<ThresholdLevel[]> {
     const appState = await this.getAppState()
+    if (!appState?.thresholds) return []
     return appState.thresholds.levels.slice(0, appState.thresholds.activeLevels)
   }
 }
