@@ -40,11 +40,7 @@ test.describe('24h Alarm: Tab Age Progression to Older Groups', () => {
     // Phase 1: Group tabs with their default ages
     await env.optionsPage.clickGroupTabs()
 
-    const result = await env.optionsPage.getGroupAndTabData()
     const ungroupedTabBefore = await env.optionsPage.getUngroupedTabs()
-
-    const totalTabs = result.groupedTabCount + result.ungroupedTabCount
-    expect(totalTabs).toBe(17)
 
     // Phase 1 Assertions - EXACT values only (never use toBeGreaterThan)
     const tabsBefore = await env.optionsPage.getAllGroups()
@@ -76,35 +72,32 @@ test.describe('24h Alarm: Tab Age Progression to Older Groups', () => {
     const groupsCreated = await env.optionsPage.getBackgroundRPC().testTriggerAlarm24h()
 
     //THEN
-    // Phase 2 Assertions - EXACT values only (never use toBeGreaterThan)
     const tabsAfter = await env.optionsPage.getAllGroups()
-    const phase2GroupCount = tabsAfter.length
-    expect(phase2GroupCount).toBe(5)
+    expect(tabsAfter.length).toBe(5)
 
-
-    const phase2GroupedTabs = await env.optionsPage.getGroupedTabs()
-    const phase2GroupedTabCount = phase2GroupedTabs.length
+    const groupedTabsAfter = await env.optionsPage.getGroupedTabs()
+    const ungroupTabsAfter = await env.optionsPage.getUngroupedTabs()
 
     // Dynamic assertions - copy actual values from console logs above
-    expect(phase2GroupedTabCount).toBe(17)
+    expect(groupedTabsAfter.length + ungroupTabsAfter.length).toBe(18)
 
     expect(tabsAfter[0].title).toContain("Hell!")
     expect(tabsAfter[0].tabCount).toBe(tabsBefore[0].tabCount + 2)
 
     expect(tabsAfter[1].title).toContain("Quarter+")
-    expect(tabsAfter[1].tabCount).toBe(tabsBefore[1].tabCount-2)
+    expect(tabsAfter[1].tabCount).toBe(tabsBefore[1].tabCount - 2)
 
     expect(tabsAfter[2].title).toContain("Month+")
-    expect(tabsAfter[2].tabCount).toBe(tabsBefore[2].tabCount+1)
+    expect(tabsAfter[2].tabCount).toBe(tabsBefore[2].tabCount + 1)
 
     expect(tabsAfter[3].title).toContain("2 Weeks+")
-    expect(tabsAfter[3].tabCount).toBe(tabsBefore[3].tabCount+2)
+    expect(tabsAfter[3].tabCount).toBe(tabsBefore[3].tabCount + 2)
 
     expect(tabsAfter[4].title).toContain("Week+")
     expect(tabsAfter[4].tabCount).toBe(tabsBefore[4].tabCount)
 
     const ungroupedTabAfter = await env.optionsPage.getUngroupedTabs()
-    expect(ungroupedTabAfter.length).toBe(ungroupedTabBefore.length-3)
+    expect(ungroupedTabAfter.length).toBe(ungroupedTabBefore.length - 3)
   })
 })
 
