@@ -30,7 +30,7 @@ jobs:
           npm_config_legacy_peer_deps: true
 
       - name: Prepare Playwright browsers
-        run: npx playwright install chromium
+        run: npx playwright install --with-deps chromium
 
       - name: Type check
         run: npm run type-check
@@ -46,7 +46,10 @@ jobs:
         run: npm run build
 
       - name: Create ZIP archives for distribution
-        run: npm run zip:all
+        run: |
+          npx wxt zip -b chrome --mv3
+          npx wxt zip -b firefox --mv3
+          npx wxt zip -b edge --mv3
 
       - name: Get version
         id: version
