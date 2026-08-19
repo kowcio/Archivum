@@ -62,8 +62,8 @@ test.describe('groupTabsByAge E2E', () => {
       expect(result.tabs[i].groupId).not.toBeUndefined();
 
       const groupTitle = result.groupsOrderedByIndex[i].title;
-      const matchesThreshold = thresholdTitles.some((label: string) => groupTitle.includes(label));
-      expect(matchesThreshold).toBe(true);
+      const titleMatchesActiveGroup = thresholdTitles.some((label: string) => groupTitle.includes(label));
+      expect(titleMatchesActiveGroup).toBe(true);
     }
 
     // Verify: Grouped tabs are first, ungrouped tabs at end
