@@ -279,4 +279,9 @@ export class StorageRepository {
       mockOverrides: this.mockOverrides,
     }
   }
+
+  static async getThresholdLevels(): Promise<ThresholdLevel[]> {
+    const appState = await this.getAppState()
+    return appState.thresholds.levels.slice(0, appState.thresholds.activeLevels)
+  }
 }

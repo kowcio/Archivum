@@ -53,10 +53,17 @@ test.describe('groupTabsByAge E2E', () => {
     expect(result.groupsOrderedByIndex[3].title).toContain('2 Weeks+');
     expect(result.groupsOrderedByIndex[4].title).toContain('Week+');
 
-    // Verify each group has valid id and title
+    const backgroundRPC = env.optionsPage.getBackgroundRPC();
+    const thresholds = (await backgroundRPC.storeGetThresholds().catch(() => null)) ?? { levels: [], activeLevels: 0 };
+    const thresholdTitles = thresholds.levels?.slice(0, thresholds.activeLevels).map((l: { label: string; }) => l.label);
+
     for (let i = 0; i < result.groupsOrderedByIndex.length; i++) {
       expect(result.tabs[i].groupId).not.toBe(-1);
       expect(result.tabs[i].groupId).not.toBeUndefined();
+
+      const groupTitle = result.groupsOrderedByIndex[i].title;
+      const matchesThreshold = thresholdTitles.some((label: string) => groupTitle.includes(label));
+      expect(matchesThreshold).toBe(true);
     }
 
     // Verify: Grouped tabs are first, ungrouped tabs at end
@@ -66,9 +73,6 @@ test.describe('groupTabsByAge E2E', () => {
     expect(groupedTabs.length).toBe(14);
     expect(ungroupedTabs.length).toBeGreaterThanOrEqual(2); // at least options page + fresh tabs
 
-    console.log(
-      `✅ PASSED: ${result.groupCount} groups (oldest→youngest left→right), ${ungroupedTabs.length} ungrouped tabs`
-    );
   });
 });
 
