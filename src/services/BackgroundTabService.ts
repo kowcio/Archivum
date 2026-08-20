@@ -158,6 +158,10 @@ export class BackgroundTabService {
       // This ensures clean slate when thresholds change or re-grouping happens
       await this.ungroupAllTabs()
 
+      // ⏳ Wait for browser to process ungrouping before regrouping
+      // This prevents race conditions where groups are partially created
+      await new Promise(resolve => setTimeout(resolve, 100))
+
       const rawTabs = await this.getTabs()
       const thresholds = await this.getThresholds()
       const currentTime = await getCurrentTime()

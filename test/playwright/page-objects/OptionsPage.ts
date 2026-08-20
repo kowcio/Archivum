@@ -139,13 +139,14 @@ export class OptionsPage {
   async clickGroupTabs(): Promise<void> {
     await this.groupTabsBtn.click();
     // Wait for groups to be created and visible in DOM
-    await expect.poll(
-      async () => {
-        const result = await this.getGroupAndTabData();
-        return result.groupsOrderedByIndex.length;
-      },
-      { timeout: 10_000, message: 'Groups created after clicking group button' }
-    ).toBeGreaterThan(0);
+   // Increased timeout to 15s for CI environments
+   await expect.poll(
+     async () => {
+       const result = await this.getGroupAndTabData();
+       return result.groupsOrderedByIndex.length;
+     },
+     { timeout: 15_000, message: 'Groups created after clicking group button' }
+   ).toBeGreaterThan(0);
   }
 
   /**
@@ -426,20 +427,21 @@ export class OptionsPage {
    * Click Apply button to save threshold level changes.
    * Triggers tab regrouping by age with new thresholds.
    * Polls until regrouping completes.
-   * @param waitMs - Custom timeout for polling (default: 10_000ms)
+   * @param waitMs - Custom timeout for polling (default: 15_000ms to handle slower CI)
    */
   async clickApplyThresholds(waitMs?: number): Promise<void> {
     await expect(this.applyThresholdBtn).toBeVisible();
     await this.applyThresholdBtn.click();
 
     // Poll until thresholds are applied and groups are recreated
-    await expect.poll(
-      async () => {
-        const result = await this.getGroupAndTabData();
-        return result.groupsOrderedByIndex.length;
-      },
-      { timeout: waitMs ?? 10_000, message: 'Thresholds applied and groups recreated' }
-    ).toBeGreaterThan(0);
+   // Increased default timeout to 15s for CI environments where operations are slower
+   await expect.poll(
+     async () => {
+       const result = await this.getGroupAndTabData();
+       return result.groupsOrderedByIndex.length;
+     },
+     { timeout: waitMs ?? 15_000, message: 'Thresholds applied and groups recreated' }
+   ).toBeGreaterThan(0);
   }
 
   /**

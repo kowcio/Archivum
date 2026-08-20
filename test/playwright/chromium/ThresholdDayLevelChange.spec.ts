@@ -59,10 +59,16 @@ test.describe('Threshold Day Levels', () => {
         // After changing threshold, tabs are automatically regrouped with new thresholds
         // The button changes from "group-tabs-btn" to "ungroup-tabs-btn"
         // So we need to ungroup first, then re-group to apply the new threshold logic
-        await env.optionsPage.page.getByTestId('ungroup-tabs-btn').click();
+        const ungroupBtn = env.optionsPage.page.getByTestId('ungroup-tabs-btn');
+        await ungroupBtn.waitFor({ state: 'visible', timeout: 15_000 });
+        await ungroupBtn.click();
 
         // Wait for tabs to be ungrouped
-        await env.optionsPage.page.waitForTimeout(1000);
+        await env.optionsPage.page.waitForTimeout(500);
+
+        // Wait for group button to appear and be clickable
+        const groupBtn = env.optionsPage.page.getByTestId('group-tabs-btn');
+        await groupBtn.waitFor({ state: 'visible', timeout: 15_000 });
 
         // Now group again with new thresholds
         await env.optionsPage.clickGroupTabs()
