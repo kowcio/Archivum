@@ -12,8 +12,8 @@
  * See copilot-instructions.md line 74: "Test assertions — NEVER use >, <, toBeGreaterThan()..."
  */
 
-import { test, expect } from '@playwright/test'
-import { TestEnvironment } from './chromium/extensions.js'
+import {test, expect} from '@playwright/test'
+import {TestEnvironment} from './chromium/extensions.js'
 
 test.describe('24h Alarm: Tab Age Progression to Older Groups', () => {
   let env: TestEnvironment
@@ -39,105 +39,65 @@ test.describe('24h Alarm: Tab Age Progression to Older Groups', () => {
 
     // Phase 1: Group tabs with their default ages
     await env.optionsPage.clickGroupTabs()
-    const result = await env.optionsPage.getGroupAndTabData()
 
-    // ⚠️ CRITICAL: Verify exactly 16 mock tabs + 1 pre-existing = 17 total before grouping assertions
-    const totalTabs = result.groupedTabCount + result.ungroupedTabCount
-    console.log(`Total tabs: ${totalTabs} (grouped: ${result.groupedTabCount}, ungrouped: ${result.ungroupedTabCount})`)
-    expect(totalTabs).toBe(17)
+    const ungroupedTabBefore = await env.optionsPage.getUngroupedTabs()
 
     // Phase 1 Assertions - EXACT values only (never use toBeGreaterThan)
     const tabsBefore = await env.optionsPage.getAllGroups()
 
-    const phase1GroupCount = tabsBefore.length
-    const phase1GroupedTabCount = result.groupedTabCount
+    const hellGroupIndex = tabsBefore.findIndex(g => g.title.includes("Hell!"))
+    console.log("Hell! group index:", hellGroupIndex)
 
-    console.log(`Phase 1 (original mocks): ${phase1GroupCount} groups, grouped = ${result.groupedTabCount}  ungrouped = ${result.ungroupedTabCount} of all tabs`)
+    expect(tabsBefore[0].title).toContain("Hell!")
+    expect(tabsBefore[0].tabCount).toBe(4)
 
-    // Verify basic grouping state with default mock ages
-    expect(phase1GroupCount).toBe(5)
-    expect(phase1GroupedTabCount).toBe(14)
+    expect(tabsBefore[1].title).toContain("Quarter+")
+    expect(tabsBefore[1].tabCount).toBe(4)
 
-     // Verify groups are returned in visual order (getAllGroups() sorts by browser visual index)
-      console.log(`\nPhase 1 Visual Order Verification (Oldest→Left to Youngest→Right):`)
+    expect(tabsBefore[2].title).toContain("Month+")
+    expect(tabsBefore[2].tabCount).toBe(1)
 
-       // Find the "Hell!" group at index 0 (oldest, leftmost)
-       const hellGroupIndex = tabsBefore.findIndex(g => g.title.includes("Hell!"))
-       console.log("Hell! group index:", hellGroupIndex)
+    expect(tabsBefore[3].title).toContain("2 Weeks+")
+    expect(tabsBefore[3].tabCount).toBe(2)
 
-         expect(tabsBefore[0].title).toContain("Hell!")
-         expect(tabsBefore[0].tabCount).toBe(4)
+    expect(tabsBefore[4].title).toContain("Week+")
+    expect(tabsBefore[4].tabCount).toBe(3)
 
-         expect(tabsBefore[1].title).toContain("Quarter+")
-         expect(tabsBefore[1].tabCount).toBe(4)
+    // Phase 2: Apply time progression and trigger 24h alarm
+    // Age all mocks by 1 week using the new timeProgress helper
+    // Trigger the 24h alarm which ungroups and regroups tabs by new ages
 
-        expect(tabsBefore[2].title).toContain("Month+")
-        expect(tabsBefore[2].tabCount).toBe(1)
+    //WHEN
+    await env.optionsPage.timeProgress(7)
+    const groupsCreated = await env.optionsPage.getBackgroundRPC().testTriggerAlarm24h()
 
-         expect(tabsBefore[3].title).toContain("2 Weeks+")
-         expect(tabsBefore[3].tabCount).toBe(2)
+    //THEN
+    const tabsAfter = await env.optionsPage.getAllGroups()
+    expect(tabsAfter.length).toBe(5)
 
-         expect(tabsBefore[4].title).toContain("Week+")
-         expect(tabsBefore[4].tabCount).toBe(3)
+    const groupedTabsAfter = await env.optionsPage.getGroupedTabs()
+    const ungroupTabsAfter = await env.optionsPage.getUngroupedTabs()
 
-    // Phase 2: Get tab IDs and apply time progression (1 week older)
-    const tabIds = result.tabs
-      .filter(t => t.id && t.lastAccessed)
-      .map(t => t.id as number)
+    // Dynamic assertions - copy actual values from console logs above
+    expect(groupedTabsAfter.length + ungroupTabsAfter.length).toBe(18)
 
-    const weekMs = 7 * 24 * 60 * 60 * 1000
+    expect(tabsAfter[0].title).toContain("Hell!")
+    expect(tabsAfter[0].tabCount).toBe(tabsBefore[0].tabCount + 2)
 
-    // Age all grouped tabs by 1 week
-    const phase2Ages: Record<number, number> = {}
-    for (const tabId of tabIds) {
-      const tab = result.tabs.find(t => t.id === tabId)
-      if (tab && tab.lastAccessed) {
-        phase2Ages[tabId] = tab.lastAccessed - weekMs
-      }
-    }
+    expect(tabsAfter[1].title).toContain("Quarter+")
+    expect(tabsAfter[1].tabCount).toBe(tabsBefore[1].tabCount - 2)
 
-    // Apply overrides and regroup (clicking these methods handles polling internally)
-    await env.optionsPage.setMockOverrides(phase2Ages)
-    await env.optionsPage.clickUngroupTabs()
-    await env.optionsPage.clickGroupTabs()
+    expect(tabsAfter[2].title).toContain("Month+")
+    expect(tabsAfter[2].tabCount).toBe(tabsBefore[2].tabCount + 1)
 
-    let phase2Result: typeof result
-    try {
-      const getDataPromise = env.optionsPage.getGroupAndTabData()
-      const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('timeout')), 8000)
-      )
-      phase2Result = (await Promise.race([getDataPromise, timeoutPromise])) as typeof result
-    } catch {
-      console.log('⚠️  Data fetch timeout, skipping phase 2 assertions')
-      return
-    }
+    expect(tabsAfter[3].title).toContain("2 Weeks+")
+    expect(tabsAfter[3].tabCount).toBe(tabsBefore[3].tabCount + 2)
 
-     // Phase 2 Assertions - EXACT values only (never use toBeGreaterThan)
-     const tabsAfter = await env.optionsPage.getAllGroups()
-     const phase2GroupCount = tabsAfter.length
-     const phase2GroupedTabCount = phase2Result.groupedTabCount
+    expect(tabsAfter[4].title).toContain("Week+")
+    expect(tabsAfter[4].tabCount).toBe(tabsBefore[4].tabCount)
 
-     console.log(`Phase 2 (after 1 week): ${phase2GroupCount} groups, ${phase2GroupedTabCount} grouped tabs`)
-
-     // Check each group explicitly by index and sorted order
-     console.log(`\nPhase 2 Group Details:`)
-     tabsAfter.forEach((g, i) => {
-       console.log(`  [${i}] "${g.title}" - ID: ${g.id}, Tab Count: ${g.tabCount}`)
-     })
-
-      // Verify groups are returned in visual order (getAllGroups() sorts by browser visual index)
-     console.log(`\nPhase 2 Visual Order Verification (Oldest→Left to Youngest→Right):`)
-     const expectedOrder2 = ["Hell!", "Quarter+", "Month+", "2 Weeks+", "Week+"]
-     tabsAfter.forEach((g, i) => {
-       const position = i === 0 ? 'Leftmost (Oldest)' : i === tabsAfter.length - 1 ? 'Rightmost (Youngest)' : 'Middle'
-       console.log(`  Position ${i} [${position}]: "${g.title}" ✓ matches expected "${expectedOrder2[i]}"`)
-     })
-
-       // Dynamic assertions - copy actual values from console logs above
-       expect(phase2GroupCount).toBe(5)
-       expect(phase2GroupedTabCount).toBe(17)
-
+    const ungroupedTabAfter = await env.optionsPage.getUngroupedTabs()
+    expect(ungroupedTabAfter.length).toBe(ungroupedTabBefore.length - 3)
   })
 })
 

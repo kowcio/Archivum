@@ -8,9 +8,9 @@
 
 import type { Browser } from 'wxt/browser'
 import { BackgroundTabService } from '@/services/BackgroundTabService'
-import { BackupService, type Backup } from '@/services/BackupService'
 import { StorageRepository } from '@/store'
 import { addTimeOffset } from '@/utils/testTime'
+import type {ThresholdLevel} from "@/constants.ts";
 
 /**
  * ⚠️ DEVELOPERS: This object MUST have async methods (even if they don't need to be)
@@ -24,7 +24,6 @@ export const backgroundRPC = {
   updateTabByAge: (): Promise<number> => BackgroundTabService.updateTabByAge(),
   ungroupAllTabs: (): Promise<void> => BackgroundTabService.ungroupAllTabs(),
   hasPluginGroups: (): Promise<boolean> => BackgroundTabService.hasPluginGroups(),
-  sortGroupsByDomain: (): Promise<number> => BackgroundTabService.sortGroupsByDomain(),
   openRandomTabInGroup: (newTabGroup: boolean, index?: number): Promise<string> =>
     BackgroundTabService.openRandomTabInGroup(newTabGroup, index),
   closeOldestGroupTabs: (): Promise<number> => BackgroundTabService.autoCloseOldestGroupTabs(),
@@ -62,6 +61,7 @@ export const backgroundRPC = {
     createMockTabs: (useReal: boolean = true): Promise<Browser.tabs.Tab[]> => BackgroundTabService.createMockTabs(useReal),
     setMockOverrides: (overrides: Record<number, number>): Promise<void> => StorageRepository.setMockOverrides(overrides),
     getMockOverrides: (): Promise<Record<number, number> | undefined> => StorageRepository.getMockOverrides(),
+    getThresholdLevels: async (): Promise<ThresholdLevel[]> => await StorageRepository.getThresholdLevels(),
 
    // 🧪 DEV-ONLY: Test alarm triggering (warp time simulation)
    testTriggerAlarm24h: (): Promise<number> => BackgroundTabService.testTriggerAlarm24h(),
@@ -77,17 +77,12 @@ export const backgroundRPC = {
      oldestGroupInfo?: { id: number; title: string };
    }> => BackgroundTabService.getDiagnostics(),
 
-   // ── Backup & restore ─────────────────────────────────────────────────
-   backupTabs: (): Promise<Backup> => BackupService.backupTabs(),
-   restoreTabs: (): Promise<void> => BackupService.restoreTabs(),
-
    // ── Store operations (config/settings) ────────────────────────────────
    // Prefixed with "store" for clarity that these are config methods
    storeGetAppState: (): Promise<any> => StorageRepository.getAppState(),
    storeGetThresholds: (): Promise<any> => StorageRepository.getStorageThresholds(),
    storeSetThresholds: (levels: any[], activeLevels: number): Promise<void> => StorageRepository.setThresholds(levels, activeLevels),
    storeSetAutoClose: (enabled: boolean): Promise<void> => StorageRepository.setAutoClose(enabled),
-   storeSetSortByDomain: (enabled: boolean): Promise<void> => StorageRepository.setSortByDomain(enabled),
 } as const
 
 // ⚠️ DEVELOPERS: Type assertion for createProxyService<typeof backgroundRPC>
