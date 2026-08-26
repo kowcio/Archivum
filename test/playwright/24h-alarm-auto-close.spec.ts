@@ -8,7 +8,7 @@ test.describe('24h Alarm: Auto-Close Feature', () => {
 
   test.beforeAll(async () => {
     env = await TestEnvironment.create(false, 120_000)
-    await env.optionsPage.goto(env.extensionId)
+    await env.optionsPage.gotoOptionsPage(env.extensionId)
     await env.optionsPage.expectPageLoaded()
     expect((await env.optionsPage.clickLoadMockTabs()).ok).toBe(true)
   })

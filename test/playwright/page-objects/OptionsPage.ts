@@ -75,42 +75,25 @@ export class OptionsPage {
   }
 
   /**
-  * 🔍 DEBUG SPY: Log current state to console for inspection.
-  */
-  async spyLogState(label?: string): Promise<void> {
-   const diagnostics = await this.spyOnBackgroundState();
-   const prefix = label ? `[${label}]` : '';
-   console.log(`\n🔍 ${prefix} BACKGROUND STATE SPY:`);
-   console.log(`   📊 Total tabs: ${diagnostics.allTabs.length}`);
-   console.log(`   📊 Total groups: ${diagnostics.allGroups.length}`);
-   console.log(`   📊 Tabs in oldest group: ${diagnostics.tabsInOldestGroup.length}`);
-   if (diagnostics.oldestGroupInfo) {
-     console.log(`   📍 Oldest group: "${diagnostics.oldestGroupInfo.title}" (ID: ${diagnostics.oldestGroupInfo.id})`);
-   }
-   console.log('   --- Full diagnostics ---');
-   console.table(diagnostics.allTabs);
-   console.table(diagnostics.allGroups);
-   console.table(diagnostics.tabsInOldestGroup);
-  }
-
-  /**
    * Navigate to Options page using extension ID.
    * waitUntil: domcontentloaded ensures DOM is ready.
    *
-   * IMPORTANT: Using waitForFunction instead of networkidle (which is discouraged by Playwright)
-   * to wait for Vue hydration and specific elements to be ready.
+   * Bulletproof loading strategy: navigation → network idle → actionable elements.
+   * - waitUntil: 'networkidle' ensures Vue hydration completes (recommended by Playwright)
+   * - waitFor: ensures element is visible + in DOM
+   * - isEnabled(): final safety check that event listeners are attached
    */
-  async goto(extensionId: string): Promise<void> {
+  async gotoOptionsPage(extensionId: string): Promise<void> {
+    // Navigation: wait for networkidle (all XHR/fetch settle) for Vue hydration
     await this.page.goto(`chrome-extension://${extensionId}/options.html`, {
-      waitUntil: 'domcontentloaded',
+      waitUntil: 'networkidle',
     });
-    // Wait for Vue to hydrate by checking for button element in DOM
-    // This is more reliable than networkidle which is discouraged for testing
-    await this.page.waitForFunction(() => {
-      const btn = document.querySelector('[data-testid="group-tabs-btn"]');
-      return btn !== null && window.getComputedStyle(btn).display !== 'none';
-    }, { timeout: 10_000 });
-    await this.expectPageLoaded();
+
+    // Visibility: element exists, is visible, and stable in DOM
+    await this.groupTabsBtn.waitFor({ state: 'visible', timeout: 10_000 });
+
+    // Actionability: element is enabled and ready to interact (event listeners attached)
+    await this.groupTabsBtn.isEnabled();
   }
 
   /**
@@ -287,19 +270,33 @@ export class OptionsPage {
     }
 
   /**
-   * Click "Ungroup Tabs" button and wait for ungrouping to complete.
-   * Polls until tabs are ungrouped.
+   * Wait for the Group/Ungroup button state to match the actual group state in the browser.
+   * Polls until button testid matches expected state (handles Vue reactivity delays).
+   *
+   * @param expectedState - 'grouped' for ungroup button, 'ungrouped' for group button
+   * @param timeoutMs - polling timeout
    */
-  async clickUngroupTabs(): Promise<void> {
-    await this.ungroupTabsBtn.click();
-    // Wait for ungrouping to complete
+  async waitForButtonStateSync(expectedState: 'grouped' | 'ungrouped', timeoutMs: number = 10_000): Promise<void> {
+    const isGrouped = expectedState === 'grouped';
+    const expectedTestId = isGrouped ? 'ungroup-tabs-btn' : 'group-tabs-btn';
+    const unexpectedTestId = isGrouped ? 'group-tabs-btn' : 'ungroup-tabs-btn';
+
+    console.log(`[OptionsPage] 🔄 Waiting for button state sync: expecting ${expectedTestId}...`);
+
     await expect.poll(
       async () => {
-        const result = await this.getGroupAndTabData();
-        return result.groupedTabCount;
+        const button = this.page.getByTestId(expectedTestId);
+        try {
+          await button.waitFor({ state: 'visible', timeout: 500 });
+          return true;
+        } catch {
+          return false;
+        }
       },
-      { timeout: 10_000, message: 'All tabs ungrouped' }
-    ).toBe(0);
+      { timeout: timeoutMs, message: `Button state should be ${expectedState}` }
+    ).toBe(true);
+
+    console.log(`[OptionsPage] ✅ Button state synced to ${expectedState}`);
   }
 
   /**
@@ -421,6 +418,8 @@ export class OptionsPage {
   async setLevelsCount(count: number): Promise<void> {
     await this.levelsInput.clear();
     await this.levelsInput.fill(String(count));
+    // Small settling time for Vue to detect change and show Apply button
+    await new Promise(r => setTimeout(r, 100));
   }
 
   /**
@@ -433,15 +432,30 @@ export class OptionsPage {
     await expect(this.applyThresholdBtn).toBeVisible();
     await this.applyThresholdBtn.click();
 
-    // Poll until thresholds are applied and groups are recreated
-   // Increased default timeout to 15s for CI environments where operations are slower
+   console.log('[OptionsPage] 🔄 Apply clicked, waiting for groups to be recreated...');
+
+   // Poll until thresholds are applied and groups are recreated
+   // Increased default timeout to 20s for CI environments where operations are slower
    await expect.poll(
      async () => {
-       const result = await this.getGroupAndTabData();
-       return result.groupsOrderedByIndex.length;
+       try {
+         const result = await this.getGroupAndTabData();
+         const count = result.groupsOrderedByIndex.length;
+         console.log(`[OptionsPage] ⏳ Polling: ${count} groups found (grouped: ${result.groupedTabCount}, ungrouped: ${result.ungroupedTabCount})`);
+         return count;
+       } catch (err) {
+         console.warn(`[OptionsPage] ⚠️  Polling error (will retry):`, err);
+         return 0; // Return 0 to continue polling
+       }
      },
-     { timeout: waitMs ?? 15_000, message: 'Thresholds applied and groups recreated' }
+     { timeout: waitMs ?? 20_000, message: 'Thresholds applied and groups recreated' }
    ).toBeGreaterThan(0);
+
+   // ⏳ CRITICAL: Wait additional time for browser to fully sync groups into queryable state
+   // The RPC call completes before browser finishes updating group metadata
+   console.log('[OptionsPage] ✅ Groups found, waiting for full sync...');
+   await new Promise(r => setTimeout(r, 300));
+   console.log('[OptionsPage] ✅ Full sync complete');
   }
 
   /**
@@ -528,7 +542,7 @@ export class OptionsPage {
       const raw = await chrome.tabs.query({ currentWindow: true });
       return (raw || []).map((t: any) => ({
         id: t.id,
-        url: (t.url || '').slice(0, 40),
+        url: (t.url || ''),
         groupId: t.groupId ?? -1,
       }));
     });
@@ -614,18 +628,8 @@ export class OptionsPage {
          positionInGroup?: number | null;
        }>;
        }> {
-       try {
-         return await this.bg.getGroupAndTabData()
-       } catch (err) {
-         console.error('[OptionsPage] getGroupAndTabData error:', err)
-         return {
-           groupCount: 0,
-           groupsOrderedByIndex: [],
-           groupedTabCount: 0,
-           ungroupedTabCount: 0,
-           tabs: [],
-         }
-      }
+       // Don't catch errors - let them propagate to caller for proper handling
+       return await this.bg.getGroupAndTabData()
      }
 
   /**

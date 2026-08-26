@@ -63,7 +63,6 @@ export class BackgroundTabService {
         .query({windowId: (browser.windows as any).WINDOW_ID_CURRENT})
       // ✅ Safety filter: remove groups without id (shouldn't happen but defensive)
 
-      console.log(`[BackgroundTabService] Queried ${allGroups.length} groups, filtering for valid plugin groups...`)
       const validGroups = allGroups.filter((g: any) => g.id != null)
       validGroups.sort((a: any, b: any) => (a.index ?? -1) - (b.index ?? -1))
 
@@ -73,9 +72,11 @@ export class BackgroundTabService {
       // Filter: keep only plugin-created groups
       // ✅ Simplified: check if title STARTS WITH any threshold label
       // This avoids fragile regex and handles edge cases (empty groups, malformed titles)
-      return validGroups.filter((group: any) =>
-        this.getPluginGroupTitles().some(title => group.title.startsWith(title))
+      const pluginTitles = this.getPluginGroupTitles()
+      const filtered = validGroups.filter((group: any) =>
+        pluginTitles.some(title => group.title.startsWith(title))
       )
+      return filtered
     } catch (err) {
       console.warn('[BackgroundTabService] ⚠️ Failed to query plugin groups:', err)
       return []
@@ -160,7 +161,7 @@ export class BackgroundTabService {
 
       // ⏳ Wait for browser to process ungrouping before regrouping
       // This prevents race conditions where groups are partially created
-      await new Promise(resolve => setTimeout(resolve, 100))
+      await new Promise(resolve => setTimeout(resolve, 200))
 
       const rawTabs = await this.getTabs()
       const thresholds = await this.getThresholds()
@@ -232,6 +233,12 @@ export class BackgroundTabService {
         } catch (err) {
           console.error(`[BackgroundTabService] Failed to create group "${activeLevels[i].label}":`, err)
         }
+      }
+
+      // ⏳ CRITICAL: Wait for browser to fully sync groups after creation
+      // Without this, rapid getGroupAndTabData() calls may return stale/empty group list
+      if (groupsCreated > 0) {
+        await new Promise(resolve => setTimeout(resolve, 150))
       }
 
       return groupsCreated

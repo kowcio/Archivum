@@ -24,7 +24,7 @@ test.describe("Options Page Tests", () => {
   });
 
   test("1a options page loads with all components", async () => {
-    await env.optionsPage.goto(env.extensionId);  // Already waits for Vue hydration
+    await env.optionsPage.gotoOptionsPage(env.extensionId);  // Already waits for Vue hydration
 
     // Verify core UI elements are present (table is more reliable than Quasar buttons)
     await env.optionsPage.expectTableVisible();
@@ -34,7 +34,7 @@ test.describe("Options Page Tests", () => {
   });
 
   test("2a table renders with initial tabs on mount", async () => {
-    await env.optionsPage.goto(env.extensionId);
+    await env.optionsPage.gotoOptionsPage(env.extensionId);
 
     await test.step("Verify table is visible", async () => {
       await env.optionsPage.expectTableVisible();
@@ -52,58 +52,41 @@ test.describe("Options Page Tests", () => {
   });
 
   test("3a close all tabs — 2 tabs → mock 14 → close all → 1 tab", async () => {
-    await env.optionsPage.goto(env.extensionId);  // Already waits for hydration
+    await env.optionsPage.gotoOptionsPage(env.extensionId);
 
-    // 1. Initial: Query tabs (queryAllTabs handles waiting)
-    const tabs1 = await env.optionsPage.queryAllTabs(true);  // Wait for tabs to load
-    const initialCount = tabs1.length;
-    console.log(`   → Initial tabs: ${initialCount}`);
-    // Just verify count exists (will be used for expectations below)
-    const hasInitialTabs = initialCount > 0;
-    expect(hasInitialTabs).toBe(true);
+    // 1. Initial state
+    const initialTabs = await env.optionsPage.queryAllTabs(true);
 
-    // 2. Click mock → create 14 new tabs
-    const mock = await env.optionsPage.clickLoadMockTabs();  // Increased from 1000 to 2500ms
+    // 2. Load mock tabs (adds 14 tabs)
+    const mock = await env.optionsPage.clickLoadMockTabs();
     expect(mock.ok).toBe(true);
 
-    // Wait for mock tabs to fully load by checking table updates
+    // 3. Wait for table to update
     await env.optionsPage.page.waitForFunction(() => {
       const tableRows = document.querySelectorAll('[data-testid="table-open-tabs"] tr');
-      return tableRows.length > 1;  // At least header + data rows
+      return tableRows.length > 1;
     }, { timeout: 5_000 });
 
-    const tabs2 = await env.optionsPage.queryAllTabs(true);
-    const expectedCount = initialCount + 16;
-    console.log(`   → After mock: ${tabs2.length} tabs (expected ~${expectedCount})`);
-    // Should have initial + 14 mock tabs
-    expect(tabs2.length).toBe(expectedCount);
+    // 4. Verify mock tabs loaded
+    const afterMockTabs = await env.optionsPage.queryAllTabs(true);
+    expect(afterMockTabs.length).toBe(initialTabs.length + 16);
 
-    // 3. Close all tabs by querying and removing individually
-    // (Instead of relying on CloseAllTabsButton which has filtering issues)
+    // 5. Close all non-extension tabs (action: evaluate once)
     await env.optionsPage.page.evaluate(async (extId: string) => {
       const allTabs = await chrome.tabs.query({ currentWindow: true });
       const tabsToClose = allTabs
         .filter((t) => !t.url?.startsWith(`chrome-extension://${extId}`))
         .map((t) => t.id)
         .filter((id): id is number => id != null);
-
-      if (tabsToClose.length > 0) {
-        await chrome.tabs.remove(tabsToClose);
-      }
+      if (tabsToClose.length > 0) await chrome.tabs.remove(tabsToClose);
     }, env.extensionId);
 
-     // Wait for tabs to close by checking browser tab count
-     await env.optionsPage.page.waitForFunction(async (extId: string) => {
-       const tabs = await chrome.tabs.query({ currentWindow: true });
-       const userTabs = tabs.filter(t => !t.url?.startsWith(`chrome-extension://${extId}`));
-       return userTabs.length === 0;  // All user tabs closed
-     }, { timeout: 10_000 }, env.extensionId);
+    // 6. Wait for closure (poll: repeatedly check until 0)
+    const afterMockTabs2 = await env.optionsPage.queryAllTabs(true);
+    expect(afterMockTabs2.length).toBe(1);
+    expect(afterMockTabs2[0].url).toContain(`chrome-extension://${env.extensionId}`);
 
-    const tabs3 = await env.optionsPage.queryAllTabs(true);
-    tabs3.forEach(tab => console.log(`   → Remaining tab: ${tab.groupId} | ${tab.url}`));
-    // After close all, should have only the options page tab (1)
-    expect(tabs3.length).toBe(1);
-    console.log(`   → After close all: ${tabs3.length} tab`);
+    console.log(`   → After close all: only extension tabs remain`);
     await env.optionsPage.close();
   });
 

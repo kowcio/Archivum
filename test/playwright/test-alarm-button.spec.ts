@@ -23,7 +23,7 @@ test.describe('TestAlarmButton: +4h Warp & Grouping', () => {
 
   test.beforeAll('Setup: launch Chrome context with extension', async () => {
     env = await TestEnvironment.create(false, 120_000)
-    await env.optionsPage.goto(env.extensionId)
+    await env.optionsPage.gotoOptionsPage(env.extensionId)
     await env.optionsPage.expectPageLoaded()
   })
 

@@ -25,7 +25,7 @@ test.describe('groupTabsByAge E2E', () => {
   test('Load options, click mock, group tabs, verify groups and ungrouped tabs', async () => {
 
     // Load options page
-    await env.optionsPage.goto(env.extensionId);
+    await env.optionsPage.gotoOptionsPage(env.extensionId);
     await env.optionsPage.expectPageLoaded();
 
     // Close any existing tabs first (to have clean slate with only 1 tab = options page)

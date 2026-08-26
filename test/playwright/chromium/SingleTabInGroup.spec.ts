@@ -17,7 +17,7 @@ test.describe("Options Page Tests", () => {
   });
 
   test("Single tab is left in one of our groups after click it should be ungrouped.", async () => {
-    await env.optionsPage.goto(env.extensionId);
+    await env.optionsPage.gotoOptionsPage(env.extensionId);
 
     // 1. Create mock tabs (14 tabs with varying ages from 1 to 367 days)
     const resp = await env.optionsPage.clickLoadMockTabs(1000);
