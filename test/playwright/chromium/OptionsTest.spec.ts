@@ -29,6 +29,7 @@ test.describe("Options Page Tests", () => {
     // Verify core UI elements are present (table is more reliable than Quasar buttons)
     await env.optionsPage.expectTableVisible();
     await env.optionsPage.expectThresholdsVisible();
+    await env.optionsPage.expectAllButtonsVisible();
 
     console.log("   ✓ Page loaded with all main components visible");
   });

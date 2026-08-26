@@ -404,6 +404,28 @@ export class OptionsPage {
   }
 
   /**
+   * Verify all expected buttons are rendered on the options page (dev build).
+   * Checks for: Group/Ungroup, Mock Tabs, Test Alarm, Close All Tabs, Reset Thresholds.
+   * Note: Apply button only appears when threshold values change.
+   */
+  async expectAllButtonsVisible(): Promise<void> {
+    // Group/Ungroup button (always visible)
+    await expect(this.groupTabsBtn.or(this.ungroupTabsBtn)).toBeVisible();
+
+    // Dev buttons (only in dev builds)
+    const mockBtn = this.page.getByTestId('mock-tabs');
+    const testAlarmBtn = this.page.getByTestId('test-alarm-btn');
+    const closeAllBtn = this.closeAllTabsBtn;
+    
+    await expect(mockBtn).toBeVisible();
+    await expect(testAlarmBtn).toBeVisible();
+    await expect(closeAllBtn).toBeVisible();
+
+    // Threshold Reset button (always visible)
+    await expect(this.resetThresholdBtn).toBeVisible();
+  }
+
+  /**
    * Get current threshold levels count from input.
    */
   async getLevelsCount(): Promise<number> {
