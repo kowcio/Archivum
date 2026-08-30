@@ -200,36 +200,6 @@ export class OptionsPage {
     }
 
   /**
-   * Wait for the Group/Ungroup button state to match the actual group state in the browser.
-   * Polls until button testid matches expected state (handles Vue reactivity delays).
-   *
-   * @param expectedState - 'grouped' for ungroup button, 'ungrouped' for group button
-   * @param timeoutMs - polling timeout
-   */
-  async waitForButtonStateSync(expectedState: 'grouped' | 'ungrouped', timeoutMs: number = 10_000): Promise<void> {
-    const isGrouped = expectedState === 'grouped';
-    const expectedTestId = isGrouped ? 'ungroup-tabs-btn' : 'group-tabs-btn';
-    const unexpectedTestId = isGrouped ? 'group-tabs-btn' : 'ungroup-tabs-btn';
-
-    console.log(`[OptionsPage] 🔄 Waiting for button state sync: expecting ${expectedTestId}...`);
-
-    await expect.poll(
-      async () => {
-        const button = this.page.getByTestId(expectedTestId);
-        try {
-          await button.waitFor({ state: 'visible', timeout: 500 });
-          return true;
-        } catch {
-          return false;
-        }
-      },
-      { timeout: timeoutMs, message: `Button state should be ${expectedState}` }
-    ).toBe(true);
-
-    console.log(`[OptionsPage] ✅ Button state synced to ${expectedState}`);
-  }
-
-  /**
    * Click "Close All Tabs" button and wait for tabs to actually close.
    * Note: The options page tab itself won't be closed, so we wait for grouped tabs to be gone.
    */
@@ -299,14 +269,6 @@ export class OptionsPage {
    */
   async getTableRowCount(): Promise<number> {
     return this.tableRows.count();
-  }
-
-  /**
-   * Verify table has exactly N rows.
-   */
-  async expectTableRowsEqual(expectedRows: number): Promise<void> {
-    const count = await this.getTableRowCount();
-    expect(count).toBe(expectedRows);
   }
 
   /**
