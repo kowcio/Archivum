@@ -349,8 +349,7 @@ async function focusTab(tabId: number | null): Promise<void> {
       error.value = `[FOCUS_TAB] Tab#${tabId}: ${errorMsg}`
       return
     }
-    // Success - tab is now focused, close the options page so user can investigate
-    window.close()
+    // Success - tab is now focused, options page stays open
   } catch (err) {
     error.value = `[FOCUS_TAB_ERROR] Tab#${tabId}: ${err instanceof Error ? err.message : 'Failed to focus tab'}`
   }
