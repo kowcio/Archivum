@@ -9,7 +9,7 @@
 import type { Browser } from 'wxt/browser'
 import { BackgroundTabService } from '@/services/BackgroundTabService'
 import { StorageRepository } from '@/store'
-import { addTimeOffset } from '@/utils/testTime'
+import { test_addTimeOffset } from '@/utils/testTime'
 import type {ThresholdLevel} from "@/constants.ts";
 
 /**
@@ -67,7 +67,15 @@ export const backgroundRPC = {
    testTriggerAlarm24h: (): Promise<number> => BackgroundTabService.testTriggerAlarm24h(),
 
    // 🧪 DEV-ONLY: Warp time forward by milliseconds (for testing aging behavior)
-   addTimeWarp: (ms: number): Promise<number> => addTimeOffset(ms),
+   addTimeWarp: (ms: number): Promise<number> => test_addTimeOffset(ms),
+
+   // 🧪 DEV-ONLY: Combined warp + trigger — skips UI button, calls background logic directly
+   // Use in Playwright tests instead of clicking TestAlarmButton in the UI
+   // @param hours - number of hours to advance fake time
+   test_warpAndTriggerAlarm: async (hours: number): Promise<number> => {
+     await test_addTimeOffset(hours * 3_600_000)
+     return backgroundRPC.testTriggerAlarm24h()
+   },
 
    // 🧪 DEBUG-ONLY: Diagnostic spy for understanding tab operations
    debugGetDiagnostics: (): Promise<{

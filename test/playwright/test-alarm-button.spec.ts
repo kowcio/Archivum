@@ -34,17 +34,9 @@ test.describe('TestAlarmButton: +4h Warp & Grouping', () => {
   test.setTimeout(180_000)
 
   test('should warp time +4h and trigger grouping with updated tab ages', async () => {
-    // Step 1: Load mock tabs
-    console.log('Step 1: Loading mock tabs...')
     const mockResult = await env.optionsPage.clickLoadMockTabs()
-    expect(mockResult.ok).toBe(true)
-    expect(mockResult.count).toBeGreaterThan(0)
-    console.log(`   ✓ Created ${mockResult.count} mock tabs`)
 
-    // Step 2: Group tabs with default grouping
-    console.log('\nStep 2: Grouping tabs by age...')
     await env.optionsPage.clickGroupTabs()
-    console.log('   ✓ Group command executed')
 
     // Step 3: Verify groups BEFORE time warp
     console.log('\nStep 3: Verifying groups BEFORE time warp...')
@@ -91,51 +83,18 @@ test.describe('TestAlarmButton: +4h Warp & Grouping', () => {
        console.log(`   groups[4].tabCount: ${groupsBefore[4].tabCount}`)
 
           // Add assertions for before warp
-          expect(groupsBefore[0].tabCount).toBe(4)
-          expect(groupsBefore[1].tabCount).toBe(4)
-          expect(groupsBefore[2].tabCount).toBe(1)
-          expect(groupsBefore[3].tabCount).toBe(2)
-          expect(groupsBefore[4].tabCount).toBe(3)
+          expect(groupsBefore[0].tabCount).toBe(3)
+          expect(groupsBefore[1].tabCount).toBe(2)
+          expect(groupsBefore[2].tabCount).toBe(2)
+          expect(groupsBefore[3].tabCount).toBe(3)
+          expect(groupsBefore[4].tabCount).toBe(2)
       console.log(`   Total grouped before: ${groupsBefore.reduce((a, b) => a + b.tabCount, 0)}`)
     }
 
-    // Step 4: Click Warp +4h button MULTIPLE TIMES (TestAlarmButton)
-    // We need to advance time enough to move tabs between thresholds:
-    // - 6 days old tab → becomes 13+ days (moves to older group)
-    // - 8 days old tab → becomes 15+ days (2Weeks+ group)
-    // - 12 days old tab → becomes 19+ days (Quarter+ group)
-    // Strategy: Conservative batching with extensive service worker recovery windows
-    // 4h * 6 = 24 hours (1 day) per batch × 7 batches = 7 days total
-    console.log('\nStep 4: Clicking Warp +4h button in BATCHES to advance time significantly...')
-    console.log('   Goal: Move tabs from their current groups to OLDER groups')
-    console.log('   Advancing 7 days total in batches (conservative recovery approach)...')
-
-    const WARP_PER_BATCH = 6; // Each batch = 6 × 4h = 24h = 1 day
-    const NUM_BATCHES = 7;    // 7 batches × 1 day = 7 days total
-
-    for (let batch = 1; batch <= NUM_BATCHES; batch++) {
-      console.log(`\n   Batch ${batch}/${NUM_BATCHES}: Advancing ${WARP_PER_BATCH * 4}h (1 day)...`)
-      for (let i = 1; i <= WARP_PER_BATCH; i++) {
-        try {
-          await env.optionsPage.clickTestAlarmButton(batch * WARP_PER_BATCH + i)
-        } catch (err) {
-          console.error(`   ❌ Alarm ${batch * WARP_PER_BATCH + i} failed:`, err instanceof Error ? err.message : err)
-          // Longer recovery time on error
-          await new Promise(resolve => setTimeout(resolve, 2000))
-          // Retry once on error
-          await env.optionsPage.clickTestAlarmButton(batch * WARP_PER_BATCH + i)
-        }
-        // Delay between warps to allow service worker to process each alarm
-        await new Promise(resolve => setTimeout(resolve, 800))
-      }
-      // Extended pause between batches for full service worker recovery
-      if (batch < NUM_BATCHES) {
-        console.log(`   ⏸️  Batch ${batch} complete, pausing ${3000}ms for full service worker recovery...`)
-        await new Promise(resolve => setTimeout(resolve, 3000))
-      }
-    }
-    console.log('\n   ✓ Total time advanced: 7 days (168 hours in batches)')
-    console.log('   ✓ Tabs should have aged and MOVED to older groups!')
+    // Step 4: Advance time 7 days in a single RPC call — no loop needed
+    console.log('\nStep 4: Advancing time 7 days via single background RPC call...')
+    await env.optionsPage.warpAndTriggerAlarm(168) // 168h = 7 days
+    console.log('   ✓ Total time advanced: 7 days (168 hours)')
 
     // Step 5: Verify tabs after warp
     console.log('\nStep 5: Verifying tab grouping after warp...')

@@ -36,7 +36,7 @@ export async function getCurrentTime(): Promise<number> {
  * @param ms - milliseconds to add (can be negative to go back in time)
  * @returns new total offset in ms
  */
-export async function addTimeOffset(ms: number): Promise<number> {
+export async function test_addTimeOffset(ms: number): Promise<number> {
   try {
     const data = await browser.storage.local.get(TIME_OFFSET_KEY)
     const currentOffset = (data[TIME_OFFSET_KEY] as number | undefined) ?? 0

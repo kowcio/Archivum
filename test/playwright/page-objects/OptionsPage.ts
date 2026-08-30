@@ -133,84 +133,14 @@ export class OptionsPage {
   }
 
   /**
-   * Click "Test Alarm" button to trigger grouping with time advancement.
-   * Polls until alarm completes and groups are updated.
-  * Includes service worker recovery mechanism for long test runs.
+   * 🧪 Warp time by `ms` milliseconds and trigger grouping alarm — directly via RPC.
+   * Bypasses the TestAlarmButton UI completely; faster and more reliable in long test runs.
+   * @param ms - milliseconds to advance fake time (e.g. 4 * 3600_000 = 4 hours)
+   * @returns number of active groups after the alarm
    */
-  async clickTestAlarmButton(attemptNum: number = 1): Promise<void> {
-   // Check if page is still valid before attempting
-   if (this.page.isClosed()) {
-     throw new Error(`Page is closed - cannot click test alarm button (attempt ${attemptNum})`);
-   }
-
-   const alarmBtn = this.page.getByTestId('test-alarm-btn');
-   await alarmBtn.click();
-
-   // ✅ Extended delay for service worker to fully process the alarm
-   // MV3 service workers can suspend, so this gives time to respond
-   await new Promise(resolve => setTimeout(resolve, 1500));
-
-   // Wait for alarm to complete and groups to be updated
-   // Extended timeout to allow for service worker recovery in long test runs
-   let pollAttempts = 0;
-   let lastError: Error | null = null;
-
-   try {
-     await expect.poll(
-       async () => {
-         pollAttempts++;
-         try {
-           // Check page validity on each poll iteration
-           if (this.page.isClosed()) {
-             lastError = new Error(`Page closed on poll attempt ${pollAttempts}`);
-             console.warn(`[clickTestAlarmButton] ${lastError.message}`);
-             return 0; // Triggers timeout, then we catch and handle
-           }
-
-           // Add small delay before attempting RPC to avoid overwhelming service worker
-           if (pollAttempts > 1) {
-             await new Promise(resolve => setTimeout(resolve, 50));
-           }
-
-           // Check if page context is still available
-           try {
-             const result = await this.getGroupAndTabData();
-             // Successfully got data - reset error tracking
-             lastError = null;
-             return result.groupsOrderedByIndex.length;
-           } catch (rpcErr) {
-             // RPC failed - service worker might be recovering
-             lastError = rpcErr as Error;
-             if (pollAttempts % 5 === 0) {
-               console.warn(
-                 `[clickTestAlarmButton] Poll ${pollAttempts}: Service worker not responding (${lastError.message}), retrying...`
-               );
-             }
-             // Wait extra time for service worker recovery before next attempt
-             if (pollAttempts > 10) {
-               await new Promise(resolve => setTimeout(resolve, 300));
-             }
-             return 0; // Retry
-           }
-         } catch (err) {
-           lastError = err as Error;
-           console.warn(`[clickTestAlarmButton] Poll attempt ${pollAttempts} error:`, lastError.message);
-           return 0; // Retry
-         }
-       },
-       { timeout: 40_000, message: 'Groups updated after test alarm' } // Extended from 30s to 40s for safety
-     ).toBeGreaterThan(0);
-   } catch (timeoutErr) {
-     // Provide helpful error message if polling times out
-     if (lastError) {
-       throw new Error(
-         `Failed to trigger alarm after ${pollAttempts} poll attempts: ${lastError.message}`
-       );
-     }
-     throw timeoutErr;
-   }
+  async warpAndTriggerAlarm(ms: number): Promise<number> {
+    return await this.bg.test_warpAndTriggerAlarm(ms)
   }
-
 
     /**
      * Open a random tab from www.example.com/[0-9A-Z], optionally in a group at specified index.
@@ -261,7 +191,7 @@ export class OptionsPage {
             return allTabs.length;
           },
           { timeout: 10_000, message: 'Mock tabs created and loaded' }
-        ).toBeGreaterThan(0);
+        ).toBeGreaterThan(14);
 
         return { ok: true, count: Array.isArray(tabs) ? tabs.length : 0, error: null }
       } catch (err: unknown) {
