@@ -110,6 +110,31 @@ export const backgroundRPC = {
     }
   },
 
+  // ── Test-only: updateTabByAge trigger ────────────────────────────────────
+  testTriggerUpdateTabByAge: async (): Promise<{ movedCount: number; groupsAfter: Array<{ id: number; title: string; tabCount: number }> }> => {
+    const movedCount = await BackgroundTabService.updateTabByAge()
+    const groups = await BackgroundTabService.getGroups()
+    const groupsAfter = groups.map(g => ({
+      id: g.id,
+      title: g.title,
+      tabCount: 0 // Will be filled below
+    }))
+    for (const g of groupsAfter) {
+      const tabs = await browser.tabs.query({ groupId: g.id })
+      g.tabCount = tabs.length
+    }
+    return { movedCount, groupsAfter }
+  },
+
+  // ── Test-only: autoCloseOldestGroupTabs trigger ──────────────────────────
+  testTriggerAutoClose: async (): Promise<{ closedCount: number; hellGroupCountAfter: number }> => {
+    const closedCount = await BackgroundTabService.autoCloseOldestGroupTabs()
+    const groups = await BackgroundTabService.getGroups()
+    const hellGroup = groups[0]
+    const hellGroupTabs = await browser.tabs.query({ groupId: hellGroup?.id })
+    return { closedCount, hellGroupCountAfter: hellGroupTabs.length }
+  },
+
   // ── Diagnostics ──────────────────────────────────────────────────────────
   debugGetDiagnostics: (): Promise<{
     allTabs: Array<{ id?: number; title?: string; groupId?: number; lastAccessed?: number }>;

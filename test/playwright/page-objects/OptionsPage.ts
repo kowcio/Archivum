@@ -364,7 +364,7 @@ export class OptionsPage {
      } catch (err) {
        console.warn(`[OptionsPage] ⚠️ Fill attempt ${attempt} failed:`, err instanceof Error ? err.message : err);
        if (attempt < 3) {
-         await new Promise(r => setTimeout(r, 300));
+         await new Promise(r => setTimeout(r, 150));
        } else {
          throw err;
        }
@@ -372,7 +372,7 @@ export class OptionsPage {
    }
     
    // Settling time for Vue to detect change and show Apply button
-   await new Promise(r => setTimeout(r, 200));
+   await new Promise(r => setTimeout(r, 100));
   }
 
   /**
@@ -398,7 +398,7 @@ export class OptionsPage {
      } catch (err) {
        console.warn(`[OptionsPage] ⚠️ Apply click attempt ${attempt} failed:`, err instanceof Error ? err.message : err);
        if (attempt < 3) {
-         await new Promise(r => setTimeout(r, 500));
+         await new Promise(r => setTimeout(r, 200));
        } else {
          throw err;
        }
@@ -427,7 +427,7 @@ export class OptionsPage {
    // ⏳ CRITICAL: Wait additional time for browser to fully sync groups into queryable state
    // The RPC call completes before browser finishes updating group metadata
    console.log('[OptionsPage] ✅ Groups found, waiting for full sync...');
-   await new Promise(r => setTimeout(r, 500));
+   await new Promise(r => setTimeout(r, 200));
    console.log(`[OptionsPage] ✅ Full sync complete (total: ${Date.now() - startTime}ms)`);
   }
 
@@ -610,7 +610,6 @@ export class OptionsPage {
    * Enhanced for CI with retries and better diagnostics
    */
   async clickAutoCloseToggle(): Promise<void> {
-    const startTime = Date.now();
     console.log('[OptionsPage] 🔄 Clicking auto-close toggle...');
     
     const toggle = this.page.getByTestId('auto-close-toggle');
@@ -629,7 +628,7 @@ export class OptionsPage {
         console.warn(`[OptionsPage] ⚠️ Click attempt ${attempt} failed:`, lastError.message);
         
         if (attempt < 3) {
-          await new Promise(r => setTimeout(r, 500)); // Wait before retry
+          await new Promise(r => setTimeout(r, 200)); // Wait before retry
         }
       }
     }

@@ -21,20 +21,20 @@ import { ThresholdLabel } from '../../src/constants.js'
 test.describe('TestAlarmButton: +4h Warp & Grouping', () => {
   let env: TestEnvironment
 
-  test.beforeAll('Setup: launch Chrome context with extension', async () => {
+  test.beforeEach('Setup: launch fresh Chrome context', async () => {
     env = await TestEnvironment.create(false, 120_000)
     await env.optionsPage.gotoOptionsPage(env.extensionId)
     await env.optionsPage.expectPageLoaded()
   })
 
-  test.afterAll('Cleanup: close extension context', async () => {
+  test.afterEach('Cleanup: close extension context', async () => {
     if (env) await env.cleanup()
   })
 
   test.setTimeout(180_000)
 
   test('should warp time +4h and trigger grouping with updated tab ages', async () => {
-    const mockResult = await env.optionsPage.clickLoadMockTabs()
+    await env.optionsPage.clickLoadMockTabs()
 
     await env.optionsPage.clickGroupTabs()
 

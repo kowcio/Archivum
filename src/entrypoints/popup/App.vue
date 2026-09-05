@@ -30,7 +30,6 @@
 
 <script setup lang="ts">
 import {browser} from 'wxt/browser'
-import {isDevEnv} from '@/constants'
 import AppTitle from '@/components/Title.vue'
 import GroupUngroup from "@/components/GroupUngroup.vue";
 import AutoCloseToggle from "@/components/AutoCloseToggle.vue";

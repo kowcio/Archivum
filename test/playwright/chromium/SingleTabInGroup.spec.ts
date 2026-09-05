@@ -8,13 +8,13 @@ test.describe("Options Page Tests", () => {
   let env: TestEnvironment
   const groupName = ThresholdLabel.WEEK;
 
-  test.beforeAll("Setup: launch Chrome context with extension", async () => {
-    env = await TestEnvironment.create(true);
-  });
+  test.beforeEach('Setup: launch fresh Chrome context', async () => {
+    env = await TestEnvironment.create(true)
+  })
 
-  test.afterAll("Cleanup: close extension context", async () => {
-    if (env) await env.cleanup();
-  });
+  test.afterEach('Cleanup: close extension context', async () => {
+    if (env) await env.cleanup()
+  })
 
   test("Single tab is left in one of our groups after click it should be ungrouped.", async () => {
     await env.optionsPage.gotoOptionsPage(env.extensionId);

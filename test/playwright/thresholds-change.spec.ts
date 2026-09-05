@@ -14,11 +14,11 @@ import {TestEnvironment} from "./chromium/extensions.js"
 test.describe('Threshold Change: Store → Options Auto-Update', () => {
   let env: TestEnvironment
 
-  test.beforeAll('Setup: launch Chrome context with extension', async () => {
+  test.beforeEach('Setup: launch fresh Chrome context', async () => {
     env = await TestEnvironment.create(false, 90_000)
   })
 
-  test.afterAll('Cleanup: close extension context', async () => {
+  test.afterEach('Cleanup: close extension context', async () => {
     if (env) await env.cleanup()
   })
 

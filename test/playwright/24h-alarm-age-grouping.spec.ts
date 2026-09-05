@@ -18,7 +18,7 @@ import {TestEnvironment} from './chromium/extensions.js'
 test.describe('24h Alarm: Tab Age Progression to Older Groups', () => {
   let env: TestEnvironment
 
-  test.beforeAll('Setup: launch Chrome context with extension', async () => {
+  test.beforeEach('Setup: launch fresh Chrome context', async () => {
     env = await TestEnvironment.create(false, 120_000)
     await env.optionsPage.gotoOptionsPage(env.extensionId)
     await env.optionsPage.expectPageLoaded()
@@ -26,10 +26,9 @@ test.describe('24h Alarm: Tab Age Progression to Older Groups', () => {
     // Load mocks with their default ages
     const mockResult = await env.optionsPage.clickLoadMockTabs()
     expect(mockResult.ok).toBe(true)
-
   })
 
-  test.afterAll('Cleanup: close extension context', async () => {
+  test.afterEach('Cleanup: close extension context', async () => {
     if (env) await env.cleanup()
   })
 
@@ -69,7 +68,7 @@ test.describe('24h Alarm: Tab Age Progression to Older Groups', () => {
 
     //WHEN
     await env.optionsPage.timeProgress(7)
-    const groupsCreated = await env.optionsPage.getBackgroundRPC().testTriggerAlarm24h()
+    await env.optionsPage.getBackgroundRPC().testTriggerAlarm24h()
 
     //THEN
     const tabsAfter = await env.optionsPage.getAllGroups()

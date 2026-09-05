@@ -85,7 +85,7 @@ export async function launchChromeContext(): Promise<ExtensionTestContext> {
           for (const page of context.pages()) {
             try {
               await page.close();
-            } catch (err) {
+            } catch {
               // Ignore page close errors - context closure will handle remaining pages
             }
           }
