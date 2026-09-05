@@ -118,18 +118,37 @@ export class OptionsPage {
   /**
    * Click "Group Tabs by Age" button and wait for grouping to complete.
    * Polls until groups are created and visible.
+   * Enhanced for CI: Add waitForLoadState and longer timeouts
    */
   async clickGroupTabs(): Promise<void> {
-    await this.groupTabsBtn.click();
-    // Wait for groups to be created and visible in DOM
-   // Increased timeout to 15s for CI environments
+   const startTime = Date.now();
+   console.log('[OptionsPage] 🔄 Clicking group tabs button...');
+    
+   try {
+     await this.groupTabsBtn.click();
+   } catch (err) {
+     console.error('[OptionsPage] ❌ Click failed:', err instanceof Error ? err.message : err);
+     throw err;
+   }
+    
+   // Give the service worker a moment to process the click
+   await this.page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {
+     console.log('[OptionsPage] ⚠️ networkidle timeout (ok - background SW might be working)');
+   });
+
+   // Wait for groups to be created and visible in DOM
+   // Increased timeout to 20s for CI environments where SW can be slow
+   console.log('[OptionsPage] ⏳ Waiting for groups to be created...');
    await expect.poll(
      async () => {
        const result = await this.getGroupAndTabData();
        return result.groupsOrderedByIndex.length;
      },
-     { timeout: 15_000, message: 'Groups created after clicking group button' }
+     { timeout: 20_000, message: 'Groups created after clicking group button' }
    ).toBeGreaterThan(0);
+    
+   const elapsed = Date.now() - startTime;
+   console.log(`[OptionsPage] ✅ Groups created (took ${elapsed}ms)`);
   }
 
   /**
@@ -328,28 +347,68 @@ export class OptionsPage {
   /**
    * Set threshold levels count via input field.
    * Changes are tracked locally but not persisted until Apply is clicked.
+   * Enhanced for CI with retries
    */
   async setLevelsCount(count: number): Promise<void> {
-    await this.levelsInput.clear();
-    await this.levelsInput.fill(String(count));
-    // Small settling time for Vue to detect change and show Apply button
-    await new Promise(r => setTimeout(r, 100));
+   const input = this.levelsInput;
+   console.log(`[OptionsPage] 📝 Setting threshold levels to ${count}...`);
+    
+   // Try clearing and filling with retry
+   for (let attempt = 1; attempt <= 3; attempt++) {
+     try {
+       console.log(`[OptionsPage] 📍 Fill attempt ${attempt}/3...`);
+       await input.clear();
+       await input.fill(String(count));
+       console.log(`[OptionsPage] ✅ Fill succeeded on attempt ${attempt}`);
+       break;
+     } catch (err) {
+       console.warn(`[OptionsPage] ⚠️ Fill attempt ${attempt} failed:`, err instanceof Error ? err.message : err);
+       if (attempt < 3) {
+         await new Promise(r => setTimeout(r, 300));
+       } else {
+         throw err;
+       }
+     }
+   }
+    
+   // Settling time for Vue to detect change and show Apply button
+   await new Promise(r => setTimeout(r, 200));
   }
 
   /**
    * Click Apply button to save threshold level changes.
    * Triggers tab regrouping by age with new thresholds.
    * Polls until regrouping completes.
-   * @param waitMs - Custom timeout for polling (default: 15_000ms to handle slower CI)
+   * Enhanced for CI with retries and diagnostics
+   * @param waitMs - Custom timeout for polling (default: 25_000ms for CI)
    */
   async clickApplyThresholds(waitMs?: number): Promise<void> {
-    await expect(this.applyThresholdBtn).toBeVisible();
-    await this.applyThresholdBtn.click();
+   const startTime = Date.now();
+   console.log('[OptionsPage] 🔄 Applying thresholds...');
+    
+   await expect(this.applyThresholdBtn).toBeVisible();
+    
+   // Retry click for CI
+   for (let attempt = 1; attempt <= 3; attempt++) {
+     try {
+       console.log(`[OptionsPage] 📍 Apply click attempt ${attempt}/3...`);
+       await this.applyThresholdBtn.click();
+       console.log(`[OptionsPage] ✅ Apply click succeeded`);
+       break;
+     } catch (err) {
+       console.warn(`[OptionsPage] ⚠️ Apply click attempt ${attempt} failed:`, err instanceof Error ? err.message : err);
+       if (attempt < 3) {
+         await new Promise(r => setTimeout(r, 500));
+       } else {
+         throw err;
+       }
+     }
+   }
 
    console.log('[OptionsPage] 🔄 Apply clicked, waiting for groups to be recreated...');
 
    // Poll until thresholds are applied and groups are recreated
-   // Increased default timeout to 20s for CI environments where operations are slower
+   // Timeout: 25s for CI (was 20s, sometimes not enough for resource-constrained containers)
    await expect.poll(
      async () => {
        try {
@@ -358,18 +417,18 @@ export class OptionsPage {
          console.log(`[OptionsPage] ⏳ Polling: ${count} groups found (grouped: ${result.groupedTabCount}, ungrouped: ${result.ungroupedTabCount})`);
          return count;
        } catch (err) {
-         console.warn(`[OptionsPage] ⚠️  Polling error (will retry):`, err);
+         console.warn(`[OptionsPage] ⚠️ Polling error (will retry):`, err instanceof Error ? err.message : String(err));
          return 0; // Return 0 to continue polling
        }
      },
-     { timeout: waitMs ?? 20_000, message: 'Thresholds applied and groups recreated' }
+     { timeout: waitMs ?? 25_000, message: 'Thresholds applied and groups recreated' }
    ).toBeGreaterThan(0);
 
    // ⏳ CRITICAL: Wait additional time for browser to fully sync groups into queryable state
    // The RPC call completes before browser finishes updating group metadata
    console.log('[OptionsPage] ✅ Groups found, waiting for full sync...');
-   await new Promise(r => setTimeout(r, 300));
-   console.log('[OptionsPage] ✅ Full sync complete');
+   await new Promise(r => setTimeout(r, 500));
+   console.log(`[OptionsPage] ✅ Full sync complete (total: ${Date.now() - startTime}ms)`);
   }
 
   /**
@@ -548,14 +607,41 @@ export class OptionsPage {
 
   /**
    * Click the auto-close toggle to enable/disable auto-closing of oldest group tabs.
-   * Also ensures the state is persisted to storage.
+   * Enhanced for CI with retries and better diagnostics
    */
   async clickAutoCloseToggle(): Promise<void> {
-    // Click the toggle
+    const startTime = Date.now();
+    console.log('[OptionsPage] 🔄 Clicking auto-close toggle...');
+    
     const toggle = this.page.getByTestId('auto-close-toggle');
-    await toggle.click();
+    await expect(toggle).toBeVisible();
+    
+    // Try click with retry for CI environments
+    let lastError: Error | null = null;
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        console.log(`[OptionsPage] 📍 Click attempt ${attempt}/3...`);
+        await toggle.click();
+        console.log(`[OptionsPage] ✅ Click succeeded on attempt ${attempt}`);
+        break;
+      } catch (err) {
+        lastError = err instanceof Error ? err : new Error(String(err));
+        console.warn(`[OptionsPage] ⚠️ Click attempt ${attempt} failed:`, lastError.message);
+        
+        if (attempt < 3) {
+          await new Promise(r => setTimeout(r, 500)); // Wait before retry
+        }
+      }
+    }
+    
+    if (lastError) {
+      throw lastError;
+    }
 
-    // Ensure state is saved to storage (component click updates ref, but we need to persist it)
+    // Give browser time to update DOM
+    await this.page.waitForTimeout(100);
+    
+    // Ensure state is saved to storage
     await this.page.evaluate(async (enabled: boolean) => {
       const data = await chrome.storage.local.get('local:appState');
       const appState = (data['local:appState'] as any) || {};

@@ -39,6 +39,9 @@ export async function launchChromeContext(): Promise<ExtensionTestContext> {
   }
   const userDataDir = path.join(OUTPUT_DIR, "pw-profile-" + crypto.randomUUID());
   fs.mkdirSync(userDataDir, { recursive: true });
+  
+  console.log('[launchChromeContext] 🚀 Launching Chrome with MV3 extension...');
+  
   const context : BrowserContext = await chromium.launchPersistentContext(userDataDir, {
     channel: "chromium",
     headless: true,
@@ -51,6 +54,7 @@ export async function launchChromeContext(): Promise<ExtensionTestContext> {
       "--disable-background-timer-throttling",
       "--disable-renderer-backgrounding",
       "--disable-backgrounding-occluded-windows",
+      "--disable-ipc-flooding-protection",  // Prevent IPC throttling on slow CI
       "--no-first-run",
       "--no-default-browser-check",
     ],
@@ -65,10 +69,13 @@ export async function launchChromeContext(): Promise<ExtensionTestContext> {
     console.log('[Mock] ✅ Dev environment enabled for testing');
   `);
 
+  console.log('[launchChromeContext] ⏳ Waiting for service worker to be ready (timeout: 30s)...');
   const worker =
     context.serviceWorkers()[0] ??
     (await context.waitForEvent("serviceworker", { timeout: 30000 }));
     const extensionId = new URL(worker.url()).host;
+    console.log(`[launchChromeContext] ✅ Service worker ready, extension ID: ${extensionId}`);
+    
     return {
       context,
       extensionId,
