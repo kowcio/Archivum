@@ -8,6 +8,7 @@
  */
 
 import type { Browser } from 'wxt/browser'
+import { browser } from 'wxt/browser'
 import { BackgroundTabService } from '@/services/BackgroundTabService'
 import { StorageRepository } from '@/store'
 import { test_addTimeOffset } from '@/utils/testTime'
@@ -92,6 +93,21 @@ export const backgroundRPC = {
       console.log(`[test_simulateDays] Day ${d}/${days}: ${groupsCreated} groups after alarm`)
     }
     return groupsCreated
+  },
+
+  // ── Alarm verification (testing only) ─────────────────────────────────────
+  testGetAllAlarms: async (): Promise<Array<{ name: string; periodInMinutes?: number; when?: number }>> => {
+    try {
+      const alarms = await browser.alarms.getAll()
+      return alarms.map((a: any) => ({
+        name: a.name,
+        periodInMinutes: a.periodInMinutes,
+        when: a.when,
+      }))
+    } catch (err) {
+      console.error('[BackgroundRPC.testGetAllAlarms] Error:', err)
+      return []
+    }
   },
 
   // ── Diagnostics ──────────────────────────────────────────────────────────
