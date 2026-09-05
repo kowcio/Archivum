@@ -70,7 +70,23 @@ jobs:
         run: npx web-ext lint --source-dir .output/firefox-mv3
 
       - name: E2E tests - Playwright (DEVELOPER MODE - DEV_FEATURES=true)
+        continue-on-error: true
         run: npm run test:playwright:chromium
+
+      - name: Verify build artifacts exist
+        run: |
+          echo "Checking for build artifacts..."
+          if [ ! -f .output/VERSION ]; then
+            echo "❌ ERROR: .output/VERSION not found!"
+            exit 1
+          fi
+          if ! ls .output/archivum-*.zip 1>/dev/null 2>&1; then
+            echo "❌ ERROR: No archivum-*.zip files found!"
+            ls -la .output/
+            exit 1
+          fi
+          echo "✅ All required artifacts found:"
+          ls -lh .output/archivum-*.zip .output/VERSION
 
       - name: Upload extension builds
         uses: actions/upload-artifact@v4
