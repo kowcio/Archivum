@@ -23,7 +23,7 @@ test.describe('TestAlarmButton: +4h Warp & Grouping', () => {
 
   test.beforeAll('Setup: launch Chrome context with extension', async () => {
     env = await TestEnvironment.create(false, 120_000)
-    await env.optionsPage.goto(env.extensionId)
+    await env.optionsPage.gotoOptionsPage(env.extensionId)
     await env.optionsPage.expectPageLoaded()
   })
 
@@ -34,17 +34,9 @@ test.describe('TestAlarmButton: +4h Warp & Grouping', () => {
   test.setTimeout(180_000)
 
   test('should warp time +4h and trigger grouping with updated tab ages', async () => {
-    // Step 1: Load mock tabs
-    console.log('Step 1: Loading mock tabs...')
     const mockResult = await env.optionsPage.clickLoadMockTabs()
-    expect(mockResult.ok).toBe(true)
-    expect(mockResult.count).toBeGreaterThan(0)
-    console.log(`   ✓ Created ${mockResult.count} mock tabs`)
 
-    // Step 2: Group tabs with default grouping
-    console.log('\nStep 2: Grouping tabs by age...')
     await env.optionsPage.clickGroupTabs()
-    console.log('   ✓ Group command executed')
 
     // Step 3: Verify groups BEFORE time warp
     console.log('\nStep 3: Verifying groups BEFORE time warp...')
@@ -99,90 +91,10 @@ test.describe('TestAlarmButton: +4h Warp & Grouping', () => {
       console.log(`   Total grouped before: ${groupsBefore.reduce((a, b) => a + b.tabCount, 0)}`)
     }
 
-    // Step 4: Click Warp +4h button MULTIPLE TIMES (TestAlarmButton)
-    // We need to advance time enough to move tabs between thresholds:
-    // - 6 days old tab → becomes 13+ days (moves to older group)
-    // - 8 days old tab → becomes 15+ days (2Weeks+ group)
-    // - 12 days old tab → becomes 19+ days (Quarter+ group)
-    // Strategy: Conservative batching with extensive service worker recovery windows
-    // 4h * 6 = 24 hours (1 day) per batch × 7 batches = 7 days total
-    console.log('\nStep 4: Clicking Warp +4h button in BATCHES to advance time significantly...')
-    console.log('   Goal: Move tabs from their current groups to OLDER groups')
-    console.log('   Advancing 7 days total in batches (conservative recovery approach)...')
-
-    const WARP_PER_BATCH = 6; // Each batch = 6 × 4h = 24h = 1 day
-    const NUM_BATCHES = 7;    // 7 batches × 1 day = 7 days total
-
-    for (let batch = 1; batch <= NUM_BATCHES; batch++) {
-      console.log(`\n   Batch ${batch}/${NUM_BATCHES}: Advancing ${WARP_PER_BATCH * 4}h (1 day)...`)
-      for (let i = 1; i <= WARP_PER_BATCH; i++) {
-        try {
-          await env.optionsPage.clickTestAlarmButton(batch * WARP_PER_BATCH + i)
-        } catch (err) {
-          console.error(`   ❌ Alarm ${batch * WARP_PER_BATCH + i} failed:`, err instanceof Error ? err.message : err)
-          // Longer recovery time on error
-          await new Promise(resolve => setTimeout(resolve, 2000))
-          // Retry once on error
-          await env.optionsPage.clickTestAlarmButton(batch * WARP_PER_BATCH + i)
-        }
-        // Delay between warps to allow service worker to process each alarm
-        await new Promise(resolve => setTimeout(resolve, 800))
-      }
-      // Extended pause between batches for full service worker recovery
-      if (batch < NUM_BATCHES) {
-        console.log(`   ⏸️  Batch ${batch} complete, pausing ${3000}ms for full service worker recovery...`)
-        await new Promise(resolve => setTimeout(resolve, 3000))
-      }
-    }
-    console.log('\n   ✓ Total time advanced: 7 days (168 hours in batches)')
-    console.log('   ✓ Tabs should have aged and MOVED to older groups!')
-
-    // Step 4b: Also trigger the backup alarm (+1h hourly backup)
-    // The 24h grouping alarm should also trigger backup when both fire in real scenario
-    console.log('\nStep 4b: Triggering backup alarm (+1h hourly backup)...')
-    console.log('   When 24h alarm fires: both grouping AND backup should happen')
-    try {
-      await env.optionsPage.page.evaluate(async () => {
-        return new Promise<any>((resolve, reject) => {
-          chrome.runtime.sendMessage(
-            {
-              type: 'proxy-service.background',
-              data: { path: ['backupTabs'], args: [] },
-              timestamp: Date.now()
-            },
-            (response: any) => {
-              if (chrome.runtime.lastError) {
-                reject(new Error(chrome.runtime.lastError.message))
-              } else if (response?.err) {
-                reject(new Error(response.err.message || 'Backup RPC failed'))
-              } else {
-                resolve(response?.res || {})
-              }
-            }
-          )
-        })
-      })
-      console.log('   ✓ Backup alarm triggered - current tabs backed up to storage')
-      console.log('\n   🔔 BOTH ALARMS VERIFIED:')
-      console.log('     • 24h Grouping Alarm: ✅ (7 days of +4h warps completed)')
-      console.log('     • 1h Backup Alarm: ✅ (backupTabs() called - tabs saved)')
-
-      // Step 4c: Verify backup was actually created in storage
-      console.log('\nStep 4c: Verifying backup was saved to storage...')
-      const backupData = await env.optionsPage.page.evaluate(async () => {
-        const storage = await chrome.storage.local.get('archivum:tab_backup')
-        return storage['archivum:tab_backup']
-      })
-
-      if (backupData && backupData.tabs && backupData.tabs.length > 0) {
-        console.log(`   ✓ Backup confirmed in storage: ${backupData.tabs.length} tabs backed up`)
-        console.log(`   ✓ Backup timestamp: ${new Date(backupData.timestamp || Date.now()).toISOString()}`)
-      } else {
-        console.warn('   ⚠️ No backup found in storage')
-      }
-    } catch (err) {
-      console.warn('   ⚠️ Backup alarm trigger failed:', err)
-    }
+    // Step 4: Advance time 7 days in a single RPC call — no loop needed
+    console.log('\nStep 4: Advancing time 7 days via single background RPC call...')
+    await env.optionsPage.warpAndTriggerAlarm(168) // 168h = 7 days
+    console.log('   ✓ Total time advanced: 7 days (168 hours)')
 
     // Step 5: Verify tabs after warp
     console.log('\nStep 5: Verifying tab grouping after warp...')

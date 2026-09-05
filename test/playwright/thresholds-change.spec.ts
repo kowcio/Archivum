@@ -24,7 +24,7 @@ test.describe('Threshold Change: Store → Options Auto-Update', () => {
 
   test('should create threshold groups with proper order when thresholds change', async () => {
     // 1. Open options page
-    await env.optionsPage.goto(env.extensionId)
+    await env.optionsPage.gotoOptionsPage(env.extensionId)
 
     // 2. Load mock tabs (14 tabs with ages: 1,6,8,8,12,18,25,40,60,100,101,356,366,367)
     await env.optionsPage.clickLoadMockTabs()

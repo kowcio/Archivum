@@ -24,6 +24,7 @@ export class PopupPage {
     // Component uses dynamic: isGrouped ? 'ungroup-tabs-btn' : 'group-tabs-btn'
     this.groupTabsBtn = page.getByTestId('group-tabs-btn');
     this.openOptionsBtn = page.getByTestId('popup-btn-open-option-page');
+    // Note: popup-btn-plugin-browser-option was removed from popup UI
     this.openPluginOptionsBtn = page.getByTestId('popup-btn-plugin-browser-option');
   }
 
@@ -66,12 +67,12 @@ export class PopupPage {
   /**
    * Verify all action buttons are visible.
    * Uses global Playwright timeout (15000ms from config).
+   * Note: popup-btn-plugin-browser-option was removed from popup UI, so only 2 buttons.
    */
   async expectAllButtonsVisible(): Promise<void> {
-    await Promise.all([
-      expect(this.groupTabsBtn).toBeVisible(),
-      expect(this.openOptionsBtn).toBeVisible(),
-      expect(this.openPluginOptionsBtn).toBeVisible(),
+   await Promise.all([
+     expect(this.groupTabsBtn).toBeVisible(),
+     expect(this.openOptionsBtn).toBeVisible(),
     ]);
   }
 

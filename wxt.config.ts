@@ -64,8 +64,8 @@ export default defineConfig({
     },
 
     manifest: {
-      name: 'Archivum - Tab manager to clear your mind',
-      description: 'Organize your browser tabs by age. Automatically group tabs into age-based groups (Week+, Month+, Quarter+, etc.) and keep your workspace organized.',
+      name: 'Archivum - Tab manager',
+      description: 'Archivum - Tab manager to clear your mind. Organize your browser tabs by age. Automatically group tabs into age-based groups (Week+, Month+, Quarter+, etc.) and keep your workspace organized.',
       version: packageVersion,
       permissions: ['tabs', 'activeTab', 'bookmarks', 'clipboardRead', 'storage', 'scripting', 'tabGroups', 'alarms'],
       host_permissions: ['<all_urls>'],

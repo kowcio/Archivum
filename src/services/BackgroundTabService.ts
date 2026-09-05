@@ -63,7 +63,6 @@ export class BackgroundTabService {
         .query({windowId: (browser.windows as any).WINDOW_ID_CURRENT})
       // ✅ Safety filter: remove groups without id (shouldn't happen but defensive)
 
-      console.log(`[BackgroundTabService] Queried ${allGroups.length} groups, filtering for valid plugin groups...`)
       const validGroups = allGroups.filter((g: any) => g.id != null)
       validGroups.sort((a: any, b: any) => (a.index ?? -1) - (b.index ?? -1))
 
@@ -73,9 +72,11 @@ export class BackgroundTabService {
       // Filter: keep only plugin-created groups
       // ✅ Simplified: check if title STARTS WITH any threshold label
       // This avoids fragile regex and handles edge cases (empty groups, malformed titles)
-      return validGroups.filter((group: any) =>
-        this.getPluginGroupTitles().some(title => group.title.startsWith(title))
+      const pluginTitles = this.getPluginGroupTitles()
+      const filtered = validGroups.filter((group: any) =>
+        pluginTitles.some(title => group.title.startsWith(title))
       )
+      return filtered
     } catch (err) {
       console.warn('[BackgroundTabService] ⚠️ Failed to query plugin groups:', err)
       return []
@@ -158,6 +159,10 @@ export class BackgroundTabService {
       // This ensures clean slate when thresholds change or re-grouping happens
       await this.ungroupAllTabs()
 
+      // ⏳ Wait for browser to process ungrouping before regrouping
+      // This prevents race conditions where groups are partially created
+      await new Promise(resolve => setTimeout(resolve, 200))
+
       const rawTabs = await this.getTabs()
       const thresholds = await this.getThresholds()
       const currentTime = await getCurrentTime()
@@ -228,6 +233,12 @@ export class BackgroundTabService {
         } catch (err) {
           console.error(`[BackgroundTabService] Failed to create group "${activeLevels[i].label}":`, err)
         }
+      }
+
+      // ⏳ CRITICAL: Wait for browser to fully sync groups after creation
+      // Without this, rapid getGroupAndTabData() calls may return stale/empty group list
+      if (groupsCreated > 0) {
+        await new Promise(resolve => setTimeout(resolve, 150))
       }
 
       return groupsCreated
@@ -414,7 +425,7 @@ export class BackgroundTabService {
    * • Production (no mocks set) → returns real lastAccessed
    * • Testing (mocks set) → applies mocks without special handling
    *
-   * Used by: groupTabsByAge(), updateTabByAge(), sortGroupsByDomain(), createMockTabs()
+   * Used by: groupTabsByAge(), updateTabByAge(), createMockTabs()
    */
   static async getTabs(): Promise<Browser.tabs.Tab[]> {
     const allTabs = await browser.tabs.query({currentWindow: true})
@@ -680,65 +691,6 @@ export class BackgroundTabService {
     }
   }
 
-  /**
-   * Sort all tabs alphabetically by domain (A→Z).
-   * Strips `www.` and protocol before sorting, e.g. `https://www.EXAMPLE.com/path` sorts as `example.com`.
-   * Ungrouped and grouped tabs are both reordered — existing groups are preserved.
-   */
-  static async sortGroupsByDomain(): Promise<number> {
-    console.log('[BackgroundTabService] sortGroupsByDomain...')
-    try {
-      // ✅ getTabs() automatically applies mock overrides
-      const tabs = await this.getTabs()
-      if (tabs.length === 0) return 0
-
-      // Separate grouped and ungrouped tabs
-      const groupedTabs = tabs.filter(t => t.groupId != null && t.groupId !== -1)
-      const ungroupedTabs = tabs.filter(t => t.groupId == null || t.groupId === -1)
-
-      console.log(`[BackgroundTabService] Grouped: ${groupedTabs.length}, Ungrouped: ${ungroupedTabs.length}`)
-
-      const getSortKey = (url?: string): string => {
-        try {
-          return new URL(url ?? '').hostname.replace(/^www\d?\./i, '')
-        } catch {
-          return ''
-        }
-      }
-
-      // Sort ungrouped tabs by domain, then by lastAccessed
-      const sortedUngrouped = [...ungroupedTabs].sort((a, b) => {
-        const domainA = getSortKey(a.url)
-        const domainB = getSortKey(b.url)
-
-        // First sort by domain alphabetically
-        const domainCompare = domainA.localeCompare(domainB)
-        if (domainCompare !== 0) return domainCompare
-
-        // Within same domain, sort by lastAccessed (newest first = higher values first)
-        const timeA = a.lastAccessed || 0
-        const timeB = b.lastAccessed || 0
-        return timeB - timeA
-      })
-
-      // Calculate the index where ungrouped tabs should start
-      // This is after all grouped tabs
-      const startIndex = groupedTabs.length
-
-      // Move ungrouped tabs to their sorted positions, starting after all groups
-      const ungroupedIds = sortedUngrouped.map(t => t.id).filter((id): id is number => id != null)
-      if (ungroupedIds.length > 0) {
-        await browser.tabs.move(ungroupedIds, {index: startIndex})
-        console.log(`[BackgroundTabService] ✅ Moved ${ungroupedIds.length} ungrouped tabs starting at index ${startIndex}`)
-      }
-
-      console.log(`[BackgroundTabService] ✅ Sorted ${ungroupedIds.length} ungrouped tabs by domain then lastAccessed`)
-      return ungroupedIds.length
-    } catch (err) {
-      console.error('[BackgroundTabService] ❌', err)
-      return 0
-    }
-  }
 
   /**
    * Open a random tab from www.example.com/[0-9A-Z], optionally in a group.
@@ -922,7 +874,6 @@ export class BackgroundTabService {
         thresholds: state?.thresholds || {levels: [], activeLevels: 0},
         configLastUpdated: state?.configLastUpdated || Date.now(),
         version: state?.version || '1.0.0',
-        sortSettings: state?.sortSettings || {sortByDomainInGroups: true},
         autoClose: enabled,
       }
       await StorageRepository.storage.appStateStorage.setValue(updatedState)
