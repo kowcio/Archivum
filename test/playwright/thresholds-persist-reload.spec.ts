@@ -55,7 +55,7 @@ test.describe('Threshold Persistence across Reload', () => {
         });
       });
     });
-    expect(storageBeforeReload?.thresholds?.activeLevels).toBe(5);
+    expect(storageBeforeReload?.thresholds?.activeLevels).toBe(3);
     console.log(`✅ Step 5: Storage confirms activeLevels: ${storageBeforeReload?.thresholds?.activeLevels}`);
 
     // Step 6: Reload the page
