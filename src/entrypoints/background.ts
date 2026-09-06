@@ -2,7 +2,6 @@ import {defineBackground} from 'wxt/utils/define-background'
 import {registerService} from '@webext-core/proxy-service'
 import {ExtensionCleanupService} from '@/services/ExtensionCleanupService'
 import {BackgroundTabService} from '@/services/BackgroundTabService'
-import {BackupService} from '@/services/BackupService'
 import {APP_DEFAULTS} from '@/constants'
 import {browser} from 'wxt/browser'
 import {backgroundRPC} from '@/services/BackgroundRPC'
@@ -30,16 +29,13 @@ export default defineBackground({
     // ⏰ Alarms— periodic interval function execution for given schedules / crons
     if (browser.alarms != null) {
       //alarms schedules - crons
-      browser.alarms.create(APP_DEFAULTS.ALARM_UPDATE_TABS, {periodInMinutes: 60 * 24})
-      browser.alarms.create(APP_DEFAULTS.ALARM_BACKUP_TABS, {periodInMinutes: 60})
-      browser.alarms.create(APP_DEFAULTS.ALARM_AUTO_CLOSE_TABS, {periodInMinutes: 60 * 24})
+      const PERIOD_24H = {periodInMinutes: 60 * 24};
+      browser.alarms.create(APP_DEFAULTS.ALARM_UPDATE_TABS, PERIOD_24H)
+      browser.alarms.create(APP_DEFAULTS.ALARM_AUTO_CLOSE_TABS, PERIOD_24H)
       //alarms listeners
       browser.alarms.onAlarm.addListener(async (alarm) => {
         if (alarm.name === APP_DEFAULTS.ALARM_UPDATE_TABS) {
           await BackgroundTabService.groupTabsByAge()
-        }
-        if (alarm.name === APP_DEFAULTS.ALARM_BACKUP_TABS) {
-          await BackupService.backupTabs()
         }
         if (alarm.name === APP_DEFAULTS.ALARM_AUTO_CLOSE_TABS) {
           // Check if auto-close is enabled in settings
@@ -75,7 +71,7 @@ export default defineBackground({
 
     // 🧪 DEBUG-ONLY: Message listener for console debugging
     browser.runtime.onMessage.addListener((msg, sender, sendResponse) => {
-      if (msg.action === 'debugCloseOldestGroupTabs') {
+      if (msg.action === 'debug') {
         BackgroundTabService.autoCloseOldestGroupTabs().then(result => {
           sendResponse({success: true, closed: result})
         })

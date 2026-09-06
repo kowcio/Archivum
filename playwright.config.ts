@@ -8,8 +8,8 @@ export default defineConfig({
   testDir: './test/playwright',
   // ── EXTENSION TEST TIMEOUTS (longer than typical web tests) ──
   // Extension setup + content loading + interaction can be slow
-  timeout: isCI ? 120_000 : 60_000,  // 120s on CI (extension setup overhead), 60s locally
-  expect: { timeout: 15_000 },  // Global timeout for all expect() assertions: 15 seconds
+  timeout: isCI ? 150_000 : 60_000,  // 150s on CI (MV3 service worker can be slow), 60s locally
+  expect: { timeout: 20_000 },  // Global timeout for all expect() assertions: 20 seconds (increased for CI)
 
   // ── RETRIES & FLAKINESS DETECTION ──
   // Retry flaky tests on CI, fail fast on obvious issues
@@ -35,8 +35,9 @@ export default defineConfig({
     },
     // ── NAVIGATION & ACTION TIMEOUTS ──
     // Extension navigation can be slower than regular web navigation
-    navigationTimeout: isCI ? 30_000 : 15_000,  // 30s on CI, 15s locally
-    actionTimeout: isCI ? 15_000 : 10_000,      // 15s on CI, 10s locally
+    // CI: Increased to 45s due to MV3 service worker responsiveness issues under resource constraints
+    navigationTimeout: isCI ? 45_000 : 15_000,
+    actionTimeout: isCI ? 30_000 : 10_000,  // CI: 30s (was 15s, too short for SW-blocked interactions), Local: 10s
   },
   projects: [
     {

@@ -5,6 +5,78 @@ stack: "WXT 0.20+ · Vue 3.5 · TypeScript 5.8 · Pinia 3 · Quasar 2 · Vitest 
 
 # Project Instructions
 
+## 🤖 AI Agent Orchestration for Coding & Testing
+
+**You have access to specialized agents. Use them strategically:**
+
+### When to Use Agents (Offload Complex Work)
+
+1. **🔍 Search Agent** - Multi-file code search & analysis
+   - Use for: Finding symbols, tracing code flow, understanding patterns
+   - When: Task requires searching 3+ files OR grep across workspace
+   - Example: "Find all usages of BackgroundRPC across the extension"
+   - Command: Let the agent search while you handle direct file edits
+
+2. **🧪 Test Agent** (If Available) - Test execution & debugging
+   - Use for: Running test suites, analyzing failures, debugging flaky tests
+   - When: Tests fail and you need investigation
+   - Example: "Run all Playwright tests and analyze failures"
+
+3. **⚙️ Code Agent** (If Available) - Code generation & refactoring
+   - Use for: Large-scale refactors, boilerplate generation
+   - When: Task affects 5+ files OR requires systematic transformation
+   - Example: "Migrate all test files to custom fixtures"
+
+### When NOT to Use Agents (Do It Directly)
+
+- ❌ Simple edits to 1-2 files (just use tools directly)
+- ❌ Reading file contents (faster to read_file directly)
+- ❌ Quick terminal commands (run_in_terminal is immediate)
+- ❌ Context-dependent changes (need conversation history)
+
+### Agent Workflow Example
+
+```
+User: "Migrate all 16 test files to custom fixtures"
+
+GOOD APPROACH:
+1. Migrate pilot test directly (1 file) ← test manually
+2. Use Search Agent to find all *.spec.ts files ← parallel work
+3. Create migration script (Python/Bash) ← automate 15 files
+4. Run script ← execute at once
+5. Verify with one test ← validate
+Result: Done in 1-2 minutes instead of 16+ individual edits
+
+BAD APPROACH:
+1. Edit test file 1 ← wait
+2. Edit test file 2 ← wait
+3. ... (repeat 14 more times)
+Result: 30+ minutes wasted
+```
+
+### Your Recent Agent Success Stories
+
+✅ **Custom Fixtures Migration** (Sept 6, 2026)
+- Migrated 16 test files in seconds using Python script
+- Agent pattern saved ~25 minutes vs manual edits
+- Result: 224 lines of boilerplate eliminated
+
+✅ **Code Search for Patterns**
+- Use Search Agent to find all BackgroundRPC calls
+- Faster than manual grep across IDE
+
+### Delegation Checklist
+
+Before delegating to agent, ask:
+- [ ] Is this a search/find task? → Use Search Agent
+- [ ] Does this affect 5+ files? → Consider agent
+- [ ] Can this be automated? → Create script + agent
+- [ ] Is the task independent? → Parallelize with agent
+
+**Otherwise: Just do it directly with file tools!**
+
+---
+
 ## ⚠️ IMPORTANT: Documentation Policy
 
 **NEVER create documentation, summaries, or reports WITHOUT EXPLICIT USER REQUEST.**

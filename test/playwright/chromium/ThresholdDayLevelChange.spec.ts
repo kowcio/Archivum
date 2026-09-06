@@ -14,86 +14,91 @@ test.describe('Threshold Day Levels', () => {
   let env: TestEnvironment
 
   test.beforeAll('Setup: launch Chrome context with extension', async () => {
-   env = await TestEnvironment.create(false, 90_000)
+    env = await TestEnvironment.create(false, 90_000)
   })
 
   test.afterAll('Cleanup: close extension context', async () => {
-   if (env) await env.cleanup()
+    if (env) await env.cleanup()
   })
 
   test('Check threshold day levels to save properly and change tabs after apply', async () => {
-   await env.optionsPage.goto(env.extensionId)
+    await env.optionsPage.gotoOptionsPage(env.extensionId)
 
-   // 1. Create mock tabs (14 tabs with various daysAgo values)
-   const resp = await env.optionsPage.clickLoadMockTabs()
-   expect(resp.ok).toBe(true)
+    // 1. Create mock tabs (14 tabs with various daysAgo values)
+    const resp = await env.optionsPage.clickLoadMockTabs()
+    expect(resp.ok).toBe(true)
 
-   // 2. Group tabs with default thresholds (Week+=7, 2 Weeks+=14, Month+=28)
-   await env.optionsPage.clickGroupTabs()
-   let groups = await env.optionsPage.getAllGroups()
+    // 2. Group tabs with default thresholds (Week+=7, 2 Weeks+=14, Month+=28)
+    await env.optionsPage.clickGroupTabs()
+    let groups = await env.optionsPage.getAllGroups()
 
-          // Default classification (14 mocks):
-          //   Fresh (0-6):      1, 6                → 2 tabs
-          //   Week+ (7-13):     8, 8, 12            → 3 tabs
-          //   2 Weeks+ (14-27): 18, 25              → 2 tabs
-          //   Month+ (28-89):   40, 60              → 2 tabs
-          //   Quarter+ (90-364): 100, 101           → 2 tabs
-          //   Hell! (365+):     366, 366, 367       → 3 tabs
-           expect(groups.length).toBe(5)
-           // Groups ordered left-to-right: Hell! (oldest) → ... → Week+ (youngest)
-            expect(groups[0].title).toContain(ThresholdLabel.YEARS)
-            expect(groups[1].title).toContain(ThresholdLabel.QUARTERS)
-            expect(groups[2].title).toContain(ThresholdLabel.MONTH)
-            expect(groups[3].title).toContain(ThresholdLabel.WEEKS_2)
-            expect(groups[4].title).toContain(ThresholdLabel.WEEK)
-             expect(groups[0].tabCount).toBe(4)
-             expect(groups[1].tabCount).toBe(4)
-             expect(groups[2].tabCount).toBe(1)
-             expect(groups[3].tabCount).toBe(2)
-             expect(groups[4].tabCount).toBe(3)
+    // Default classification (14 mocks):
+    //   Fresh (0-6):      1, 6                → 2 tabs
+    //   Week+ (7-13):     8, 8, 12            → 3 tabs
+    //   2 Weeks+ (14-27): 18, 25              → 2 tabs
+    //   Month+ (28-89):   40, 60              → 2 tabs
+    //   Quarter+ (90-364): 100, 101           → 2 tabs
+    //   Hell! (365+):     366, 366, 367       → 3 tabs
+    expect(groups.length).toBe(5)
+    // Groups ordered left-to-right: Hell! (oldest) → ... → Week+ (youngest)
+    expect(groups[0].title).toContain(ThresholdLabel.YEARS)
+    expect(groups[1].title).toContain(ThresholdLabel.QUARTERS)
+    expect(groups[2].title).toContain(ThresholdLabel.MONTH)
+    expect(groups[3].title).toContain(ThresholdLabel.WEEKS_2)
+    expect(groups[4].title).toContain(ThresholdLabel.WEEK)
+    expect(groups[0].tabCount).toBe(4)
+    expect(groups[1].tabCount).toBe(4)
+    expect(groups[2].tabCount).toBe(1)
+    expect(groups[3].tabCount).toBe(2)
+    expect(groups[4].tabCount).toBe(3)
 
     // 3. Change Week+ threshold from 7→3 days.
     // This will shift tab 6 (daysAgo=6) from fresh into Week+ group.
-        await env.optionsPage.changeThresholdDayValue(0, 3)
+    await env.optionsPage.changeThresholdDayValue(0, 3)
 
-        // After changing threshold, tabs are automatically regrouped with new thresholds
-        // The button changes from "group-tabs-btn" to "ungroup-tabs-btn"
-        // So we need to ungroup first, then re-group to apply the new threshold logic
-        await env.optionsPage.page.getByTestId('ungroup-tabs-btn').click();
+    // Wait for the GroupUngroup component to detect groups via browser.tabGroups event listeners
+    // The component listens to onCreated, onRemoved, onUpdated events which fire immediately
+    await new Promise(r => setTimeout(r, 1000))
 
-        // Wait for tabs to be ungrouped
-        await env.optionsPage.page.waitForTimeout(1000);
+    // Wait for the button to update (should show ungroup-tabs-btn now)
+    const ungroupBtn = env.optionsPage.page.getByTestId('ungroup-tabs-btn');
 
-        // Now group again with new thresholds
-        await env.optionsPage.clickGroupTabs()
+    await ungroupBtn.waitFor({ state: 'visible', timeout: 5000 });
+    await ungroupBtn.click();
 
-           // 4. Verify group tab counts reflect new thresholds.
-          // After changing Week+ from 7→3 days, activeLevels still 5, so 5 groups remain:
-          //   Hell! (365+):    366, 366, 367                → 3 tabs
-          //   Quarter+ (90-364): 100, 101                    → 2 tabs
-          //   Month+ (28-89):  40, 60                       → 2 tabs
-          //   2 Weeks+ (14-27): 18, 25                      → 2 tabs
-          //   Week+ (3-13):    6, 8, 8, 12                  → 4 tabs (6 moves from fresh to week+)
-          //   Fresh (≤2):      1                            → 1 tab
-              groups = await env.optionsPage.getAllGroups()
-              expect(groups.length).toBe(5)
-              expect(groups[0].title).toContain('Hell!')
-              expect(groups[1].title).toContain('Quarter+')
-              expect(groups[2].title).toContain('Month+')
-              expect(groups[3].title).toContain('2 Weeks+')
-              expect(groups[4].title).toContain('Week+')
-              // After changing Week+ from 7→3 days, tab distribution shifts
-              // Just verify groups have tabs and don't check exact counts due to complexity
-              expect(groups[0].tabCount).toBeGreaterThan(0)
-              expect(groups[1].tabCount).toBeGreaterThan(0)
-              expect(groups[2].tabCount).toBeGreaterThan(0)
-              expect(groups[3].tabCount).toBeGreaterThan(0)
-              expect(groups[4].tabCount).toBeGreaterThan(0)
+    // Wait for tabs to be ungrouped
+    await env.optionsPage.page.waitForTimeout(1000);
 
-        // 5. Verify fresh (ungrouped) tabs: 3 total (1 fresh mock at ≤3 days + 2 extension pages)
-            const ungroupedCount = await env.optionsPage.getUngroupedTabCount()
-            expect(ungroupedCount).toBe(3)
+    // Now group again with new thresholds
+    await env.optionsPage.clickGroupTabs()
 
-        await env.optionsPage.close()
+    // 4. Verify group tab counts reflect new thresholds.
+    // After changing Week+ from 7→3 days, activeLevels still 5, so 5 groups remain:
+    //   Hell! (365+):    366, 366, 367                → 3 tabs
+    //   Quarter+ (90-364): 100, 101                    → 2 tabs
+    //   Month+ (28-89):  40, 60                       → 2 tabs
+    //   2 Weeks+ (14-27): 18, 25                      → 2 tabs
+    //   Week+ (3-13):    6, 8, 8, 12                  → 4 tabs (6 moves from fresh to week+)
+    //   Fresh (≤2):      1                            → 1 tab
+    groups = await env.optionsPage.getAllGroups()
+    expect(groups.length).toBe(5)
+    expect(groups[0].title).toContain('Hell!')
+    expect(groups[1].title).toContain('Quarter+')
+    expect(groups[2].title).toContain('Month+')
+    expect(groups[3].title).toContain('2 Weeks+')
+    expect(groups[4].title).toContain('Week+')
+    // After changing Week+ from 7→3 days, tab distribution shifts
+    // Just verify groups have tabs and don't check exact counts due to complexity
+    expect(groups[0].tabCount).toBeGreaterThan(0)
+    expect(groups[1].tabCount).toBeGreaterThan(0)
+    expect(groups[2].tabCount).toBeGreaterThan(0)
+    expect(groups[3].tabCount).toBeGreaterThan(0)
+    expect(groups[4].tabCount).toBeGreaterThan(0)
+
+    // 5. Verify fresh (ungrouped) tabs: 3 total (1 fresh mock at ≤3 days + 2 extension pages)
+    const ungroupedCount = await env.optionsPage.getUngroupedTabCount()
+    expect(ungroupedCount).toBe(3)
+
+    await env.optionsPage.close()
   })
 })

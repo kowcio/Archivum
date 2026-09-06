@@ -25,7 +25,7 @@ test.describe('onTabActivated — last tab removes group', () => {
 
   test('Last tab from group: activating it sets groupId=-1 and group disappears', async () => {
     try {
-      await env.optionsPage.goto(env.extensionId)
+      await env.optionsPage.gotoOptionsPage(env.extensionId)
       await env.optionsPage.expectPageLoaded()
       await env.optionsPage.clickCloseAllTabs()
 

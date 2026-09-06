@@ -19,7 +19,7 @@ test.describe("Thresholds", () => {
   });
 
   test("Default thresholds → group tabs → change to 5 levels → verify groups", async () => {
-    await env.optionsPage.goto(env.extensionId);
+    await env.optionsPage.gotoOptionsPage(env.extensionId);
     await env.optionsPage.expectPageLoaded()
 
     const resp = await env.optionsPage.clickLoadMockTabs();

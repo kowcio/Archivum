@@ -14,17 +14,17 @@ import {TestEnvironment} from "./chromium/extensions.js"
 test.describe('Threshold Change: Store → Options Auto-Update', () => {
   let env: TestEnvironment
 
-  test.beforeAll('Setup: launch Chrome context with extension', async () => {
+  test.beforeEach('Setup: launch fresh Chrome context', async () => {
     env = await TestEnvironment.create(false, 90_000)
   })
 
-  test.afterAll('Cleanup: close extension context', async () => {
+  test.afterEach('Cleanup: close extension context', async () => {
     if (env) await env.cleanup()
   })
 
   test('should create threshold groups with proper order when thresholds change', async () => {
     // 1. Open options page
-    await env.optionsPage.goto(env.extensionId)
+    await env.optionsPage.gotoOptionsPage(env.extensionId)
 
     // 2. Load mock tabs (14 tabs with ages: 1,6,8,8,12,18,25,40,60,100,101,356,366,367)
     await env.optionsPage.clickLoadMockTabs()
