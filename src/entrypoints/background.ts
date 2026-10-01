@@ -40,7 +40,7 @@ export default defineBackground({
         if (alarm.name === APP_DEFAULTS.ALARM_AUTO_CLOSE_TABS) {
           // Check if auto-close is enabled in settings
           try {
-            const state = await StorageRepository.storage.appStateStorage.getValue()
+            const state = await StorageRepository.getAppState()
             if (state?.autoClose) {
               await BackgroundTabService.autoCloseOldestGroupTabs();
             }

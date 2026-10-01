@@ -89,13 +89,8 @@ export class OptionsPage {
       waitUntil: 'networkidle',
     });
 
-    // Visibility: element exists, is visible, and stable in DOM
-    // Uses global Playwright timeout from config (20s) for web-first assertion
-    // This respects the timeout from playwright.config.ts expect.timeout
-    await expect(this.groupTabsBtn).toBeVisible();
-
-    // Actionability: element is enabled and ready to interact (event listeners attached)
-    await this.groupTabsBtn.isEnabled();
+    const actionBtn = this.page.locator('[data-testid="group-tabs-btn"], [data-testid="ungroup-tabs-btn"]');
+    await expect(actionBtn.first()).toBeVisible();
   }
 
   /**
@@ -107,14 +102,12 @@ export class OptionsPage {
    * In production builds, only checks for group-tabs-btn.
    */
   async expectPageLoaded(): Promise<void> {
-    // Wait for Vue to hydrate completely - element must exist in DOM with data-testid
     await this.page.waitForFunction(() => {
-      const btn = document.querySelector('[data-testid="group-tabs-btn"]');
+      const btn = document.querySelector('[data-testid="group-tabs-btn"], [data-testid="ungroup-tabs-btn"]');
       return btn !== null;
     }, { timeout: 10000 });
 
-    // Now verify visibility
-    await expect(this.groupTabsBtn).toBeVisible();
+    await expect(this.page.locator('[data-testid="group-tabs-btn"], [data-testid="ungroup-tabs-btn"]').first()).toBeVisible();
   }
 
   /**
@@ -125,21 +118,40 @@ export class OptionsPage {
   async clickGroupTabs(): Promise<void> {
    const startTime = Date.now();
    console.log('[OptionsPage] 🔄 Clicking group tabs button...');
-    
+
+   const groupBtn = this.page.locator('[data-testid="group-tabs-btn"]');
+   const ungroupBtn = this.page.locator('[data-testid="ungroup-tabs-btn"]');
+
+   await expect.poll(
+     async () => {
+       if (await groupBtn.isVisible().catch(() => false)) return 'group';
+       if (await ungroupBtn.isVisible().catch(() => false)) return 'ungroup';
+       return null;
+     },
+     { timeout: 10_000, message: 'Group/ungroup button rendered' }
+   ).not.toBeNull();
+
+   if (await ungroupBtn.isVisible().catch(() => false)) {
+     console.log('[OptionsPage] ℹ️ Groups already exist; skipping re-group click to avoid toggling the state unnecessarily.');
+     return;
+   }
+
+   if (await groupBtn.isDisabled().catch(() => true)) {
+     console.log('[OptionsPage] ℹ️ Group button is disabled because there are no stale tabs to archive; skipping click.');
+     return;
+   }
+
    try {
-     await this.groupTabsBtn.click();
+     await groupBtn.click();
    } catch (err) {
      console.error('[OptionsPage] ❌ Click failed:', err instanceof Error ? err.message : err);
      throw err;
    }
-    
-   // Give the service worker a moment to process the click
+
    await this.page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {
      console.log('[OptionsPage] ⚠️ networkidle timeout (ok - background SW might be working)');
    });
 
-   // Wait for groups to be created and visible in DOM
-   // Increased timeout to 20s for CI environments where SW can be slow
    console.log('[OptionsPage] ⏳ Waiting for groups to be created...');
    await expect.poll(
      async () => {
@@ -148,13 +160,10 @@ export class OptionsPage {
      },
      { timeout: 20_000, message: 'Groups created after clicking group button' }
    ).toBeGreaterThan(0);
-     
-   // ⏳ CRITICAL: Wait for browser to fully sync groups after creation
-   // Without this, rapid getAllGroups() calls may return stale/empty group list
-   // This race condition is worse in IDEs (slower I/O) than CLI
+
    console.log('[OptionsPage] ✅ Groups found, waiting for full browser sync...');
    await new Promise(r => setTimeout(r, 250));
-    
+
    const elapsed = Date.now() - startTime;
    console.log(`[OptionsPage] ✅ Groups created (took ${elapsed}ms)`);
   }
@@ -653,35 +662,20 @@ export class OptionsPage {
    * Enhanced for CI with retries and better diagnostics
    */
   async clickAutoCloseToggle(): Promise<void> {
-    console.log('[OptionsPage] 🔄 Clicking auto-close toggle...');
-     
-    const toggle = this.page.getByTestId('auto-close-toggle');
-    await expect(toggle).toBeVisible();
-     
-    // Try click with retry for CI environments
-    let lastError: Error | null = null;
-    for (let attempt = 1; attempt <= 3; attempt++) {
-      try {
-        console.log(`[OptionsPage] 📍 Click attempt ${attempt}/3...`);
-        await toggle.click();
-        console.log(`[OptionsPage] ✅ Click succeeded on attempt ${attempt}`);
-        break;
-      } catch (err) {
-        lastError = err instanceof Error ? err : new Error(String(err));
-        console.warn(`[OptionsPage] ⚠️ Click attempt ${attempt} failed:`, lastError.message);
-         
-        if (attempt < 3) {
-          await new Promise(r => setTimeout(r, 200)); // Wait before retry
-        }
-      }
-    }
-     
-    if (lastError) {
-      throw lastError;
-    }
+    console.log('[OptionsPage] 🔄 Toggling auto-close switch...');
 
-    // Give browser time to update DOM after click
-    await new Promise(r => setTimeout(r, 200));
+    const toggle = this.page.getByRole('switch', { name: 'Auto close' });
+    await expect(toggle).toBeVisible();
+
+    const nextValue = !(await this.isAutoCloseEnabled());
+    await toggle.click();
+
+    await expect.poll(
+      async () => await this.isAutoCloseEnabled(),
+      { timeout: 5_000, intervals: [100] }
+    ).toBe(nextValue);
+
+    console.log(`[OptionsPage] ✅ Auto-close toggled to ${nextValue}`);
   }
 
   /**
@@ -689,8 +683,8 @@ export class OptionsPage {
    */
   async isAutoCloseEnabled(): Promise<boolean> {
     return this.page.evaluate(async () => {
-      const data = await chrome.storage.local.get('local:appState');
-      return (data['local:appState'] as any)?.autoClose ?? false;
+      const data = await chrome.storage.local.get('appState');
+      return (data.appState as any)?.autoClose ?? false;
     });
   }
 

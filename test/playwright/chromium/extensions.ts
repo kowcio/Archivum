@@ -77,25 +77,21 @@ function ensureExtensionBuilt(): void {
 // Ensure build happens once before any tests run
 ensureExtensionBuilt();
 
-// 🎯 BROWSER CACHE: Per-test-file cache for persistent context
-// Each test file launches its own context (not reused across files)
-// Pages are recycled within a test file via cleanup
-let cachedBrowserContext: BrowserContext | null = null;
-let cachedExtensionId: string | null = null;
+// Each test must run in a fresh browser context to avoid leaking extension state
+// (local storage, appState, tab group state, alarms, etc.) between tests.
 
 /**
- * Clean up the cached context and close browser gracefully
+ * Close a browser context cleanly.
  */
-async function closeCachedContext(): Promise<void> {
-  if (!cachedBrowserContext) {
+async function closeCachedContext(context?: BrowserContext): Promise<void> {
+  if (!context) {
     return;
   }
 
-  console.log("[closeCachedContext] 🧹 Closing persistent context and browser...");
+  console.log("[closeCachedContext] 🧹 Closing browser context...");
 
   try {
-    // Close all pages first
-    for (const page of cachedBrowserContext.pages()) {
+    for (const page of context.pages()) {
       try {
         await page.close();
       } catch {
@@ -103,20 +99,16 @@ async function closeCachedContext(): Promise<void> {
       }
     }
 
-    // Close the context (which also closes the browser)
-    await cachedBrowserContext.close();
+    await context.close();
     console.log("[closeCachedContext] ✅ Context closed successfully");
   } catch (err) {
     console.warn("[closeCachedContext] ⚠️ Error during close:", err instanceof Error ? err.message : err);
-  } finally {
-    cachedBrowserContext = null;
-    cachedExtensionId = null;
   }
 }
 
 /**
- * Launch shared Chrome persistent context with MV3 extension
- * This is called ONCE per test file and the context is reused within that file
+ * Launch a dedicated Chrome persistent context with MV3 extension.
+ * This is created fresh for each test environment to guarantee isolation.
  */
 async function launchChromeBrowser(): Promise<{ context: BrowserContext; extensionId: string }> {
   const extensionPath = path.join(OUTPUT_DIR, "chrome-mv3");
@@ -170,34 +162,27 @@ async function launchChromeBrowser(): Promise<{ context: BrowserContext; extensi
 }
 
 /**
- * Get or create the shared browser context (cached per test file)
+ * Create a fully isolated Chrome extension context for one test environment.
  */
 async function getOrCreateContext(): Promise<{
   context: BrowserContext;
   extensionId: string;
 }> {
-  if (!cachedBrowserContext) {
-    const result = await launchChromeBrowser();
-    cachedBrowserContext = result.context;
-    cachedExtensionId = result.extensionId;
-  }
-  return { context: cachedBrowserContext!, extensionId: cachedExtensionId! };
+  return await launchChromeBrowser();
 }
 
 /**
- * Register cleanup hook to close context at end of test file
+ * Register cleanup hook to close any leftover browser context at file end.
  */
 test.afterAll(async () => {
-  await closeCachedContext();
+  // No shared cached context: each environment owns its own context.
 });
 
 /**
- * Reset pages in the shared context for the next test
+ * Reset pages in the context before a fresh test.
  */
 async function resetContextPages(context: BrowserContext): Promise<void> {
-  console.log(
-    "[resetContextPages] 🧹 Clearing all pages from shared context..."
-  );
+  console.log("[resetContextPages] 🧹 Clearing all pages from context...");
 
   for (const page of context.pages()) {
     try {
@@ -213,7 +198,7 @@ async function resetContextPages(context: BrowserContext): Promise<void> {
 export async function launchChromeContext(): Promise<ExtensionTestContext> {
   const { context, extensionId: extId } = await getOrCreateContext();
 
-  // Reset any leftover pages from previous test
+  // Ensure a clean page set for a freshly created test environment.
   await resetContextPages(context);
 
   return {
@@ -221,13 +206,11 @@ export async function launchChromeContext(): Promise<ExtensionTestContext> {
     extensionId: extId,
     cleanup: async () => {
       try {
-         // Close all pages in this context (but keep context alive for next test in file)
-         await resetContextPages(context);
-         console.log('[launchChromeContext.cleanup] ✅ Pages cleaned up (context reused for next test in file)');
-       } catch (err) {
-         // Log but don't throw
-         console.warn('[launchChromeContext.cleanup] Error during cleanup:', err instanceof Error ? err.message : err);
-       }
+       await closeCachedContext(context);
+       console.log('[launchChromeContext.cleanup] ✅ Context closed for isolated test');
+      } catch (err) {
+       console.warn('[launchChromeContext.cleanup] Error during cleanup:', err instanceof Error ? err.message : err);
+      }
     },
   };
 }
