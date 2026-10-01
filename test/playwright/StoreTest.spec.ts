@@ -27,7 +27,7 @@ test.describe('onTabActivated — last tab removes group', () => {
     try {
       await env.optionsPage.gotoOptionsPage(env.extensionId)
       await env.optionsPage.expectPageLoaded()
-      await env.optionsPage.clickCloseAllTabs()
+      // Note: Don't close tabs here - we'll create a single tab for testing below
 
       // Create 1 tab and group it with plugin-style title
       const tab = await env.optionsPage.page.evaluate(async () => {

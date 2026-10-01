@@ -28,14 +28,10 @@ test.describe('groupTabsByAge E2E', () => {
     await env.optionsPage.gotoOptionsPage(env.extensionId);
     await env.optionsPage.expectPageLoaded();
 
-    // Close any existing tabs first (to have clean slate with only 1 tab = options page)
-    await env.optionsPage.clickCloseAllTabs();
-
     // Click mock button
     const mockResult = await env.optionsPage.clickLoadMockTabs();
     expect(mockResult.ok).toBe(true);
 
-    // Extra wait to ensure mock overrides are persisted to storage (WXT sync)
     // Group tabs
     await env.optionsPage.clickGroupTabs();
 
