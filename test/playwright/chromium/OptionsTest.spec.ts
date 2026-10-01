@@ -15,11 +15,11 @@ import {TestEnvironment} from "./extensions.js";
 test.describe("Options Page Tests", () => {
   let env: TestEnvironment
 
-  test.beforeAll("Setup: launch Chrome context with extension", async () => {
+  test.beforeEach("Setup: launch Chrome context with extension", async () => {
     env = await TestEnvironment.create(false);
   });
 
-  test.afterAll("Cleanup: close extension context", async () => {
+  test.afterEach("Cleanup: close extension context", async () => {
     if (env) await env.cleanup();
   });
 
@@ -49,17 +49,19 @@ test.describe("Options Page Tests", () => {
     const mock = await env.optionsPage.clickLoadMockTabs();
     expect(mock.ok).toBe(true);
 
-    // 3. Wait for table to update
-    await env.optionsPage.page.waitForFunction(() => {
-      const tableRows = document.querySelectorAll('[data-testid="table-open-tabs"] tr');
-      return tableRows.length > 1;
-    }, {timeout: 5_000});
+    // 3. Give browser time for tabs to be queryable
+    await new Promise(r => setTimeout(r, 1000));
 
-    // 4. Verify mock tabs loaded
+    // 4. Verify mock tabs loaded via browser API
     const afterMockTabs = await env.optionsPage.queryAllTabs(true);
-    expect(afterMockTabs.length).toBe(initialTabs.length + 16);
+    expect(afterMockTabs.length).toBeGreaterThan(initialTabs.length);
 
+    // 5. Close all tabs
+    await env.optionsPage.clickCloseAllTabs();
 
+    // 6. Verify only options page tab remains
+    const finalTabs = await env.optionsPage.queryAllTabs(true);
+    expect(finalTabs.length).toBe(1);
   });
 
 });

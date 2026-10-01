@@ -1,0 +1,67 @@
+﻿ANALYSIS COMPLETE
+
+Generated Documentation:
+✅ test/playwright/ARCHITECTURE_ANALYSIS.md (22.2 KB)
+   • 7 critical findings with code examples
+   • Browser lifecycle, storage, async patterns
+   • Implementation plan (5 phases)
+   • Risk assessment
+
+✅ test/playwright/ALL_TESTS_ANALYSIS.md (22.1 KB)
+   • All 14 files analyzed (23 tests)
+   • Tier breakdown: 7 broken, 9 at-risk, 7 working
+   • File-by-file risk assessment
+   • Migration roadmap (Priority 1/2/3)
+   • Copy-paste fix patterns
+
+Key Insights:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+✅ Your initial instincts were 100% CORRECT:
+
+1. ✅ beforeEach should CREATE fresh env, not cleanup old one
+2. ✅ Each test needs its OWN environment from scratch
+3. ✅ Playwright creates SINGLE PERSISTENT context per beforeAll
+   → Storage persists by design (launchPersistentContext)
+   → Only way to reset: close context + create new one
+4. ✅ expect.poll() has BUILT-IN polling, use it for async
+5. ✅ Tests have MUTABLE STATE, they MUST start fresh each time
+6. ✅ Cannot run parallel with current design
+
+Root Cause (Same across all 14 files):
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  ❌ test.beforeAll() → create env
+  ❌ [Test 1] [Test 2] [Test 3] ... [Test N] → all use same env
+  ❌ test.afterAll() → cleanup
+
+Should be:
+
+  ✅ test.beforeEach() → create fresh env
+  ✅ [Test 1] → use env, test completes
+  ✅ test.afterEach() → cleanup env (profile deleted)
+  ✅ test.beforeEach() → create FRESH env
+  ✅ [Test 2] → uses NEW env, completely isolated
+  ✅ test.afterEach() → cleanup env
+
+Impact by Priority:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Priority 1 (CRITICAL): browser-alarms-api.spec.ts
+  • 7 coupled tests, all broken together
+  • Estimated fix: 2 hours
+  • Enables: 7 independent tests
+
+Priority 2 (CRITICAL): 3 alarm tests (24h-*) + 2 threshold tests
+  • Order-dependent failures
+  • Estimated fix: 1.5-2 hours
+  • Enables: 5 independent tests
+
+Priority 3 (MEDIUM): 8 at-risk tests (chromium/*, tooltip)
+  • Fragile, CI-flaky
+  • Estimated fix: 2-3 hours
+  • Stabilizes: 8 tests
+
+Total: ~5.5 hours → 23 robust, order-independent tests
+
+Next Action: Review the generated markdown files above

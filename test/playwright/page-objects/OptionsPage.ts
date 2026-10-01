@@ -146,6 +146,12 @@ export class OptionsPage {
      },
      { timeout: 20_000, message: 'Groups created after clicking group button' }
    ).toBeGreaterThan(0);
+     
+   // ⏳ CRITICAL: Wait for browser to fully sync groups after creation
+   // Without this, rapid getAllGroups() calls may return stale/empty group list
+   // This race condition is worse in IDEs (slower I/O) than CLI
+   console.log('[OptionsPage] ✅ Groups found, waiting for full browser sync...');
+   await new Promise(r => setTimeout(r, 250));
     
    const elapsed = Date.now() - startTime;
    console.log(`[OptionsPage] ✅ Groups created (took ${elapsed}ms)`);
@@ -173,6 +179,7 @@ export class OptionsPage {
      * Set mock overrides for created tabs (backdated ages) via RPC messaging.
      * Call this AFTER creating mock tabs to set their lastAccessed timestamps.
      * Polls until overrides are applied and reflected in the tab data.
+     * ⚠️ CRITICAL: Must verify overrides are actually APPLIED, not just stored
      * @param overrides - Map of tabId → lastAccessed timestamp (ms since epoch)
      */
     async setMockOverrides(overrides: Record<number, number>): Promise<void> {
@@ -180,14 +187,28 @@ export class OptionsPage {
         // Call setMockOverrides RPC through BackgroundRPC proxy
         await this.bg.setMockOverrides(overrides)
 
-        // Poll until overrides are persisted in storage
+        // ⚠️ CRITICAL: Poll until overrides are actually applied to tab ages
+        // NOT just that tabs exist (they already did before override!)
+        // Verify that at least one tab's lastAccessed matches the override
         await expect.poll(
           async () => {
             const result = await this.getGroupAndTabData();
-            return result.tabs.length;
+            // Check if ANY tab has a lastAccessed that matches an override value
+            // This proves the mock overrides have been loaded and applied
+            const appliedCount = result.tabs.filter(tab => 
+              tab.id && tab.lastAccessed && overrides[tab.id] === tab.lastAccessed
+            ).length;
+            console.log(`[setMockOverrides] Checking overrides: ${appliedCount}/${Object.keys(overrides).length} tabs have correct ages`);
+            return appliedCount;
           },
-          { timeout: 10_000, message: 'Mock overrides applied and persisted' }
+          { timeout: 15_000, message: 'Mock overrides applied and reflected in tab ages' }
         ).toBeGreaterThan(0);
+
+        // ⏳ CRITICAL: Additional sync point for browser storage
+        // On slower CI environments, storage may not be immediately readable by background
+        console.log('[setMockOverrides] ✅ Overrides verified in tab data, waiting for storage sync...');
+        await new Promise(r => setTimeout(r, 200));
+        console.log('[setMockOverrides] ✅ Storage sync complete');
       } catch (err) {
         throw new Error(`Failed to set mock overrides: ${err}`)
       }
@@ -212,10 +233,30 @@ export class OptionsPage {
           { timeout: 10_000, message: 'Mock tabs created and loaded' }
         ).toBeGreaterThan(14);
 
+        // ⏳ CRITICAL: Additional sync for mock tabs to be fully available
+        // The RPC completes but tabs may not be fully queryable yet
+        console.log('[clickLoadMockTabs] ✅ Mock tabs loaded, waiting for browser sync...');
+        await new Promise(r => setTimeout(r, 500));
+
         return { ok: true, count: Array.isArray(tabs) ? tabs.length : 0, error: null }
       } catch (err: unknown) {
+        console.error('[clickLoadMockTabs] Error:', err instanceof Error ? err.message : String(err));
         return { ok: false, count: 0, error: String(err) }
       }
+    }
+
+    /**
+     * Wait for table rows to render after mock tabs are loaded.
+     * Call after clickLoadMockTabs() if you need to verify DOM has updated.
+     */
+    async waitForTableUpdate(minRows: number = 2, timeoutMs: number = 10_000): Promise<void> {
+      await this.page.waitForFunction(
+        () => {
+          const tableRows = document.querySelectorAll('[data-testid="table-open-tabs"] tr');
+          return tableRows && tableRows.length >= 2;  // At least header + 1 row
+        },
+        { timeout: timeoutMs }
+      );
     }
 
   /**
@@ -427,7 +468,7 @@ export class OptionsPage {
    // ⏳ CRITICAL: Wait additional time for browser to fully sync groups into queryable state
    // The RPC call completes before browser finishes updating group metadata
    console.log('[OptionsPage] ✅ Groups found, waiting for full sync...');
-   await new Promise(r => setTimeout(r, 200));
+   await new Promise(r => setTimeout(r, 300));
    console.log(`[OptionsPage] ✅ Full sync complete (total: ${Date.now() - startTime}ms)`);
   }
 
@@ -696,6 +737,7 @@ export class OptionsPage {
     /**
      * Progress time forward by aging all current mock tabs by specified days.
      * Calculates new lastAccessed timestamps (subtracts days) and applies via setMockOverrides.
+     * ⚠️ CRITICAL: Waits for overrides to be fully applied before returning.
      * @param days - Number of days to age all mocks forward
      */
     async timeProgress(days: number): Promise<void> {
@@ -712,5 +754,11 @@ export class OptionsPage {
 
      // Apply the time progression via mock overrides
      await this.setMockOverrides(newAges);
+      
+     // ⏳ CRITICAL: Additional wait after overrides to ensure storage is fully synced
+     // This prevents race condition where groupTabsByAge() reads old cached data
+     console.log('[timeProgress] ⏳ Waiting for mock override storage to fully sync...');
+     await new Promise(r => setTimeout(r, 300));
+     console.log(`[timeProgress] ✅ Time progressed by ${days} days, storage synced`);
     }
 }
