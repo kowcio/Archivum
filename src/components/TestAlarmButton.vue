@@ -6,7 +6,7 @@
     :disabled="isLoading"
     title="Warp time +24h → trigger alarm → test grouping"
   >
-    <span v-if="!isLoading">⏰ Warp +24h</span>
+    <span v-if="!isLoading">⏰ Warp +24h ( alarm testing ? ) </span>
     <span v-else>⏳ Warping...</span>
   </button>
 </template>

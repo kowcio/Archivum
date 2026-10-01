@@ -28,7 +28,7 @@ test.describe('Threshold Persistence across Reload', () => {
      */
 
     // Step 1: Load options page
-    await env.optionsPage.goto(env.extensionId);
+    await env.optionsPage.gotoOptionsPage(env.extensionId);
     await env.optionsPage.expectPageLoaded();
     console.log('✅ Step 1: Options page loaded');
 

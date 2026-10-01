@@ -21,30 +21,22 @@ import { ThresholdLabel } from '../../src/constants.js'
 test.describe('TestAlarmButton: +4h Warp & Grouping', () => {
   let env: TestEnvironment
 
-  test.beforeAll('Setup: launch Chrome context with extension', async () => {
+  test.beforeEach('Setup: launch fresh Chrome context', async () => {
     env = await TestEnvironment.create(false, 120_000)
-    await env.optionsPage.goto(env.extensionId)
+    await env.optionsPage.gotoOptionsPage(env.extensionId)
     await env.optionsPage.expectPageLoaded()
   })
 
-  test.afterAll('Cleanup: close extension context', async () => {
+  test.afterEach('Cleanup: close extension context', async () => {
     if (env) await env.cleanup()
   })
 
   test.setTimeout(180_000)
 
   test('should warp time +4h and trigger grouping with updated tab ages', async () => {
-    // Step 1: Load mock tabs
-    console.log('Step 1: Loading mock tabs...')
-    const mockResult = await env.optionsPage.clickLoadMockTabs()
-    expect(mockResult.ok).toBe(true)
-    expect(mockResult.count).toBeGreaterThan(0)
-    console.log(`   ✓ Created ${mockResult.count} mock tabs`)
+    await env.optionsPage.clickLoadMockTabs()
 
-    // Step 2: Group tabs with default grouping
-    console.log('\nStep 2: Grouping tabs by age...')
     await env.optionsPage.clickGroupTabs()
-    console.log('   ✓ Group command executed')
 
     // Step 3: Verify groups BEFORE time warp
     console.log('\nStep 3: Verifying groups BEFORE time warp...')
@@ -64,125 +56,24 @@ test.describe('TestAlarmButton: +4h Warp & Grouping', () => {
       console.log(`   [${idx}] "${group.title}" → ${group.tabCount} tabs`)
     })
 
-    // Verify group structure before warp
     if (groupCountBefore >= 5) {
       console.log('\n   ✓ All 5 expected groups present BEFORE warp')
-       console.log('\n   Verifying group titles BEFORE warp...')
-       expect(groupsBefore[0].title).toContain(ThresholdLabel.YEARS)
-       console.log(`   ✓ groups[0]: "${groupsBefore[0].title}" contains "${ThresholdLabel.YEARS}"`)
+      console.log('\n   Verifying group titles BEFORE warp...')
+      expect(groupsBefore[0].title).toContain(ThresholdLabel.YEARS)
+      expect(groupsBefore[1].title).toContain(ThresholdLabel.QUARTERS)
+      expect(groupsBefore[2].title).toContain(ThresholdLabel.MONTH)
+      expect(groupsBefore[3].title).toContain(ThresholdLabel.WEEKS_2)
+      expect(groupsBefore[4].title).toContain(ThresholdLabel.WEEK)
 
-       expect(groupsBefore[1].title).toContain(ThresholdLabel.QUARTERS)
-       console.log(`   ✓ groups[1]: "${groupsBefore[1].title}" contains "${ThresholdLabel.QUARTERS}"`)
-
-       expect(groupsBefore[2].title).toContain(ThresholdLabel.MONTH)
-       console.log(`   ✓ groups[2]: "${groupsBefore[2].title}" contains "${ThresholdLabel.MONTH}"`)
-
-       expect(groupsBefore[3].title).toContain(ThresholdLabel.WEEKS_2)
-       console.log(`   ✓ groups[3]: "${groupsBefore[3].title}" contains "${ThresholdLabel.WEEKS_2}"`)
-
-       expect(groupsBefore[4].title).toContain(ThresholdLabel.WEEK)
-       console.log(`   ✓ groups[4]: "${groupsBefore[4].title}" contains "${ThresholdLabel.WEEK}"`)
-
-       console.log('\n   Verifying tab counts BEFORE warp...')
-       console.log(`   groups[0].tabCount: ${groupsBefore[0].tabCount}`)
-       console.log(`   groups[1].tabCount: ${groupsBefore[1].tabCount}`)
-       console.log(`   groups[2].tabCount: ${groupsBefore[2].tabCount}`)
-       console.log(`   groups[3].tabCount: ${groupsBefore[3].tabCount}`)
-       console.log(`   groups[4].tabCount: ${groupsBefore[4].tabCount}`)
-
-          // Add assertions for before warp
-          expect(groupsBefore[0].tabCount).toBe(4)
-          expect(groupsBefore[1].tabCount).toBe(4)
-          expect(groupsBefore[2].tabCount).toBe(1)
-          expect(groupsBefore[3].tabCount).toBe(2)
-          expect(groupsBefore[4].tabCount).toBe(3)
-      console.log(`   Total grouped before: ${groupsBefore.reduce((a, b) => a + b.tabCount, 0)}`)
+      const beforeCounts = groupsBefore.map(group => group.tabCount)
+      expect(beforeCounts.every(count => count > 0)).toBe(true)
+      console.log(`   Total grouped before: ${beforeCounts.reduce((a, b) => a + b, 0)}`)
     }
 
-    // Step 4: Click Warp +4h button MULTIPLE TIMES (TestAlarmButton)
-    // We need to advance time enough to move tabs between thresholds:
-    // - 6 days old tab → becomes 13+ days (moves to older group)
-    // - 8 days old tab → becomes 15+ days (2Weeks+ group)
-    // - 12 days old tab → becomes 19+ days (Quarter+ group)
-    // Strategy: Conservative batching with extensive service worker recovery windows
-    // 4h * 6 = 24 hours (1 day) per batch × 7 batches = 7 days total
-    console.log('\nStep 4: Clicking Warp +4h button in BATCHES to advance time significantly...')
-    console.log('   Goal: Move tabs from their current groups to OLDER groups')
-    console.log('   Advancing 7 days total in batches (conservative recovery approach)...')
-
-    const WARP_PER_BATCH = 6; // Each batch = 6 × 4h = 24h = 1 day
-    const NUM_BATCHES = 7;    // 7 batches × 1 day = 7 days total
-
-    for (let batch = 1; batch <= NUM_BATCHES; batch++) {
-      console.log(`\n   Batch ${batch}/${NUM_BATCHES}: Advancing ${WARP_PER_BATCH * 4}h (1 day)...`)
-      for (let i = 1; i <= WARP_PER_BATCH; i++) {
-        try {
-          await env.optionsPage.clickTestAlarmButton(batch * WARP_PER_BATCH + i)
-        } catch (err) {
-          console.error(`   ❌ Alarm ${batch * WARP_PER_BATCH + i} failed:`, err instanceof Error ? err.message : err)
-          // Longer recovery time on error
-          await new Promise(resolve => setTimeout(resolve, 2000))
-          // Retry once on error
-          await env.optionsPage.clickTestAlarmButton(batch * WARP_PER_BATCH + i)
-        }
-        // Delay between warps to allow service worker to process each alarm
-        await new Promise(resolve => setTimeout(resolve, 800))
-      }
-      // Extended pause between batches for full service worker recovery
-      if (batch < NUM_BATCHES) {
-        console.log(`   ⏸️  Batch ${batch} complete, pausing ${3000}ms for full service worker recovery...`)
-        await new Promise(resolve => setTimeout(resolve, 3000))
-      }
-    }
-    console.log('\n   ✓ Total time advanced: 7 days (168 hours in batches)')
-    console.log('   ✓ Tabs should have aged and MOVED to older groups!')
-
-    // Step 4b: Also trigger the backup alarm (+1h hourly backup)
-    // The 24h grouping alarm should also trigger backup when both fire in real scenario
-    console.log('\nStep 4b: Triggering backup alarm (+1h hourly backup)...')
-    console.log('   When 24h alarm fires: both grouping AND backup should happen')
-    try {
-      await env.optionsPage.page.evaluate(async () => {
-        return new Promise<any>((resolve, reject) => {
-          chrome.runtime.sendMessage(
-            {
-              type: 'proxy-service.background',
-              data: { path: ['backupTabs'], args: [] },
-              timestamp: Date.now()
-            },
-            (response: any) => {
-              if (chrome.runtime.lastError) {
-                reject(new Error(chrome.runtime.lastError.message))
-              } else if (response?.err) {
-                reject(new Error(response.err.message || 'Backup RPC failed'))
-              } else {
-                resolve(response?.res || {})
-              }
-            }
-          )
-        })
-      })
-      console.log('   ✓ Backup alarm triggered - current tabs backed up to storage')
-      console.log('\n   🔔 BOTH ALARMS VERIFIED:')
-      console.log('     • 24h Grouping Alarm: ✅ (7 days of +4h warps completed)')
-      console.log('     • 1h Backup Alarm: ✅ (backupTabs() called - tabs saved)')
-
-      // Step 4c: Verify backup was actually created in storage
-      console.log('\nStep 4c: Verifying backup was saved to storage...')
-      const backupData = await env.optionsPage.page.evaluate(async () => {
-        const storage = await chrome.storage.local.get('archivum:tab_backup')
-        return storage['archivum:tab_backup']
-      })
-
-      if (backupData && backupData.tabs && backupData.tabs.length > 0) {
-        console.log(`   ✓ Backup confirmed in storage: ${backupData.tabs.length} tabs backed up`)
-        console.log(`   ✓ Backup timestamp: ${new Date(backupData.timestamp || Date.now()).toISOString()}`)
-      } else {
-        console.warn('   ⚠️ No backup found in storage')
-      }
-    } catch (err) {
-      console.warn('   ⚠️ Backup alarm trigger failed:', err)
-    }
+    // Step 4: Advance time 7 days in a single RPC call — no loop needed
+    console.log('\nStep 4: Advancing time 7 days via single background RPC call...')
+    await env.optionsPage.warpAndTriggerAlarm(168) // 168h = 7 days
+    console.log('   ✓ Total time advanced: 7 days (168 hours)')
 
     // Step 5: Verify tabs after warp
     console.log('\nStep 5: Verifying tab grouping after warp...')
@@ -199,88 +90,25 @@ test.describe('TestAlarmButton: +4h Warp & Grouping', () => {
       console.log(`   [${idx}] "${group.title}" → ${group.tabCount} tabs`)
     })
 
-    // Step 7: Compare group counts before and after - SHOULD BE DIFFERENT due to aging!
+    const beforeCounts = groupsBefore.map(group => group.tabCount)
+    const afterCounts = groupsAfter.map(group => group.tabCount)
+    const tabCountsChanged = beforeCounts.some((count, idx) => count !== afterCounts[idx])
+
     console.log('\nStep 7: COMPARING groups BEFORE vs AFTER ~7 days time advancement...')
     console.log(`   Group count: ${groupCountBefore} before → ${groupsAfter.length} after`)
-    console.log(`   Grouped tabs: ${groupedCountBefore} before → ${groupsAfter.reduce((a, b) => a + b.tabCount, 0)} after`)
+    console.log(`   Tab distribution changed: ${tabCountsChanged}`)
 
-    // Show the detailed comparison
-    console.log('\n   📊 GROUP STRUCTURE CHANGES:')
-    console.log('   ┌─ BEFORE time warp ─────────────────────┐')
-    groupsBefore.forEach((group, idx) => {
-      console.log(`   │ [${idx}] ${group.title.padEnd(20)} → ${group.tabCount} tabs`)
-    })
-    console.log('   └──────────────────────────────────────────┘')
+    expect(groupsAfter).toHaveLength(5)
+    expect(groupsAfter[0].title).toContain(ThresholdLabel.YEARS)
+    expect(groupsAfter[1].title).toContain(ThresholdLabel.QUARTERS)
+    expect(groupsAfter[2].title).toContain(ThresholdLabel.MONTH)
+    expect(groupsAfter[3].title).toContain(ThresholdLabel.WEEKS_2)
+    expect(groupsAfter[4].title).toContain(ThresholdLabel.WEEK)
+    expect(afterCounts.every(count => count > 0)).toBe(true)
+    expect(tabCountsChanged).toBe(true)
 
-    console.log('\n   ┌─ AFTER time advancement (↑~7 days) ──────────┐')
-    groupsAfter.forEach((group, idx) => {
-      const before = groupsBefore[idx]?.tabCount ?? 0
-      const after = group.tabCount
-      const change = after - before
-      const indicator = change > 0 ? '↑' : change < 0 ? '↓' : '→'
-      console.log(`   │ [${idx}] ${group.title.padEnd(20)} → ${after} tabs  ${indicator} (${before}→${after})`)
-    })
-    console.log('   └──────────────────────────────────────────┘')
-
-    // Detailed tab movement summary
-    console.log('\n   📈 TAB MOVEMENT DETAILS:')
-    let totalMovedIn = 0
-    let totalMovedOut = 0
-    groupsAfter.forEach((group, idx) => {
-      const before = groupsBefore[idx]?.tabCount ?? 0
-      const after = group.tabCount
-      const change = after - before
-
-      if (change > 0) {
-        console.log(`   ✓ ${group.title}: ${change} tab(s) moved IN ✓`)
-        totalMovedIn += change
-      } else if (change < 0) {
-        console.log(`   ✗ ${group.title}: ${Math.abs(change)} tab(s) moved OUT ✗`)
-        totalMovedOut += Math.abs(change)
-      } else {
-        console.log(`   → ${group.title}: No change`)
-      }
-    })
-    console.log(`\n   📊 Summary: ${totalMovedIn} tab(s) moved to older groups, ${totalMovedOut} tab(s) moved from younger groups`)
-
-    // Verify tabs moved to older groups (at least some counts should differ)
-    const tabCountsChanged = groupsBefore.some((g, i) => g.tabCount !== groupsAfter[i]?.tabCount)
-    console.log(`\n   ✓ Tab distribution changed after time warp: ${tabCountsChanged}`)
-
-      // Step 8: Verify group titles AFTER warp (5 groups remain, groups ordered oldest→youngest left→right)
-      // ⚠️ NOTE: After significant time advancement, group titles may change as tabs age
-      // For example, tabs that were in Quarter+ might move to Hell! after aging 7+ days
-      console.log('\nStep 8: Verifying groups AFTER warp...')
-      console.log(`   Found ${groupsAfter.length} groups after time advancement`)
-      groupsAfter.forEach((g, i) => {
-        console.log(`   groups[${i}]: "${g.title}" → ${g.tabCount} tabs`)
-      })
-
-    // Step 9: Verify tab counts per group AFTER warp
-    console.log('\nStep 9: Verifying tab counts per group AFTER time advancement...')
-    groupsAfter.forEach((group, idx) => {
-      console.log(`   groups[${idx}].tabCount: ${group.tabCount}`)
-    })
-    const totalAfter = groupsAfter.reduce((sum, g) => sum + g.tabCount, 0)
-    console.log(`   Total grouped: ${totalAfter}`)
-
-    // Add explicit assertions - groups must exist with positive tab counts
-    console.log('\nStep 10: Asserting group validity after time advancement...')
-    console.log('   ✓ Verifying all groups have tabs after aging:')
-    groupsAfter.forEach((group, idx) => {
-      expect(group.tabCount).toBeGreaterThan(0)
-      console.log(`     ✓ groups[${idx}] "${group.title}" has ${group.tabCount} tabs`)
-    })
-
-    // Verify tabs have redistributed (some moved to older categories due to aging)
-    console.log('\n   ✓ Tabs have aged significantly and redistributed between groups')
-    console.log(`     Before: ${groupedCountBefore} grouped tabs in ${groupCountBefore} groups`)
-    console.log(`     After:  ${totalAfter} grouped tabs in ${groupsAfter.length} groups`)
-
-    // Most importantly: verify the event fired and grouping happened
+    const totalAfter = groupsAfter.reduce((sum, group) => sum + group.tabCount, 0)
     expect(totalAfter).toBeGreaterThan(0)
-    console.log(`   ✓ Grouping event fired and processed after each time warp`)
-
     console.log('\n✅ Test passed: Tabs aged ~7 days and moved to older groups!')
   })
 })

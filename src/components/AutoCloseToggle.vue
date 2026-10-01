@@ -1,11 +1,16 @@
 <template>
   <div class="row items-center q-gutter-sm" data-testid="auto-close-toggle">
-    <q-toggle
-      :model-value="store.autoClose.value"
-      label="Auto close"
-      size="sm"
-      @update:model-value="handleToggle"
+    <button
+      type="button"
+      class="auto-close-switch"
+      role="switch"
+      :aria-checked="store.autoClose.value"
+      :data-enabled="String(store.autoClose.value)"
+      @click="handleToggle"
+      @keydown.enter.prevent="handleToggle"
+      @keydown.space.prevent="handleToggle"
     >
+      <span class="auto-close-label">Auto close</span>
       <q-icon
         :name="iconName"
         :color="iconColor"
@@ -23,7 +28,7 @@
           {{ tooltipLine2 }}
         </div>
       </q-tooltip>
-    </q-toggle>
+    </button>
 
     <q-linear-progress
       v-if="store.loading.value"
@@ -37,7 +42,6 @@
       {{ store.error.value }}
     </div>
   </div>
-
 </template>
 
 <script setup lang="ts">
@@ -46,7 +50,6 @@ import { useStore } from '@/composables/useStore'
 
 const store = useStore()
 
-// Computed properties for dynamic icon and tooltip
 const iconName = computed(() =>
   store.autoClose.value ? 'local_fire_department' : 'shield_off'
 )
@@ -75,21 +78,36 @@ const tooltipLine2 = computed(() => {
   return '💡 Tip: Click a tab to move it to ungrouped section and preserve it.'
 })
 
-async function handleToggle(newValue: boolean): Promise<void> {
+async function handleToggle(): Promise<void> {
+  const nextValue = !store.autoClose.value
   try {
-    await store.storeSetAutoClose(newValue)
+    await store.storeSetAutoClose(nextValue)
   } catch (err) {
     console.error('[AutoCloseToggle.handleToggle]', err)
-    store.autoClose.value = !newValue
   }
 }
-
 </script>
 
 <style scoped>
-/* Minimalist inline component - no extra styling needed */
+.auto-close-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  padding: 0;
+  font: inherit;
+}
+
+.auto-close-switch:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 4px;
+  border-radius: 6px;
+}
+
+.auto-close-label {
+  user-select: none;
+}
 </style>
-
-
-
-

@@ -40,9 +40,6 @@ export class StorageRepository {
       },
       configLastUpdated: Date.now(),
       version: '1.0.0',
-      sortSettings: {
-        sortByDomainInGroups: true,  // ON by default
-      },
       autoClose: false,  // OFF by default (opt-in)
     }),
   })
@@ -229,32 +226,6 @@ export class StorageRepository {
   }
 
   /**
-   * Toggle domain-based sorting in groups.
-   * Updates WXT storage with new sortByDomainInGroups setting.
-   *
-   * @example
-   * await StorageRepository.setSortByDomain(true)  // Enable sorting by domain
-   */
-  static async setSortByDomain(enabled: boolean): Promise<void> {
-    try {
-      const state = await this.getAppState()
-      if (!state) throw new Error('No app state to update')
-
-      await this.setAppState({
-        ...state,
-        sortSettings: {
-          ...state.sortSettings,
-          sortByDomainInGroups: enabled,
-        },
-        configLastUpdated: Date.now(),
-      })
-    } catch (err) {
-      console.error('[StorageRepository.setSortByDomain] Error:', err)
-      throw err
-    }
-  }
-
-  /**
    * Watch storage for external changes.
    * Used to sync changes from other contexts (e.g., other tabs, background.ts).
    *
@@ -307,5 +278,11 @@ export class StorageRepository {
       appStateStorage: this.appStateStorage,
       mockOverrides: this.mockOverrides,
     }
+  }
+
+  static async getThresholdLevels(): Promise<ThresholdLevel[]> {
+    const appState = await this.getAppState()
+    if (!appState?.thresholds) return []
+    return appState.thresholds.levels.slice(0, appState.thresholds.activeLevels)
   }
 }
