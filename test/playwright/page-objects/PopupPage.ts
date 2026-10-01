@@ -30,17 +30,16 @@ export class PopupPage {
 
   /**
    * Navigate to Popup page using extension ID.
-   * Uses waitForSelector to ensure Vue has hydrated before returning.
+   * Uses locator.waitFor() with global timeout (20s) from config for proper auto-retry behavior.
+   * Playwright assertions automatically retry until timeout.
    */
   async goto(extensionId: string): Promise<void> {
     await this.page.goto(`chrome-extension://${extensionId}/popup.html`, {
-      waitUntil: 'domcontentloaded',
+      waitUntil: 'networkidle',  // Full page hydration with all resources loaded
     });
-    // Wait for Vue to mount the GroupUngroup component in DOM
-    await this.page.waitForSelector('[data-testid="group-tabs-btn"]', {
-      state: 'attached',
-      timeout: 5000
-    });
+    // Use locator assertion (toBeVisible) which respects global expect.timeout from config (20s)
+    // This automatically retries polling the DOM with exponential backoff
+    await expect(this.groupTabsBtn).toBeVisible();
   }
 
   /**

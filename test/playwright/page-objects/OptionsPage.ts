@@ -90,7 +90,9 @@ export class OptionsPage {
     });
 
     // Visibility: element exists, is visible, and stable in DOM
-    await this.groupTabsBtn.waitFor({ state: 'visible', timeout: 10_000 });
+    // Uses global Playwright timeout from config (20s) for web-first assertion
+    // This respects the timeout from playwright.config.ts expect.timeout
+    await expect(this.groupTabsBtn).toBeVisible();
 
     // Actionability: element is enabled and ready to interact (event listeners attached)
     await this.groupTabsBtn.isEnabled();
@@ -652,10 +654,10 @@ export class OptionsPage {
    */
   async clickAutoCloseToggle(): Promise<void> {
     console.log('[OptionsPage] 🔄 Clicking auto-close toggle...');
-    
+     
     const toggle = this.page.getByTestId('auto-close-toggle');
     await expect(toggle).toBeVisible();
-    
+     
     // Try click with retry for CI environments
     let lastError: Error | null = null;
     for (let attempt = 1; attempt <= 3; attempt++) {
@@ -667,46 +669,19 @@ export class OptionsPage {
       } catch (err) {
         lastError = err instanceof Error ? err : new Error(String(err));
         console.warn(`[OptionsPage] ⚠️ Click attempt ${attempt} failed:`, lastError.message);
-        
+         
         if (attempt < 3) {
           await new Promise(r => setTimeout(r, 200)); // Wait before retry
         }
       }
     }
-    
+     
     if (lastError) {
       throw lastError;
     }
 
-    // Give browser time to update DOM
-    await this.page.waitForTimeout(100);
-    
-    // Ensure state is saved to storage
-    await this.page.evaluate(async (enabled: boolean) => {
-      const data = await chrome.storage.local.get('local:appState');
-      const appState = (data['local:appState'] as any) || {};
-
-      await chrome.storage.local.set({
-        'local:appState': {
-          ...appState,
-          autoClose: enabled,
-          configLastUpdated: appState?.configLastUpdated || Date.now(),
-          version: appState?.version || '1.0.0',
-        }
-      });
-    }, true);
-
-    // Wait for the state to be confirmed in storage
-    await expect.poll(
-      async () => {
-        const data = await this.page.evaluate(async () => {
-          const state = await chrome.storage.local.get('local:appState');
-          return (state['local:appState'] as any)?.autoClose ?? false;
-        });
-        return data;
-      },
-      { timeout: 5000, message: 'Auto-close toggle state persisted' }
-    ).toEqual(true);
+    // Give browser time to update DOM after click
+    await new Promise(r => setTimeout(r, 200));
   }
 
   /**
