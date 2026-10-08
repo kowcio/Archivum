@@ -34,39 +34,91 @@ test.describe('24h Alarm: Tab Age Progression to Older Groups', () => {
 
   test.setTimeout(180_000)
 
-  test('should move tabs to older groups after 1 week passes', async () => {
+  test('should move tabs to older groups after 1 day passes', async () => {
     await env.optionsPage.clickGroupTabs()
 
-    const tabsBefore = await env.optionsPage.getAllGroups()
-    const beforeCounts = tabsBefore.map(group => group.tabCount)
+    const expectedGroupOrder = ['Hell!', 'Quarter+', 'Month+', '2 Weeks+', 'Week+']
+    const getGroupOrderIndex = (title: string) => {
+      const normalized = title.replace(/\s+\(\d+\)$/, '')
+      return expectedGroupOrder.indexOf(normalized)
+    }
 
-    expect(tabsBefore).toHaveLength(5)
-    expect(tabsBefore[0].title).toContain('Hell!')
-    expect(tabsBefore[1].title).toContain('Quarter+')
-    expect(tabsBefore[2].title).toContain('Month+')
-    expect(tabsBefore[3].title).toContain('2 Weeks+')
-    expect(tabsBefore[4].title).toContain('Week+')
-    expect(beforeCounts.every(count => count > 0)).toBe(true)
+    const before = await env.optionsPage.getGroupAndTabData()
+    expect(before.tabs).toHaveLength(17)
+    expect(before.groupsOrderedByIndex).toHaveLength(5)
+    expect(before.groupedTabCount).toBe(15)
+    expect(before.ungroupedTabCount).toBe(2)
 
-    await env.optionsPage.timeProgress(7)
-    await env.optionsPage.getBackgroundRPC().testTriggerAlarm24h()
+    for (const [index, group] of before.groupsOrderedByIndex.entries()) {
+      expect(group.title).toContain(expectedGroupOrder[index])
+    }
 
-    const tabsAfter = await env.optionsPage.getAllGroups()
-    const afterCounts = tabsAfter.map(group => group.tabCount)
-    const beforeTotalTabs = (await env.optionsPage.queryAllTabs()).length
-    const groupedTabsAfter = await env.optionsPage.getGroupedTabs()
-    const ungroupTabsAfter = await env.optionsPage.getUngroupedTabs()
-    const totalTabsAfter = groupedTabsAfter.length + ungroupTabsAfter.length
+    for (const tab of before.tabs) {
+      expect(tab.id).toBeDefined()
+      if (tab.groupId === undefined || tab.groupId === -1) {
+        continue
+      }
+      const group = before.groupsOrderedByIndex.find(item => item.id === tab.groupId)
+      expect(group).toBeDefined()
+      expect(getGroupOrderIndex(group!.title)).not.toBe(-1)
+    }
 
-    expect(tabsAfter).toHaveLength(5)
-    expect(tabsAfter[0].title).toContain('Hell!')
-    expect(tabsAfter[1].title).toContain('Quarter+')
-    expect(tabsAfter[2].title).toContain('Month+')
-    expect(tabsAfter[3].title).toContain('2 Weeks+')
-    expect(tabsAfter[4].title).toContain('Week+')
-    expect(totalTabsAfter).toBe(beforeTotalTabs)
-    expect(afterCounts).not.toEqual(beforeCounts)
-    expect(afterCounts.every(count => count > 0)).toBe(true)
+    const nativeTabCountByGroup = Object.fromEntries(
+      before.groupsOrderedByIndex.map(group => [
+        group.title.replace(/\s+\(\d+\)$/, ''),
+        Number(group.title.match(/\((\d+)\)$/)?.[1] ?? '0'),
+      ])
+    )
+
+    expect(nativeTabCountByGroup['Hell!']).toBe(4)
+    expect(nativeTabCountByGroup['Quarter+']).toBe(5)
+    expect(nativeTabCountByGroup['Month+']).toBe(1)
+    expect(nativeTabCountByGroup['2 Weeks+']).toBe(2)
+    expect(nativeTabCountByGroup['Week+']).toBe(3)
+
+    const beforeById = new Map(before.tabs.map(tab => [tab.id, tab]))
+
+    await env.optionsPage.timeProgress(1)
+    const groupsCreated = await env.optionsPage.getBackgroundRPC().testTriggerAlarm24h()
+    expect(groupsCreated).toBeGreaterThan(0)
+
+    const after = await env.optionsPage.getGroupAndTabData()
+    expect(after.tabs).toHaveLength(17)
+    expect(after.groupsOrderedByIndex).toHaveLength(5)
+
+    let movedToOlderGroup = false
+
+    for (const [tabId, beforeTab] of beforeById.entries()) {
+      const afterTab = after.tabs.find(tab => tab.id === tabId)
+      expect(afterTab).toBeDefined()
+
+      const beforeGroup = before.groupsOrderedByIndex.find(group => group.id === beforeTab.groupId)
+      const afterGroup = after.groupsOrderedByIndex.find(group => group.id === afterTab!.groupId)
+
+      if (beforeGroup && afterGroup) {
+        const beforeIndex = getGroupOrderIndex(beforeGroup.title)
+        const afterIndex = getGroupOrderIndex(afterGroup.title)
+        if (beforeIndex > afterIndex) {
+          movedToOlderGroup = true
+        }
+      }
+    }
+
+    expect(movedToOlderGroup).toBe(true)
+
+    for (const [index, group] of after.groupsOrderedByIndex.entries()) {
+      expect(group.title).toContain(expectedGroupOrder[index])
+    }
+
+    const tabCountByGroup = Object.fromEntries(
+      after.groupsOrderedByIndex.map(group => [group.title.replace(/\s+\(\d+\)$/, ''), group.title.match(/\((\d+)\)$/)?.[1] ?? '0'])
+    )
+
+    expect(tabCountByGroup['Hell!']).toBe('5')
+    expect(tabCountByGroup['Quarter+']).toBe('4')
+    expect(tabCountByGroup['Month+']).toBe('1')
+    expect(tabCountByGroup['2 Weeks+']).toBe('2')
+    expect(tabCountByGroup['Week+']).toBe('4')
   })
 })
 
