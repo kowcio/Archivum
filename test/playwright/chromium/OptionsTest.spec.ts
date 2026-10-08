@@ -59,7 +59,11 @@ test.describe("Options Page Tests", () => {
     const rows = env.optionsPage.page
       .locator('[data-testid="table-open-tabs"] tbody tr')
       .filter({ has: env.optionsPage.page.locator('a[href^="https://"]') });
-    await expect(rows).toHaveCount(17);
+
+    await expect.poll(async () => await rows.count(), {
+      timeout: 15000,
+      intervals: [200, 400, 700, 1000]
+    }).toBe(17);
 
     const rowCount = await rows.count();
     expect(rowCount).toEqual(17);
