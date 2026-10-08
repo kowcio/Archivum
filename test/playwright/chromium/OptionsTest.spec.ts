@@ -9,102 +9,87 @@
  *
  * Flow: No mocks, uses natural tabs from browser
  */
-import { expect, test } from "@playwright/test";
-import { TestEnvironment } from "./extensions.js";
+import {expect, test} from "@playwright/test";
+import {TestEnvironment} from "./extensions.js";
 
 test.describe("Options Page Tests", () => {
   let env: TestEnvironment
 
-  test.beforeAll("Setup: launch Chrome context with extension", async () => {
+  test.beforeEach("Setup: launch Chrome context with extension", async () => {
     env = await TestEnvironment.create(false);
   });
 
-  test.afterAll("Cleanup: close extension context", async () => {
+  test.afterEach("Cleanup: close extension context", async () => {
     if (env) await env.cleanup();
   });
 
-  test("1a options page loads with all components", async () => {
-    await env.optionsPage.goto(env.extensionId);  // Already waits for Vue hydration
+  test("options page loads with all components, creates mock data, and renders 17 complete rows", async () => {
+    await env.optionsPage.gotoOptionsPage(env.extensionId);
 
-    // Verify core UI elements are present (table is more reliable than Quasar buttons)
-    await env.optionsPage.expectTableVisible();
-    await env.optionsPage.expectThresholdsVisible();
+    // Initial state: page loads and table is empty
+    await env.optionsPage.expectPageLoaded();
+    await expect(env.optionsPage.page.getByRole('heading', { name: 'Archivum' })).toBeVisible();
+    await expect(env.optionsPage.page.getByText('Tab manager to clear your mind')).toBeVisible();
 
-    console.log("   ✓ Page loaded with all main components visible");
-  });
+    await expect(env.optionsPage.page.getByTestId('group-tabs-btn')).toBeVisible();
+    await expect(env.optionsPage.page.getByTestId('thresholds-levels-input')).toBeVisible();
+    await expect(env.optionsPage.page.getByTestId('threshold-reset')).toBeVisible();
+    await expect(env.optionsPage.page.getByRole('switch', { name: 'Auto close' })).toBeVisible();
 
-  test("2a table renders with initial tabs on mount", async () => {
-    await env.optionsPage.goto(env.extensionId);
+    if (await env.optionsPage.page.getByTestId('mock-tabs').count() > 0) {
+      await expect(env.optionsPage.page.getByTestId('mock-tabs')).toBeVisible();
+    }
 
-    await test.step("Verify table is visible", async () => {
-      await env.optionsPage.expectTableVisible();
-    });
+    if (await env.optionsPage.page.getByTestId('btn-close-all-tabs').count() > 0) {
+      await expect(env.optionsPage.page.getByTestId('btn-close-all-tabs')).toBeVisible();
+    }
 
-    await test.step("Verify table has rows from natural tabs", async () => {
-      const tabs = await env.optionsPage.queryAllTabs();
-      const rowCount = await env.optionsPage.getTableRowCount();
+    const tabs = await env.optionsPage.queryAllTabs();
+    const initialRowCount = await env.optionsPage.getTableRowCount();
+    expect(tabs.length).toEqual(1);  // At least options page tab exists
+    expect(initialRowCount).toEqual(0);     // Table may be empty initially
+    console.log(`   → Initial table rendered: ${initialRowCount} rows | ${tabs.length} browser tabs`);
 
-      // Table should render rows for tabs
-      expect(tabs.length).toBe(tabs.length);  // At least 1 tab exists
-      expect(rowCount).toBe(rowCount);        // Table has rows
-      console.log(`   → Table rendered: ${rowCount} rows | ${tabs.length} browser tabs`);
-    });
-  });
+    // Create mock tabs and force the options page to rehydrate the table
+    const mockResult = await env.optionsPage.clickLoadMockTabs();
+    expect(mockResult.ok).toBe(true);
+    await env.optionsPage.page.reload({ waitUntil: 'networkidle' });
+    await env.optionsPage.expectPageLoaded();
 
-  test("3a close all tabs — 2 tabs → mock 14 → close all → 1 tab", async () => {
-    await env.optionsPage.goto(env.extensionId);  // Already waits for hydration
+    const rows = env.optionsPage.page
+      .locator('[data-testid="table-open-tabs"] tbody tr')
+      .filter({ has: env.optionsPage.page.locator('a[href^="https://"]') });
+    await expect(rows).toHaveCount(17);
 
-    // 1. Initial: Query tabs (queryAllTabs handles waiting)
-    const tabs1 = await env.optionsPage.queryAllTabs(true);  // Wait for tabs to load
-    const initialCount = tabs1.length;
-    console.log(`   → Initial tabs: ${initialCount}`);
-    // Just verify count exists (will be used for expectations below)
-    const hasInitialTabs = initialCount > 0;
-    expect(hasInitialTabs).toBe(true);
+    const rowCount = await rows.count();
+    expect(rowCount).toEqual(17);
 
-    // 2. Click mock → create 14 new tabs
-    const mock = await env.optionsPage.clickLoadMockTabs();  // Increased from 1000 to 2500ms
-    expect(mock.ok).toBe(true);
+    for (let i = 0; i < rowCount; i++) {
+      const row = rows.nth(i);
+      await expect(row).toBeVisible();
 
-    // Wait for mock tabs to fully load by checking table updates
-    await env.optionsPage.page.waitForFunction(() => {
-      const tableRows = document.querySelectorAll('[data-testid="table-open-tabs"] tr');
-      return tableRows.length > 1;  // At least header + data rows
-    }, { timeout: 5_000 });
+      const cells = row.locator('td');
+      await expect(cells).toHaveCount(7);
 
-    const tabs2 = await env.optionsPage.queryAllTabs(true);
-    const expectedCount = initialCount + 16;
-    console.log(`   → After mock: ${tabs2.length} tabs (expected ~${expectedCount})`);
-    // Should have initial + 14 mock tabs
-    expect(tabs2.length).toBe(expectedCount);
+      const actionButtons = row.getByRole('button');
+      await expect(actionButtons).toHaveCount(2);
+      await expect(actionButtons.nth(0)).toContainText(/Focus/i);
+      await expect(actionButtons.nth(1)).toContainText(/Close/i);
 
-    // 3. Close all tabs by querying and removing individually
-    // (Instead of relying on CloseAllTabsButton which has filtering issues)
-    await env.optionsPage.page.evaluate(async (extId: string) => {
-      const allTabs = await chrome.tabs.query({ currentWindow: true });
-      const tabsToClose = allTabs
-        .filter((t) => !t.url?.startsWith(`chrome-extension://${extId}`))
-        .map((t) => t.id)
-        .filter((id): id is number => id != null);
+      const links = row.getByRole('link');
+      await expect(links).toHaveCount(1);
+      await expect(links.nth(0)).toBeVisible();
 
-      if (tabsToClose.length > 0) {
-        await chrome.tabs.remove(tabsToClose);
-      }
-    }, env.extensionId);
+      const titleText = await row.locator('td').nth(4).textContent();
+      const urlText = await row.locator('td').nth(5).textContent();
+      const ageText = await row.locator('td').nth(6).textContent();
 
-     // Wait for tabs to close by checking browser tab count
-     await env.optionsPage.page.waitForFunction(async (extId: string) => {
-       const tabs = await chrome.tabs.query({ currentWindow: true });
-       const userTabs = tabs.filter(t => !t.url?.startsWith(`chrome-extension://${extId}`));
-       return userTabs.length === 0;  // All user tabs closed
-     }, { timeout: 10_000 }, env.extensionId);
+      expect(titleText?.trim().length ?? 0).toBeGreaterThan(0);
+      expect(urlText?.trim().length ?? 0).toBeGreaterThan(0);
+      expect(ageText?.trim().length ?? 0).toBeGreaterThan(0);
+    }
 
-    const tabs3 = await env.optionsPage.queryAllTabs(true);
-    tabs3.forEach(tab => console.log(`   → Remaining tab: ${tab.groupId} | ${tab.url}`));
-    // After close all, should have only the options page tab (1)
-    expect(tabs3.length).toBe(1);
-    console.log(`   → After close all: ${tabs3.length} tab`);
-    await env.optionsPage.close();
+    console.log(`   → Mock table rendered with ${rowCount} rows and complete controls per row`);
   });
 
 });

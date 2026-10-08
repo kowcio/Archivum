@@ -79,8 +79,6 @@ export const APP_CONSTANTS = {
 export const APP_DEFAULTS = {
   // Background alarm for daily tab grouping (24 hours)
   ALARM_UPDATE_TABS: 'updateTabsDaily',
-  // Background alarm for hourly backup (1 hour)
-  ALARM_BACKUP_TABS: 'backupTabsHourly',
   // Background alarm for auto-close oldest group (24 hours)
   ALARM_AUTO_CLOSE_TABS: 'autoCloseOldestTabsDaily',
   // WXT Storage key for tab history

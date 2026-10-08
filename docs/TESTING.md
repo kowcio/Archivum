@@ -1,223 +1,111 @@
 # Testing Guide
 
-## Overview
+This project’s current Playwright suite exercises the browser extension through a real Chrome MV3 context. The test suite is intentionally small, isolated per test, and focused on features that are visible in the extension and background service worker.
 
-This project uses **type-safe RPC** for all test-to-background communication. Tests bypass message APIs and call RPC methods directly via `TestHelper`, ensuring tests use the same code paths as production.
+## Commands
 
----
-
-## Test Architecture
-
-### The TestHelper Pattern
-
-Instead of tests using `chrome.runtime.sendMessage()`, they use `TestHelper` which provides direct access to RPC methods:
-
-```typescript
-// ✅ NEW: Direct, type-safe, fast
-import { TestHelper } from 'test/services/TestHelper'
-const tabs = await TestHelper.createMockTabs()
-
-// ❌ OLD: Message API, not type-safe, serialization overhead  
-chrome.runtime.sendMessage({ action: 'createMockTabs' }, callback)
-```
-
-### Why TestHelper?
-
-| Aspect | Benefit |
-|--------|---------|
-| **Speed** | Direct calls, no message serialization |
-| **Type Safety** | Full TypeScript inference |
-| **Clarity** | Explicit import shows this is test code |
-| **Single Source** | Tests use exact same RPC methods as production |
-| **Clean Code** | No message passing boilerplate |
-
----
-
-## TestHelper Methods
-
-### Test Data Creation
-```typescript
-// Create 14 mock tabs with backdated lastAccessed times
-const tabs = await TestHelper.createMockTabs()
-// Returns: Browser.tabs.Tab[] with 14 tabs spread across age ranges
-```
-
-### Mock Age Overrides
-```typescript
-// Simulate tabs aging by changing their lastAccessed timestamps
-const overrides = {
-  tabId1: Date.now() - (7 * 24 * 60 * 60 * 1000),  // 7 days ago
-  tabId2: Date.now() - (30 * 24 * 60 * 60 * 1000), // 30 days ago
-}
-await TestHelper.setMockOverrides(overrides)
-
-// Retrieve current overrides (for debugging)
-const current = await TestHelper.getMockOverrides()
-```
-
-### Tab Operations
-```typescript
-// Create a tab in a specific group (or new group) with random URL
-const result = await TestHelper.openRandomTabInGroup(newTabGroup, groupIndex)
-// Returns: Generated alphanumeric ID (single char: 0-9 or A-Z)
-```
-
----
-
-## Test Organization
-
-### File Structure
-```
-test/
-├── services/
-│   └── TestHelper.ts           🧪 Direct RPC method access
-├── playwright/
-│   ├── page-objects/
-│   │   ├── OptionsPage.ts      Page Object Model for Options UI
-│   │   └── PopupPage.ts        Page Object Model for Popup UI
-│   ├── chromium/
-│   │   ├── OptionsTest.spec.ts
-│   │   ├── PopupTest.spec.ts
-│   │   └── ...                 Individual test scenarios
-│   ├── StoreTest.spec.ts       Cross-tab state synchronization
-│   ├── 24h-alarm-age-grouping.spec.ts  Time-based aging simulation
-│   └── backup-restore.spec.ts  Backup/restore functionality
-└── unit/
-    ├── services/
-    ├── models/
-    └── integration/
-```
-
-### Test Types
-
-#### Unit Tests (Vitest)
+### Unit tests
 ```bash
 npm run test:unit
-# Tests individual services and models in isolation
-# 110 tests pass ✅
 ```
 
-#### E2E Tests (Playwright)
+### Playwright extension tests
 ```bash
-npm run test:playwright:chromium   # Chrome only
-npm run test:playwright:firefox    # Firefox only
-npm run test:playwright            # Both browsers
+npx playwright test --project=chrome-mv3
 ```
 
----
-
-## Common Testing Patterns
-
-### Pattern 1: Load Mock Tabs, Group, and Verify
-
-```typescript
-// 1. Load mock tabs with backdated ages
-const mockResult = await optionsPage.clickLoadMockTabs(2000)
-expect(mockResult.ok).toBe(true)
-expect(mockResult.count).toBe(14)
-
-// 2. Group tabs by age
-await optionsPage.clickGroupTabs(1500)
-
-// 3. Query groups and verify state
-const groups = await optionsPage.getAllGroups()
-expect(groups.length).toBe(5)  // Should have 5 age-based groups
-expect(groups[0].title).toContain('Eat that frog!')
+### Single file
+```bash
+npx playwright test test/playwright/24h-alarm-auto-close.spec.ts --project=chrome-mv3
 ```
 
-### Pattern 2: Simulate Tab Aging
+## Test architecture
 
-```typescript
-// Get current tabs with their IDs
-const data = await optionsPage.getGroupAndTabData()
+The project uses two layers:
 
-// Create overrides to age tabs (e.g., 7 days older)
-const weekMs = 7 * 24 * 60 * 60 * 1000
-const overrides: Record<number, number> = {}
-for (const tab of data.tabs) {
-  if (tab.lastAccessed) {
-    overrides[tab.id!] = tab.lastAccessed - weekMs
-  }
-}
+1. Browser-level Playwright verification via `test/playwright/*.spec.ts`
+2. Extension state and business logic via `src/services/BackgroundTabService.ts`, `src/services/BackgroundRPC.ts`, and `src/store/StorageRepository.ts`
 
-// Apply overrides
-await optionsPage.setMockOverrides(overrides)
+The important part is that tests validate real extension behavior, not mock-only internals. Most page interactions happen through `OptionsPage`, which wraps the UI and the background RPC layer.
 
-// Regroup and verify new age classifications
-await optionsPage.clickGroupTabs(1500)
-const newData = await optionsPage.getGroupAndTabData()
-// Now tabs should be in different groups based on new ages
+## Current Playwright layout
+
+```text
+test/playwright/
+├── 24h-alarm-age-grouping.spec.ts
+├── 24h-alarm-auto-close.spec.ts
+├── browser-alarms-api.spec.ts
+├── browser-alarms-updateTabByAge.spec.ts
+├── closure-and-title-verification.spec.ts
+├── independence-grouping.spec.ts
+├── StoreTest.spec.ts
+├── thresholds-change.spec.ts
+├── thresholds-persist-reload.spec.ts
+├── tooltip.spec.ts
+├── chromium/
+│   ├── OptionsTest.spec.ts
+│   ├── OptionsTresholdsTest.spec.ts
+│   ├── PopupTest.spec.ts
+│   ├── SingleTabInGroup.spec.ts
+│   └── ThresholdDayLevelChange.spec.ts
+├── page-objects/
+│   └── OptionsPage.ts
+├── chromium/extensions.ts
+└── globals.d.ts
 ```
 
-### Pattern 3: Page Object Model Usage
+## What the suite validates
 
-```typescript
-// Page objects encapsulate UI interactions
-const optionsPage = new OptionsPage(page)
-await optionsPage.goto(extensionId)
+The Playwright suite focuses on:
 
-// Query table data
-const rowCount = await optionsPage.getTableRowCount()
+- tab grouping by age
+- threshold updates and persistence
+- auto-close configuration and alarm behavior
+- browser alarm registration and firing contracts
+- tab activation / ungrouping behavior
+- state isolation between tests
 
-// Verify element visibility
-await optionsPage.expectTableVisible()
-await optionsPage.expectUngroupButtonVisible()
+## Good practices used in the suite
 
-// Perform actions
-await optionsPage.clickGroupTabs()
-await optionsPage.clickSortTabs()
+- keep one browser context per test file or per test environment
+- avoid parallel workers for MV3 extension tests
+- prefer `expect.poll()` and web-first assertions over arbitrary fixed sleeps
+- verify storage state through `chrome.storage.local.get('appState')` when testing persistence
+- assert business behavior, not implementation details
+
+## Important gotchas
+
+### 1. Storage key
+The extension persists its state under `appState`, not a literal `local:appState` key in browser storage.
+
+```ts
+const data = await chrome.storage.local.get('appState')
+const enabled = data.appState?.autoClose ?? false
 ```
 
----
+### 2. Group order
+The tab groups must be verified in left-to-right order, oldest to youngest:
 
-## Testing Gotchas & Quirks
-
-### ⚠️ Gotcha 1: Group Index System
-
-**Problem**: `browser.tabGroups.query()` returns arbitrary order, not sorted.
-
-**Solution**: Always sort by `.index`:
-```typescript
-const groups = await browser.tabGroups.query({ windowId })
-const sorted = groups.sort((a, b) => (a.index ?? -1) - (b.index ?? -1))
+```ts
+['Hell!', 'Quarter+', 'Month+', '2 Weeks+', 'Week+']
 ```
 
-**In tests**: Use `OptionsPage.getAllGroups()` - already sorted ✅
+### 3. Test isolation
+Each test should start with a fresh extension context or state reset. The suite uses isolated Chrome contexts to avoid cross-test contamination.
 
----
+## Maintenance guidance
 
-### ⚠️ Gotcha 2: Mock Overrides Are Global State
+- Prefer tests that validate user-visible behavior.
+- Avoid exact tab-count assertions when the mock data or browser timing may vary.
+- Keep tests focused: one scenario per file or per `test(...)` block.
+- Update this document whenever new Playwright files are introduced or removed.
 
-**Problem**: Mock overrides persist across tests and affect subsequent runs.
+## Related files
 
-**Solution**: Always reset between tests:
-```typescript
-test.beforeEach(async () => {
-  // Clear mock overrides before each test
-  await TestHelper.setMockOverrides({})
-})
-```
-
----
-
-### ⚠️ Gotcha 3: Tab Creation Race Condition
-
-**Problem**: `createMockTabs()` creates tabs asynchronously. Querying too soon may return incomplete results.
-
-**Solution**: Wait for tabs to fully load:
-```typescript
-const tabs = await optionsPage.clickLoadMockTabs(2500)  // Extra wait time
-await optionsPage.page.waitForLoadState('networkidle')  // Ensure complete
-```
-
----
-
-### ⚠️ Gotcha 4: Storage Sync Delay
-
-**Problem**: WXT storage changes don't immediately sync across contexts.
-
-**Solution**: Add explicit wait time:
-```typescript
+- `playwright.config.ts` — global Playwright config
+- `test/playwright/chromium/extensions.ts` — MV3 browser setup and cleanup
+- `test/playwright/page-objects/OptionsPage.ts` — browser UI helpers and storage assertions
+- `src/services/BackgroundTabService.ts` — actual tab-group logic under test
 await optionsPage.setMockOverrides(overrides)
 await optionsPage.page.waitForTimeout(500)  // Storage persistence
 ```

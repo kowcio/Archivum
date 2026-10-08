@@ -16,7 +16,6 @@ const rpc = createProxyService<BackgroundRPC>('background')
 // Reactive state
 const thresholds = ref<AppThresholds>(DEFAULT_THRESHOLDS)
 const autoClose = ref(false)
-const sortByDomain = ref(true)
 const loading = ref(false)
 const error = ref<string | null>(null)
 
@@ -30,7 +29,6 @@ async function sync(): Promise<void> {
     
     thresholds.value = new AppThresholds(state.thresholds.levels, state.thresholds.activeLevels)
     autoClose.value = state.autoClose ?? false
-    sortByDomain.value = state.sortSettings?.sortByDomainInGroups ?? true
   } catch (err) {
     error.value = err instanceof Error ? err.message : 'Sync failed'
   }
@@ -87,20 +85,6 @@ export function useStore() {
     }
   }
 
-  async function storeSetSortByDomain(enabled: boolean): Promise<void> {
-    loading.value = true
-    error.value = null
-    try {
-      await rpc.storeSetSortByDomain(enabled)
-      sortByDomain.value = enabled
-    } catch (err) {
-      error.value = err instanceof Error ? err.message : String(err)
-      throw err
-    } finally {
-      loading.value = false
-    }
-  }
-
   async function storeResetToDefaults(): Promise<void> {
     loading.value = true
     error.value = null
@@ -132,14 +116,12 @@ export function useStore() {
     // State
     thresholds,
     autoClose,
-    sortByDomain,
     loading,
     error,
     // Methods
     storeSetAutoClose,
     storeSetThresholds,
     storeSetActiveLevels,
-    storeSetSortByDomain,
     storeResetToDefaults,
     sync,
   }

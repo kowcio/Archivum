@@ -24,22 +24,22 @@ export class PopupPage {
     // Component uses dynamic: isGrouped ? 'ungroup-tabs-btn' : 'group-tabs-btn'
     this.groupTabsBtn = page.getByTestId('group-tabs-btn');
     this.openOptionsBtn = page.getByTestId('popup-btn-open-option-page');
+    // Note: popup-btn-plugin-browser-option was removed from popup UI
     this.openPluginOptionsBtn = page.getByTestId('popup-btn-plugin-browser-option');
   }
 
   /**
    * Navigate to Popup page using extension ID.
-   * Uses waitForSelector to ensure Vue has hydrated before returning.
+   * Uses locator.waitFor() with global timeout (20s) from config for proper auto-retry behavior.
+   * Playwright assertions automatically retry until timeout.
    */
   async goto(extensionId: string): Promise<void> {
     await this.page.goto(`chrome-extension://${extensionId}/popup.html`, {
-      waitUntil: 'domcontentloaded',
+      waitUntil: 'networkidle',  // Full page hydration with all resources loaded
     });
-    // Wait for Vue to mount the GroupUngroup component in DOM
-    await this.page.waitForSelector('[data-testid="group-tabs-btn"]', {
-      state: 'attached',
-      timeout: 5000
-    });
+    // Use locator assertion (toBeVisible) which respects global expect.timeout from config (20s)
+    // This automatically retries polling the DOM with exponential backoff
+    await expect(this.groupTabsBtn).toBeVisible();
   }
 
   /**
@@ -66,12 +66,12 @@ export class PopupPage {
   /**
    * Verify all action buttons are visible.
    * Uses global Playwright timeout (15000ms from config).
+   * Note: popup-btn-plugin-browser-option was removed from popup UI, so only 2 buttons.
    */
   async expectAllButtonsVisible(): Promise<void> {
-    await Promise.all([
-      expect(this.groupTabsBtn).toBeVisible(),
-      expect(this.openOptionsBtn).toBeVisible(),
-      expect(this.openPluginOptionsBtn).toBeVisible(),
+   await Promise.all([
+     expect(this.groupTabsBtn).toBeVisible(),
+     expect(this.openOptionsBtn).toBeVisible(),
     ]);
   }
 
