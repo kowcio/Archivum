@@ -1,34 +1,32 @@
 <template>
-  <div class="row items-center q-gutter-sm" data-testid="auto-close-toggle">
-    <button
-      type="button"
-      class="auto-close-switch"
-      role="switch"
-      :aria-checked="store.autoClose.value"
-      :data-enabled="String(store.autoClose.value)"
-      @click="handleToggle"
-      @keydown.enter.prevent="handleToggle"
-      @keydown.space.prevent="handleToggle"
-    >
-      <span class="auto-close-label">Auto close</span>
+  <div class="row items-center q-gutter-sm">
+    <div class="row items-center q-gutter-xs auto-close-toggle-wrap">
+      <q-toggle
+        :model-value="store.autoClose.value"
+        label="Auto close"
+        color="negative"
+        left-label
+        :disable="store.loading.value"
+        data-testid="auto-close-toggle"
+        @update:model-value="handleToggle"
+      >
+        <q-tooltip class="text-caption" data-testid="auto-close-tooltip">
+          <div class="q-mb-sm">
+            {{ tooltipLine1 }}
+          </div>
+          <div>
+            {{ tooltipLine2 }}
+          </div>
+        </q-tooltip>
+      </q-toggle>
+
       <q-icon
         :name="iconName"
         :color="iconColor"
-        size="xs"
-        class="cursor-pointer q-ml-xs"
+        size="sm"
+        class="auto-close-status-icon"
       />
-      <q-tooltip
-        class="text-caption"
-        data-testid="auto-close-tooltip"
-      >
-        <div class="q-mb-sm">
-          {{ tooltipLine1 }}
-        </div>
-        <div>
-          {{ tooltipLine2 }}
-        </div>
-      </q-tooltip>
-    </button>
+    </div>
 
     <q-linear-progress
       v-if="store.loading.value"
@@ -51,11 +49,11 @@ import { useStore } from '@/composables/useStore'
 const store = useStore()
 
 const iconName = computed(() =>
-  store.autoClose.value ? 'local_fire_department' : 'shield_off'
+  store.autoClose.value ? 'local_fire_department' : 'shield'
 )
 
 const iconColor = computed(() =>
-  store.autoClose.value ? 'negative' : 'info'
+  store.autoClose.value ? 'negative' : 'positive'
 )
 
 const oldestGroupName = computed(() => {
@@ -78,8 +76,9 @@ const tooltipLine2 = computed(() => {
   return '💡 Tip: Click a tab to move it to ungrouped section and preserve it.'
 })
 
-async function handleToggle(): Promise<void> {
-  const nextValue = !store.autoClose.value
+async function handleToggle(nextValue: boolean): Promise<void> {
+  if (nextValue === store.autoClose.value) return
+
   try {
     await store.storeSetAutoClose(nextValue)
   } catch (err) {
@@ -89,25 +88,15 @@ async function handleToggle(): Promise<void> {
 </script>
 
 <style scoped>
-.auto-close-switch {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  border: 0;
-  background: transparent;
-  color: inherit;
-  cursor: pointer;
-  padding: 0;
-  font: inherit;
+.auto-close-toggle-wrap {
+  min-height: 32px;
 }
 
-.auto-close-switch:focus-visible {
-  outline: 2px solid currentColor;
-  outline-offset: 4px;
-  border-radius: 6px;
+.auto-close-status-icon {
+  opacity: 0.9;
 }
 
-.auto-close-label {
+:deep(.q-toggle__label) {
   user-select: none;
 }
 </style>

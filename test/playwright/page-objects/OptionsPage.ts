@@ -666,10 +666,12 @@ export class OptionsPage {
 
     const toggle = this.page.getByRole('switch', { name: 'Auto close' });
     await expect(toggle).toBeVisible();
+    await expect(toggle).toBeEnabled();
 
     const nextValue = !(await this.isAutoCloseEnabled());
     await toggle.click();
 
+    await expect(toggle).toHaveAttribute('aria-checked', String(nextValue));
     await expect.poll(
       async () => await this.isAutoCloseEnabled(),
       { timeout: 5_000, intervals: [100] }
