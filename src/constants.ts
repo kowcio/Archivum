@@ -1,20 +1,13 @@
 // ─── App-wide constants ───────────────────────────────────────────────────────
-import dayjs from "dayjs";
+import browser from 'webextension-polyfill'
 
-/**
- * Generate unified version: 1.1.YYMMDDhh (Firefox-compatible: max 9 digits per number)
- * Example: 1.1.26070515 = 1 . 1 . YY(26)MM(07)DD(05)HH(15)
- * Synced with wxt.config.ts and used across all platforms
- */
-function generateBuildVersion(): string {
-  const now = dayjs();
-  const year = now.format('YY');
-  const month = now.format('MM');
-  const day = now.format('DD');
-  const hours = now.format('HH');
-
-  const timestamp = `${year}${month}${day}${hours}`;
-  return `1.1.${timestamp}`;
+function getRuntimeVersion(): string {
+  try {
+    const manifest = browser.runtime.getManifest()
+    return manifest.version_name ?? manifest.version ?? '0.0.0'
+  } catch {
+    return '0.0.0'
+  }
 }
 
 /**
@@ -73,7 +66,7 @@ export const APP_CONSTANTS = {
   APP_ID: 'TabAgeTracker',
   STORE_GLOBAL_STORE: 'global_store',
   STORE_TAB_STORE: 'tab_store',
-  APP_VERSION: generateBuildVersion(),
+  APP_VERSION: getRuntimeVersion(),
 } as const
 
 export const APP_DEFAULTS = {
