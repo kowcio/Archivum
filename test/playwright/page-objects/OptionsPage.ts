@@ -16,6 +16,7 @@
 
 import { expect, type Locator, type Page } from '@playwright/test';
 import type { BackgroundRPC } from '@/services/BackgroundRPC';
+import type { GroupAndTabData } from '@/models/BackgroundRpcModels';
 
 // `chrome` is globally available in page.evaluate() context (no import needed)
 
@@ -340,8 +341,7 @@ export class OptionsPage {
    * Get ungrouped tabs count.
    */
   async getUngroupedTabCount(): Promise<number> {
-    const all = await this.queryAllTabs();
-    return all.filter(t => t.groupId === -1).length;
+    return await this.bg.getUngroupedTabCount();
   }
 
   /**
@@ -646,22 +646,7 @@ export class OptionsPage {
        * Get all groups and tabs data via BackgroundRPC proxy.
        * Returns group count, group details, and tab counts (grouped vs ungrouped).
        */
-      async getGroupAndTabData(): Promise<{
-       groupCount: number;
-       groupsOrderedByIndex: Array<{ id: number; title: string; index: number }>;
-       groupedTabCount: number;
-       ungroupedTabCount: number;
-       tabs: Array<{
-         id?: number;
-         url?: string;
-         title?: string;
-         active?: boolean;
-         lastAccessed?: number;
-         groupId?: number;
-         windowIndex?: number;
-         positionInGroup?: number | null;
-       }>;
-       }> {
+      async getGroupAndTabData(): Promise<GroupAndTabData> {
        // Don't catch errors - let them propagate to caller for proper handling
        return await this.bg.getGroupAndTabData()
      }

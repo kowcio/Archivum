@@ -1,9 +1,22 @@
 // ─── App-wide constants ───────────────────────────────────────────────────────
-import browser from 'webextension-polyfill'
 
 function getRuntimeVersion(): string {
   try {
-    const manifest = browser.runtime.getManifest()
+    type RuntimeLike = {
+      getManifest?: () => { version_name?: string; version?: string }
+    }
+
+    const extensionGlobals = globalThis as typeof globalThis & {
+      browser?: { runtime?: RuntimeLike }
+      chrome?: { runtime?: RuntimeLike }
+    }
+
+    const runtime = extensionGlobals.browser?.runtime ?? extensionGlobals.chrome?.runtime
+    if (!runtime?.getManifest) {
+      return '0.0.0'
+    }
+
+    const manifest = runtime.getManifest()
     return manifest.version_name ?? manifest.version ?? '0.0.0'
   } catch {
     return '0.0.0'

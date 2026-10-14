@@ -13,6 +13,7 @@ import { BackgroundTabService } from '@/services/BackgroundTabService'
 import { StorageRepository } from '@/store'
 import { test_addTimeOffset } from '@/utils/testTime'
 import type {ThresholdLevel} from "@/constants.ts";
+import type { GroupAndTabData, GroupByIndex, GroupTabDataRow } from '@/models/BackgroundRpcModels'
 
 /**
  * ⚠️ DEVELOPERS: This object MUST have async methods (even if they don't need to be)
@@ -41,22 +42,13 @@ export const backgroundRPC = {
   onTabActivated: (tabId: number): Promise<void> => BackgroundTabService.onTabActivated(tabId),
 
   // ── Data queries ─────────────────────────────────────────────────────────
-  getGroupAndTabData: (): Promise<{
-    groupCount: number;
-    groupsOrderedByIndex: Array<{ id: number; title: string; index: number }>;
-    groupedTabCount: number;
-    ungroupedTabCount: number;
-    tabs: Array<{
-      id?: number;
-      url?: string;
-      title?: string;
-      active?: boolean;
-      lastAccessed?: number;
-      groupId?: number;
-      windowIndex?: number;
-      positionInGroup?: number | null;
-    }>;
-  }> => BackgroundTabService.getGroupAndTabData(),
+  getGroupAndTabData: (): Promise<GroupAndTabData> => BackgroundTabService.getGroupAndTabData(),
+  getGroupsOrderedByIndex: async (): Promise<GroupByIndex[]> =>
+    (await backgroundRPC.getGroupAndTabData()).groupsOrderedByIndex,
+  getGroupCount: async (): Promise<number> => (await backgroundRPC.getGroupAndTabData()).groupCount,
+  getGroupedTabCount: async (): Promise<number> => (await backgroundRPC.getGroupAndTabData()).groupedTabCount,
+  getUngroupedTabCount: async (): Promise<number> => (await backgroundRPC.getGroupAndTabData()).ungroupedTabCount,
+  getGroupedTabsData: async (): Promise<GroupTabDataRow[]> => (await backgroundRPC.getGroupAndTabData()).tabs,
 
   // ═══════════════════════════════════════════════════════════════════════════
   // ⚙️ STORE — Config & settings persistence
