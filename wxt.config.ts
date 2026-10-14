@@ -3,17 +3,22 @@ import {defineConfig} from 'wxt'
 // See https://wxt.dev/api/config.html
 const date = `${new Date().toISOString().replace(/[-:T]/g, '').slice(0, 12)}`
 
-// Build version is regenerated on every build in YYYYMMDDHH format,
-// with a stable 1.0 prefix for the extension versioning scheme.
-// Example: 1.0.26101417 → 2026-10-14 17:00 local time
+// Build version is regenerated on every build in 1.YY.MD.HM format.
+// Month/day and hour/minute segments are numeric (no leading zeros),
+// which keeps Firefox version parsing valid and monotonic.
+// Example: 1.26.1014.2042 → 2026-10-14 20:42 local time
 function generateBuildVersion(): string {
   const now = new Date()
   const year = String(now.getFullYear()).slice(-2)
   const month = String(now.getMonth() + 1).padStart(2, '0')
   const day = String(now.getDate()).padStart(2, '0')
   const hours = String(now.getHours()).padStart(2, '0')
+  const minutes = String(now.getMinutes()).padStart(2, '0')
 
-  return `1.0.${year}${month}${day}${hours}`
+  const monthDay = Number(`${month}${day}`)
+  const hourMinute = Number(`${hours}${minutes}`)
+
+  return `1.${year}.${monthDay}.${hourMinute}`
 }
 
 export default defineConfig({
