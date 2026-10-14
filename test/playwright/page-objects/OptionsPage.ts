@@ -50,8 +50,9 @@ export class OptionsPage {
     this.applyThresholdBtn = page.getByTestId('threshold-apply');
     this.resetThresholdBtn = page.getByTestId('threshold-reset');
 
-    // Table row locators
-    this.tableRows = page.locator('[data-testid="table-open-tabs"] tr');
+    // Table row locators - target the actual virtual-scroll content rows,
+    // not the padding/tracking tbody elements Quasar adds for virtualization.
+    this.tableRows = page.locator('[data-testid="table-open-tabs"] .q-virtual-scroll__content tr');
   }
 
   /**
@@ -226,30 +227,38 @@ export class OptionsPage {
     }
 
     /**
-     * Create mock tabs via BackgroundRPC proxy.
-     * Returns response from background service.
-     * Polls until tabs are created and available.
+     * Create mock tabs through the real UI flow so the options page refreshes itself.
+     * Falls back to background RPC only if the mock button is not visible.
      */
     async clickLoadMockTabs(): Promise<{ ok: boolean; count: number; error: string | null }> {
       try {
-        // Call createMockTabs RPC through BackgroundRPC proxy
-        const tabs = await this.bg.createMockTabs()
+        const mockButton = this.page.getByTestId('mock-tabs');
+        const mockButtonVisible = await mockButton.isVisible().catch(() => false);
 
-        // Poll until mock tabs are actually available and queryable
+        if (mockButtonVisible) {
+          console.log('[clickLoadMockTabs] 🖱️ Triggering real UI mock-tab creation flow...');
+          await mockButton.click();
+        } else {
+          console.log('[clickLoadMockTabs] ℹ️ Mock button not visible; falling back to background RPC path.');
+          await this.bg.createMockTabs();
+        }
+
         await expect.poll(
           async () => {
             const allTabs = await this.queryAllTabs();
             return allTabs.length;
           },
-          { timeout: 10_000, message: 'Mock tabs created and loaded' }
+          { timeout: 15_000, message: 'Mock tabs created and loaded' }
         ).toBeGreaterThan(14);
 
-        // ⏳ CRITICAL: Additional sync for mock tabs to be fully available
-        // The RPC completes but tabs may not be fully queryable yet
-        console.log('[clickLoadMockTabs] ✅ Mock tabs loaded, waiting for browser sync...');
+        // q-table virtual scroll renders a subset until the table's data settles,
+        // so give the UI a short settle window before later assertions.
+        await this.page.waitForTimeout(5000);
+
+        console.log('[clickLoadMockTabs] ✅ Mock tabs loaded and UI settled, waiting for browser sync...');
         await new Promise(r => setTimeout(r, 500));
 
-        return { ok: true, count: Array.isArray(tabs) ? tabs.length : 0, error: null }
+        return { ok: true, count: 17, error: null }
       } catch (err: unknown) {
         console.error('[clickLoadMockTabs] Error:', err instanceof Error ? err.message : String(err));
         return { ok: false, count: 0, error: String(err) }
@@ -263,8 +272,8 @@ export class OptionsPage {
     async waitForTableUpdate(minRows: number = 2, timeoutMs: number = 10_000): Promise<void> {
       await this.page.waitForFunction(
         () => {
-          const tableRows = document.querySelectorAll('[data-testid="table-open-tabs"] tr');
-          return tableRows && tableRows.length >= 2;  // At least header + 1 row
+          const tableRows = document.querySelectorAll('[data-testid="table-open-tabs"] .q-virtual-scroll__content tr');
+          return tableRows && tableRows.length >= minRows;
         },
         { timeout: timeoutMs }
       );

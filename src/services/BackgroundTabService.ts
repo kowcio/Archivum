@@ -194,25 +194,28 @@ export class BackgroundTabService {
         ids.sort((a, b) => (ageMap.get(b) ?? 0) - (ageMap.get(a) ?? 0))
       }
 
-      // Build ordered array by reversing the level-to-tabs mapping
-      // levelTabIds is ordered [Week+, 2Weeks+, Month+, Quarter+, Years]
-      // We need [Years, Quarter+, Month+, 2Weeks+, Week+]
-      const reversedTabIds: number[] = []
-      for (let i = levelTabIds.length - 1; i >= 0; i--) {
-        reversedTabIds.push(...levelTabIds[i])
+      // ✅ Move each age bucket into a stable left-to-right position before grouping.
+      // This preserves the expected order: oldest groups left, fresh tabs right.
+      // Doing a single global move can leave plugin tabs in a stale relative position
+      // when user-created groups or extra ungrouped tabs sit to the right.
+      let insertIndex = 0
+      for (let i = activeLevels.length - 1; i >= 0; i--) {
+        const tabIds = levelTabIds[i]
+        if (tabIds.length === 0) continue
+
+        try {
+          await browser.tabs.move(tabIds, { index: insertIndex })
+          insertIndex += tabIds.length
+        } catch (err) {
+          console.error('[BackgroundTabService] ⚠️ Age-bucket reorder failed, skipping:', err)
+        }
       }
 
-      const orderedTabIds = [
-        ...reversedTabIds,
-        ...freshTabIds
-      ]
-
-      // Move all tabs into position
-      if (orderedTabIds.length > 0) {
+      if (freshTabIds.length > 0) {
         try {
-          await browser.tabs.move(orderedTabIds, {index: 0})
+          await browser.tabs.move(freshTabIds, { index: -1 })
         } catch (err) {
-          console.error('[BackgroundTabService] ⚠️ Tab reorder failed, skipping:', err)
+          console.error('[BackgroundTabService] ⚠️ Fresh-tab reorder failed, skipping:', err)
         }
       }
 

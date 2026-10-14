@@ -352,6 +352,13 @@ export class TestEnvironment {
   ): Promise<TestEnvironment> {
     const ctx = await setupExtensionTest(withServiceWorkerLogging, timeoutMs);
     const page = await ctx.context.newPage();
+    await page.addInitScript(() => {
+      Object.defineProperty(window, '__VITE_DEV_FEATURES__', {
+        value: 'true',
+        configurable: true,
+        writable: true,
+      });
+    });
     const backgroundRPC = createRPCProxy(page);
     const optionsPage = new OptionsPage(page, backgroundRPC);
 
