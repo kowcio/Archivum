@@ -27,6 +27,22 @@ import {MOCK_TABS} from '@/utils/mockTabData'
 import {APP_DEFAULTS} from '@/constants'
 import {getCurrentTime} from '@/utils/testTime'
 
+type PluginGroup = {
+  id: number;
+  title: string;
+  index?: number;
+  color?: string;
+  collapsed?: boolean
+}
+
+type AgeGroupingPlan = {
+  activeLevels: Array<{ label: string; color: string }>;
+  levelTabIds: number[][];
+  freshTabIds: number[];
+  tabById: Map<number, Browser.tabs.Tab>;
+  targetLabelByTabId: Map<number, string | null>;
+}
+
 export class BackgroundTabService {
   /**
    * Get array of possible plugin-created group titles based on threshold labels.
@@ -83,33 +99,209 @@ export class BackgroundTabService {
     }
   }
 
-  /**
-   * Build label → groupId map for quick group lookups.
-   * Used by updateTabByAge() to determine target group for each tab.
-   *
-   * Example: { "Week+": 5, "Month+": 8, "2 Weeks+": 6 }
-   * ✅ Simplified: find matching threshold label instead of parsing regex
-   */
-  private static async getPluginGroupMap(): Promise<Map<string, number>> {
-    const groups = await this.getGroups()
-    const map = new Map<string, number>()
+  static async getThresholds(): Promise<AppThresholds> {
+    return await StorageRepository.getStorageThresholds()
+  }
+
+  private static getGroupLabel(groupTitle: string): string | null {
     const pluginTitles = this.getPluginGroupTitles()
+    const matchingLabel = pluginTitles.find(title => groupTitle.startsWith(title))
+    return matchingLabel ?? null
+  }
+
+  private static createGroupMaps(groups: PluginGroup[]): {
+    labelByGroupId: Map<number, string>;
+    groupByLabel: Map<string, PluginGroup>;
+  } {
+    const labelByGroupId = new Map<number, string>()
+    const groupByLabel = new Map<string, PluginGroup>()
 
     for (const group of groups) {
-      // ✅ Safety check: group must have id
-      if (group.id == null) continue
-      // ✅ Find which threshold label this group starts with
-      const matchingLabel = pluginTitles.find(title => group.title.startsWith(title))
-      if (matchingLabel) {
-        map.set(matchingLabel, group.id)
+      const label = this.getGroupLabel(group.title)
+      if (!label) continue
+
+      labelByGroupId.set(group.id, label)
+      if (!groupByLabel.has(label)) {
+        groupByLabel.set(label, group)
       }
     }
 
-    return map
+    return { labelByGroupId, groupByLabel }
   }
 
-  static async getThresholds(): Promise<AppThresholds> {
-    return await StorageRepository.getStorageThresholds()
+  private static buildAgeGroupingPlan(
+    rawTabs: Browser.tabs.Tab[],
+    thresholds: AppThresholds,
+    currentTime: number
+  ): AgeGroupingPlan {
+    const rows = TabRow.fromTabs(rawTabs, thresholds, currentTime)
+    const activeThresholdLevels = thresholds.activeThresholdLevels()
+    const activeLevels = activeThresholdLevels.map(level => ({
+      label: level.label,
+      color: level.color as string,
+    }))
+    const levelTabIds: number[][] = Array.from({length: activeLevels.length}, () => [])
+    const freshTabIds: number[] = []
+    const ageMap = new Map<number, number>()
+    const targetLabelByTabId = new Map<number, string | null>()
+    const tabById = new Map<number, Browser.tabs.Tab>()
+
+    for (const tab of rawTabs) {
+      if (tab.id != null) {
+        tabById.set(tab.id, tab)
+      }
+    }
+
+    for (const row of rows) {
+      if (row.id != null) {
+        ageMap.set(row.id, row.lastAccessDays ?? 0)
+      }
+    }
+
+    for (const row of rows) {
+      if (row.id == null) continue
+
+      const ageClassification = AgeClassification.fromDays(row.lastAccessDays ?? 0, thresholds)
+
+      if (ageClassification.index === 0) {
+        freshTabIds.push(row.id)
+        targetLabelByTabId.set(row.id, null)
+        continue
+      }
+
+      const levelIndex = ageClassification.index - 1
+      if (levelIndex >= 0 && levelIndex < activeLevels.length) {
+        levelTabIds[levelIndex].push(row.id)
+        targetLabelByTabId.set(row.id, activeLevels[levelIndex].label)
+      }
+    }
+
+    for (const ids of levelTabIds) {
+      ids.sort((a, b) => (ageMap.get(b) ?? 0) - (ageMap.get(a) ?? 0))
+    }
+
+    return { activeLevels, levelTabIds, freshTabIds, tabById, targetLabelByTabId }
+  }
+
+  private static async reorderTabsForStableAgeLayout(plan: AgeGroupingPlan): Promise<void> {
+    let insertIndex = 0
+
+    for (let i = plan.activeLevels.length - 1; i >= 0; i--) {
+      const tabIds = plan.levelTabIds[i]
+      if (tabIds.length === 0) continue
+
+      try {
+        await browser.tabs.move(tabIds, { index: insertIndex })
+        insertIndex += tabIds.length
+      } catch (err) {
+        console.error('[BackgroundTabService] ⚠️ Age-bucket reorder failed, skipping:', err)
+      }
+    }
+
+    if (plan.freshTabIds.length > 0) {
+      try {
+        await browser.tabs.move(plan.freshTabIds, { index: -1 })
+      } catch (err) {
+        console.error('[BackgroundTabService] ⚠️ Fresh-tab reorder failed, skipping:', err)
+      }
+    }
+  }
+
+  private static async applyAgeGrouping(options: { reorderTabs: boolean }): Promise<{
+    groupsCreated: number;
+    tabsMoved: number;
+  }> {
+    if (browser.tabGroups == null) {
+      return { groupsCreated: 0, tabsMoved: 0 }
+    }
+
+    const rawTabs = await this.getTabs()
+    const thresholds = await this.getThresholds()
+    const currentTime = await getCurrentTime()
+    const plan = this.buildAgeGroupingPlan(rawTabs, thresholds, currentTime)
+    const groups = await this.getGroups()
+    const groupMaps = this.createGroupMaps(groups)
+
+    let tabsMoved = 0
+
+    for (const [tabId, targetLabel] of plan.targetLabelByTabId) {
+      const tab = plan.tabById.get(tabId)
+      if (tab == null) continue
+
+      let currentLabel: string | null = null
+      if (tab.groupId != null && tab.groupId !== -1) {
+        currentLabel = groupMaps.labelByGroupId.get(tab.groupId) ?? null
+      }
+
+      if (currentLabel !== targetLabel) {
+        tabsMoved++
+      }
+    }
+
+    if (options.reorderTabs) {
+      await this.reorderTabsForStableAgeLayout(plan)
+    }
+
+    const freshGroupedIds = plan.freshTabIds.filter((tabId) => {
+      const tab = plan.tabById.get(tabId)
+      return tab != null && tab.groupId != null && tab.groupId !== -1
+    })
+    if (freshGroupedIds.length > 0) {
+      try {
+        await (browser.tabs as any).ungroup(freshGroupedIds)
+      } catch (err) {
+        console.warn('[BackgroundTabService] ⚠️ Failed to ungroup fresh tabs:', err)
+      }
+    }
+
+    let groupsCreated = 0
+    for (let i = plan.activeLevels.length - 1; i >= 0; i--) {
+      const level = plan.activeLevels[i]
+      const tabIds = plan.levelTabIds[i]
+      if (tabIds.length === 0) continue
+
+      const existingGroup = groupMaps.groupByLabel.get(level.label)
+
+      if (existingGroup?.id != null) {
+        const toMove = tabIds.filter((tabId) => {
+          const tab = plan.tabById.get(tabId)
+          return tab == null || tab.groupId !== existingGroup.id
+        })
+        if (toMove.length > 0) {
+          try {
+            await (browser.tabs as any).group({ tabIds: toMove, groupId: existingGroup.id })
+          } catch (err) {
+            console.warn(`[BackgroundTabService] ⚠️ Failed to move tabs to group "${level.label}":`, err)
+          }
+        }
+      } else {
+        try {
+          const groupId = await (browser.tabs as any).group({ tabIds })
+          groupMaps.groupByLabel.set(level.label, { id: groupId, title: level.label })
+          groupsCreated++
+        } catch (err) {
+          console.warn(`[BackgroundTabService] ⚠️ Failed to create group "${level.label}":`, err)
+        }
+      }
+    }
+
+    for (const level of plan.activeLevels) {
+      const group = groupMaps.groupByLabel.get(level.label)
+      if (!group?.id) continue
+
+      try {
+        const tabsInGroup = await browser.tabs.query({ groupId: group.id })
+        await (browser.tabGroups as any).update(group.id, {
+          title: `${level.label} (${tabsInGroup.length})`,
+          color: level.color,
+          collapsed: true,
+        })
+      } catch (err) {
+        console.warn(`[BackgroundTabService] ⚠️ Failed to update group metadata for "${level.label}":`, err)
+      }
+    }
+
+    return { groupsCreated, tabsMoved }
   }
 
   /**
@@ -154,97 +346,8 @@ export class BackgroundTabService {
   static async groupTabsByAge(): Promise<number> {
     try {
       if (browser.tabGroups == null) return 0
-
-      // 🧹 First, ungroup all existing plugin-created groups
-      // This ensures clean slate when thresholds change or re-grouping happens
-      await this.ungroupAllTabs()
-
-      // ⏳ Wait for browser to process ungrouping before regrouping
-      // This prevents race conditions where groups are partially created
-      await new Promise(resolve => setTimeout(resolve, 200))
-
-      const rawTabs = await this.getTabs()
-      const thresholds = await this.getThresholds()
-      const currentTime = await getCurrentTime()
-
-      const rows = TabRow.fromTabs(rawTabs, thresholds, currentTime)
-      const activeLevels = thresholds.activeThresholdLevels()
-      const levelTabIds: number[][] = Array.from({length: activeLevels.length}, () => [])
-      const freshTabIds: number[] = []
-
-      // Build age map
-      const ageMap = new Map<number, number>()
-      for (const row of rows) {
-        if (row.id != null) ageMap.set(row.id, row.lastAccessDays ?? 0)
-      }
-
-      // Classify tabs into age levels
-      for (const row of rows) {
-        if (row.id == null) continue
-        const c = AgeClassification.fromDays(row.lastAccessDays ?? 0, thresholds)
-        if (c.index === 0) {
-          freshTabIds.push(row.id)
-        } else if (c.index > 0 && c.index <= activeLevels.length) {
-          levelTabIds[c.index - 1].push(row.id)
-        }
-      }
-
-      // Sort each level by age (oldest first)
-      for (const ids of levelTabIds) {
-        ids.sort((a, b) => (ageMap.get(b) ?? 0) - (ageMap.get(a) ?? 0))
-      }
-
-      // ✅ Move each age bucket into a stable left-to-right position before grouping.
-      // This preserves the expected order: oldest groups left, fresh tabs right.
-      // Doing a single global move can leave plugin tabs in a stale relative position
-      // when user-created groups or extra ungrouped tabs sit to the right.
-      let insertIndex = 0
-      for (let i = activeLevels.length - 1; i >= 0; i--) {
-        const tabIds = levelTabIds[i]
-        if (tabIds.length === 0) continue
-
-        try {
-          await browser.tabs.move(tabIds, { index: insertIndex })
-          insertIndex += tabIds.length
-        } catch (err) {
-          console.error('[BackgroundTabService] ⚠️ Age-bucket reorder failed, skipping:', err)
-        }
-      }
-
-      if (freshTabIds.length > 0) {
-        try {
-          await browser.tabs.move(freshTabIds, { index: -1 })
-        } catch (err) {
-          console.error('[BackgroundTabService] ⚠️ Fresh-tab reorder failed, skipping:', err)
-        }
-      }
-
-      // Create groups from oldest→youngest by iterating activeLevels backwards
-      let groupsCreated = 0
-      for (let i = activeLevels.length - 1; i >= 0; i--) {
-        const tabIds = levelTabIds[i]
-        if (tabIds.length === 0) continue
-
-        try {
-          const groupId = await (browser.tabs as any).group({tabIds})
-          await (browser.tabGroups as any).update(groupId, {
-            title: `${activeLevels[i].label} (${tabIds.length})`,
-            color: activeLevels[i].color,
-            collapsed: true,
-          })
-          groupsCreated++
-        } catch (err) {
-          console.error(`[BackgroundTabService] Failed to create group "${activeLevels[i].label}":`, err)
-        }
-      }
-
-      // ⏳ CRITICAL: Wait for browser to fully sync groups after creation
-      // Without this, rapid getGroupAndTabData() calls may return stale/empty group list
-      if (groupsCreated > 0) {
-        await new Promise(resolve => setTimeout(resolve, 150))
-      }
-
-      return groupsCreated
+      const result = await this.applyAgeGrouping({ reorderTabs: true })
+      return result.groupsCreated
     } catch (err) {
       console.error('[BackgroundTabService] ❌', err)
       return 0
@@ -263,70 +366,9 @@ export class BackgroundTabService {
   static async updateTabByAge(): Promise<number> {
     try {
       if (browser.tabGroups == null) return 0
-
-      const rawTabs = await this.getTabs()
-      const thresholds = await this.getThresholds()
-      const activeLevels = thresholds.activeThresholdLevels()
-
-      // ✅ Use centralized getPluginGroupMap() instead of manual query + filtering
-      const groupByLabel = await this.getPluginGroupMap()
-      const groups = await this.getGroups()
-
-      let tabsMoved = 0
-
-      // Check every tab and move if age doesn't match current group
-      for (const tab of rawTabs) {
-        if (tab.id == null) continue
-
-        const row = new TabRow(tab, thresholds)
-        const targetClassification = AgeClassification.fromDays(row.lastAccessDays ?? 0, thresholds)
-
-        // Determine target label for this tab's age
-        let targetLabel: string | null = null
-        if (targetClassification.index > 0 && targetClassification.index <= activeLevels.length) {
-          targetLabel = activeLevels[targetClassification.index - 1]?.label ?? null
-        }
-
-        // Get current group label
-        let currentLabel: string | null = null
-        if (tab.groupId != null && tab.groupId !== -1) {
-          const currentGroup = groups.find((g: any) => g.id === tab.groupId)
-          if (currentGroup) {
-            const match = currentGroup.title.match(/^(.+?)\s*\(\d+\)$/)
-            currentLabel = match ? match[1] : currentGroup.title
-          }
-        }
-
-        // Move if target doesn't match current
-        if (targetLabel !== currentLabel) {
-          // Ungroup if currently grouped
-          if (tab.groupId != null && tab.groupId !== -1) {
-            try {
-              await (browser.tabs as any).ungroup([tab.id])
-            } catch (err) {
-              console.warn(`[BackgroundTabService] ⚠️ Failed to ungroup tab#${tab.id}:`, err)
-              continue
-            }
-          }
-
-          // Move to target group (if has target)
-          if (targetLabel && groupByLabel.has(targetLabel)) {
-            try {
-              const targetGroupId = groupByLabel.get(targetLabel)!
-              await (browser.tabs as any).group({tabIds: [tab.id], groupId: targetGroupId})
-              tabsMoved++
-            } catch (err) {
-              console.warn(`[BackgroundTabService] ⚠️ Failed to group tab#${tab.id}:`, err)
-            }
-          } else if (targetLabel === null) {
-            // Fresh tab stays ungrouped
-            tabsMoved++
-          }
-        }
-      }
-
-      console.log(`[BackgroundTabService] ✅ updateTabByAge: ${tabsMoved} tabs moved`)
-      return tabsMoved
+      const result = await this.applyAgeGrouping({ reorderTabs: false })
+      console.log(`[BackgroundTabService] ✅ updateTabByAge: ${result.tabsMoved} tabs moved`)
+      return result.tabsMoved
     } catch (err) {
       console.error('[BackgroundTabService] ❌ updateTabByAge error:', err)
       return 0
