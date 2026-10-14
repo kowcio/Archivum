@@ -1101,7 +1101,7 @@ export class BackgroundTabService {
      * Format a group label with its age in days.
      * Example: "Week+ (5 days)"
      */
-    static getGroupLabel(group: { id: number; title: string; index?: number }): string {
+    static formatGroupLabel(group: { id: number; title: string; index?: number }): string {
      return group.title;
     }
 
