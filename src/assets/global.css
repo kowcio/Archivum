@@ -169,7 +169,7 @@ body, #app {
   border-color: #999 !important;
 }
 
-/* ── Save Backup (faded green) ──────────────────────────────────────── */
+/* ── Green button (success state) ──────────────────────────────────────── */
 .got-btn-green.q-btn {
   background: rgba(102, 187, 106, 0.5) !important;
   color: #5a4a1a !important;
@@ -182,7 +182,7 @@ body, #app {
   box-shadow: 0 3px 10px rgba(102, 187, 106, 0.3), 0 3px 6px rgba(0,0,0,0.18) !important;
 }
 
-/* ── Restore Tabs (faded pink) ──────────────────────────────────────── */
+/* ── Pink button (action state) ──────────────────────────────────────── */
 .got-btn-pink.q-btn {
   background: rgba(236, 64, 122, 0.5) !important;
   color: #5a4a1a !important;

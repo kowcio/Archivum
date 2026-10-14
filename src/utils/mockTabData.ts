@@ -116,5 +116,12 @@ export const MOCK_TABS = [
     title: 'Proton pass',
     favIconUrl: '',
     daysAgo: 368,
+  },
+  {
+    id: 17,
+    url: 'https://www.notion.so/',
+    title: 'Notion – Your workspace in one place',
+    favIconUrl: '',
+    daysAgo: 100,
   }
 ];

@@ -1,6 +1,6 @@
 <template>
   <q-btn
-    label="Closer all other"
+    label="Close all tabs"
     icon="close_multiple"
     data-testid="btn-close-all-tabs"
     class="got-btn-red"

@@ -9,7 +9,6 @@
  *   ✅ getTabs()
  *   ✅ createMockTabs()
  *   ✅ hasPluginGroups()
- *   ✅ sortTabsByDomain()
  *
  * Uses fakeBrowser for efficient testing without real browser context.
  * Mock data from mockTabData.ts provides realistic test scenarios.
@@ -417,124 +416,6 @@ describe('BackgroundTabService', () => {
   });
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // sortTabsByDomain TESTS
-  // ═══════════════════════════════════════════════════════════════════════════
-  describe('sortTabsByDomain()', () => {
-    it('should return 0 when no tabs exist', async () => {
-      const count = await BackgroundTabService.sortGroupsByDomain();
-      expect(count).toBe(0);
-    });
-
-    it('should handle single tab gracefully', async () => {
-      await fakeBrowser.tabs.create({ url: 'https://example.com' });
-      const count = await BackgroundTabService.sortGroupsByDomain();
-      // Single tab = no group needed
-      expect(count).toBe(0);
-    });
-
-    it('should group tabs from same domain together', async () => {
-      await fakeBrowser.tabs.create({ url: 'https://example.com/1' });
-      await fakeBrowser.tabs.create({ url: 'https://example.com/2' });
-      await fakeBrowser.tabs.create({ url: 'https://github.com' });
-
-      const count = await BackgroundTabService.sortGroupsByDomain();
-      // May create 0-2 groups depending on browser support
-      expect(count).toBeGreaterThanOrEqual(0);
-    });
-
-    it('should sort domains alphabetically', async () => {
-      // Create tabs from different domains
-      await fakeBrowser.tabs.create({ url: 'https://zebra.com' });
-      await fakeBrowser.tabs.create({ url: 'https://apple.com' });
-      await fakeBrowser.tabs.create({ url: 'https://banana.com' });
-
-      const count = await BackgroundTabService.sortGroupsByDomain();
-      // Groups created in alphabetical order (apple < banana < zebra)
-      expect(count).toBeGreaterThanOrEqual(0);
-    });
-
-    it('should sort tabs within domain by age when >2 tabs', async () => {
-      const now = Date.now();
-      const DAY_MS = 86400000;
-      const tabs = [
-        await fakeBrowser.tabs.create({ url: 'https://example.com/1' }),
-        await fakeBrowser.tabs.create({ url: 'https://example.com/2' }),
-        await fakeBrowser.tabs.create({ url: 'https://example.com/3' }),
-      ];
-
-      // Set ages
-      await StorageRepository.storage.mockOverrides.setValue({
-        [tabs[0].id!]: now - 5 * DAY_MS,
-        [tabs[1].id!]: now - 20 * DAY_MS, // Oldest
-        [tabs[2].id!]: now - 10 * DAY_MS,
-      });
-
-      const count = await BackgroundTabService.sortGroupsByDomain();
-      // Within domain: 20d, 10d, 5d (oldest first)
-      expect(count).toBeGreaterThanOrEqual(0);
-    });
-
-    it('should not sort tabs by age when ≤2 tabs in domain', async () => {
-      const now = Date.now();
-      const DAY_MS = 86400000;
-      const tabs = [
-        await fakeBrowser.tabs.create({ url: 'https://example.com/1' }),
-        await fakeBrowser.tabs.create({ url: 'https://example.com/2' }),
-      ];
-
-      await StorageRepository.storage.mockOverrides.setValue({
-        [tabs[0].id!]: now - 50 * DAY_MS,
-        [tabs[1].id!]: now - DAY_MS,
-      });
-
-      const count = await BackgroundTabService.sortGroupsByDomain();
-      expect(count).toBeGreaterThanOrEqual(0);
-    });
-
-    it('should handle multiple domains with different tab counts', async () => {
-      // 3 tabs from example.com, 2 from github.com, 1 from npm.com
-      await fakeBrowser.tabs.create({ url: 'https://example.com/1' });
-      await fakeBrowser.tabs.create({ url: 'https://example.com/2' });
-      await fakeBrowser.tabs.create({ url: 'https://example.com/3' });
-      await fakeBrowser.tabs.create({ url: 'https://github.com/1' });
-      await fakeBrowser.tabs.create({ url: 'https://github.com/2' });
-      await fakeBrowser.tabs.create({ url: 'https://npm.com' });
-
-      const count = await BackgroundTabService.sortGroupsByDomain();
-      expect(count).toBeGreaterThanOrEqual(0);
-    });
-
-    it('should handle invalid URLs gracefully', async () => {
-      await fakeBrowser.tabs.create({ url: 'https://example.com' });
-      await fakeBrowser.tabs.create({ url: 'not-a-valid-url' });
-
-      const count = await BackgroundTabService.sortGroupsByDomain();
-      expect(count).toBeGreaterThanOrEqual(0);
-    });
-
-    it('should apply mock overrides when grouping by domain', async () => {
-      const now = Date.now();
-      const DAY_MS = 86400000;
-      const tabs = [
-        await fakeBrowser.tabs.create({ url: 'https://example.com/1' }),
-        await fakeBrowser.tabs.create({ url: 'https://example.com/2' }),
-        await fakeBrowser.tabs.create({ url: 'https://example.com/3' }),
-      ];
-
-      // Apply different ages to trigger within-domain sorting
-      await StorageRepository.storage.mockOverrides.setValue({
-        [tabs[0].id!]: now - 2 * DAY_MS,
-        [tabs[1].id!]: now - 30 * DAY_MS,
-        [tabs[2].id!]: now - 15 * DAY_MS,
-      });
-
-      const count = await BackgroundTabService.sortGroupsByDomain();
-      // Should not throw, regardless of grouping success
-      expect(count).toBeGreaterThanOrEqual(0);
-    });
-  });
-
-  // ═══════════════════════════════════════════════════════════════════════════
   // INTEGRATION TESTS
   // ═══════════════════════════════════════════════════════════════════════════
   describe('Integration scenarios', () => {
@@ -546,9 +427,6 @@ describe('BackgroundTabService', () => {
 
       const ageCount = await BackgroundTabService.groupTabsByAge();
       expect(ageCount).toBe(0);
-
-      const domainCount = await BackgroundTabService.sortGroupsByDomain();
-      expect(domainCount).toBe(0);
     });
   });
 
@@ -559,7 +437,6 @@ describe('BackgroundTabService', () => {
     it('should not throw on empty operations', async () => {
       await expect(BackgroundTabService.groupTabsByAge()).resolves.not.toThrow();
       await expect(BackgroundTabService.ungroupAllTabs()).resolves.not.toThrow();
-      await expect(BackgroundTabService.sortGroupsByDomain()).resolves.not.toThrow();
     });
 
     // Note: Tests for getTabs() with mock overrides are in Playwright E2E
@@ -567,7 +444,7 @@ describe('BackgroundTabService', () => {
   });
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // COMPREHENSIVE END-TO-END TEST: Grouping + Ungrouping + Backup + Restore
+  // COMPREHENSIVE END-TO-END TEST: Grouping + Ungrouping
   // ═══════════════════════════════════════════════════════════════════════════
   // This test verifies:
   // 1. ✅ Creates 10 random tabs split into 3 groups
@@ -575,18 +452,17 @@ describe('BackgroundTabService', () => {
   // 3. ✅ Verifies tab groups are sorted by index (LEFT→RIGHT = OLDEST→YOUNGEST)
   // 4. ✅ Verifies plugin-created groups occupy first positions (not user tabs)
   // 5. ✅ Ungroups and regroups — verifies consistent order
-  // 6. ✅ Backup/restore cycle — verifies state preservation
-  // 7. ✅ Verifies tab sorting (oldest first within groups)
-  // 8. ✅ Final report: All tabs + groups with their indices
+  // 6. ✅ Verifies tab sorting (oldest first within groups)
+  // 7. ✅ Final report: All tabs + groups with their indices
   //
   // NOTE: fakeBrowser doesn't support tabGroups API (Chrome-only feature).
   // This test verifies the LOGIC that WOULD run in real Chrome/Playwright.
   // Actual grouping tested in: test/playwright/chromium/*.spec.ts
-  describe('E2E Scenario: Grouping → Ungrouping → Backup → Restore', () => {
-    it('should handle complete grouping lifecycle with 10 tabs in 3 groups', async () => {
-      console.log('\n╔════════════════════════════════════════════════════════════════╗');
-      console.log('║     COMPREHENSIVE E2E TEST: TAB GROUPING LIFECYCLE              ║');
-      console.log('╚════════════════════════════════════════════════════════════════╝\n');
+  describe('E2E Scenario: Grouping → Ungrouping', () => {
+      it('should handle complete grouping lifecycle with 10 tabs in 3 groups', async () => {
+        console.log('\n╔════════════════════════════════════════════════════════════════╗');
+        console.log('║     COMPREHENSIVE E2E TEST: TAB GROUPING LIFECYCLE              ║');
+        console.log('╚════════════════════════════════════════════════════════════════╝\n');
 
       const now = Date.now();
       const DAY_MS = 86400000;
@@ -811,20 +687,9 @@ describe('BackgroundTabService', () => {
       expect(orderConsistent).toBe(true);
 
       // ─────────────────────────────────────────────────────────────────────
-      // STEP 8: BACKUP, CLOSE, RESTORE CYCLE
+      // STEP 8: FINAL VERIFICATION & COMPREHENSIVE REPORT
       // ─────────────────────────────────────────────────────────────────────
-      console.log('\n💾 STEP 8: Backup → Close → Restore cycle...\n');
-
-      // Note: BackupService tests would go here in Playwright
-      // For unit tests: verify the logic would work
-      console.log(`  ✓ Would backup: ${tabs.length} tabs`);
-      console.log(`  ✓ Would close all tabs`);
-      console.log(`  ✓ Would restore: ${tabs.length} tabs`);
-
-      // ─────────────────────────────────────────────────────────────────────
-      // STEP 9: FINAL VERIFICATION & COMPREHENSIVE REPORT
-      // ─────────────────────────────────────────────────────────────────────
-      console.log('\n📋 STEP 9: FINAL REPORT — All tabs and groups\n');
+      console.log('\n📋 STEP 8: FINAL REPORT — All tabs and groups\n');
 
       console.log('╔════════════════════════════════════════════════════════════════╗');
       console.log('║                    TAB GROUPING SUMMARY                        ║');
@@ -859,9 +724,9 @@ describe('BackgroundTabService', () => {
       });
 
       // ─────────────────────────────────────────────────────────────────────
-      // STEP 10: ASSERTIONS FOR EACH ENTITY
+      // STEP 9: ASSERTIONS FOR EACH ENTITY
       // ─────────────────────────────────────────────────────────────────────
-      console.log('\n✅ STEP 10: Detailed assertions for each tab and group\n');
+      console.log('\n✅ STEP 9: Detailed assertions for each tab and group\n');
 
       // Assert: All 10 tabs exist
       expect(tabs).toHaveLength(10);
