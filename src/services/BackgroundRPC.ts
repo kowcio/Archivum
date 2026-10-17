@@ -13,7 +13,7 @@ import { BackgroundTabService } from '@/services/BackgroundTabService'
 import { StorageRepository } from '@/store'
 import { test_addTimeOffset } from '@/utils/testTime'
 import type {ThresholdLevel} from "@/constants.ts";
-import type { GroupAndTabData, GroupByIndex, GroupTabDataRow } from '@/models/BackgroundRpcModels'
+import type { ActivityLogEntry, GroupAndTabData, GroupByIndex, GroupTabDataRow } from '@/models/BackgroundRpcModels'
 
 /**
  * ⚠️ DEVELOPERS: This object MUST have async methods (even if they don't need to be)
@@ -49,6 +49,8 @@ export const backgroundRPC = {
   getGroupedTabCount: async (): Promise<number> => (await backgroundRPC.getGroupAndTabData()).groupedTabCount,
   getUngroupedTabCount: async (): Promise<number> => (await backgroundRPC.getGroupAndTabData()).ungroupedTabCount,
   getGroupedTabsData: async (): Promise<GroupTabDataRow[]> => (await backgroundRPC.getGroupAndTabData()).tabs,
+  getActivityLogs: (limit: number = 100): Promise<ActivityLogEntry[]> => StorageRepository.getActivityLogs(limit),
+  clearActivityLogs: (): Promise<void> => StorageRepository.clearActivityLogs(),
 
   // ═══════════════════════════════════════════════════════════════════════════
   // ⚙️ STORE — Config & settings persistence

@@ -46,7 +46,7 @@ test/playwright/
 │   ├── OptionsTest.spec.ts
 │   ├── OptionsTresholdsTest.spec.ts
 │   ├── PopupTest.spec.ts
-│   ├── SingleTabInGroup.spec.ts
+│   ├── Grouping.ts
 │   └── ThresholdDayLevelChange.spec.ts
 ├── page-objects/
 │   └── OptionsPage.ts

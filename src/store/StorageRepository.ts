@@ -18,6 +18,7 @@ import { AppThresholds, DEFAULT_THRESHOLDS } from '@/models/AppThresholds'
 import { type ThresholdState, type AppState } from '@/models/ThresholdState'
 import type { ThresholdLevel } from '@/constants'
 import { APP_DEFAULTS } from '@/constants'
+import type { ActivityLogDetails, ActivityLogEntry, ActivityLogStatus } from '@/models/BackgroundRpcModels'
 
 export class StorageRepository {
   // ──────────────────────────────────────────────────────────────────────────
@@ -52,6 +53,14 @@ export class StorageRepository {
   private static readonly mockOverrides = storage.defineItem<Record<number, number>>('local:mock_overrides', {
     fallback: {},
   })
+
+  /**
+   * Activity logs for diagnostics (bounded ring buffer).
+   */
+  private static readonly activityLogs = storage.defineItem<ActivityLogEntry[]>('local:activity_logs', {
+    fallback: [],
+  })
+  private static readonly ACTIVITY_LOG_LIMIT = APP_DEFAULTS.LOGGING.maxEvents
 
   // ──────────────────────────────────────────────────────────────────────────
   // Public API: Storage Operations
@@ -264,6 +273,57 @@ export class StorageRepository {
     }
   }
 
+  static async logActivity({
+    event,
+    source,
+    status = 'info',
+    data = {},
+  }: {
+    event: ActivityLogEntry['event'],
+    source: string,
+    status?: ActivityLogStatus,
+    data?: Record<string, unknown>
+  }): Promise<void> {
+    if (!APP_DEFAULTS.LOGGING.enabled) return
+    try {
+      const details: ActivityLogDetails = { source, status, data }
+      const existing = await this.activityLogs.getValue()
+      const next: ActivityLogEntry = {
+        id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        timestamp: Date.now(),
+        event,
+        details,
+      }
+
+      const updated = [...existing, next]
+      const trimmed = updated.slice(-this.ACTIVITY_LOG_LIMIT)
+      await this.activityLogs.setValue(trimmed)
+    } catch (err) {
+      console.error('[StorageRepository.logActivity] Error:', err)
+    }
+  }
+
+  static async getActivityLogs(limit: number = 100): Promise<ActivityLogEntry[]> {
+    if (!APP_DEFAULTS.LOGGING.enabled) return []
+    try {
+      const logs = await this.activityLogs.getValue()
+      return logs.slice(-Math.max(1, limit)).reverse()
+    } catch (err) {
+      console.error('[StorageRepository.getActivityLogs] Error:', err)
+      return []
+    }
+  }
+
+  static async clearActivityLogs(): Promise<void> {
+    if (!APP_DEFAULTS.LOGGING.enabled) return
+    try {
+      await this.activityLogs.setValue([])
+    } catch (err) {
+      console.error('[StorageRepository.clearActivityLogs] Error:', err)
+      throw err
+    }
+  }
+
   // ──────────────────────────────────────────────────────────────────────────
   // Exports for external access (storage definitions)
   // ──────────────────────────────────────────────────────────────────────────
@@ -277,6 +337,7 @@ export class StorageRepository {
     return {
       appStateStorage: this.appStateStorage,
       mockOverrides: this.mockOverrides,
+      activityLogs: this.activityLogs,
     }
   }
 

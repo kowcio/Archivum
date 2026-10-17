@@ -1,5 +1,5 @@
 import { createApp, type App as VueApp } from 'vue'
-import { Quasar, QTable, QTd, QTr, QBtn, QBtnGroup, QInput, QSelect, QTooltip, QDialog, QCard, QCardSection, QCardActions, QSpace, QToggle, QIcon, QLinearProgress, QSeparator } from 'quasar'
+import { Quasar, QTable, QTd, QTr, QBtn, QBtnGroup, QInput, QSelect, QTooltip, QDialog, QCard, QCardSection, QCardActions, QSpace, QToggle, QIcon, QLinearProgress, QSeparator, QTabs, QTab } from 'quasar'
 import { APP_CONSTANTS } from '@/constants.ts'
 
 /**
@@ -25,7 +25,7 @@ export class AppBootstrapper {
     app.config.globalProperties.APP_VERSION = APP_CONSTANTS.APP_VERSION
 
     app.use(Quasar, {
-      components: { QTable, QTr, QTd, QBtn, QBtnGroup, QInput, QSelect, QTooltip, QDialog, QCard, QCardSection, QCardActions, QSpace, QToggle, QIcon, QLinearProgress, QSeparator },
+      components: { QTable, QTr, QTd, QBtn, QBtnGroup, QInput, QSelect, QTooltip, QDialog, QCard, QCardSection, QCardActions, QSpace, QToggle, QIcon, QLinearProgress, QSeparator, QTabs, QTab },
     })
 
     app.mount(options.mountTarget)
@@ -33,5 +33,4 @@ export class AppBootstrapper {
     return { app }
   }
 }
-
 

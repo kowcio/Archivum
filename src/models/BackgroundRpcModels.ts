@@ -18,3 +18,26 @@ export type GroupAndTabData = {
   ungroupedTabCount: number;
   tabs: GroupTabDataRow[];
 }
+
+export type ActivityLogStatus = 'started' | 'completed' | 'failed' | 'skipped' | 'info'
+
+export type ActivityLogDetails = {
+  source: string;
+  status: ActivityLogStatus;
+  data: Record<string, unknown>;
+}
+
+export type ActivityLogEntry = {
+  id: string;
+  timestamp: number;
+  event:
+    | 'alarm.triggered'
+    | 'alarm.completed'
+    | 'alarm.failed'
+    | 'alarm.auto_close_skipped'
+    | 'tabs.regrouped'
+    | 'tabs.ungrouped'
+    | 'tab.activated_moved'
+    | 'tabs.auto_closed';
+  details: ActivityLogDetails;
+}

@@ -44,6 +44,25 @@ describe('storage integration: mock overrides', () => {
   });
 });
 
+describe('storage integration: activity logs', () => {
+  it('activity logs can append, read, and clear', async () => {
+    await StorageRepository.clearActivityLogs()
+    await StorageRepository.logActivity({
+      event: 'alarm.triggered',
+      source: 'test.storage',
+      status: 'started',
+      data: { alarmName: 'updateTabsDaily' },
+    })
+    const logs = await StorageRepository.getActivityLogs(10)
+    expect(logs.length).toBe(1)
+    expect(logs[0].event).toBe('alarm.triggered')
+    expect(logs[0].details.source).toBe('test.storage')
+    await StorageRepository.clearActivityLogs()
+    const afterClear = await StorageRepository.getActivityLogs(10)
+    expect(afterClear.length).toBe(0)
+  })
+})
+
 describe('integration: background service + storage', () => {
   it('uses storage thresholds via getThresholds', async () => {
     await StorageRepository.storage.appStateStorage.setValue({

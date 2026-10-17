@@ -10,7 +10,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { mount, flushPromises } from '@vue/test-utils';
 import { setActivePinia, createPinia } from 'pinia';
-import { Quasar, QTable, QTd, QTr, QBtn, QBtnGroup, QInput, QTooltip } from 'quasar';
+import { Quasar, QTable, QTd, QTr, QBtn, QBtnGroup, QInput, QTooltip, QTabs, QTab } from 'quasar';
 import { fakeBrowser } from 'wxt/testing/fake-browser';
 import App from '@/entrypoints/options/App.vue';
 import { OptionsPage } from '../../page-objects/OptionsPage';
@@ -29,7 +29,7 @@ describe('Options App.vue', () => {
           [
             Quasar,
             {
-              components: { QTable, QTd, QTr, QBtn, QBtnGroup, QInput, QTooltip },
+              components: { QTable, QTd, QTr, QBtn, QBtnGroup, QInput, QTooltip, QTabs, QTab },
             },
           ],
         ],

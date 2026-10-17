@@ -83,6 +83,10 @@ export const APP_CONSTANTS = {
 } as const
 
 export const APP_DEFAULTS = {
+  LOGGING: {
+    enabled: true,
+    maxEvents: 1000,
+  },
   // Background alarm for daily tab grouping (24 hours)
   ALARM_UPDATE_TABS: 'updateTabsDaily',
   // Background alarm for auto-close oldest group (24 hours)

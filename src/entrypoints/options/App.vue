@@ -32,8 +32,21 @@
         <Thresholds @apply="refreshTabs"/>
       </div>
 
-      <!-- Live tabs table -->
-      <div v-if="tabs.length" class="q-my-md  bg-grey-1 rounded-borders">
+      <div class="q-my-md bg-grey-1 rounded-borders accent-border">
+        <q-tabs
+        v-model="activeTab"
+        dense
+        align="left"
+        active-color="primary"
+        indicator-color="orange"
+        class="q-px-md q-pt-sm"
+        >
+        <q-tab name="open-tabs" label="Open Tabs" no-caps />
+        <q-tab v-if="logsEnabled" name="plugin-logs" label="Plugin Logs" no-caps />
+        </q-tabs>
+
+        <div v-if="activeTab === 'open-tabs'" class="q-pa-md">
+        <div v-if="tabs.length">
         <div data-testid="table-error" v-if="tabRows.length <= 0 ">
           {{ tabRows.length }}
         </div>
@@ -43,7 +56,7 @@
           :columns="columns"
           :rows="tabRows"
           :filter="filter"
-          class="bg-grey-1 q-pa-md accent-border"
+          class="bg-grey-1 q-pa-md "
           row-key="rowKey"
           flat
           striped
@@ -131,6 +144,12 @@
             </q-tr>
           </template>
         </q-table>
+        </div>
+        </div>
+
+        <div v-else-if="logsEnabled" class="q-pa-md">
+        <PluginLogs />
+        </div>
       </div>
     </div>
   </div>
@@ -138,7 +157,7 @@
 
 <script setup lang="ts">
 import {computed, onMounted, ref} from 'vue'
-import {isDevEnv} from '@/constants'
+import {APP_DEFAULTS, isDevEnv} from '@/constants'
 import {useStore} from '@/composables/useStore'
 import { StorageRepository } from '@/store'
 import { createProxyService } from '@webext-core/proxy-service'
@@ -152,6 +171,7 @@ import MockButton from '@/components/MockButton.vue'
 import TestAlarmButton from '@/components/TestAlarmButton.vue'
 import CloseAllTabsButton from '@/components/CloseAllTabsButton.vue'
 import type { BackgroundRPC } from '@/services/BackgroundRPC'
+import PluginLogs from '@/components/PluginLogs.vue'
 
 // ⚠️ DEVELOPERS: createProxyService() returns type-safe proxy to background service worker
 // Replaces browser.runtime.sendMessage() with method calls - no string keys needed ✅
@@ -163,6 +183,8 @@ const selectedAgeGroup = ref<number | null>(null) // null = show all, 0 = Fresh,
 const error = ref<string | null>(null)
 const tabs = ref<any[]>([])
 const currentTime = ref<number>(Date.now()) // ✅ For fake time display in dev mode
+const activeTab = ref('open-tabs')
+const logsEnabled = APP_DEFAULTS.LOGGING.enabled
 
 const columns: {
   name: string;
@@ -182,7 +204,6 @@ const columns: {
     sort: (a, b) => a - b,
     style: 'width: 50px'
   },
-  {name: 'actions', label: 'Actions', field: 'actions', align: 'left', style: 'width: 90px'},
   {name: 'thumbnail', label: 'Icon', field: 'thumbnail', align: 'left', style: 'width: 45px'},
   {name: 'domain', label: 'Domain', field: 'domain', align: 'left', sortable: true, style: 'width: 18%'},
   {name: 'title', label: 'Title', field: 'title', align: 'left', sortable: true},
@@ -196,6 +217,7 @@ const columns: {
     sort: (a, b) => a - b,
     style: 'width: 70px'
   },
+  {name: 'actions', label: 'Actions', field: 'actions', align: 'left', style: 'width: 90px'},
 ]
 
 const tabRows = computed(() => {
@@ -418,6 +440,7 @@ onMounted(() => {
 .age-filter-blue { background: rgba(56, 103, 164, 0.35); }
 .age-filter-orange { background: rgba(212, 122, 42, 0.35); }
 .age-filter-red { background: rgba(184, 90, 74, 0.35); }
+
 .age-filter-pink { background: rgba(181, 96, 115, 0.35); }
 .age-filter-purple { background: rgba(125, 83, 148, 0.35); }
 .age-filter-yellow { background: rgba(212, 168, 75, 0.35); }

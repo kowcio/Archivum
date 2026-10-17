@@ -43,7 +43,40 @@ type AgeGroupingPlan = {
   targetLabelByTabId: Map<number, string | null>;
 }
 
+type TabMoveLog = {
+  tabId: number;
+  from: string | null;
+  to: string | null;
+}
+
 export class BackgroundTabService {
+  private static async moveTabsWithRetry(tabIds: number[], index: number): Promise<void> {
+    const RETRIES = 5
+    for (let attempt = 0; attempt < RETRIES; attempt++) {
+      try {
+        await browser.tabs.move(tabIds, { index })
+        return
+      } catch (err) {
+        if (attempt === RETRIES - 1) throw err
+        await new Promise((resolve) => setTimeout(resolve, 120 * (attempt + 1)))
+      }
+    }
+  }
+
+  private static async logActivity(
+    event: 'tabs.regrouped' | 'tabs.ungrouped' | 'tab.activated_moved' | 'tabs.auto_closed',
+    method: string,
+    data: Record<string, unknown>,
+    status: 'completed' | 'failed' | 'skipped' | 'started' | 'info' = 'completed',
+  ): Promise<void> {
+    await StorageRepository.logActivity({
+      event,
+      source: `BackgroundTabService.${method}`,
+      status,
+      data,
+    })
+  }
+
   /**
    * Get array of possible plugin-created group titles based on threshold labels.
    * Titles follow pattern: "Label+ (count)"
@@ -191,7 +224,7 @@ export class BackgroundTabService {
       if (tabIds.length === 0) continue
 
       try {
-        await browser.tabs.move(tabIds, { index: insertIndex })
+        await this.moveTabsWithRetry(tabIds, insertIndex)
         insertIndex += tabIds.length
       } catch (err) {
         console.error('[BackgroundTabService] ⚠️ Age-bucket reorder failed, skipping:', err)
@@ -200,14 +233,14 @@ export class BackgroundTabService {
 
     if (plan.freshTabIds.length > 0) {
       try {
-        await browser.tabs.move(plan.freshTabIds, { index: -1 })
+        await this.moveTabsWithRetry(plan.freshTabIds, -1)
       } catch (err) {
         console.error('[BackgroundTabService] ⚠️ Fresh-tab reorder failed, skipping:', err)
       }
     }
   }
 
-  private static async applyAgeGrouping(options: { reorderTabs: boolean }): Promise<{
+  private static async applyAgeGrouping(options: { reorderTabs: boolean; moveUngroupedToGroups: boolean }): Promise<{
     groupsCreated: number;
     tabsMoved: number;
   }> {
@@ -215,6 +248,7 @@ export class BackgroundTabService {
       return { groupsCreated: 0, tabsMoved: 0 }
     }
 
+    const startedAt = Date.now()
     const rawTabs = await this.getTabs()
     const thresholds = await this.getThresholds()
     const currentTime = await getCurrentTime()
@@ -223,6 +257,7 @@ export class BackgroundTabService {
     const groupMaps = this.createGroupMaps(groups)
 
     let tabsMoved = 0
+    const movedTabs: TabMoveLog[] = []
 
     for (const [tabId, targetLabel] of plan.targetLabelByTabId) {
       const tab = plan.tabById.get(tabId)
@@ -234,7 +269,11 @@ export class BackgroundTabService {
       }
 
       if (currentLabel !== targetLabel) {
+        if (!options.moveUngroupedToGroups && (tab.groupId == null || tab.groupId === -1) && targetLabel != null) {
+          continue
+        }
         tabsMoved++
+        movedTabs.push({ tabId, from: currentLabel, to: targetLabel })
       }
     }
 
@@ -265,7 +304,11 @@ export class BackgroundTabService {
       if (existingGroup?.id != null) {
         const toMove = tabIds.filter((tabId) => {
           const tab = plan.tabById.get(tabId)
-          return tab == null || tab.groupId !== existingGroup.id
+          if (tab == null) return false
+          if (!options.moveUngroupedToGroups && (tab.groupId == null || tab.groupId === -1)) {
+            return false
+          }
+          return tab.groupId !== existingGroup.id
         })
         if (toMove.length > 0) {
           try {
@@ -276,7 +319,19 @@ export class BackgroundTabService {
         }
       } else {
         try {
-          const groupId = await (browser.tabs as any).group({ tabIds })
+          const eligibleTabIds = options.moveUngroupedToGroups
+            ? tabIds
+            : tabIds.filter((tabId) => {
+              const tab = plan.tabById.get(tabId)
+              return tab != null && tab.groupId != null && tab.groupId !== -1
+            })
+          if (eligibleTabIds.length === 0) continue
+          const groupId = await (browser.tabs as any).group({ tabIds: eligibleTabIds })
+          await (browser.tabGroups as any).update(groupId, {
+            title: `${level.label} (${eligibleTabIds.length})`,
+            color: level.color,
+            collapsed: true,
+          })
           groupMaps.groupByLabel.set(level.label, { id: groupId, title: level.label })
           groupsCreated++
         } catch (err) {
@@ -300,6 +355,41 @@ export class BackgroundTabService {
         console.warn(`[BackgroundTabService] ⚠️ Failed to update group metadata for "${level.label}":`, err)
       }
     }
+
+    if (options.reorderTabs) {
+      let insertIndex = 0
+      for (let i = plan.activeLevels.length - 1; i >= 0; i--) {
+        const level = plan.activeLevels[i]
+        const group = groupMaps.groupByLabel.get(level.label)
+        if (!group?.id) continue
+        try {
+          const tabsInGroup = await browser.tabs.query({ groupId: group.id })
+          if (tabsInGroup.length > 0) {
+            await (browser.tabGroups as any).move(group.id, { index: insertIndex })
+            insertIndex += tabsInGroup.length
+          }
+        } catch (err) {
+          console.warn(`[BackgroundTabService] ⚠️ Failed final group ordering for "${level.label}":`, err)
+        }
+      }
+
+      if (plan.freshTabIds.length > 0) {
+        try {
+          await this.moveTabsWithRetry(plan.freshTabIds, -1)
+        } catch (err) {
+          console.warn('[BackgroundTabService] ⚠️ Failed to move fresh tabs to end:', err)
+        }
+      }
+    }
+
+    await this.logActivity('tabs.regrouped', 'applyAgeGrouping', {
+      trigger: options.reorderTabs ? 'groupTabsByAge' : 'updateTabByAge',
+      groupsCreated,
+      tabsMoved,
+      totalTabsConsidered: rawTabs.length,
+      movedTabs,
+      durationMs: Date.now() - startedAt,
+    })
 
     return { groupsCreated, tabsMoved }
   }
@@ -346,7 +436,9 @@ export class BackgroundTabService {
   static async groupTabsByAge(): Promise<number> {
     try {
       if (browser.tabGroups == null) return 0
-      const result = await this.applyAgeGrouping({ reorderTabs: true })
+      await this.ungroupAllTabs()
+      await new Promise((resolve) => setTimeout(resolve, 120))
+      const result = await this.applyAgeGrouping({ reorderTabs: true, moveUngroupedToGroups: true })
       return result.groupsCreated
     } catch (err) {
       console.error('[BackgroundTabService] ❌', err)
@@ -366,7 +458,7 @@ export class BackgroundTabService {
   static async updateTabByAge(): Promise<number> {
     try {
       if (browser.tabGroups == null) return 0
-      const result = await this.applyAgeGrouping({ reorderTabs: false })
+      const result = await this.applyAgeGrouping({ reorderTabs: false, moveUngroupedToGroups: false })
       console.log(`[BackgroundTabService] ✅ updateTabByAge: ${result.tabsMoved} tabs moved`)
       return result.tabsMoved
     } catch (err) {
@@ -381,13 +473,24 @@ export class BackgroundTabService {
       if (browser.tabGroups == null) return
       // ✅ Use centralized getGroups() - only plugin groups, not user groups
       const groups = await this.getGroups()
+      const groupTitles: string[] = []
+      let tabsUngrouped = 0
+      let groupsTouched = 0
       for (const group of groups) {
         const ids = (await browser.tabs.query({groupId: group.id}))
           .map(t => t.id).filter((id): id is number => id != null)
         if (ids.length) {
           await (browser.tabs as any).ungroup(ids)
+          groupsTouched++
+          tabsUngrouped += ids.length
+          groupTitles.push(group.title)
         }
       }
+      await this.logActivity('tabs.ungrouped', 'ungroupAllTabs', {
+        groupsTouched,
+        tabsUngrouped,
+        groupTitles,
+      })
     } catch (err) {
       console.error('[BackgroundTabService] ❌ ungroupAll error:', err)
     }
@@ -431,6 +534,14 @@ export class BackgroundTabService {
         // Verify ungrouped
         const tabAfter = await browser.tabs.get(tabId)
         if (tabAfter.groupId === -1 || tabAfter.groupId == null) {
+          await this.logActivity('tab.activated_moved', 'onTabActivated', {
+            tabId,
+            fromGroupId: groupId,
+            fromGroupTitle: groupTitle,
+            toGroupId: -1,
+            toIndex: tabAfter.index,
+            action: 'ungroup_and_move_rightmost',
+          })
           // 📊 Update group title with new count
           const groupTabs = await browser.tabs.query({groupId})
           const labelPrefix = groupTitle!.match(/^(.+?)\s*\(\d+\)$/)?.[1] || groupTitle
@@ -826,10 +937,10 @@ export class BackgroundTabService {
         }
       }
 
-      // Chrome/Edge: query groups and tabs
-      // ✅ Query ALL groups (plugin + user-created) for complete reporting
-      const groups = await this.getGroups(true)
-      const allTabs = await this.getTabs()
+      // Chrome/Edge: query plugin groups and all non-extension tabs for accurate diagnostics
+      const groups = await this.getGroups()
+      const allTabs = (await browser.tabs.query({ currentWindow: true }))
+        .filter(tab => !(tab.url?.startsWith('chrome-extension://')))
 
       // Apply mock overrides to tabs
       for (const tab of allTabs) {
@@ -855,7 +966,10 @@ export class BackgroundTabService {
         } else {
           const groupTabs = allTabs.filter((t: any) => t.groupId === group.id)
           if (groupTabs.length > 0) {
-            groupIndexMap.set(group.id, groupTabs[0].index ?? -1)
+            const indices = groupTabs
+              .map((tab: any) => tab.index)
+              .filter((idx: unknown): idx is number => typeof idx === 'number')
+            groupIndexMap.set(group.id, indices.length > 0 ? Math.min(...indices) : -1)
           } else {
             groupIndexMap.set(group.id, -1)
           }
@@ -869,9 +983,20 @@ export class BackgroundTabService {
         index: groupIndexMap.get(g.id) ?? g.index ?? -1,
       }))
 
-      // Sort groups by calculated index (left-to-right, oldest→youngest)
-      // Lower index = leftmost = oldest, higher index = rightmost = youngest
-      groupsWithIndices.sort((a: any, b: any) => (a.index ?? -1) - (b.index ?? -1))
+      const labelPriority = new Map<string, number>(
+        APP_DEFAULTS.THRESHOLDS.presets
+          .map((preset, idx) => [preset.label, idx] as const)
+      )
+
+      // Sort groups by threshold age order (oldest→youngest), then by visual index.
+      groupsWithIndices.sort((a: any, b: any) => {
+        const aLabel = this.getGroupLabel(a.title ?? '')
+        const bLabel = this.getGroupLabel(b.title ?? '')
+        const aRank = aLabel == null ? -1 : labelPriority.get(aLabel) ?? -1
+        const bRank = bLabel == null ? -1 : labelPriority.get(bLabel) ?? -1
+        if (aRank !== bRank) return bRank - aRank
+        return (a.index ?? -1) - (b.index ?? -1)
+      })
 
       return {
         groupCount: groupsWithIndices.length,
@@ -963,7 +1088,19 @@ export class BackgroundTabService {
       //close those tabs and return the amount of closed tabs
       if (tabsToClose.length > 0) {
         const tabIdsToClose = tabsToClose.map(tab => tab.id).filter((id): id is number => id != null)
+        const closeCandidates = tabsToClose.map((tab) => ({
+          tabId: tab.id,
+          title: tab.title,
+          discarded: tab.discarded ?? false,
+        }))
         await browser.tabs.remove(tabIdsToClose)
+        await this.logActivity('tabs.auto_closed', 'autoCloseOldestGroupTabs', {
+          groupTitle: oldestGroupTitle ?? null,
+          groupId: oldesGroup?.id ?? null,
+          closedTabIds: tabIdsToClose,
+          closedCount: tabIdsToClose.length,
+          tabs: closeCandidates,
+        })
         console.log(`[BackgroundTabService] 🔥 Auto-closed ${tabIdsToClose.length} tabs in oldest group "${oldestGroupTitle}"`)
         return tabIdsToClose.length
       } else {
@@ -977,23 +1114,23 @@ export class BackgroundTabService {
   }
 
   /**
-   * 🧪 DEV-ONLY: Manually trigger the 24h alarm to test groupTabsByAge() behavior.
+   * 🧪 DEV-ONLY: Manually trigger the 24h alarm to test updateTabByAge() behavior.
    * Simulates: browser.alarms fires after 24 hours.
    *
    * If autoClose is enabled:
-   * - After grouping, closes all tabs in the oldest group (Hell! group)
+   * - After update pass, closes all tabs in the oldest group (Hell! group)
    * - Removes the oldest group
    *
-   * Returns: count of groups created after grouping
+   * Returns: count of tabs moved during update pass
    *
    * Used by: Dev UI button "Test 24h Alarm" in Options Page (dev mode only)
    */
   static async testTriggerAlarm24h(): Promise<number> {
       console.log('[BackgroundTabService] 🧪 DEV: Manually triggering 24h alarm...')
       try {
-        // Step 1: Group tabs by age
-        const result = await this.groupTabsByAge()
-        console.log(`[BackgroundTabService] 🧪 DEV: Alarm triggered → ${result} groups created`)
+        // Step 1: Update grouped tabs by age
+        const result = await this.updateTabByAge()
+        console.log(`[BackgroundTabService] 🧪 DEV: Alarm triggered → ${result} tabs moved`)
 
         // Step 2: Check if autoClose is enabled
         const appState = await StorageRepository.storage.appStateStorage.getValue()
