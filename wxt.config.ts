@@ -120,7 +120,7 @@ export default defineConfig({
     },
 
     // ✅ WEB-EXT CONFIG
-    // Used by: npm run dev:firefox, npm run sign:firefox
+    // Used by: npm run dev:firefox
     // Note: Updated from deprecated 'runner' to 'webExt' (WXT v0.20+ migration)
     webExt: {
       // Persist dev browser profiles so extension storage (thresholds etc.)
