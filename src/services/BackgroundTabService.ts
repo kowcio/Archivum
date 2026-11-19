@@ -85,13 +85,7 @@ export class BackgroundTabService {
       if (getAll) return validGroups
 
       // Filter: keep only plugin-created groups
-      // ✅ Simplified: check if title STARTS WITH any threshold label
-      // This avoids fragile regex and handles edge cases (empty groups, malformed titles)
-      const pluginTitles = this.getPluginGroupTitles()
-      const filtered = validGroups.filter((group: any) =>
-        pluginTitles.some(title => group.title.startsWith(title))
-      )
-      return filtered
+      return validGroups.filter((group: any) => this.getGroupLabel(group.title) != null)
     } catch (err) {
       console.warn('[BackgroundTabService] ⚠️ Failed to query plugin groups:', err)
       return []
@@ -102,10 +96,14 @@ export class BackgroundTabService {
     return await StorageRepository.getStorageThresholds()
   }
 
-  private static getGroupLabel(groupTitle: string): string | null {
-    const pluginTitles = this.getPluginGroupTitles()
-    const matchingLabel = pluginTitles.find(title => groupTitle.startsWith(title))
-    return matchingLabel ?? null
+  /**
+   * Single source of truth for "is this a plugin-created group?".
+   * Returns the threshold label the group title starts with (e.g. "Week+ (3)" → "Week+"),
+   * or null for user-created / untitled groups.
+   */
+  private static getGroupLabel(groupTitle: string | undefined): string | null {
+    if (!groupTitle) return null
+    return this.getPluginGroupTitles().find(label => groupTitle.startsWith(label)) ?? null
   }
 
   private static createGroupMaps(groups: PluginGroup[]): {
@@ -623,8 +621,7 @@ export class BackgroundTabService {
       const group = await (browser.tabGroups as any).get(tab.groupId)
 
       // Check if group title starts with any plugin label
-      const pluginTitles = this.getPluginGroupTitles()
-      return pluginTitles.some(title => group.title.startsWith(title))
+      return this.getGroupLabel(group.title) != null
     } catch {
       return false
     }
@@ -932,7 +929,7 @@ export class BackgroundTabService {
       if (oldestLevel == null) return 0
 
       const groups = await this.getGroups()
-      const oldestGroup = groups.find(g => g.title.startsWith(oldestLevel.label))
+      const oldestGroup = groups.find(g => this.getGroupLabel(g.title) === oldestLevel.label)
       if (oldestGroup?.id == null || oldestGroup.id === -1) {
         console.log(`[BackgroundTabService] ℹ️ No "${oldestLevel.label}" group, nothing to auto-close`)
         return 0
