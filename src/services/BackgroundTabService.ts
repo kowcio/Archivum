@@ -304,35 +304,22 @@ export class BackgroundTabService {
   /**
    * Applies mock lastAccessed overrides to raw tabs (debug/testing only).
    *
-   * Called by: getTabs() when mocks are detected in storage
+   * Called by: getTabs() — the single place overrides are applied.
    *
    * When a mock override exists for a tabId, it replaces tab.lastAccessed in-memory.
    * The real browser tab is never modified — only the in-memory object used by grouping logic.
    *
    * Overrides persist in storage so tab ages stay consistent across page refreshes.
-   *
-   * OPTIMIZATION: Only called if overrides storage has entries (zero overhead in production).
+   * With no overrides stored (production) this is one storage read and a no-op loop.
    */
-  private static async applyMockOverrides(tabs: {
-    id?: number;
-    lastAccessed?: number
-  }[]): Promise<void> {
+  private static async applyMockOverrides(tabs: { id?: number; lastAccessed?: number }[]): Promise<void> {
     try {
+      // Object keys are always strings in JS, so overrides[5] and overrides["5"] are the same lookup.
       const overrides = await StorageRepository.getMockOverrides() ?? {}
-
-      // This method is only called if overrides exist, but double-check for safety
-      if (!overrides || Object.keys(overrides).length === 0) {
-        return
-      }
-
       for (const tab of tabs) {
-        if (tab.id != null) {
-          const numericOverride = (overrides as Record<number, number>)[tab.id]
-          const stringOverride = (overrides as Record<string, number>)[String(tab.id)]
-          const override = numericOverride ?? stringOverride
-          if (override != null) {
-            tab.lastAccessed = override  // ← Mutates in-memory tab object
-          }
+        const override = tab.id != null ? overrides[tab.id] : undefined
+        if (override != null) {
+          tab.lastAccessed = override  // ← Mutates in-memory tab object
         }
       }
     } catch (err) {
@@ -492,19 +479,7 @@ export class BackgroundTabService {
       filteredTabs = allTabs
     }
 
-    try {
-      // Check if ANY mocks are set in storage
-      const overrides = await StorageRepository.getMockOverrides()
-
-      // If mocks exist, apply them to matching tab IDs
-      if (overrides && Object.keys(overrides).length > 0) {
-        await this.applyMockOverrides(filteredTabs)
-      }
-    } catch (err) {
-      // Storage read error, continue with real tabs
-      console.warn('[BackgroundTabService.getTabs] ⚠️ Failed to read mock overrides:', err)
-    }
-
+    await this.applyMockOverrides(filteredTabs)
     return filteredTabs
   }
 
@@ -792,15 +767,7 @@ export class BackgroundTabService {
     }>;
   }> {
     try {
-      // Fetch mock overrides if they exist
-      let mockOverridesMap: Record<number, number> = {}
-      try {
-        const overrides = await StorageRepository.getMockOverrides()
-        mockOverridesMap = overrides ?? {}
-      } catch {
-        // No overrides set, continue with empty map
-      }
-
+      // Note: getTabs() already applies mock overrides — no need to re-apply here.
       if (browser.tabGroups == null) {
         // Firefox: no tab groups, return only ungrouped tabs
         const tabs = await this.getTabs()
@@ -826,18 +793,6 @@ export class BackgroundTabService {
       // ✅ Query ALL groups (plugin + user-created) for complete reporting
       const groups = await this.getGroups(true)
       const allTabs = await this.getTabs()
-
-      // Apply mock overrides to tabs
-      for (const tab of allTabs) {
-        if (tab.id != null) {
-          const numericOverride = mockOverridesMap[tab.id as number]
-          const stringOverride = (mockOverridesMap as any)[String(tab.id)]
-          const override = numericOverride ?? stringOverride
-          if (override != null) {
-            tab.lastAccessed = override
-          }
-        }
-      }
 
       // Calculate group index: use group.index if available, else use first tab's index
       const groupIndexMap = new Map<number, number>()
