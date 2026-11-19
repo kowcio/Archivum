@@ -941,24 +941,36 @@ export class BackgroundTabService {
    */
   static async autoCloseOldestGroupTabs(): Promise<number> {
     try {
-      const groups = await this.getGroups();
-      if (groups == null) {
-        console.log('[BackgroundTabService] ℹ️ No tabGroups API available (Firefox), skipping auto-close')
+      if (browser.tabGroups == null) {
+        console.log('[BackgroundTabService] ℹ️ No tabGroups API available, skipping auto-close')
         return 0
       }
-      console.log(`[BackgroundTabService] Auto-close: Found ${groups.length} groups`)
-      const oldesGroup = await this.getGroupByIndex()
-      const oldestGroupTitle = oldesGroup?.title
+
+      // Target ONLY the group of the last active threshold level (e.g. "Hell!"),
+      // which is what the Auto-close toggle promises the user.
+      // ⚠️ Never fall back to "leftmost group" or to an undefined groupId:
+      //    tabs.query({ groupId: undefined }) returns EVERY tab in EVERY window.
       const thresholds = await this.getThresholds()
       const activeLevels = thresholds.activeThresholdLevels()
-      const groupDays = activeLevels.find(level => oldestGroupTitle?.startsWith(level.label))?.days
-      //find the tabs in this group that are 1 day older then the group age
-      const tabsInOldestGroup = await browser.tabs.query({groupId: oldesGroup?.id})
+      const oldestLevel = activeLevels[activeLevels.length - 1]
+      if (oldestLevel == null) return 0
+
+      const groups = await this.getGroups()
+      const oldestGroup = groups.find(g => g.title.startsWith(oldestLevel.label))
+      if (oldestGroup?.id == null || oldestGroup.id === -1) {
+        console.log(`[BackgroundTabService] ℹ️ No "${oldestLevel.label}" group, nothing to auto-close`)
+        return 0
+      }
+      const oldestGroupTitle = oldestGroup.title
+
+      // Close tabs in that group that are at least 1 day older than the level's age
+      const tabsInOldestGroup = await browser.tabs.query({groupId: oldestGroup.id})
       const now = await getCurrentTime()
       const tabsToClose = tabsInOldestGroup.filter(tab => {
-        const lastAccessed = tab.lastAccessed ?? now
-        const ageDays = (now - lastAccessed) / 86400000
-        return ageDays > (groupDays ?? 0) + 1
+        if (tab.groupId !== oldestGroup.id) return false // defensive: never touch other tabs
+        if (tab.active || tab.pinned || tab.lastAccessed == null) return false
+        const ageDays = (now - tab.lastAccessed) / 86400000
+        return ageDays > oldestLevel.days + 1
       })
       //close those tabs and return the amount of closed tabs
       if (tabsToClose.length > 0) {

@@ -17,8 +17,18 @@ export default defineBackground({
     ExtensionCleanupService.registerLifecycleListeners()
 
     if (browser.alarms != null) {
-      browser.alarms.create(APP_DEFAULTS.ALARM_UPDATE_TABS, ALARM_PERIOD_24H)
-      browser.alarms.create(APP_DEFAULTS.ALARM_AUTO_CLOSE_TABS, ALARM_PERIOD_24H)
+      // main() re-runs every time the non-persistent background wakes up (tab switch, popup, …).
+      // alarms.create() with an existing name REPLACES the alarm and restarts its 24h countdown,
+      // so only create alarms that don't exist yet — otherwise they'd practically never fire.
+      const ensureAlarm = async (name: string) => {
+        if (!(await browser.alarms.get(name))) {
+          await browser.alarms.create(name, ALARM_PERIOD_24H)
+        }
+      }
+      void ensureAlarm(APP_DEFAULTS.ALARM_UPDATE_TABS).catch((err) =>
+        console.error('[background] ❌ Failed to create update alarm:', err))
+      void ensureAlarm(APP_DEFAULTS.ALARM_AUTO_CLOSE_TABS).catch((err) =>
+        console.error('[background] ❌ Failed to create auto-close alarm:', err))
 
       browser.alarms.onAlarm.addListener((alarm) => {
         void (async () => {
@@ -29,6 +39,9 @@ export default defineBackground({
             case APP_DEFAULTS.ALARM_AUTO_CLOSE_TABS: {
               const state = await StorageRepository.getAppState()
               if (!state?.autoClose) break
+              // Both alarms fire at ~the same time in undefined order; regroup first so
+              // auto-close acts on up-to-date groups instead of yesterday's classification.
+              await BackgroundTabService.groupTabsByAge()
               await BackgroundTabService.autoCloseOldestGroupTabs()
               break
             }
