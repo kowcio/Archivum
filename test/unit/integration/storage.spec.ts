@@ -65,6 +65,61 @@ describe('integration: background service + storage', () => {
   });
 });
 
+describe('StorageRepository: concurrent writes & normalization', () => {
+  it('two simultaneous writes both survive (no lost update)', async () => {
+    const levels = DEFAULT_THRESHOLDS.toJSON().levels.map(l => ({ ...l }));
+    levels[0].days = 8;
+
+    // Fired together, NOT awaited one by one — without the write queue both would read the
+    // same old state and the second write would erase the first one's change.
+    await Promise.all([
+      StorageRepository.setThresholds(levels, 3),
+      StorageRepository.setAutoClose(true),
+    ]);
+
+    const stored = await StorageRepository.getAppState();
+    expect(stored?.autoClose).toBe(true);
+    expect(stored?.thresholds.activeLevels).toBe(3);
+    expect(stored?.thresholds.levels[0].days).toBe(8);
+  });
+
+  it('a failed write does not block later writes', async () => {
+    const original = StorageRepository.storage.appStateStorage.getValue;
+    StorageRepository.storage.appStateStorage.getValue = async () => { throw new Error('boom'); };
+    await expect(StorageRepository.setAutoClose(true)).rejects.toThrow('boom');
+    StorageRepository.storage.appStateStorage.getValue = original;
+
+    await StorageRepository.setAutoClose(true);
+    expect((await StorageRepository.getAppState())?.autoClose).toBe(true);
+  });
+
+  it('levels stored as an object (WXT edge case) are normalized to an array', async () => {
+    const asObject = Object.fromEntries(DEFAULT_THRESHOLDS.levels.map((l, i) => [i, l]));
+    await StorageRepository.storage.appStateStorage.setValue({
+      thresholds: { levels: asObject as never, activeLevels: 4 },
+      configLastUpdated: Date.now(),
+      version: '1.0.0',
+    });
+
+    const t = await StorageRepository.getStorageThresholds();
+    expect(Array.isArray(t.levels)).toBe(true);
+    expect(t.levels).toHaveLength(DEFAULT_THRESHOLDS.levels.length);
+    expect(t.activeLevels).toBe(4);
+  });
+
+  it('corrupted levels fall back to defaults instead of an empty config', async () => {
+    await StorageRepository.storage.appStateStorage.setValue({
+      thresholds: { levels: { 0: { junk: true } } as never, activeLevels: 3 },
+      configLastUpdated: Date.now(),
+      version: '1.0.0',
+    });
+
+    const t = await StorageRepository.getStorageThresholds();
+    expect(t).toBe(DEFAULT_THRESHOLDS);
+    expect(t.activeThresholdLevels().length).toBeGreaterThan(0);
+  });
+});
+
 describe('integration: app store + storage', () => {
   it('app state persists to storage', async () => {
     const initialState = await StorageRepository.storage.appStateStorage.getValue();

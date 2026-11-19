@@ -200,7 +200,7 @@ const columns: {
 
 const tabRows = computed(() => {
   // ✅ Pass currentTime (fake time in dev mode) to make tabs age correctly
-  const rows = TabRow.fromTabs(tabs.value, store.thresholds.value, currentTime.value)
+  const rows = TabRow.fromTabs(tabs.value, currentTime.value)
   let filtered = rows.map((row: any, i: number) => {
     const days = row.lastAccessDays ?? 0
     const c = AgeClassification.fromDays(days, store.thresholds.value)

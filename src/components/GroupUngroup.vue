@@ -37,6 +37,7 @@ import { createProxyService } from '@webext-core/proxy-service'
 import { browser } from 'wxt/browser'
 import { useStore } from '@/composables/useStore'
 import { TabRow } from '@/entrypoints/options/models/TabRow.ts'
+import { AgeClassification } from '@/models/AgeClassification'
 import { StorageRepository } from '@/store'
 import type { BackgroundRPC } from '@/services/BackgroundRPC'
 
@@ -77,23 +78,15 @@ const minThresholdDays = computed(() => {
 })
 
 /**
- * Reactively check if ANY tab is older than the minimum threshold.
+ * Reactively check if ANY tab would be put into an age group.
+ * Uses the SAME rule as grouping (AgeClassification.fromDays) — a tab exactly at the
+ * first threshold (e.g. 7 days) is "Week+", so the button must be enabled for it.
  * Uses actual browser tabs + mock overrides (for testing).
  */
 const hasStaleTabsToGroup = computed(() => {
-  if (allTabs.value.length === 0) return false
-
   const thresholds = store.thresholds.value
-  const minDays = minThresholdDays.value
-
-  // Check if any tab is older than the minimum threshold
-  for (const tab of allTabs.value) {
-    const row = new TabRow(tab, thresholds)
-    if ((row.lastAccessDays ?? 0) > minDays) {
-      return true
-    }
-  }
-  return false
+  return allTabs.value.some(tab =>
+    AgeClassification.fromDays(new TabRow(tab).lastAccessDays ?? 0, thresholds).index > 0)
 })
 
 const buttonLabel = computed(() => {

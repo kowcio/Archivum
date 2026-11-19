@@ -58,18 +58,31 @@ export class StorageRepository {
   // ──────────────────────────────────────────────────────────────────────────
 
   /**
-   * Normalize levels from storage (handle WXT edge case where arrays come as objects)
-   * @private
+   * Serializes all appState writes. Each write is read → modify → write; without a queue two
+   * near-simultaneous writes (e.g. auto-close toggle + thresholds Apply) both read the old state
+   * and the second silently overwrites the first one's change.
+   * All writes go through the background (RPC), so one in-memory queue covers every caller.
    */
-  private static _normalizeLevels(levels: ThresholdLevel[] | Record<number, ThresholdLevel> | undefined): ThresholdLevel[] {
-    if (Array.isArray(levels)) return levels
-    if (typeof levels === 'object' && levels !== null) {
-      return Object.values(levels).filter(
-        (item): item is ThresholdLevel =>
-          item && typeof item === 'object' && 'days' in item && 'key' in item
-      )
+  private static writeQueue: Promise<unknown> = Promise.resolve()
+
+  /**
+   * Single read-modify-write path for appState: merges `patch` into the stored state,
+   * bumps configLastUpdated, and runs strictly after any previous pending write.
+   */
+  private static updateAppState(patch: Partial<AppState>, caller: string): Promise<void> {
+    const run = async () => {
+      try {
+        const state = await this.appStateStorage.getValue()
+        if (!state) throw new Error('Failed to read current state')
+        await this.appStateStorage.setValue({ ...state, ...patch, configLastUpdated: Date.now() })
+      } catch (err) {
+        console.error(`[StorageRepository.${caller}] Error:`, err)
+        throw err
+      }
     }
-    return []
+    const result = this.writeQueue.then(run, run)
+    this.writeQueue = result.catch(() => {}) // a failed write must not block the next one
+    return result
   }
 
   /**
@@ -105,9 +118,8 @@ export class StorageRepository {
       if (!state?.thresholds) {
         return DEFAULT_THRESHOLDS
       }
-
-      const levels = this._normalizeLevels(state.thresholds.levels)
-      return new AppThresholds(levels, state.thresholds.activeLevels)
+      // fromObject() handles the WXT array-as-object edge case and falls back to defaults.
+      return AppThresholds.fromObject(state.thresholds)
     } catch (err) {
       console.error('[StorageRepository.getStorageThresholds] Error:', err)
       return DEFAULT_THRESHOLDS
@@ -120,25 +132,9 @@ export class StorageRepository {
    *
    * Param: levels - ThresholdLevel array, activeLevels - count of active levels
    */
-  static async setThresholds(levels: ThresholdLevel[], activeLevels: number): Promise<void> {
-    try {
-      const state = await this.appStateStorage.getValue()
-      if (!state) throw new Error('Failed to read current state')
-
-      const thresholdState: ThresholdState = {
-        levels,
-        activeLevels,
-      }
-
-      await this.appStateStorage.setValue({
-        ...state,
-        thresholds: thresholdState,
-        configLastUpdated: Date.now(),
-      })
-    } catch (err) {
-      console.error('[StorageRepository.setThresholds] Error:', err)
-      throw err
-    }
+  static setThresholds(levels: ThresholdLevel[], activeLevels: number): Promise<void> {
+    const thresholds: ThresholdState = { levels, activeLevels }
+    return this.updateAppState({ thresholds }, 'setThresholds')
   }
 
   /**
@@ -146,20 +142,8 @@ export class StorageRepository {
    *
    * Param: enabled - true to enable, false to disable
    */
-  static async setAutoClose(enabled: boolean): Promise<void> {
-    try {
-      const state = await this.appStateStorage.getValue()
-      if (!state) throw new Error('Failed to read current state')
-
-      await this.appStateStorage.setValue({
-        ...state,
-        autoClose: enabled,
-        configLastUpdated: Date.now(),
-      })
-    } catch (err) {
-      console.error('[StorageRepository.setAutoClose] Error:', err)
-      throw err
-    }
+  static setAutoClose(enabled: boolean): Promise<void> {
+    return this.updateAppState({ autoClose: enabled }, 'setAutoClose')
   }
 
   /**

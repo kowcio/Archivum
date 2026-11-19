@@ -38,7 +38,8 @@ async function sync(): Promise<void> {
     const state = await rpc.storeGetAppState()
     if (!state?.thresholds) return
 
-    thresholds.value = new AppThresholds(state.thresholds.levels, state.thresholds.activeLevels)
+    // fromObject() normalizes array-as-object storage data and falls back to defaults.
+    thresholds.value = AppThresholds.fromObject(state.thresholds)
     autoClose.value = state.autoClose ?? false
   } catch (err) {
     error.value = err instanceof Error ? err.message : 'Sync failed'
@@ -50,67 +51,52 @@ async function sync(): Promise<void> {
 /**
  * Hook for Vue components
  */
+/**
+ * Runs a store mutation with the shared loading/error handling:
+ * sets `loading`, clears `error`, records the message on failure and re-throws.
+ */
+async function runMutation(action: () => Promise<void>): Promise<void> {
+  loading.value = true
+  error.value = null
+  try {
+    await action()
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : String(err)
+    throw err
+  } finally {
+    loading.value = false
+  }
+}
+
+/** Persist thresholds via RPC, then update local state only once the write succeeded. */
+async function saveThresholds(next: AppThresholds): Promise<void> {
+  // Vue wraps values held by refs in reactive proxies; RPC needs plain cloneable objects.
+  await rpc.storeSetThresholds(serializeLevels(next.levels), next.activeLevels)
+  thresholds.value = next
+}
+
+/**
+ * Hook for Vue components
+ */
 export function useStore() {
-  async function storeSetAutoClose(enabled: boolean): Promise<void> {
-    loading.value = true
-    error.value = null
-    try {
-      await rpc.storeSetAutoClose(enabled)
-      autoClose.value = enabled
-    } catch (err) {
-      error.value = err instanceof Error ? err.message : String(err)
-      throw err
-    } finally {
-      loading.value = false
-    }
-  }
+  const storeSetAutoClose = (enabled: boolean) => runMutation(async () => {
+    await rpc.storeSetAutoClose(enabled)
+    autoClose.value = enabled
+  })
 
-  async function storeSetThresholds(patch: Record<number, Partial<{ days: number }>>): Promise<void> {
-    loading.value = true
-    error.value = null
-    try {
-      const updated = thresholds.value.merge(patch)
-      if (!updated.isValid()) throw new Error('Invalid thresholds')
-      
-      // Vue wraps values held by refs in reactive proxies; RPC needs plain cloneable objects.
-      await rpc.storeSetThresholds(serializeLevels(updated.levels), updated.activeLevels)
-      thresholds.value = updated
-    } catch (err) {
-      error.value = err instanceof Error ? err.message : String(err)
-      throw err
-    } finally {
-      loading.value = false
-    }
-  }
+  /**
+   * Save the complete edited thresholds (days + active level count) in ONE write.
+   * ⚠️ Never split this into separate writes: after the first write `loading` flips back to false,
+   *    Thresholds.vue re-syncs its local edits from the store and the second edit is silently lost.
+   */
+  const storeApplyThresholds = (next: AppThresholds) => runMutation(async () => {
+    // Fresh plain copy: never share the caller's (reactive) level objects with store state.
+    const copy = new AppThresholds(serializeLevels(next.levels), next.activeLevels)
+    if (!copy.isValid()) throw new Error('Invalid thresholds')
+    await saveThresholds(copy)
+  })
 
-  async function storeSetActiveLevels(count: number): Promise<void> {
-    loading.value = true
-    error.value = null
-    try {
-      const updated = thresholds.value.withActiveLevels(count)
-      await rpc.storeSetThresholds(serializeLevels(updated.levels), updated.activeLevels)
-      thresholds.value = updated
-    } catch (err) {
-      error.value = err instanceof Error ? err.message : String(err)
-      throw err
-    } finally {
-      loading.value = false
-    }
-  }
-
-  async function storeResetToDefaults(): Promise<void> {
-    loading.value = true
-    error.value = null
-    try {
-      thresholds.value = DEFAULT_THRESHOLDS
-      await rpc.storeSetThresholds(serializeLevels(DEFAULT_THRESHOLDS.levels), DEFAULT_THRESHOLDS.activeLevels)
-    } catch (err) {
-      error.value = err instanceof Error ? err.message : String(err)
-      throw err
-    } finally {
-      loading.value = false
-    }
-  }
+  const storeResetToDefaults = () => runMutation(() => saveThresholds(DEFAULT_THRESHOLDS))
 
   let unsubscribe: (() => void) | null = null
 
@@ -133,8 +119,7 @@ export function useStore() {
     error,
     // Methods
     storeSetAutoClose,
-    storeSetThresholds,
-    storeSetActiveLevels,
+    storeApplyThresholds,
     storeResetToDefaults,
     sync,
   }

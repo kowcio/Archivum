@@ -12,7 +12,7 @@ import { browser } from 'wxt/browser'
 import { BackgroundTabService } from '@/services/BackgroundTabService'
 import { StorageRepository } from '@/store'
 import { test_addTimeOffset } from '@/utils/testTime'
-import type { GroupAndTabData, GroupByIndex, GroupTabDataRow } from '@/models/BackgroundRpcModels'
+import type { Diagnostics, GroupAndTabData, GroupByIndex, GroupTabDataRow } from '@/models/BackgroundRpcModels'
 
 /**
  * ⚠️ DEVELOPERS: This object MUST have async methods (even if they don't need to be)
@@ -61,9 +61,8 @@ export const backgroundRPC = {
   // ═══════════════════════════════════════════════════════════════════════════
 
   // ── Mock tabs & age overrides (MockButton.vue + Playwright tests) ────────
-  // useReal=true: load REAL tabs with real URLs (slower, for UI previews)
-  // useReal=false: create mock tab objects WITHOUT network calls (faster, for testing)
-  createMockTabs: (useReal: boolean = true): Promise<Browser.tabs.Tab[]> => BackgroundTabService.createMockTabs(useReal),
+  // Opens real tabs on the offline /mock.html page with backdated ages (no internet needed)
+  createMockTabs: (): Promise<Browser.tabs.Tab[]> => BackgroundTabService.createMockTabs(),
   setMockOverrides: (overrides: Record<number, number>): Promise<void> => StorageRepository.setMockOverrides(overrides),
   getMockOverrides: (): Promise<Record<number, number> | undefined> => StorageRepository.getMockOverrides(),
 
@@ -125,12 +124,7 @@ export const backgroundRPC = {
   },
 
   // ── Diagnostics ──────────────────────────────────────────────────────────
-  debugGetDiagnostics: (): Promise<{
-    allTabs: Array<{ id?: number; title?: string; groupId?: number; lastAccessed?: number }>;
-    allGroups: Array<{ id: number; title: string; index?: number }>;
-    tabsInOldestGroup: Array<{ id?: number; title?: string; age?: number }>;
-    oldestGroupInfo?: { id: number; title: string };
-  }> => BackgroundTabService.getDiagnostics(),
+  debugGetDiagnostics: (): Promise<Diagnostics> => BackgroundTabService.getDiagnostics(),
 } as const
 
 // ⚠️ DEVELOPERS: Type assertion for createProxyService<typeof backgroundRPC>

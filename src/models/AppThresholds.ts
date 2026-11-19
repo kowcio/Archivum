@@ -112,7 +112,7 @@ export class AppThresholds {
        // Object (from WXT storage serialization) — convert to array
        try {
          levels = Object.values(obj.levels).filter((item): item is ThresholdLevel =>
-           item && typeof item === 'object' && 'days' in item
+           item && typeof item === 'object' && 'days' in item && 'key' in item
          )
        } catch {
          // Conversion failed
