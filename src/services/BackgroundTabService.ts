@@ -19,7 +19,6 @@
 import {TabRow} from '@/entrypoints/options/models/TabRow.ts'
 import {AgeClassification} from '@/models/AgeClassification.ts'
 import {StorageRepository} from '@/store'
-import type {AppState} from '@/models/ThresholdState.ts'
 import {AppThresholds} from '@/models/AppThresholds'
 import type {Browser} from 'wxt/browser'
 import {browser} from 'wxt/browser'
@@ -907,29 +906,6 @@ export class BackgroundTabService {
   }
 
   /**
-   * Enable or disable auto-close feature via storage.
-   * When enabled, the 24h alarm will automatically close tabs in the oldest group.
-   *
-   * @param enabled - true to enable auto-close, false to disable
-   */
-  static async setAutoClose(enabled: boolean): Promise<void> {
-    try {
-      const state = await StorageRepository.storage.appStateStorage.getValue()
-      const updatedState: AppState = {
-        thresholds: state?.thresholds || {levels: [], activeLevels: 0},
-        configLastUpdated: state?.configLastUpdated || Date.now(),
-        version: state?.version || '1.0.0',
-        autoClose: enabled,
-      }
-      await StorageRepository.storage.appStateStorage.setValue(updatedState)
-      console.log(`[BackgroundTabService] ✅ Auto-close ${enabled ? 'ENABLED' : 'DISABLED'}`)
-    } catch (err) {
-      console.error('[BackgroundTabService] ❌ Failed to set auto-close:', err)
-      throw err
-    }
-  }
-
-  /**
    * Auto-close all tabs in the oldest (leftmost) group.
    * The oldest group is the one with the lowest index value.
    *
@@ -1094,63 +1070,4 @@ export class BackgroundTabService {
         return null;
       }
     }
-
-    /**
-     * Get the oldest (first/leftmost) plugin-created group.
-     * Returns null if no groups exist.
-     */
-    static getOldestGroup(): { id: number; title: string; index?: number } | null {
-     try {
-       if (browser.tabGroups == null) return null;
-       // This is a placeholder - actual implementation depends on cached groups
-       return null;
-     } catch {
-       return null;
-     }
-    }
-
-    /**
-     * Format a group label with its age in days.
-     * Example: "Week+ (5 days)"
-     */
-    static formatGroupLabel(group: { id: number; title: string; index?: number }): string {
-     return group.title;
-    }
-
-    /**
-     * Check if there are any ungrouped tabs.
-     * Used to enable/disable burn mode button.
-     */
-    static hasStaleTabsToGroup(): boolean {
-      // This should query current tabs and check if any are ungrouped
-     return true; // Placeholder
-    }
-
-    /**
-     * Activate burn mode - set alarm to close oldest group in 24 hours
-     */
-    static async activateBurnMode(): Promise<void> {
-      try {
-        console.log('[BackgroundTabService] 🔥 Activating burn mode...')
-        // Set alarm to fire in 24 hours
-        await browser.alarms.create('burnModeAlarm', {delayInMinutes: 24 * 60})
-      } catch(err) {
-        console.error('[BackgroundTabService] ❌ Failed to activate burn mode:', err)
-        throw err
-      }
-    }
-
-    /**
-     * Deactivate burn mode - cancel the burn mode alarm
-     */
-    static async deactivateBurnMode(): Promise<void> {
-      try {
-        console.log('[BackgroundTabService] 🛑 Deactivating burn mode...')
-        await browser.alarms.clear('burnModeAlarm')
-      } catch(err) {
-        console.error('[BackgroundTabService] ❌ Failed to deactivate burn mode:', err)
-        throw err
-      }
-    }
-
   }
