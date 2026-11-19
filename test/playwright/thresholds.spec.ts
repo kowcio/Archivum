@@ -119,6 +119,30 @@ test.describe('Thresholds', () => {
     expect(result.ungroupedTabCount).toBe(2);
   });
 
+  test('persists changed threshold days and restores them after options page refresh', async () => {
+    await env.optionsPage.gotoOptionsPage(env.extensionId);
+    await env.optionsPage.expectPageLoaded();
+
+    const firstThreshold = env.optionsPage.page.getByTestId('threshold-0');
+    await expect(firstThreshold).toHaveValue('7');
+
+    await firstThreshold.fill('8');
+    await env.optionsPage.page.getByTestId('threshold-apply').click();
+    await expect(env.optionsPage.page.getByTestId('threshold-apply')).toHaveCount(0);
+
+    await expect.poll(async () => {
+      return await env.optionsPage.page.evaluate(async () => {
+        return await new Promise<number>((resolve) => {
+          chrome.storage.local.get('appState', (result) => resolve(result.appState?.thresholds?.levels?.[0]?.days ?? 0));
+        });
+      });
+    }, { timeout: 10_000 }).toBe(8);
+
+    await env.optionsPage.page.reload({ waitUntil: 'networkidle' });
+    await env.optionsPage.expectPageLoaded();
+    await expect(env.optionsPage.page.getByTestId('threshold-0')).toHaveValue('8');
+  });
+
   test('keeps the app state in sync as threshold levels are changed', async () => {
     await env.optionsPage.gotoOptionsPage(env.extensionId);
     await env.optionsPage.expectPageLoaded();

@@ -9,6 +9,7 @@ import { ref, onMounted, onUnmounted } from 'vue'
 import { createProxyService } from '@webext-core/proxy-service'
 import { browser } from 'wxt/browser'
 import type { BackgroundRPC } from '@/services/BackgroundRPC'
+import type { ThresholdLevel } from '@/constants'
 import { AppThresholds, DEFAULT_THRESHOLDS } from '@/models/AppThresholds'
 
 const rpc = createProxyService<BackgroundRPC>('background')
@@ -19,18 +20,30 @@ const autoClose = ref(false)
 const loading = ref(false)
 const error = ref<string | null>(null)
 
+function serializeLevels(levels: readonly ThresholdLevel[]): ThresholdLevel[] {
+  return levels.map((level) => ({
+    key: level.key,
+    label: level.label,
+    days: level.days,
+    color: level.color,
+  }))
+}
+
 /**
  * Sync state from background
  */
 async function sync(): Promise<void> {
+  loading.value = true
   try {
     const state = await rpc.storeGetAppState()
     if (!state?.thresholds) return
-    
+
     thresholds.value = new AppThresholds(state.thresholds.levels, state.thresholds.activeLevels)
     autoClose.value = state.autoClose ?? false
   } catch (err) {
     error.value = err instanceof Error ? err.message : 'Sync failed'
+  } finally {
+    loading.value = false
   }
 }
 
@@ -59,8 +72,8 @@ export function useStore() {
       const updated = thresholds.value.merge(patch)
       if (!updated.isValid()) throw new Error('Invalid thresholds')
       
-      // Get the current activeLevels (might have been changed separately)
-      await rpc.storeSetThresholds(updated.levels, updated.activeLevels)
+      // Vue wraps values held by refs in reactive proxies; RPC needs plain cloneable objects.
+      await rpc.storeSetThresholds(serializeLevels(updated.levels), updated.activeLevels)
       thresholds.value = updated
     } catch (err) {
       error.value = err instanceof Error ? err.message : String(err)
@@ -75,7 +88,7 @@ export function useStore() {
     error.value = null
     try {
       const updated = thresholds.value.withActiveLevels(count)
-      await rpc.storeSetThresholds(updated.levels, updated.activeLevels)
+      await rpc.storeSetThresholds(serializeLevels(updated.levels), updated.activeLevels)
       thresholds.value = updated
     } catch (err) {
       error.value = err instanceof Error ? err.message : String(err)
@@ -90,7 +103,7 @@ export function useStore() {
     error.value = null
     try {
       thresholds.value = DEFAULT_THRESHOLDS
-      await rpc.storeSetThresholds(DEFAULT_THRESHOLDS.levels, DEFAULT_THRESHOLDS.activeLevels)
+      await rpc.storeSetThresholds(serializeLevels(DEFAULT_THRESHOLDS.levels), DEFAULT_THRESHOLDS.activeLevels)
     } catch (err) {
       error.value = err instanceof Error ? err.message : String(err)
       throw err

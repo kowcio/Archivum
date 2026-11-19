@@ -194,7 +194,11 @@ async function handleReset(): Promise<void> {
 }
 
 // Sync localThresholds when store changes
-onMounted(() => {
+onMounted(async () => {
+  // Ensure a fresh options page loads persisted thresholds before rendering local edits.
+  await store.sync()
+  localThresholds.value = AppThresholds.fromObject(store.thresholds.value.toJSON())
+
   // 1️⃣ Initialize from store
   watch(
     () => store.loading.value,
