@@ -8,6 +8,7 @@
     "node": ">=24"
   },
   "scripts": {
+    "postinstall": "wxt prepare",
     "dev": "cross-env CHROME_PATH=$HOME/.cache/ms-playwright/chromium-1223/chrome-linux64/chrome DEV_FEATURES=true wxt -b chromium --mv3",
     "dev:firefox": "cross-env DEV_FEATURES=true wxt -b firefox --mv3",
     "dev:edge": "cross-env DEV_FEATURES=true wxt -b edge --mv3",
@@ -33,7 +34,7 @@
     "dayjs": "^1.11.20",
     "pinia": "^3.0.4",
     "quasar": "^2.19.3",
-    "vue": "^3.5.34"
+    "vue": "^3.5.45"
   },
   "devDependencies": {
     "@pinia/testing": "^1.0.3",
@@ -44,7 +45,7 @@
     "@types/node": "^25.8.0",
     "@types/webextension-polyfill": "^0.12.6",
     "@vitejs/plugin-vue": "^6.0.3",
-    "@vitest/coverage-v8": "^4.0.17",
+    "@vitest/coverage-v8": "^4.1.12",
     "@vitest/eslint-plugin": "^1.2.7",
     "@vue/eslint-config-prettier": "^10.2.0",
     "@vue/eslint-config-typescript": "^14.5.1",
@@ -57,10 +58,10 @@
     "eslint-plugin-vue": "^10.6.2",
     "happy-dom": "^20.10.2",
     "playwright": "^1.57.0",
-    "typescript": "^5.8.0",
+    "typescript": "^5.9.3",
     "vite": "^8.0.13",
     "vite-plugin-web-extension": "4.5.1",
-    "vitest": "^4.1.6",
+    "vitest": "^4.1.12",
     "vue-tsc": "^3.2.9",
     "web-ext": "^10.1.0",
     "wxt": "^0.20.26"
