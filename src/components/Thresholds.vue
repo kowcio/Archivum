@@ -115,7 +115,7 @@ const background = createProxyService<BackgroundRPC>('background');
 const store = useStore();
 const emit = defineEmits<{ apply: [] }>();
 const maxLevels = computed(() => APP_DEFAULTS.THRESHOLDS.presets.length);
-const isThresholdEditingDisabled = computed<boolean>(() => store.loading.value || !isDevEnv);
+const isThresholdEditingDisabled = computed<boolean>(() => store.loading.value || !isDevEnv());
 
 // Local state to track unsaved changes
 const localThresholds = ref<AppThresholds>(DEFAULT_THRESHOLDS);
@@ -154,21 +154,8 @@ async function handleApply(): Promise<void> {
   if (!hasChanges.value) return;
 
   try {
-    // Collect threshold changes
-    const changes: Record<number, Partial<{ days: number }>> = {};
-    for (let i = 0; i < localThresholds.value.levels.length; i++) {
-      if (localThresholds.value.levels[i].days !== store.thresholds.value.levels[i].days) {
-        changes[i] = { days: localThresholds.value.levels[i].days };
-      }
-    }
-
-    if (Object.keys(changes).length > 0) {
-      await store.storeSetThresholds(changes);
-    }
-
-    if (localThresholds.value.activeLevels !== store.thresholds.value.activeLevels) {
-      await store.storeSetActiveLevels(localThresholds.value.activeLevels);
-    }
+    // One write with all edits (days + level count) — see storeApplyThresholds() for why.
+    await store.storeApplyThresholds(localThresholds.value);
 
     localThresholds.value = AppThresholds.fromObject(store.thresholds.value.toJSON());
 
@@ -194,7 +181,11 @@ async function handleReset(): Promise<void> {
 }
 
 // Sync localThresholds when store changes
-onMounted(() => {
+onMounted(async () => {
+  // Ensure a fresh options page loads persisted thresholds before rendering local edits.
+  await store.sync()
+  localThresholds.value = AppThresholds.fromObject(store.thresholds.value.toJSON())
+
   // 1️⃣ Initialize from store
   watch(
     () => store.loading.value,

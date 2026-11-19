@@ -32,11 +32,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { createProxyService } from '@webext-core/proxy-service'
 import { browser } from 'wxt/browser'
 import { useStore } from '@/composables/useStore'
 import { TabRow } from '@/entrypoints/options/models/TabRow.ts'
+import { AgeClassification } from '@/models/AgeClassification'
 import { StorageRepository } from '@/store'
 import type { BackgroundRPC } from '@/services/BackgroundRPC'
 
@@ -77,23 +78,15 @@ const minThresholdDays = computed(() => {
 })
 
 /**
- * Reactively check if ANY tab is older than the minimum threshold.
+ * Reactively check if ANY tab would be put into an age group.
+ * Uses the SAME rule as grouping (AgeClassification.fromDays) — a tab exactly at the
+ * first threshold (e.g. 7 days) is "Week+", so the button must be enabled for it.
  * Uses actual browser tabs + mock overrides (for testing).
  */
 const hasStaleTabsToGroup = computed(() => {
-  if (allTabs.value.length === 0) return false
-
   const thresholds = store.thresholds.value
-  const minDays = minThresholdDays.value
-
-  // Check if any tab is older than the minimum threshold
-  for (const tab of allTabs.value) {
-    const row = new TabRow(tab, thresholds)
-    if ((row.lastAccessDays ?? 0) > minDays) {
-      return true
-    }
-  }
-  return false
+  return allTabs.value.some(tab =>
+    AgeClassification.fromDays(new TabRow(tab).lastAccessDays ?? 0, thresholds).index > 0)
 })
 
 const buttonLabel = computed(() => {
@@ -167,14 +160,46 @@ onMounted(async () => {
 
   // Listen to tab changes to stay reactive
   if (browser.tabs != null) {
-    browser.tabs.onCreated.addListener(() => refreshAllTabs())
-    browser.tabs.onRemoved.addListener(() => refreshAllTabs())
+   browser.tabs.onCreated.addListener(() => refreshAllTabs())
+   browser.tabs.onRemoved.addListener(() => refreshAllTabs())
   }
 
    // Listen to mock overrides changes (for testing with backdated tabs)
    StorageRepository.storage.mockOverrides.watch(() => {
      refreshAllTabs()
    })
+    
+   // Listen to tab group changes (created/removed/updated) - most reliable indicator of group state change
+   // This triggers immediately when groups are created, without relying on threshold watchers
+   if (browser.tabGroups != null) {
+     (browser.tabGroups as any).onCreated?.addListener?.(() => {
+       setTimeout(() => checkGroupState(), 200)  // Small delay for browser sync
+     })
+      
+     (browser.tabGroups as any).onRemoved?.addListener?.(() => {
+       checkGroupState()
+     })
+      
+     (browser.tabGroups as any).onUpdated?.addListener?.(() => {
+       checkGroupState()
+     })
+   }
+    
+   // Also watch for threshold changes as fallback (in case groups aren't created/updated events fail)
+   // ⚠️ CRITICAL: Watch the entire thresholds object, not just activeLevels
+   // When user changes a threshold value (e.g., Week+ 7→3), activeLevels doesn't change
+   // but levels[].days DO change, so we need to watch the full object deep:true
+   watch(
+     () => store.thresholds.value,
+     () => {
+       // Delay check to give background service time to regroup
+       setTimeout(() => {
+         checkGroupState()
+         refreshAllTabs()
+       }, 500)
+     },
+     { deep: true }
+   )
 })
 
 async function handleToggle(): Promise<void> {

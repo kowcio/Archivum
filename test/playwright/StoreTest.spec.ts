@@ -25,14 +25,14 @@ test.describe('onTabActivated — last tab removes group', () => {
 
   test('Last tab from group: activating it sets groupId=-1 and group disappears', async () => {
     try {
-      await env.optionsPage.goto(env.extensionId)
+      await env.optionsPage.gotoOptionsPage(env.extensionId)
       await env.optionsPage.expectPageLoaded()
-      await env.optionsPage.clickCloseAllTabs()
+      // Note: Don't close tabs here - we'll create a single tab for testing below
 
       // Create 1 tab and group it with plugin-style title
       const tab = await env.optionsPage.page.evaluate(async () => {
         return await new Promise<{ id: number }>((resolve) => {
-          chrome.tabs.create({ url: 'https://example.com', active: false }, (t: any) => {
+          chrome.tabs.create({ url: chrome.runtime.getURL('/mock.html?title=store-test'), active: false }, (t: any) => {
             resolve({ id: t.id })
           })
         })

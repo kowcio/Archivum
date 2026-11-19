@@ -10,16 +10,16 @@ permissions:
 
 jobs:
   build-and-release:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04  # pinned: ubuntu-latest moves to new images Playwright may not support yet (CI broke 2026-11-19)
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
          node-version: 24
          cache: 'npm'
@@ -30,7 +30,7 @@ jobs:
           npm_config_legacy_peer_deps: true
 
       - name: Prepare Playwright browsers
-        run: npx playwright install chromium
+        run: npx playwright install --with-deps chromium
 
       - name: Type check
         run: npm run type-check
@@ -46,7 +46,30 @@ jobs:
         run: npm run build
 
       - name: Create ZIP archives for distribution
-        run: npm run zip:all
+        run: |
+          npx wxt zip -b chrome --mv3
+          npx wxt zip -b firefox --mv3
+          npx wxt zip -b edge --mv3
+
+      - name: Generate build version
+        run: |
+          node << 'EOF'
+          const fs = require('fs');
+          
+          function generateBuildVersion() {
+            const now = new Date();
+            const year = String(now.getFullYear()).slice(-2).padStart(2, '0');
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const day = String(now.getDate()).padStart(2, '0');
+            const hours = String(now.getHours()).padStart(2, '0');
+            const timestamp = `${year}${month}${day}${hours}`;
+            return `1.1.${timestamp}`;
+          }
+          
+          const version = generateBuildVersion();
+          fs.writeFileSync('.output/VERSION', version, 'utf-8');
+          console.log('✅ Build version saved:', version);
+          EOF
 
       - name: Get version
         id: version
@@ -55,14 +78,32 @@ jobs:
       - name: Generate changelog
         id: changelog
         run: |
-          CHANGELOG=$(git log --pretty=format:"%h - %s (%an)" $(git describe --tags --abbrev=0 HEAD^)..HEAD 2>/dev/null || echo "✨ Initial release")
+          PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+          if [ -z "$PREV_TAG" ]; then
+            CHANGELOG="✨ Initial release"
+          else
+            CHANGELOG=$(git log --pretty=format:"%h - %s" $PREV_TAG..HEAD)
+          fi
           echo "CHANGELOG<<EOF" >> $GITHUB_OUTPUT
           echo "$CHANGELOG" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
 
+      - name: Verify build artifacts exist
+        run: |
+          if [ ! -f .output/VERSION ]; then
+            echo "❌ ERROR: .output/VERSION not found!"
+            exit 1
+          fi
+          if ! ls .output/archivum-*.zip 1>/dev/null 2>&1; then
+            echo "❌ ERROR: No archivum-*.zip files found!"
+            exit 1
+          fi
+          echo "✅ All required artifacts found"
+          ls -lh .output/archivum-*.zip .output/VERSION
+
       - name: Create GitHub Release
         id: create_release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ github.ref }}
           name: Release ${{ steps.version.outputs.VERSION }}

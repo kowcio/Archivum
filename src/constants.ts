@@ -1,20 +1,26 @@
 // ─── App-wide constants ───────────────────────────────────────────────────────
-import dayjs from "dayjs";
 
-/**
- * Generate unified version: 1.1.YYMMDDhh (Firefox-compatible: max 9 digits per number)
- * Example: 1.1.26070515 = 1 . 1 . YY(26)MM(07)DD(05)HH(15)
- * Synced with wxt.config.ts and used across all platforms
- */
-function generateBuildVersion(): string {
-  const now = dayjs();
-  const year = now.format('YY');
-  const month = now.format('MM');
-  const day = now.format('DD');
-  const hours = now.format('HH');
+function getRuntimeVersion(): string {
+  try {
+    type RuntimeLike = {
+      getManifest?: () => { version_name?: string; version?: string }
+    }
 
-  const timestamp = `${year}${month}${day}${hours}`;
-  return `1.1.${timestamp}`;
+    const extensionGlobals = globalThis as typeof globalThis & {
+      browser?: { runtime?: RuntimeLike }
+      chrome?: { runtime?: RuntimeLike }
+    }
+
+    const runtime = extensionGlobals.browser?.runtime ?? extensionGlobals.chrome?.runtime
+    if (!runtime?.getManifest) {
+      return '0.0.0'
+    }
+
+    const manifest = runtime.getManifest()
+    return manifest.version_name ?? manifest.version ?? '0.0.0'
+  } catch {
+    return '0.0.0'
+  }
 }
 
 /**
@@ -73,14 +79,12 @@ export const APP_CONSTANTS = {
   APP_ID: 'TabAgeTracker',
   STORE_GLOBAL_STORE: 'global_store',
   STORE_TAB_STORE: 'tab_store',
-  APP_VERSION: generateBuildVersion(),
+  APP_VERSION: getRuntimeVersion(),
 } as const
 
 export const APP_DEFAULTS = {
   // Background alarm for daily tab grouping (24 hours)
   ALARM_UPDATE_TABS: 'updateTabsDaily',
-  // Background alarm for hourly backup (1 hour)
-  ALARM_BACKUP_TABS: 'backupTabsHourly',
   // Background alarm for auto-close oldest group (24 hours)
   ALARM_AUTO_CLOSE_TABS: 'autoCloseOldestTabsDaily',
   // WXT Storage key for tab history
