@@ -70,7 +70,7 @@ jobs:
         run: npx web-ext lint --source-dir .output/firefox-mv3
 
       - name: E2E tests - Playwright (DEVELOPER MODE - DEV_FEATURES=true)
-        continue-on-error: true
+        # Must fail the build: tests are offline (mock tabs on /mock.html) and stable.
         run: npm run test:playwright:chromium
 
       - name: Verify build artifacts exist
@@ -96,6 +96,9 @@ jobs:
           path: |
             .output/archivum-*.zip
             .output/VERSION
+          # .output is a hidden (dot) folder — upload-artifact skips hidden paths by default.
+          include-hidden-files: true
+          if-no-files-found: error
           retention-days: 30
       
       - name: Upload test reports
