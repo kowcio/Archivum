@@ -1,4 +1,13 @@
 import {defineConfig} from 'wxt'
+import {mkdirSync} from 'node:fs'
+import {resolve} from 'node:path'
+
+/** Create (if missing) and return an absolute path for a persistent dev browser profile. */
+function ensureDir(dir: string): string {
+  const abs = resolve(__dirname, dir)
+  mkdirSync(abs, {recursive: true})
+  return abs
+}
 
 // See https://wxt.dev/api/config.html
 const date = `${new Date().toISOString().replace(/[-:T]/g, '').slice(0, 12)}`
@@ -114,6 +123,12 @@ export default defineConfig({
     // Used by: npm run dev:firefox, npm run sign:firefox
     // Note: Updated from deprecated 'runner' to 'webExt' (WXT v0.20+ migration)
     webExt: {
+      // Persist dev browser profiles so extension storage (thresholds etc.)
+      // survives browser restarts during `npm run dev*`.
+      // Dirs are created below; web-ext refuses non-existent profile paths.
+      firefoxProfile: ensureDir('.dev-profiles/firefox'),
+      chromiumProfile: ensureDir('.dev-profiles/chromium'),
+      keepProfileChanges: true,
       chromiumArgs: [
         '--window-size=1280,800',
         '--window-position=100,100',

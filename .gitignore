@@ -34,3 +34,4 @@ test/playwright/*profile*
 .history*
 /.output/
 /.wxt/
+/.dev-profiles/

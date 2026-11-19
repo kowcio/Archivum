@@ -115,7 +115,7 @@ const background = createProxyService<BackgroundRPC>('background');
 const store = useStore();
 const emit = defineEmits<{ apply: [] }>();
 const maxLevels = computed(() => APP_DEFAULTS.THRESHOLDS.presets.length);
-const isThresholdEditingDisabled = computed<boolean>(() => store.loading.value || !isDevEnv);
+const isThresholdEditingDisabled = computed<boolean>(() => store.loading.value || !isDevEnv());
 
 // Local state to track unsaved changes
 const localThresholds = ref<AppThresholds>(DEFAULT_THRESHOLDS);

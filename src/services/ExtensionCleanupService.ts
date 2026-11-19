@@ -34,8 +34,10 @@ export class ExtensionCleanupService {
     if (!chrome?.chrome?.runtime?.onInstalled?.addListener) return;
 
     chrome.chrome.runtime.onInstalled.addListener((details) => {
+      // Never wipe user config on update — settings must survive version bumps.
+      // If the AppState schema changes, migrate it here instead of clearing.
       if (details.reason === 'update') {
-        browser.storage.local.clear();
+        return;
       }
     });
 
