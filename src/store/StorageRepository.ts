@@ -89,22 +89,6 @@ export class StorageRepository {
   }
 
   /**
-   * Save app state to storage.
-   * Writes complete AppState object.
-   *
-   * Used by: Backend services
-   * Param: state - Complete AppState object to persist
-   */
-  static async setAppState(state: AppState): Promise<void> {
-    try {
-      await this.appStateStorage.setValue(state)
-    } catch (err) {
-      console.error('[StorageRepository.setAppState] Error:', err)
-      throw err
-    }
-  }
-
-  /**
    * Get thresholds from storage as AppThresholds instance.
    * Converts plain ThresholdState → AppThresholds class for business logic.
    *
@@ -158,38 +142,6 @@ export class StorageRepository {
   }
 
   /**
-   * Get the oldest (highest threshold days) threshold level.
-   * Searches through all active threshold levels.
-   *
-   * Returns: Promise<ThresholdLevel | null>
-   *
-   * @example
-   * const oldest = await StorageRepository.getOldestThresholdLevel()
-   * console.log(oldest?.label)   // "Hell!"
-   * console.log(oldest?.days)    // 365
-   */
-  static async getOldestThresholdLevel(): Promise<ThresholdLevel | null> {
-    try {
-      const thresholds = await this.getStorageThresholds()
-      const activeLevels = thresholds.activeThresholdLevels()
-
-      if (activeLevels.length === 0) {
-        return null
-      }
-
-      // Find the threshold level with the highest days value
-      const oldest = activeLevels.reduce((max, current) =>
-        current.days > max.days ? current : max
-      )
-
-      return oldest
-    } catch (err) {
-      console.error('[StorageRepository.getOldestThresholdLevel] Error:', err)
-      return null
-    }
-  }
-
-  /**
    * Set auto-close feature enabled/disabled.
    *
    * Param: enabled - true to enable, false to disable
@@ -208,32 +160,6 @@ export class StorageRepository {
       console.error('[StorageRepository.setAutoClose] Error:', err)
       throw err
     }
-  }
-
-  /**
-   * Get auto-close setting.
-   *
-   * Returns: Promise<boolean>
-   */
-  static async getAutoClose(): Promise<boolean> {
-    try {
-      const state = await this.appStateStorage.getValue()
-      return state?.autoClose ?? false
-    } catch (err) {
-      console.error('[StorageRepository.getAutoClose] Error:', err)
-      return false
-    }
-  }
-
-  /**
-   * Watch storage for external changes.
-   * Used to sync changes from other contexts (e.g., other tabs, background.ts).
-   *
-   * Param: callback - Called with new AppState when storage changes
-   * Returns: Function to unsubscribe from watcher
-   */
-  static watchAppState(callback: (newState: AppState | null) => void): () => void {
-    return this.appStateStorage.watch(callback)
   }
 
   /**
@@ -278,11 +204,5 @@ export class StorageRepository {
       appStateStorage: this.appStateStorage,
       mockOverrides: this.mockOverrides,
     }
-  }
-
-  static async getThresholdLevels(): Promise<ThresholdLevel[]> {
-    const appState = await this.getAppState()
-    if (!appState?.thresholds) return []
-    return appState.thresholds.levels.slice(0, appState.thresholds.activeLevels)
   }
 }

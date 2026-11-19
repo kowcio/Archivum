@@ -12,7 +12,6 @@ import { browser } from 'wxt/browser'
 import { BackgroundTabService } from '@/services/BackgroundTabService'
 import { StorageRepository } from '@/store'
 import { test_addTimeOffset } from '@/utils/testTime'
-import type {ThresholdLevel} from "@/constants.ts";
 import type { GroupAndTabData, GroupByIndex, GroupTabDataRow } from '@/models/BackgroundRpcModels'
 
 /**
@@ -54,10 +53,8 @@ export const backgroundRPC = {
   // ⚙️ STORE — Config & settings persistence
   // ═══════════════════════════════════════════════════════════════════════════
   storeGetAppState: (): Promise<any> => StorageRepository.getAppState(),
-  storeGetThresholds: (): Promise<any> => StorageRepository.getStorageThresholds(),
   storeSetThresholds: (levels: any[], activeLevels: number): Promise<void> => StorageRepository.setThresholds(levels, activeLevels),
   storeSetAutoClose: (enabled: boolean): Promise<void> => StorageRepository.setAutoClose(enabled),
-  getThresholdLevels: async (): Promise<ThresholdLevel[]> => await StorageRepository.getThresholdLevels(),
 
   // ═══════════════════════════════════════════════════════════════════════════
   // 🧪 DEV / TEST ONLY — Mock tabs, time warps, diagnostics
