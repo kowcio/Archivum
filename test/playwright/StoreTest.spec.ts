@@ -32,7 +32,7 @@ test.describe('onTabActivated — last tab removes group', () => {
       // Create 1 tab and group it with plugin-style title
       const tab = await env.optionsPage.page.evaluate(async () => {
         return await new Promise<{ id: number }>((resolve) => {
-          chrome.tabs.create({ url: 'https://example.com', active: false }, (t: any) => {
+          chrome.tabs.create({ url: chrome.runtime.getURL('/mock.html?title=store-test'), active: false }, (t: any) => {
             resolve({ id: t.id })
           })
         })

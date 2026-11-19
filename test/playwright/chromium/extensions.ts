@@ -144,6 +144,10 @@ async function launchChromeBrowser(): Promise<{ context: BrowserContext; extensi
         "--disable-ipc-flooding-protection",
         "--no-first-run",
         "--no-default-browser-check",
+        // 🔌 OFFLINE BY DESIGN: every hostname fails to resolve, so tests can never depend on
+        // the internet (mock tabs use the extension's own /mock.html). Any accidental real
+        // request now fails loudly instead of making tests slow/flaky. localhost stays reachable.
+        "--host-resolver-rules=MAP * ~NOTFOUND, EXCLUDE localhost",
       ],
       viewport: { width: 1280, height: 800 },
     }

@@ -17,6 +17,7 @@
 import { expect, type Locator, type Page } from '@playwright/test';
 import type { BackgroundRPC } from '@/services/BackgroundRPC';
 import type { GroupAndTabData } from '@/models/BackgroundRpcModels';
+import { MOCK_TABS } from '../../../src/utils/mockTabData.js';
 
 // `chrome` is globally available in page.evaluate() context (no import needed)
 
@@ -181,7 +182,7 @@ export class OptionsPage {
   }
 
     /**
-     * Open a random tab from www.example.com/[0-9A-Z], optionally in a group at specified index.
+     * Open an offline mock tab titled [0-9A-Z]{4}, optionally in a group at specified index.
      * @returns generated alphanumeric ID (single char: 0-9 or A-Z)
      */
     async openRandomTabInGroup(newTabGroup: boolean = false, index?: number): Promise<string> {
@@ -244,24 +245,34 @@ export class OptionsPage {
           await this.bg.createMockTabs();
         }
 
+        // ⚠️ No fixed sleeps (Playwright: "tests that wait for time are inherently flaky").
+        // Wait for the real completion signals instead, in the order the background produces them:
+
+        // 1. Background stored an age override for EVERY mock tab
+        //    (createMockTabs writes overrides only after all tabs exist).
         await expect.poll(
-          async () => {
-            const allTabs = await this.queryAllTabs();
-            return allTabs.length;
-          },
-          { timeout: 15_000, message: 'Mock tabs created and loaded' }
-        ).toBeGreaterThan(14);
+          async () => Object.keys((await this.bg.getMockOverrides()) ?? {}).length,
+          { timeout: 30_000, message: 'Mock age overrides stored for all mock tabs' }
+        ).toBe(MOCK_TABS.length);
 
-        // q-table virtual scroll renders a subset until the table's data settles,
-        // so give the UI a short settle window before later assertions.
-        await this.page.waitForTimeout(5000);
+        // ⚠️ Deliberately NOT waiting for tab.status === 'complete': mock tabs open real
+        //    internet sites, so load time depends on external servers (seen hanging >30s).
+        //    Grouping/age logic only needs tab ids + override timestamps, not loaded pages.
 
-        console.log('[clickLoadMockTabs] ✅ Mock tabs loaded and UI settled, waiting for browser sync...');
-        await new Promise(r => setTimeout(r, 500));
+        // 2. The UI picked up the overrides: mocks always contain tabs older than 7 days,
+        //    so the Group button must be enabled (or groups already exist → Ungroup shown).
+        //    Without this, clickGroupTabs() could see a not-yet-updated disabled button and skip.
+        await expect.poll(
+          async () => (await this.ungroupTabsBtn.isVisible().catch(() => false))
+            || (await this.groupTabsBtn.isEnabled().catch(() => false)),
+          { timeout: 15_000, message: 'Group/Ungroup button reflects mock tab ages' }
+        ).toBe(true);
 
-        return { ok: true, count: 17, error: null }
+        console.log('[clickLoadMockTabs] ✅ Mock tabs loaded, ages applied, UI ready');
+        return { ok: true, count: MOCK_TABS.length, error: null }
       } catch (err: unknown) {
-        console.error('[clickLoadMockTabs] Error:', err instanceof Error ? err.message : String(err));
+        // Log the full message so a failure says WHICH wait timed out (poll message is included).
+        console.error('[clickLoadMockTabs] ❌ Failed:', err instanceof Error ? err.message : String(err));
         return { ok: false, count: 0, error: String(err) }
       }
     }

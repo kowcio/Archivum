@@ -79,8 +79,10 @@ test.describe('24h Alarm: Tab Age Progression to Older Groups', () => {
     const beforeById = new Map(before.tabs.map(tab => [tab.id, tab]))
 
     await env.optionsPage.timeProgress(1)
+    // testTriggerAlarm24h() returns NEWLY created groups. After +1 day every age bucket
+    // still has tabs, so all 5 groups already exist and are reused → exactly 0 new groups.
     const groupsCreated = await env.optionsPage.getBackgroundRPC().testTriggerAlarm24h()
-    expect(groupsCreated).toBeGreaterThan(0)
+    expect(groupsCreated).toBe(0)
 
     const after = await env.optionsPage.getGroupAndTabData()
     expect(after.tabs).toHaveLength(17)

@@ -204,6 +204,55 @@ export class BackgroundTabService {
     }
   }
 
+  /**
+   * Single place that writes a plugin group's title as "<Label> (<tab count>)".
+   * Skips empty groups — the browser removes a group by itself once its last tab leaves.
+   * @param extra - additional tabGroups.update() fields (e.g. color, collapsed)
+   */
+  private static async refreshGroupTitle(groupId: number, label: string, extra: Record<string, unknown> = {}): Promise<void> {
+    try {
+      const count = (await browser.tabs.query({ groupId })).length
+      if (count === 0) return
+      await (browser.tabGroups as any).update(groupId, { title: `${label} (${count})`, ...extra })
+    } catch (err) {
+      // Group can disappear between query and update (last tab closed/moved) — nothing to fix then.
+      console.warn(`[BackgroundTabService] ⚠️ Failed to refresh title of group "${label}":`, err)
+    }
+  }
+
+  private static async groupExists(groupId: number): Promise<boolean> {
+    try {
+      await (browser.tabGroups as any).get(groupId)
+      return true
+    } catch {
+      return false
+    }
+  }
+
+  /**
+   * Physically place plugin groups left→right from oldest to youngest level.
+   * Moving individual tabs is not enough: tabs.group() may drop a NEW group to the
+   * right of an existing one (a group can't be split), leaving e.g. "Month+" before "Hell!".
+   */
+  private static async orderGroupsOldestFirst(
+    plan: AgeGroupingPlan,
+    groupByLabel: Map<string, PluginGroup>
+  ): Promise<void> {
+    // Groups can't sit among pinned tabs — start right after them.
+    let insertIndex = (await browser.tabs.query({ currentWindow: true, pinned: true })).length
+
+    for (let i = plan.activeLevels.length - 1; i >= 0; i--) {
+      const group = groupByLabel.get(plan.activeLevels[i].label)
+      if (group?.id == null || !(await this.groupExists(group.id))) continue
+      try {
+        await (browser.tabGroups as any).move(group.id, { index: insertIndex })
+        insertIndex += (await browser.tabs.query({ groupId: group.id })).length
+      } catch (err) {
+        console.warn(`[BackgroundTabService] ⚠️ Failed to order group "${plan.activeLevels[i].label}":`, err)
+      }
+    }
+  }
+
   private static async applyAgeGrouping(options: { reorderTabs: boolean }): Promise<{
     groupsCreated: number;
     tabsMoved: number;
@@ -257,16 +306,16 @@ export class BackgroundTabService {
       const tabIds = plan.levelTabIds[i]
       if (tabIds.length === 0) continue
 
+      // ⚠️ The group snapshot was taken BEFORE tabs were moved. If an older level just
+      // pulled every tab out of this group, the browser auto-deleted it and its id is stale.
       const existingGroup = groupMaps.groupByLabel.get(level.label)
+      const existingAlive = existingGroup?.id != null && await this.groupExists(existingGroup.id)
 
-      if (existingGroup?.id != null) {
-        const toMove = tabIds.filter((tabId) => {
-          const tab = plan.tabById.get(tabId)
-          return tab == null || tab.groupId !== existingGroup.id
-        })
+      if (existingAlive) {
+        const toMove = tabIds.filter((tabId) => plan.tabById.get(tabId)?.groupId !== existingGroup!.id)
         if (toMove.length > 0) {
           try {
-            await (browser.tabs as any).group({ tabIds: toMove, groupId: existingGroup.id })
+            await (browser.tabs as any).group({ tabIds: toMove, groupId: existingGroup!.id })
           } catch (err) {
             console.warn(`[BackgroundTabService] ⚠️ Failed to move tabs to group "${level.label}":`, err)
           }
@@ -282,20 +331,14 @@ export class BackgroundTabService {
       }
     }
 
+    if (options.reorderTabs) {
+      await this.orderGroupsOldestFirst(plan, groupMaps.groupByLabel)
+    }
+
     for (const level of plan.activeLevels) {
       const group = groupMaps.groupByLabel.get(level.label)
       if (!group?.id) continue
-
-      try {
-        const tabsInGroup = await browser.tabs.query({ groupId: group.id })
-        await (browser.tabGroups as any).update(group.id, {
-          title: `${level.label} (${tabsInGroup.length})`,
-          color: level.color,
-          collapsed: true,
-        })
-      } catch (err) {
-        console.warn(`[BackgroundTabService] ⚠️ Failed to update group metadata for "${level.label}":`, err)
-      }
+      await this.refreshGroupTitle(group.id, level.label, { color: level.color, collapsed: true })
     }
 
     return { groupsCreated, tabsMoved }
@@ -389,13 +432,14 @@ export class BackgroundTabService {
       const tab = await browser.tabs.get(tabId)
       const groupId = tab.groupId as number
 
-      let groupTitle: string | undefined
+      let label: string | null
       try {
-        groupTitle = (await (browser.tabGroups as any).get(groupId)).title
+        label = this.getGroupLabel((await (browser.tabGroups as any).get(groupId)).title)
       } catch {
         // Group no longer exists (race condition), just return
         return
       }
+      if (label == null) return
 
       // 🧩 Ungroup the tab, then move to rightmost — with retry
       const RETRIES = 3
@@ -416,15 +460,7 @@ export class BackgroundTabService {
         const tabAfter = await browser.tabs.get(tabId)
         if (tabAfter.groupId === -1 || tabAfter.groupId == null) {
           // 📊 Update group title with new count
-          const groupTabs = await browser.tabs.query({groupId})
-          const labelPrefix = groupTitle!.match(/^(.+?)\s*\(\d+\)$/)?.[1] || groupTitle
-          try {
-            await (browser.tabGroups as any).update(groupId, {
-              title: `${labelPrefix} (${groupTabs.length})`
-            })
-          } catch {
-            // Group might have been auto-removed, ignore error
-          }
+          await this.refreshGroupTitle(groupId, label)
           return
         }
 
@@ -456,6 +492,30 @@ export class BackgroundTabService {
    *
    * Used by: groupTabsByAge(), updateTabByAge(), createMockTabs()
    */
+  /**
+   * True for THIS extension's UI pages (options/popup) — they must never be grouped or auto-closed.
+   * Built from runtime.getURL so it works in every browser
+   * (chrome-extension:// in Chrome/Edge, moz-extension:// in Firefox).
+   * Deliberately NOT excluding /mock.html: offline mock tabs must be grouped like real tabs.
+   */
+  private static isExtensionUiPage(url?: string): boolean {
+    if (!url) return false
+    return (['/options.html', '/popup.html'] as const).some(page => url.startsWith(browser.runtime.getURL(page)))
+  }
+
+  /**
+   * URL of the offline mock page (src/entrypoints/mock) — no network needed.
+   * @param title - tab title shown in the tab strip / options table
+   * @param src - original URL, displayed as text only (never loaded)
+   * @param icon - data:image/* favicon (non-data icons are ignored by the page)
+   */
+  static mockPageUrl(title: string, src?: string, icon?: string): string {
+    const params = new URLSearchParams({ title })
+    if (src) params.set('src', src)
+    if (icon) params.set('icon', icon)
+    return `${browser.runtime.getURL('/mock.html')}?${params}`
+  }
+
   static async getTabs(): Promise<Browser.tabs.Tab[]> {
     const allTabs = await browser.tabs.query({currentWindow: true})
 
@@ -468,15 +528,15 @@ export class BackgroundTabService {
       const pluginGroupIds = new Set<number>(groups.filter(g => g.id != null).map(g => g.id))
 
       // Keep ungrouped + plugin-grouped tabs
-      // Exclude extension pages (chrome-extension://) to avoid grouping/closing the options UI
+      // Exclude our own UI pages to avoid grouping/closing the options page
       filteredTabs = allTabs.filter(t => {
-        if (t.url && t.url.startsWith('chrome-extension://')) return false
+        if (this.isExtensionUiPage(t.url)) return false
         if (t.groupId == null || t.groupId === -1) return true // Ungrouped
         return pluginGroupIds.has(t.groupId) // In plugin group
       })
     } else {
-      // Firefox: no groups, return all tabs
-      filteredTabs = allTabs
+      // No tabGroups API: return all tabs except our own UI pages
+      filteredTabs = allTabs.filter(t => !this.isExtensionUiPage(t.url))
     }
 
     await this.applyMockOverrides(filteredTabs)
@@ -484,10 +544,10 @@ export class BackgroundTabService {
   }
 
   /**
-   * Creates mock tabs with optional network loading.
+   * Creates mock tabs — fully offline.
    *
-   * @param useReal - If true, loads REAL tabs with real URLs from the internet (slower, for UI previews)
-   *                  If false, creates mock tab objects WITHOUT network calls (faster, for testing)
+   * @param useReal - If true, opens REAL browser tabs on the local mock page (offline, instant)
+   *                  If false, returns synthetic tab objects only (no browser tabs created)
    *
    * Flow:
    * 1. Generate N mock tabs from MOCK_TABS array
@@ -503,30 +563,17 @@ export class BackgroundTabService {
     let tabIds: number[] = []
 
     if (useReal) {
-      // ── REAL MODE: Load actual tabs from the internet ──
-      // For UI button clicks - gives realistic previews with real content
-      for (let i = 0; i < MOCK_TABS.length; i++) {
-        const mock = MOCK_TABS[i]
-        try {
-          const tab = await browser.tabs.create({
-            url: mock.url,
-            active: false,
-          })
-          if (tab.id != null) {
-            tabIds.push(tab.id)
-          }
-        } catch {
-          // Some URLs may fail — create simpler tabs as fallback
-          const tab = await browser.tabs.create({
-            url: `https://example.com/mock-${i}`,
-            active: false
-          })
-          if (tab.id != null) tabIds.push(tab.id)
-        }
+      // ── REAL MODE: real browser tabs on the offline mock page ──
+      // No internet needed: title/favicon come from MOCK_TABS via query params,
+      // the original URL is only displayed as text. tabs.create() resolves once the
+      // tab exists (with its id) — nothing to wait for, so no fixed sleeps.
+      for (const mock of MOCK_TABS) {
+        const tab = await browser.tabs.create({
+          url: this.mockPageUrl(mock.title, mock.url, mock.favIconUrl),
+          active: false,
+        })
+        if (tab.id != null) tabIds.push(tab.id)
       }
-
-      // Delay to ensure all tabs are created and loaded on slow runners
-      await new Promise(r => setTimeout(r, 1500))
     } else {
       // ── MOCK MODE: Create in-memory tab objects without network calls ──
       // For testing - fast, no network, deterministic
@@ -574,9 +621,7 @@ export class BackgroundTabService {
 
       return mockTabs
     } else {
-      // ── REAL MODE: Extra delay to ensure storage is persisted/synchronized ──
-      await new Promise(r => setTimeout(r, 2500))
-
+      // setMockOverrides() above is awaited, so storage is already written — no delay needed.
       // ✅ getTabs() automatically applies mock overrides to all tabs
       return await this.getTabs()
     }
@@ -630,48 +675,24 @@ export class BackgroundTabService {
     try {
       const tab = await browser.tabs.get(tabId)
 
-      // Get group info if tab is grouped
+      // Remember the plugin group (if any) BEFORE closing — user groups are never renamed.
       let groupId: number | null = null
-      let groupTitle: string | null = null
-
+      let label: string | null = null
       if (browser.tabGroups != null && tab.groupId != null && tab.groupId !== -1) {
-        groupId = tab.groupId
         try {
-          const group = await (browser.tabGroups as any).get(groupId)
-          groupTitle = group.title
+          label = this.getGroupLabel((await (browser.tabGroups as any).get(tab.groupId)).title)
+          groupId = tab.groupId
         } catch {
           // Group query failed, skip update
         }
       }
 
-      // Close the tab
       await browser.tabs.remove(tabId)
       console.log(`[BackgroundTabService] ✅ Closed tab#${tabId}`)
 
-      // If tab was in a plugin group, update group title with new count
-      if (groupId != null && groupTitle != null && browser.tabGroups != null) {
-        try {
-          // Count remaining tabs in group
-          const groupTabs = await browser.tabs.query({groupId})
-          const newCount = groupTabs.length
-
-          // Update title with new count (extract label prefix)
-          const match = groupTitle.match(/^(.+?)\s*\(\d+\)$/)
-          const labelPrefix = match ? match[1] : groupTitle
-
-          if (newCount > 0) {
-            await (browser.tabGroups as any).update(groupId, {
-              title: `${labelPrefix} (${newCount})`
-            })
-            console.log(`[BackgroundTabService] ✅ Updated group title to "${labelPrefix} (${newCount})"`)
-          } else {
-            // Remove group if no tabs left
-            await (browser.tabs as any).ungroup(tabId)
-            console.log(`[BackgroundTabService] ✅ Removed empty group`)
-          }
-        } catch (err) {
-          console.warn(`[BackgroundTabService] ⚠️ Failed to update group title:`, err)
-        }
+      // Plugin group → new count in title. If it was the last tab, the browser already removed the group.
+      if (groupId != null && label != null) {
+        await this.refreshGroupTitle(groupId, label)
       }
 
       return null
@@ -709,7 +730,7 @@ export class BackgroundTabService {
 
 
   /**
-   * Open a random tab from www.example.com/[0-9A-Z], optionally in a group.
+   * Open an offline mock tab titled with a random [0-9A-Z] id, optionally in a group.
    * @param newTabGroup - If true, creates a random group for the tab
    * @param index - Optional position index for the tab (default: rightmost)
    * @returns generated alphanumeric ID (4 random chars: 0-9 or A-Z)
@@ -720,7 +741,7 @@ export class BackgroundTabService {
       chars[Math.floor(Math.random() * chars.length)]).join('')
 
     try {
-      const url = `https://www.example.com/${generatedTabId}`
+      const url = this.mockPageUrl(generatedTabId, `https://www.example.com/${generatedTabId}`)
       const tab = await browser.tabs.create({url, active: false})
 
       // ✅ Safety check: tab.id must exist before using it

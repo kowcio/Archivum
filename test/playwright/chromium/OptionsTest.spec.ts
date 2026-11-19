@@ -54,17 +54,16 @@ test.describe("Options Page Tests", () => {
     const mockResult = await env.optionsPage.clickLoadMockTabs();
     expect(mockResult.ok).toBe(true);
 
-    await env.optionsPage.page.waitForTimeout(5000);
-
+    // Mock tabs are offline pages of the extension itself (/mock.html), not https:// sites.
     const mockTabCount = await env.optionsPage.page.evaluate(async () => {
       const tabs = await chrome.tabs.query({ currentWindow: true });
-      return tabs.filter(tab => tab.url?.startsWith('https://')).length;
+      return tabs.filter(tab => tab.url?.includes('/mock.html')).length;
     });
     expect(mockTabCount).toBeGreaterThanOrEqual(5);
 
     const rows = env.optionsPage.page
       .locator('[data-testid="table-open-tabs"] .q-virtual-scroll__content tr')
-      .filter({ has: env.optionsPage.page.locator('a[href^="https://"]') });
+      .filter({ has: env.optionsPage.page.locator('a[href*="/mock.html"]') });
 
     await expect.poll(async () => await rows.count(), {
       timeout: 20000,
@@ -113,7 +112,7 @@ test.describe("Options Page Tests", () => {
       const ids: number[] = [];
       for (let i = 0; i < 5; i++) {
         const tab = await chrome.tabs.create({
-          url: `https://example.com/extra-${Date.now()}-${i}`,
+          url: chrome.runtime.getURL(`/mock.html?title=extra-${Date.now()}-${i}`),
           active: false,
         });
         if (tab.id != null) {
@@ -127,7 +126,7 @@ test.describe("Options Page Tests", () => {
       const ids: number[] = [];
       for (let i = 0; i < 3; i++) {
         const tab = await chrome.tabs.create({
-          url: `https://example.com/custom-${Date.now()}-${i}`,
+          url: chrome.runtime.getURL(`/mock.html?title=custom-${Date.now()}-${i}`),
           active: false,
         });
         if (tab.id != null) {

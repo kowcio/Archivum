@@ -1,0 +1,19 @@
+<!doctype html>
+<!--
+  🧪 DEV/TEST-ONLY offline mock tab (unlisted page → built as /mock.html).
+  Opened by BackgroundTabService.createMockTabs() / openRandomTabInGroup() instead of real websites,
+  so mock tabs need NO internet, load instantly and never stall tests.
+  Query params: title, src (original URL, shown as text only), icon (data:image/* favicon only).
+-->
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Mock tab</title>
+  </head>
+  <body>
+    <h1 data-testid="mock-title">Mock tab</h1>
+    <p>Offline mock tab created by Archivum dev tools — no network involved.</p>
+    <p>Original URL: <code data-testid="mock-src"></code></p>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>

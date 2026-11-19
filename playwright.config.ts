@@ -6,6 +6,8 @@ const isCI = !!process.env.CI;
 
 export default defineConfig({
   testDir: './test/playwright',
+  // Rebuild the extension once per run so tests never execute a stale .output/chrome-mv3
+  globalSetup: './test/playwright/global-setup.ts',
   // ── EXTENSION TEST TIMEOUTS (longer than typical web tests) ──
   // Extension setup + content loading + interaction can be slow
   timeout: isCI ? 150_000 : 90_000,  // Increased to 90s locally, 150s on CI (MV3 service worker can be slow)
